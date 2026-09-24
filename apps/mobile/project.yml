@@ -1,0 +1,102 @@
+# StravaClone iOS app (ADR-002, ADR-006, ADR-007).
+# Outside the pnpm workspace and Turbo (ADR-005). This file is the source of truth:
+# StravaClone.xcodeproj and StravaClone/Info.plist are generated and gitignored.
+#
+# Setup:
+#   1. brew install xcodegen
+#   2. cp Config/Secrets.xcconfig.example Config/Secrets.xcconfig   # then fill in the values (optional to build)
+#   3. xcodegen generate && open StravaClone.xcodeproj
+
+name: StravaClone
+
+options:
+  bundleIdPrefix: fr.echimine
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+
+configs:
+  Debug: debug
+  Release: release
+
+configFiles:
+  Debug: Config/Base.xcconfig
+  Release: Config/Base.xcconfig
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+    TARGETED_DEVICE_FAMILY: "1"
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+
+packages:
+  GRDB:
+    url: https://github.com/groue/GRDB.swift
+    from: 7.11.1
+  RevenueCat:
+    url: https://github.com/RevenueCat/purchases-ios
+    from: 5.91.0
+  PostHog:
+    url: https://github.com/PostHog/posthog-ios
+    from: 3.82.0
+  # Binary deps (MapboxCommon, MapboxCoreMaps) come from api.mapbox.com; no ~/.netrc token needed as of 11.31.
+  MapboxMaps:
+    url: https://github.com/mapbox/mapbox-maps-ios
+    from: 11.31.0
+
+targets:
+  StravaClone:
+    type: application
+    platform: iOS
+    sources:
+      - path: StravaClone
+        excludes:
+          - "**/.gitkeep"
+    info:
+      path: StravaClone/Info.plist
+      properties:
+        CFBundleDisplayName: StravaClone
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen: {}
+        UIApplicationSupportsIndirectInputEvents: true
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UIBackgroundModes: [location]
+        NSLocationWhenInUseUsageDescription: "StravaClone utilise votre position pour enregistrer le tracé de vos activités, y compris écran verrouillé."
+        # Values injected from Config/Base.xcconfig (+ optional Secrets.xcconfig), read by AppConfiguration (App/Di.swift).
+        APIBaseURL: $(API_BASE_URL)
+        RealtimeURL: $(REALTIME_URL)
+        MBXAccessToken: $(MAPBOX_ACCESS_TOKEN)
+        RevenueCatAPIKey: $(REVENUECAT_API_KEY)
+        PostHogAPIKey: $(POSTHOG_API_KEY)
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: fr.echimine.stravaclone
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        GENERATE_INFOPLIST_FILE: NO
+    dependencies:
+      - package: GRDB
+      - package: RevenueCat
+      - package: PostHog
+      # Import MapboxMaps only in Features/*/Presentation (ADR-007 rule 6).
+      - package: MapboxMaps
+    scheme:
+      testTargets:
+        - StravaCloneTests
+      gatherCoverageData: true
+
+  StravaCloneTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: StravaCloneTests
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: fr.echimine.stravaclone.tests
+    dependencies:
+      - target: StravaClone

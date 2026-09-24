@@ -1,0 +1,11 @@
+// Shared build settings for Debug and Release (referenced by project.yml).
+// Default values let the app build without secrets; Secrets.xcconfig (gitignored) overrides them.
+// In xcconfig files "//" starts a comment: write URLs as https:/$()/host.
+
+API_BASE_URL = http:/$()/localhost:3001
+REALTIME_URL = ws:/$()/localhost:3003/ws
+MAPBOX_ACCESS_TOKEN =
+REVENUECAT_API_KEY =
+POSTHOG_API_KEY =
+
+#include? "Secrets.xcconfig"
