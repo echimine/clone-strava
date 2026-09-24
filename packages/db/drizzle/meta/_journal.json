@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1790277507056,
+      "tag": "0000_postgis",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790277515518,
+      "tag": "0001_first_justin_hammer",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790277521567,
+      "tag": "0002_seed_sport_types",
+      "breakpoints": true
+    }
+  ]
+}

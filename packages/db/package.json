@@ -1,0 +1,45 @@
+{
+  "name": "@repo/db",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./schema": {
+      "types": "./dist/schema/index.d.ts",
+      "default": "./dist/schema/index.js"
+    },
+    "./migrate": {
+      "types": "./dist/migrate.d.ts",
+      "default": "./dist/migrate.js"
+    }
+  },
+  "files": [
+    "dist",
+    "drizzle"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "check-types": "tsc --noEmit",
+    "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+    "test": "vitest run --passWithNoTests",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "node --env-file-if-exists=.env dist/migrate-cli.js"
+  },
+  "dependencies": {
+    "drizzle-orm": "0.45.3",
+    "pg": "8.23.0"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "workspace:*",
+    "@types/node": "26.6.2",
+    "typescript": "7.0.2",
+    "@types/pg": "8.23.1",
+    "drizzle-kit": "0.31.11",
+    "vitest": "5.0.1"
+  }
+}
