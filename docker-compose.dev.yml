@@ -1,0 +1,38 @@
+# Local development: only db and redis (ADR-018 §8). The apps run with `pnpm dev`.
+name: clone-strava-dev
+
+services:
+  db:
+    image: postgis/postgis:17-3.5
+    # No arm64 build of this image (ADR-018, risks): emulated on Apple Silicon, same image as production
+    platform: linux/amd64
+    environment:
+      POSTGRES_USER: strava
+      POSTGRES_PASSWORD: strava
+      POSTGRES_DB: strava
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U strava -d strava"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec", "--maxmemory-policy", "noeviction"]
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  db-data:
+  redis-data:

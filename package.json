@@ -5,10 +5,16 @@
     "build": "turbo run build",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "check-types": "turbo run check-types"
+    "test": "turbo run test",
+    "check-types": "turbo run check-types",
+    "check-deps": "turbo run //#check-deps",
+    "check-deps:run": "depcruise apps packages --config .dependency-cruiser.cjs",
+    "db:up": "docker compose -f docker-compose.dev.yml up -d",
+    "db:down": "docker compose -f docker-compose.dev.yml down",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\""
   },
   "devDependencies": {
+    "dependency-cruiser": "18.4.0",
     "prettier": "3.9.6",
     "turbo": "^2.11.3",
     "typescript": "7.0.2"
