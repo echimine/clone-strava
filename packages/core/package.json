@@ -1,0 +1,91 @@
+{
+  "name": "@repo/core",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    "./infrastructure": {
+      "types": "./dist/infrastructure/index.d.ts",
+      "default": "./dist/infrastructure/index.js"
+    },
+    "./auth": {
+      "types": "./dist/auth/index.d.ts",
+      "default": "./dist/auth/index.js"
+    },
+    "./users": {
+      "types": "./dist/users/index.d.ts",
+      "default": "./dist/users/index.js"
+    },
+    "./sports": {
+      "types": "./dist/sports/index.d.ts",
+      "default": "./dist/sports/index.js"
+    },
+    "./social": {
+      "types": "./dist/social/index.d.ts",
+      "default": "./dist/social/index.js"
+    },
+    "./activities": {
+      "types": "./dist/activities/index.d.ts",
+      "default": "./dist/activities/index.js"
+    },
+    "./engagement": {
+      "types": "./dist/engagement/index.d.ts",
+      "default": "./dist/engagement/index.js"
+    },
+    "./segments": {
+      "types": "./dist/segments/index.d.ts",
+      "default": "./dist/segments/index.js"
+    },
+    "./subscriptions": {
+      "types": "./dist/subscriptions/index.d.ts",
+      "default": "./dist/subscriptions/index.js"
+    },
+    "./analytics": {
+      "types": "./dist/analytics/index.d.ts",
+      "default": "./dist/analytics/index.js"
+    },
+    "./storage": {
+      "types": "./dist/storage/index.d.ts",
+      "default": "./dist/storage/index.js"
+    },
+    "./realtime": {
+      "types": "./dist/realtime/index.d.ts",
+      "default": "./dist/realtime/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "check-types": "tsc --noEmit",
+    "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "3.1139.0",
+    "@aws-sdk/s3-request-presigner": "3.1139.0",
+    "@nestjs/bullmq": "11.0.5",
+    "@nestjs/common": "11.2.6",
+    "@nestjs/core": "11.2.6",
+    "@nestjs/event-emitter": "3.1.0",
+    "@repo/contracts": "workspace:*",
+    "@repo/db": "workspace:*",
+    "@repo/realtime": "workspace:*",
+    "better-auth": "1.7.6",
+    "bullmq": "6.3.8",
+    "drizzle-orm": "0.45.3",
+    "ioredis": "6.0.0",
+    "posthog-node": "5.53.0",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "workspace:*",
+    "@types/node": "26.6.2",
+    "typescript": "7.0.2",
+    "@nestjs/testing": "11.2.6",
+    "vitest": "5.0.1",
+    "unplugin-swc": "2.0.0",
+    "@swc/core": "1.16.2"
+  }
+}
