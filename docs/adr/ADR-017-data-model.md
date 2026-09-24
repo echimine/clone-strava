@@ -26,7 +26,7 @@ The schema is written with **Drizzle** in `packages/db` (ADR-003), on **PostgreS
 | Enumerations | PostgreSQL `enum` types |
 | Geometry | PostGIS, SRID **4326** (WGS 84): `geometry(LineString, 4326)`, `geometry(Point, 4326)`, with **GiST** index |
 | Deletion | Hard delete by default; soft delete (`deleted_at`) only for comments, as on the slide |
-| Ownership | Each table belongs to **a single module** (ADR-003); other modules go through its service |
+| Ownership | Each table belongs to **a single module** (ADR-003); other modules go through its service. Each module's tables live in a **PostgreSQL schema named after the module**, except Better Auth tables which stay in `public` (ADR-021) |
 | Drizzle files | One schema file per module: `packages/db/src/schema/<module>.ts` |
 
 ### Schema
@@ -219,15 +219,18 @@ erDiagram
 
 ### Tables per module
 
-| Module (`packages/core`) | Tables | Origin |
-|---|---|---|
-| `auth` | `user`, `session`, `account`, `verification` | Slide 09 + Better Auth additions |
-| `users` | `user_profile` | Slide 09 |
-| `social` | `follow`, `kudos`, `comment` | Slide 09 |
-| `sports` | `sport_type` (reference data, populated by migration) | Slide 09 |
-| `activities` | `activity`, `activity_stats`, `activity_track`, `activity_attachment` | Slide 09 |
-| `segments` | `segment`, `segment_effort` | Slide 09 |
-| `subscriptions` | `user_subscription`, `revenuecat_event` | **Addition** (ADR-014) |
+| Module (`packages/core`) | PostgreSQL schema | Tables | Origin |
+|---|---|---|---|
+| `auth` | `public` | `user`, `session`, `account`, `verification` | Slide 09 + Better Auth additions |
+| `users` | `users` | `user_profile` | Slide 09 |
+| `social` | `social` | `follow` | Slide 09 |
+| `engagement` | `engagement` | `kudos`, `comment` | Slide 09 (*amended by ADR-021*: split from `social`) |
+| `sports` | `sports` | `sport_type` (reference data, populated by migration) | Slide 09 |
+| `activities` | `activities` | `activity`, `activity_stats`, `activity_track`, `activity_attachment` | Slide 09 |
+| `segments` | `segments` | `segment`, `segment_effort` | Slide 09 |
+| `subscriptions` | `subscriptions` | `user_subscription`, `revenuecat_event` | **Addition** (ADR-014) |
+
+*Amended by [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md)*: `kudos` and `comment` belong to the `engagement` module, and each module's tables live in a PostgreSQL schema named after it (Better Auth tables stay in `public`).
 
 ### Additions compared to slide 09
 
@@ -313,5 +316,5 @@ We **do not copy** products or offerings into our database:
 
 ## Links
 
-- **Amended by**: [ADR-019](ADR-019-activity-creation-flow.md) (processing-tracking columns)
+- **Amended by**: [ADR-019](ADR-019-activity-creation-flow.md) (processing-tracking columns), [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md) (`kudos` and `comment` move to the `engagement` module; one PostgreSQL schema per module)
 - **Related**: [ADR-003](ADR-003-backend.md) (modules and owned tables), [ADR-008](ADR-008-mobile-offline-sync.md), [ADR-009](ADR-009-backend-api.md), [ADR-011](ADR-011-backend-worker.md), [ADR-014](ADR-014-revenuecat.md)

@@ -116,7 +116,7 @@ If enqueueing fails after the move to `processing`, the **reconciliation job** (
 5. **Route**: simplified `LineString` and start point, in SRID 4326 (ADR-017).
 6. **Privacy zone**: the first and last meters of the route (radius `privacy_zone_radius_m` from the profile) are removed from the route stored in `activity_track`, which is the version shown to others. The full raw trace stays private in the bucket.
 7. **Transaction**: upsert of `activity_stats`, upsert of `activity_track`, move to `processed` (`processed_at`).
-8. **After the commit**: publish `activity.processed` (topic `user:{userId}`, content `{ activityId, status }`), enqueue `match-segments`, PostHog event `activity_processed`.
+8. **After the commit**: publish `activity.processed` (topic `user:{userId}`, content `{ activityId, status }`), enqueue `match-segments`, PostHog event `activity_processed`. *Amended by [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md)*: the module emits the domain event `activities.activity.processed`, which the realtime bridge forwards as `activity.processed`; `match-segments` is enqueued by the worker processor.
 
 Upsert writes make the job **replayable without duplicates**.
 
@@ -129,7 +129,7 @@ Upsert writes make the job **replayable without duplicates**.
 
 On permanent failure:
 - `activity.processing_status = failed`, with `processing_error` (code: `invalid_trace`, `empty_trace`, `processing_error`…) and `processing_attempts`;
-- publish `activity.failed` (topic `user:{userId}`) and PostHog event `activity_failed`;
+- publish `activity.failed` (topic `user:{userId}`) and PostHog event `activity_failed` (*through the realtime bridge, [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md)*);
 - the app shows the activity as failed and keeps its points (ADR-008);
 - reprocessing possible from the backoffice: `POST /v1/admin/activities/:id/reprocess` (moves back to `processing` and re-enqueues).
 
@@ -148,7 +148,7 @@ Activities that stay `pending` (trace never uploaded, app offline for a long tim
 - For each segment covered: compute the time from the raw trace, upsert `segment_effort`, **recompute the segment's leaderboard** (`rank`).
 - `private` activities do not appear in public leaderboards.
 - A failure of the segment computation **does not change** the activity's status: it stays `processed`. The job has its own retries.
-- End of the job: `activity.segments_matched` event (topic `user:{userId}`), so the app reloads the efforts if the screen is open.
+- End of the job: `activity.segments_matched` event (topic `user:{userId}`), so the app reloads the efforts if the screen is open (*emitted as `segments.efforts.matched` and forwarded by the realtime bridge, [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md)*).
 
 ### 9. Mobile side
 
@@ -207,4 +207,5 @@ Additions to the `activity` table:
 ## Links
 
 - **Amends**: [ADR-017](ADR-017-data-model.md) (processing-tracking columns), [ADR-011](ADR-011-backend-worker.md) (jobs and failure policy)
+- **Amended by**: [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md) (realtime events through the bridge)
 - **Related**: [ADR-001](ADR-001-global-architecture.md), [ADR-008](ADR-008-mobile-offline-sync.md), [ADR-009](ADR-009-backend-api.md), [ADR-010](ADR-010-backend-realtime.md), [ADR-018](ADR-018-docker-vps-deployment.md)

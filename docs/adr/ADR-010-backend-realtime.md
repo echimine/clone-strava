@@ -87,6 +87,7 @@ An unreadable or unknown message is **ignored** (never an exception), but counte
 
 - A **single channel**: `realtime:events`.
 - The API or the worker publishes `{ "topics": ["user:123"], "envelope": { … } }`. **Topics are computed by the publisher**: the gateway has nothing to decide.
+- *Amended by [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md)*: inside `api` and `worker`, only the **realtime bridge** (the `realtime` platform module of `packages/core`) publishes. Domain modules emit internal domain events; the bridge maps them, through an explicit allow-list, to the mobile event types, topics and payloads of this ADR.
 - Each gateway instance is subscribed to the channel and sends the envelope to local connections subscribed to those topics (in-memory registry `topic → connections`).
 - Multiple instances possible, without sticky sessions.
 - The event source is behind an interface: replaceable by a fake in tests.
@@ -103,7 +104,7 @@ With no dependency on NestJS, used by `api`, `worker` and `realtime`:
 - close codes, Redis channel name, protocol version;
 - topic naming functions (`userTopic(userId)`);
 - per-topic connection registry (used by `realtime`);
-- a **publisher** (`publishRealtimeEvent(topics, type, data)`) used by the API and the worker, which builds the envelope (with `id` and `v`) and publishes on Redis.
+- a **publisher** (`publishRealtimeEvent(topics, type, data)`) used by the API and the worker, which builds the envelope (with `id` and `v`) and publishes on Redis. *Amended by [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md)*: called only by the realtime bridge, never directly by domain modules.
 
 This package is added to those listed in ADR-005.
 
@@ -160,4 +161,5 @@ This package is added to those listed in ADR-005.
 
 - **Details**: [ADR-003](ADR-003-backend.md)
 - **Amends**: [ADR-005](ADR-005-monorepo.md) (adds `packages/realtime`)
+- **Amended by**: [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md) (single realtime bridge in `api` and `worker`)
 - **Related**: [ADR-001](ADR-001-global-architecture.md), [ADR-006](ADR-006-mobile-stack.md), [ADR-008](ADR-008-mobile-offline-sync.md), [ADR-009](ADR-009-backend-api.md), [ADR-011](ADR-011-backend-worker.md)

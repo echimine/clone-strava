@@ -22,7 +22,7 @@ The worker runs the heavy processing that the API puts in a queue (ADR-001). The
 | Analytics | `posthog-node`, via the `analytics` module of `packages/core` | Server events (`activity_processed`, `subscription_*`, ADR-015) |
 | Database | Drizzle (`packages/db`), PostGIS | Reads and writes in a transaction |
 | Business logic | Modules of `packages/core` | Same rules as the API |
-| Redis | `ioredis` | Publishing real-time events via the `packages/realtime` publisher (ADR-010) |
+| Redis | `ioredis` | Publishing real-time events via the `packages/realtime` publisher (ADR-010), *called only by the realtime bridge ([ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md))* |
 | Foundation | Pino, Zod-validated configuration, Zod contracts (ADR-009) | — |
 
 ### Jobs
@@ -43,7 +43,7 @@ The worker runs the heavy processing that the API puts in a queue (ADR-001). The
    - a replayed job does not create duplicates in the database, thanks to the transaction and "upsert" writes.
 3. **Retries**: several attempts with exponential backoff for technical errors (database, bucket, Redis). Invalid data (unreadable track) is a permanent failure, with no retry.
 4. **Permanent failure**: the activity moves to `failed` and an `activity.failed` event is published. Policy set in ADR-019: 5 attempts with exponential backoff for technical errors, immediate permanent failure for an invalid track, `processing_error` and `processing_attempts` columns, retry from the backoffice.
-5. **Publish after commit**: the event (`activity.processed`, topic `user:{userId}`) is only published once the transaction is committed, so a result that is not in the database is never announced. Its payload is minimal (`activityId`, `status`): the mobile app reloads the activity through the API (ADR-010).
+5. **Publish after commit**: the event (`activity.processed`, topic `user:{userId}`) is only published once the transaction is committed (*amended by [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md)*: the module emits the domain event `activities.activity.processed` after the commit, and the realtime bridge publishes it), so a result that is not in the database is never announced. Its payload is minimal (`activityId`, `status`): the mobile app reloads the activity through the API (ADR-010).
 6. **Concurrency set per queue**: CPU jobs (track processing) have limited concurrency; we add worker instances rather than increase the concurrency of a single one.
 7. **Graceful shutdown**: on shutdown, the worker finishes its in-progress jobs before exiting, so deployments do not interrupt processing.
 8. **Correlation**: the `requestId` received in the job data (ADR-009) is added to all the job's logs and to published events.

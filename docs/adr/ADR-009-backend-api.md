@@ -37,7 +37,7 @@ ADR-003 splits the backend into three NestJS apps (`api`, `realtime`, `worker`) 
 | Authentication | **Better Auth** | Accounts, sessions; bearer token for iOS, cookie for the backoffice |
 | Bucket | **AWS SDK v3** (`@aws-sdk/client-s3`, `@aws-sdk/s3-request-presigner`) configured on the **OVH Object Storage** endpoint | Pre-signed URLs |
 | Job queues | **BullMQ** (`@nestjs/bullmq`), **producer only** | Enqueuing, never execution |
-| Redis | `ioredis` client | Publishing realtime events via the `packages/realtime` publisher (ADR-010) |
+| Redis | `ioredis` client | Publishing realtime events via the `packages/realtime` publisher (ADR-010), *called only by the realtime bridge ([ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md))* |
 | Realtime tokens | `jsonwebtoken` (HS256, `REALTIME_TOKEN_SECRET` secret shared with `realtime`) | `POST /v1/realtime/token` endpoint |
 | Subscriptions | **RevenueCat** webhook (ADR-014) | `POST /v1/webhooks/revenuecat` endpoint |
 | Analytics | `posthog-node`, via the `analytics` module of `packages/core` (ADR-015) | Reliable server-side events |
