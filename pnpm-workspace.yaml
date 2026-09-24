@@ -1,3 +1,30 @@
 packages:
   - "apps/*"
   - "packages/*"
+  # iOS app: Xcode project, outside the pnpm workspace and Turbo (ADR-005)
+  - "!apps/mobile"
+
+# Native build scripts explicitly allowed (ADR-018, risks)
+allowBuilds:
+  "@swc/core": true
+  msgpackr-extract: true
+  esbuild: true
+  sharp: true
+  "@tailwindcss/oxide": true
+  unrs-resolver: true
+  msw: false
+  "@scarf/scarf": false
+
+minimumReleaseAgeExclude:
+  - '@aws-sdk/client-s3@3.1139.0'
+  - '@aws-sdk/s3-request-presigner@3.1139.0'
+  - '@better-auth/core@1.7.6'
+  - '@better-auth/drizzle-adapter@1.7.6'
+  - '@better-auth/kysely-adapter@1.7.6'
+  - '@better-auth/memory-adapter@1.7.6'
+  - '@better-auth/mongo-adapter@1.7.6'
+  - '@better-auth/prisma-adapter@1.7.6'
+  - '@better-auth/telemetry@1.7.6'
+  - '@nestjs/throttler@6.7.1'
+  - better-auth@1.7.6
+  - lucide-react@1.48.0
