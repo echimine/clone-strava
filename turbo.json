@@ -35,9 +35,7 @@
       "dependsOn": [
         "^build"
       ],
-      "outputs": [
-        "coverage/**"
-      ]
+      "outputs": []
     },
     "//#check-deps": {
       "dependsOn": [
@@ -64,6 +62,12 @@
       ],
       "cache": false,
       "persistent": true
+    },
+    "admin#check-types": {
+      "dependsOn": [
+        "^build",
+        "admin#build"
+      ]
     }
   }
 }
