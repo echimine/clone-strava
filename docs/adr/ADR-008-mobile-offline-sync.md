@@ -1,30 +1,30 @@
-# ADR-008 : Hors ligne et synchronisation de l'application mobile
+# ADR-008: Mobile app offline mode and sync
 
-- **Statut** : accepted
-- **Date** : 2026-09-24
-- **Décideurs** : echimine
-- **Source** : dossier d'architecture Like-Strava, slides 09 « Entités métier » et 10 « Feature · création d'activité » (côté mobile)
-- **Dépend de** : [ADR-001](ADR-001-architecture-globale.md), [ADR-006](ADR-006-stack-mobile.md), [ADR-007](ADR-007-architecture-mobile.md)
+- **Status**: accepted
+- **Date**: 2026-09-24
+- **Deciders**: echimine
+- **Tags**: mobile, ios, offline, sync
+- **Source**: Like-Strava architecture deck, slides 09 "Business entities" and 10 "Feature · activity creation" (mobile side)
 
-## Contexte
+## Context
 
-Une sortie sportive se fait souvent sans réseau (montagne, forêt, zone blanche). L'app doit :
-- **enregistrer une activité sans aucune connexion**, sans jamais perdre de points ;
-- **l'envoyer plus tard**, automatiquement, dès que le réseau revient, même si l'app a été fermée entre-temps ;
-- afficher des **valeurs provisoires** calculées localement, puis les **valeurs officielles** calculées par le worker (ADR-001) ;
-- consulter les données déjà chargées (fil, profil, activités) hors ligne.
+A workout often happens without network coverage (mountains, forest, dead zones). The app must:
+- **record an activity without any connection**, never losing points;
+- **upload it later**, automatically, as soon as the network comes back, even if the app was closed in the meantime;
+- display **provisional values** computed locally, then the **official values** computed by the worker (ADR-001);
+- browse already loaded data (feed, profile, activities) offline.
 
-La création d'une activité côté serveur se fait en plusieurs appels (slide 10) : création, envoi de la trace au bucket, puis `complete`. Chacun peut échouer ou être interrompu.
+Creating an activity on the server side takes several calls (slide 10): creation, uploading the trace to the bucket, then `complete`. Each one can fail or be interrupted.
 
-## Décision
+## Decision
 
-### 1. La base locale est la source de vérité de l'interface
+### 1. The local database is the source of truth for the UI
 
-- Les écrans lisent **uniquement GRDB**, via `ValueObservation` (ADR-006).
-- Le réseau ne met pas à jour l'écran directement : il **écrit dans GRDB**, et l'écran se met à jour tout seul.
-- Conséquence : un écran fonctionne de la même façon avec ou sans réseau.
+- Screens read **only from GRDB**, via `ValueObservation` (ADR-006).
+- The network does not update the screen directly: it **writes to GRDB**, and the screen updates on its own.
+- Consequence: a screen works the same way with or without network.
 
-### 2. Cycle de vie local d'une activité
+### 2. Local lifecycle of an activity
 
 ```
 recording ─► recorded ─► created ─► trace_uploaded ─► processing ─► processed
@@ -32,93 +32,97 @@ recording ─► recorded ─► created ─► trace_uploaded ─► processing
                 └───────────┴──────────────┴────────────────┴──► failed
 ```
 
-| État local | Signification | Étape serveur (slide 10) |
+| Local state | Meaning | Server step (slide 10) |
 |---|---|---|
-| `recording` | Enregistrement en cours, points écrits au fil de l'eau | — |
-| `recorded` | Terminé et validé localement, rien encore envoyé | — |
-| `created` | `POST /activities` réussi, URL pré-signée reçue | 1 à 4 |
-| `trace_uploaded` | `PUT trace.json.gz` réussi vers le bucket | 5 et 6 |
-| `processing` | `POST /activities/:id/complete` a répondu `202` | 7 à 12 |
-| `processed` | Valeurs officielles reçues (WS ou API) | 26 |
-| `failed` | Erreur définitive (voir règle 5) | — |
+| `recording` | Recording in progress, points written as they come | — |
+| `recorded` | Finished and validated locally, nothing sent yet | — |
+| `created` | `POST /activities` succeeded, pre-signed URL received | 1 to 4 |
+| `trace_uploaded` | `PUT trace.json.gz` to the bucket succeeded | 5 and 6 |
+| `processing` | `POST /activities/:id/complete` responded `202` | 7 to 12 |
+| `processed` | Official values received (WS or API) | 26 |
+| `failed` | Permanent error (see rule 5) | — |
 
-L'état est **enregistré en base à chaque étape** : si l'app est tuée, la synchronisation reprend exactement là où elle s'était arrêtée.
+The state is **saved to the database at each step**: if the app is killed, sync resumes exactly where it left off.
 
-### 3. File de synchronisation
+### 3. Sync queue
 
-- Une table GRDB `sync_operation` : type d'opération, entité concernée, nombre de tentatives, prochaine tentative, dernière erreur.
-- Opérations du MVP : `create_activity`, `upload_trace`, `complete_activity`. D'autres s'ajouteront (modifier ou supprimer une activité, kudos, commentaire).
-- **Ordre garanti par entité** : on n'envoie pas la trace d'une activité avant sa création.
-- **Déclencheurs** : fin d'un enregistrement, retour du réseau (`NWPathMonitor`), retour de l'app au premier plan, et tâche de fond iOS (`BGTaskScheduler`) pour vider la file quand l'app n'est pas ouverte.
-- **Envoi de la trace en arrière-plan** : le `PUT` vers le bucket utilise une `URLSession` de fond (`background` configuration), qui continue même si l'utilisateur quitte l'app.
+- A GRDB table `sync_operation`: operation type, target entity, number of attempts, next attempt, last error.
+- MVP operations: `create_activity`, `upload_trace`, `complete_activity`. Others will be added (edit or delete an activity, kudos, comment).
+- **Ordering guaranteed per entity**: an activity's trace is not sent before the activity is created.
+- **Triggers**: end of a recording, network coming back (`NWPathMonitor`), app returning to the foreground, and iOS background task (`BGTaskScheduler`) to drain the queue when the app is not open.
+- **Background trace upload**: the `PUT` to the bucket uses a background `URLSession` (`background` configuration), which continues even if the user leaves the app.
 
-### 4. Idempotence : l'identifiant est généré par l'app
+### 4. Idempotency: the identifier is generated by the app
 
-- L'UUID de l'activité est **créé sur le téléphone** au début de l'enregistrement (slide 09 : « généré par le client »).
-- Si un appel échoue sans réponse (coupure au mauvais moment), l'app **le rejoue avec le même UUID**. Le serveur doit reconnaître l'activité existante au lieu d'en créer une deuxième.
-- `complete` doit aussi pouvoir être rejoué sans effet de bord.
+- The activity UUID is **created on the phone** at the start of recording (slide 09: "generated by the client").
+- If a call fails without a response (connection cut at the wrong moment), the app **replays it with the same UUID**. The server must recognize the existing activity instead of creating a second one.
+- `complete` must also be replayable without side effects.
 
-### 5. Tentatives et erreurs
+### 5. Retries and errors
 
-| Type d'erreur | Traitement |
+| Error type | Handling |
 |---|---|
-| Pas de réseau, timeout, erreur 5xx | Nouvelle tentative avec backoff exponentiel (plafonné) |
-| 401 (session expirée) | Rafraîchissement de la session, puis nouvelle tentative |
-| URL pré-signée expirée (403 du bucket) | Demande d'une nouvelle URL à l'API, puis nouvel envoi |
-| Erreur 4xx de validation | Arrêt, activité en `failed`, message à l'utilisateur avec possibilité de corriger ou supprimer |
+| No network, timeout, 5xx error | Retry with exponential backoff (capped) |
+| 401 (session expired) | Session refresh, then retry |
+| Expired pre-signed URL (403 from the bucket) | Request a new URL from the API, then upload again |
+| 4xx validation error | Stop, activity set to `failed`, message to the user with the option to fix or delete |
 
-Une activité en `failed` n'est **jamais supprimée automatiquement** : ses points restent sur le téléphone.
+An activity in `failed` is **never deleted automatically**: its points stay on the phone.
 
-### 6. Valeurs provisoires puis officielles
+### 6. Provisional then official values
 
-- À la fin de l'enregistrement, l'app calcule et affiche des **valeurs provisoires** (distance, durée, dénivelé).
-- Quand l'activité passe en `processed`, les **valeurs officielles** remplacent les provisoires. Elles sont **toujours lues par l'API** (`GET /v1/activities/:id`), déclenchée :
-  - par le WebSocket si l'app est ouverte : l'événement `activity.processed` ne contient que `activityId` et `status` (ADR-010), et sert de signal pour recharger ;
-  - sinon au retour au premier plan et après chaque reconnexion WS, où l'app demande l'état de ses activités en `processing`.
-- Plus tard, par une notification APNs (ADR-006, priorité basse).
+- At the end of recording, the app computes and displays **provisional values** (distance, duration, elevation gain).
+- When the activity moves to `processed`, the **official values** replace the provisional ones. They are **always read from the API** (`GET /v1/activities/:id`), triggered:
+  - by the WebSocket if the app is open: the `activity.processed` event only contains `activityId` and `status` (ADR-010), and serves as a signal to reload;
+  - otherwise when returning to the foreground and after each WS reconnection, where the app requests the state of its activities in `processing`.
+- Later, by an APNs notification (ADR-006, low priority).
 
-### 7. Conservation des données locales
+### 7. Local data retention
 
-- Les **points GPS bruts** restent sur le téléphone jusqu'à `processed`, puis sont supprimés (le serveur garde la trace brute dans le bucket). Le tracé simplifié est conservé pour l'affichage.
-- Les données lues (fil, profils, activités des autres) sont **mises en cache** dans GRDB pour la consultation hors ligne, et rafraîchies quand le réseau est là.
-- **Conflits** : pour le MVP, le serveur fait foi. Une modification locale envoyée écrase la version serveur ; une donnée reçue du serveur écrase le cache local.
+- **Raw GPS points** stay on the phone until `processed`, then are deleted (the server keeps the raw trace in the bucket). The simplified route is kept for display.
+- Read data (feed, profiles, other people's activities) is **cached** in GRDB for offline browsing, and refreshed when the network is available.
+- **Conflicts**: for the MVP, the server is authoritative. A local change that is sent overwrites the server version; data received from the server overwrites the local cache.
 
-## Points à trancher avec le backend
+## Open Questions for the Backend
 
-**Tranchés dans [ADR-019](ADR-019-flux-creation-activite.md)** :
-- `POST /v1/activities` avec un UUID existant du même utilisateur : `200` avec l'activité existante (et une nouvelle URL si elle est encore `pending`) ; `409` si l'UUID appartient à un autre utilisateur ;
-- nouvelle URL pré-signée : `POST /v1/activities/:id/upload-url` ;
-- passage en `failed` après 5 tentatives (ou immédiatement pour une trace invalide), annoncé par l'événement `activity.failed` ou la resynchronisation ;
-- URLs pré-signées valables 15 minutes.
+**Resolved in [ADR-019](ADR-019-activity-creation-flow.md)**:
+- `POST /v1/activities` with an existing UUID of the same user: `200` with the existing activity (and a new URL if it is still `pending`); `409` if the UUID belongs to another user;
+- new pre-signed URL: `POST /v1/activities/:id/upload-url`;
+- switch to `failed` after 5 attempts (or immediately for an invalid trace), announced by the `activity.failed` event or by resynchronization;
+- pre-signed URLs valid for 15 minutes.
 
-## Alternatives envisagées
+## Alternatives Considered
 
-| Option | Pourquoi écartée |
+| Option | Why rejected |
 |---|---|
-| Écrans alimentés directement par l'API, cache optionnel | Écrans vides ou en erreur hors ligne, deux chemins de code (avec et sans réseau) |
-| Un seul appel « tout-en-un » (métadonnées + trace dans l'API) | Contredit ADR-001 : les fichiers volumineux ne passent pas par l'API |
-| Identifiant généré par le serveur | Impossible de rejouer un appel sans risque de doublon, activité sans identifiant tant qu'on est hors ligne |
-| Envoi uniquement quand l'app est ouverte | Activités bloquées si l'utilisateur n'ouvre pas l'app après sa sortie |
-| Synchronisation bidirectionnelle complète (CRDT, résolution de conflits) | Disproportionné pour le MVP : l'utilisateur est le seul à modifier ses activités |
+| Screens fed directly by the API, optional cache | Empty or error screens offline, two code paths (with and without network) |
+| A single "all-in-one" call (metadata + trace through the API) | Contradicts ADR-001: large files do not go through the API |
+| Server-generated identifier | Impossible to replay a call without risking a duplicate, activity without an identifier while offline |
+| Upload only when the app is open | Activities stuck if the user does not open the app after their workout |
+| Full bidirectional sync (CRDT, conflict resolution) | Overkill for the MVP: the user is the only one editing their activities |
 
-## Conséquences
+## Consequences
 
-### Positives
-- Aucune perte d'activité, même sans réseau ou si l'app est tuée.
-- Envoi automatique, sans action de l'utilisateur.
-- Les écrans ont un seul chemin de code, qu'il y ait du réseau ou non.
-- Les appels peuvent être rejoués sans créer de doublons.
+### Positive
+- No activity is lost, even without network or if the app is killed.
+- Automatic upload, with no user action.
+- Screens have a single code path, whether there is network or not.
+- Calls can be replayed without creating duplicates.
 
-### Négatives / risques
-- **Complexité** : machine à états, file de synchronisation et reprise sont à tester soigneusement (coupures à chaque étape).
-- **Tâches de fond iOS** : `BGTaskScheduler` ne garantit ni le moment ni la fréquence d'exécution ; l'envoi reste principalement déclenché par l'ouverture de l'app et le retour du réseau.
-- **Stockage** : les points bruts des activités non envoyées peuvent occuper de la place ; prévoir un indicateur si des activités attendent depuis longtemps.
-- **Dépendance au backend** : l'idempotence et le renouvellement des URLs doivent être implémentés côté serveur.
+### Negative / Risks
+- **Complexity**: state machine, sync queue and recovery must be tested carefully (interruptions at each step).
+- **iOS background tasks**: `BGTaskScheduler` guarantees neither the timing nor the frequency of execution; uploads are still mainly triggered by opening the app and the network coming back.
+- **Storage**: raw points of unsent activities can take up space; plan an indicator if activities have been waiting for a long time.
+- **Backend dependency**: idempotency and URL renewal must be implemented on the server side.
 
-## Références
-- Dossier d'architecture Like-Strava, slides 09 et 10
-- [ADR-001 : Architecture globale](ADR-001-architecture-globale.md)
-- [ADR-006 : Stack détaillée du mobile](ADR-006-stack-mobile.md)
-- [ADR-007 : Architecture détaillée du mobile](ADR-007-architecture-mobile.md)
-- Background URLSession : https://developer.apple.com/documentation/foundation/urlsessionconfiguration/background(withidentifier:)
-- BGTaskScheduler : https://developer.apple.com/documentation/backgroundtasks/bgtaskscheduler
+## References
+- Like-Strava architecture deck, slides 09 and 10
+- [ADR-001: Global architecture](ADR-001-global-architecture.md)
+- [ADR-006: Detailed mobile stack](ADR-006-mobile-stack.md)
+- [ADR-007: Detailed mobile architecture](ADR-007-mobile-architecture.md)
+- Background URLSession: https://developer.apple.com/documentation/foundation/urlsessionconfiguration/background(withidentifier:)
+- BGTaskScheduler: https://developer.apple.com/documentation/backgroundtasks/bgtaskscheduler
+
+## Links
+
+- **Depends on**: [ADR-001](ADR-001-global-architecture.md), [ADR-006](ADR-006-mobile-stack.md), [ADR-007](ADR-007-mobile-architecture.md)

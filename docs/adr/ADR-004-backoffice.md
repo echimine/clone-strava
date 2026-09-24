@@ -1,82 +1,86 @@
-# ADR-004 : Stack et architecture du backoffice
+# ADR-004: Backoffice stack and architecture
 
-- **Statut** : accepted
-- **Date** : 2026-09-24
-- **Décideurs** : echimine
-- **Source** : dossier d'architecture Like-Strava, slides 05 « Stack · backoffice » et 06 « Architecture backoffice »
-- **Dépend de** : [ADR-001](ADR-001-architecture-globale.md), [ADR-003](ADR-003-backend.md)
+- **Status**: accepted
+- **Date**: 2026-09-24
+- **Deciders**: echimine
+- **Tags**: backoffice, nextjs, shadcn, admin
+- **Source**: Like-Strava architecture deck, slides 05 "Stack · backoffice" and 06 "Backoffice architecture"
 
-## Contexte
+## Context
 
-La plateforme a besoin d'une application web d'administration, réservée à l'équipe : gestion des utilisateurs, modération des contenus, gestion des segments, suivi de la plateforme. La priorité est la productivité de développement et des écrans de gestion standards (tableaux, formulaires, filtres, dialogues).
+The platform needs a web administration application, restricted to the team: user management, content moderation, segment management, platform monitoring. The priority is development productivity and standard management screens (tables, forms, filters, dialogs).
 
-## Décision
+## Decision
 
 ### Stack
 
-| Brique | Choix | Rôle |
+| Building block | Choice | Role |
 |---|---|---|
-| Framework | **Next.js** (App Router) | Application web |
-| Langage | **TypeScript** | Code typé |
-| Styles | **Tailwind CSS** | Styles utilitaires |
-| Composants | **shadcn/ui** | Composants d'administration, copiés dans le code et modifiables |
+| Framework | **Next.js** (App Router) | Web application |
+| Language | **TypeScript** | Typed code |
+| Styles | **Tailwind CSS** | Utility styles |
+| Components | **shadcn/ui** | Administration components, copied into the code and editable |
 
-### Principes
+### Principles
 
-1. **Le backoffice est un client de l'API**, comme le mobile (ADR-001). Il ne contacte **jamais directement PostgreSQL**, ni Redis.
-2. **Rôle administrateur vérifié par l'API** sur chaque endpoint d'administration (Better Auth, ADR-003). La protection des pages côté Next.js améliore l'expérience mais ne constitue pas la sécurité.
-3. **Pas de temps réel** : le backoffice n'est relié qu'à l'API (ADR-001).
+1. **The backoffice is a client of the API**, like the mobile app (ADR-001). It **never directly contacts PostgreSQL**, nor Redis.
+2. **Administrator role checked by the API** on every administration endpoint (Better Auth, ADR-003). Page protection on the Next.js side improves the experience but does not constitute security.
+3. **No real time**: the backoffice is connected only to the API (ADR-001).
 
-### Architecture : organisation par feature
+### Architecture: organization by feature
 
 ```
 src/
-├── app/admin/<feature>/page.tsx      route : mise en page et assemblage
+├── app/admin/<feature>/page.tsx      route: layout and assembly
 ├── features/<feature>/
-│   ├── components/                   UI de la feature (shadcn/ui)
-│   ├── hooks/                        le « controller » : état, chargement, actions
-│   ├── lib/                          utilitaires propres à la feature (ex. parseGpx)
-│   └── api.ts                        appels API typés de la feature
-└── lib/apiClient.ts                  client HTTP unique vers l'API
+│   ├── components/                   feature UI (shadcn/ui)
+│   ├── hooks/                        the "controller": state, loading, actions
+│   ├── lib/                          feature-specific utilities (e.g. parseGpx)
+│   └── api.ts                        typed API calls for the feature
+└── lib/apiClient.ts                  single HTTP client to the API
 ```
 
-Flux d'une action admin :
+Flow of an admin action:
 
 ```
-Action administrateur → Hook (controller) → api.ts + apiClient → API NestJS → Composant mis à jour
+Administrator action → Hook (controller) → api.ts + apiClient → NestJS API → Component updated
 ```
 
-- Tout appel réseau passe par `lib/apiClient.ts` (URL de base, session, erreurs normalisées).
-- Une feature n'importe pas une autre feature.
-- Les DTO sont typés à partir de `packages/contracts` (ADR-005).
+- Every network call goes through `lib/apiClient.ts` (base URL, session, normalized errors).
+- A feature does not import another feature.
+- DTOs are typed from `packages/contracts` (ADR-005).
 
-Le détail (chargement des données, cache, gestion des erreurs) sera précisé dans un ADR dédié.
+The details (data loading, caching, error handling) will be specified in a dedicated ADR.
 
-## Alternatives envisagées
+## Alternatives Considered
 
-| Option | Pourquoi écartée |
+| Option | Why rejected |
 |---|---|
-| Admin généré (AdminJS, React Admin) | Branché sur la base ou sur des conventions d'API imposées, contourne les règles métier |
-| Outil low-code (Retool, Appsmith) | Dépendance SaaS, coût par utilisateur, accès aux données hors de notre code |
-| Server Actions avec accès direct à la base | Contourne l'API et ses règles (contredit ADR-001) |
-| MUI / Ant Design | Thème lourd à personnaliser, dépendance forte |
+| Generated admin (AdminJS, React Admin) | Plugged into the database or into imposed API conventions, bypasses the business rules |
+| Low-code tool (Retool, Appsmith) | SaaS dependency, per-user cost, data access outside our code |
+| Server Actions with direct database access | Bypasses the API and its rules (contradicts ADR-001) |
+| MUI / Ant Design | Theme heavy to customize, strong dependency |
 
-## Conséquences
+## Consequences
 
-### Positives
-- Règles métier et d'accès centralisées dans l'API : l'admin ne peut rien faire que l'API n'autorise pas.
-- Même langage que le backend, contrats Zod partagés.
-- Même logique de découpage par feature que le mobile et le backend.
+### Positive
+- Business and access rules centralized in the API: the admin cannot do anything the API does not allow.
+- Same language as the backend, shared Zod contracts.
+- Same feature-based split as the mobile app and the backend.
 
-### Négatives / risques
-- **Endpoints d'administration à développer** dans l'API pour chaque besoin.
-- **Sécurité** : journaliser les actions d'administration (qui, quoi, quand), prévoir à terme une double authentification.
-- **Exposition** : `noindex`, et restriction réseau possible (sous-domaine dédié, liste d'IP).
-- **CORS et cookies** : évités grâce au proxy Next.js vers l'API (ADR-013).
+### Negative / Risks
+- **Administration endpoints to develop** in the API for each need.
+- **Security**: log administration actions (who, what, when), eventually plan for two-factor authentication.
+- **Exposure**: `noindex`, and possible network restriction (dedicated subdomain, IP allowlist).
+- **CORS and cookies**: avoided thanks to the Next.js proxy to the API (ADR-013).
 
-## Références
-- Dossier d'architecture Like-Strava, slides 05 et 06
-- [ADR-001 : Architecture globale](ADR-001-architecture-globale.md)
-- [ADR-003 : Backend](ADR-003-backend.md)
-- Next.js : https://nextjs.org/docs
-- shadcn/ui : https://ui.shadcn.com
+## References
+- Like-Strava architecture deck, slides 05 and 06
+- [ADR-001: Global architecture](ADR-001-global-architecture.md)
+- [ADR-003: Backend](ADR-003-backend.md)
+- Next.js: https://nextjs.org/docs
+- shadcn/ui: https://ui.shadcn.com
+
+## Links
+
+- **Depends on**: [ADR-001](ADR-001-global-architecture.md), [ADR-003](ADR-003-backend.md)

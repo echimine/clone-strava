@@ -1,85 +1,90 @@
-# ADR-011 : Backend · app `worker` (jobs BullMQ)
+# ADR-011: Backend · `worker` app (BullMQ jobs)
 
-- **Statut** : accepted
-- **Date** : 2026-09-24
-- **Décideurs** : echimine
-- **Détaille** : [ADR-003](ADR-003-backend.md)
-- **En lien avec** : [ADR-001](ADR-001-architecture-globale.md), [ADR-009](ADR-009-backend-api.md) (socle commun), [ADR-010](ADR-010-backend-realtime.md), [ADR-014](ADR-014-revenuecat.md), [ADR-015](ADR-015-posthog.md)
+- **Status**: accepted
+- **Date**: 2026-09-24
+- **Deciders**: echimine
+- **Tags**: backend, worker, bullmq, jobs
 
-## Contexte
+## Context
 
-Le worker exécute les traitements lourds que l'API met en file (ADR-001). Le premier est `process-activity` (slide 10) : lire l'activité, le profil et le type de sport, télécharger la trace brute, nettoyer les points, calculer les métriques, construire le tracé, appliquer la zone de confidentialité, écrire le résultat en transaction, puis publier `activity.processed`.
+The worker runs the heavy processing that the API puts in a queue (ADR-001). The first job is `process-activity` (slide 10): read the activity, the profile and the sport type, download the raw track, clean the points, compute the metrics, build the route, apply the privacy zone, write the result in a transaction, then publish `activity.processed`.
 
-## Décision
+## Decision
 
 ### Stack
 
-| Brique | Choix | Rôle |
+| Component | Choice | Role |
 |---|---|---|
-| Framework | **NestJS** en **contexte applicatif** (pas de serveur HTTP) | Processors BullMQ |
-| Files | **BullMQ** (`@nestjs/bullmq`), **consommateur** | Exécution des jobs |
-| Bucket | **AWS SDK v3** sur l'endpoint OVH | Lecture des traces brutes |
-| Abonnements | API REST **RevenueCat** | État complet d'un abonné (ADR-014) |
-| Analytics | `posthog-node`, via le module `analytics` de `packages/core` | Événements serveur (`activity_processed`, `subscription_*`, ADR-015) |
-| Base | Drizzle (`packages/db`), PostGIS | Lecture et écriture en transaction |
-| Métier | Modules de `packages/core` | Mêmes règles que l'API |
-| Redis | `ioredis` | Publication des événements temps réel via le publieur de `packages/realtime` (ADR-010) |
-| Socle | Pino, configuration validée par Zod, contrats Zod (ADR-009) | — |
+| Framework | **NestJS** as an **application context** (no HTTP server) | BullMQ processors |
+| Queues | **BullMQ** (`@nestjs/bullmq`), **consumer** | Job execution |
+| Bucket | **AWS SDK v3** on the OVH endpoint | Reading raw tracks |
+| Subscriptions | **RevenueCat** REST API | Full state of a subscriber (ADR-014) |
+| Analytics | `posthog-node`, via the `analytics` module of `packages/core` | Server events (`activity_processed`, `subscription_*`, ADR-015) |
+| Database | Drizzle (`packages/db`), PostGIS | Reads and writes in a transaction |
+| Business logic | Modules of `packages/core` | Same rules as the API |
+| Redis | `ioredis` | Publishing real-time events via the `packages/realtime` publisher (ADR-010) |
+| Foundation | Pino, Zod-validated configuration, Zod contracts (ADR-009) | — |
 
 ### Jobs
 
-| File | Job | Déclenché par | MVP |
+| Queue | Job | Triggered by | MVP |
 |---|---|---|---|
-| `activities` | `process-activity` | `POST /activities/:id/complete` | Oui |
-| `segments` | `match-segments` (efforts sur segments) | Fin de `process-activity` | Oui, job séparé (ADR-019) |
-| `subscriptions` | `sync-subscription` : lit l'état de l'abonné via l'API REST de RevenueCat, met à jour le statut premium en base, envoie l'événement à PostHog (ADR-014) | Webhook RevenueCat reçu par l'API | Oui, dès que les abonnements existent |
-| `media` | génération de la miniature de carte | Fin de `process-activity` | Plus tard |
-| `notifications` | envoi APNs | Événements métier | **Plus tard** (pas encore de compte Apple Developer) |
+| `activities` | `process-activity` | `POST /activities/:id/complete` | Yes |
+| `segments` | `match-segments` (segment efforts) | End of `process-activity` | Yes, separate job (ADR-019) |
+| `subscriptions` | `sync-subscription`: reads the subscriber state via the RevenueCat REST API, updates the premium status in the database, sends the event to PostHog (ADR-014) | RevenueCat webhook received by the API | Yes, as soon as subscriptions exist |
+| `media` | map thumbnail generation | End of `process-activity` | Later |
+| `notifications` | APNs delivery | Business events | **Later** (no Apple Developer account yet) |
 
-### Principes
+### Principles
 
-1. **Les processors sont minces** : ils valident les données du job avec le schéma Zod de `contracts`, puis appellent le service du module concerné dans `packages/core`. Aucune règle métier dans le processor.
-2. **Jobs idempotents** :
-   - l'identifiant du job est dérivé de l'entité (ex. `process-activity:{activityId}`), ce qui évite les doublons en file ;
-   - un job rejoué ne crée pas de doublon en base, grâce à la transaction et à des écritures en « upsert ».
-3. **Tentatives** : plusieurs essais avec backoff exponentiel pour les erreurs techniques (base, bucket, Redis). Une donnée invalide (trace illisible) est un échec définitif, sans nouvel essai.
-4. **Échec définitif** : l'activité passe en `failed` et un événement `activity.failed` est publié. Politique fixée dans ADR-019 : 5 tentatives avec backoff exponentiel pour les erreurs techniques, échec définitif immédiat pour une trace invalide, colonnes `processing_error` et `processing_attempts`, relance depuis le backoffice.
-5. **Publication après commit** : l'événement (`activity.processed`, topic `user:{userId}`) n'est publié qu'une fois la transaction validée, pour ne jamais annoncer un résultat absent de la base. Son contenu est minimal (`activityId`, `status`) : le mobile recharge l'activité par l'API (ADR-010).
-6. **Concurrence réglée par file** : les jobs CPU (traitement des traces) ont une concurrence limitée ; on ajoute des instances du worker plutôt que d'augmenter la concurrence d'une seule.
-7. **Arrêt propre** : à l'arrêt, le worker termine ses jobs en cours avant de quitter, pour que les déploiements n'interrompent pas un traitement.
-8. **Corrélation** : le `requestId` reçu dans les données du job (ADR-009) est ajouté à tous les logs du job et aux événements publiés.
+1. **Processors are thin**: they validate the job data with the Zod schema from `contracts`, then call the service of the relevant module in `packages/core`. No business rules in the processor.
+2. **Idempotent jobs**:
+   - the job ID is derived from the entity (e.g. `process-activity:{activityId}`), which prevents duplicates in the queue;
+   - a replayed job does not create duplicates in the database, thanks to the transaction and "upsert" writes.
+3. **Retries**: several attempts with exponential backoff for technical errors (database, bucket, Redis). Invalid data (unreadable track) is a permanent failure, with no retry.
+4. **Permanent failure**: the activity moves to `failed` and an `activity.failed` event is published. Policy set in ADR-019: 5 attempts with exponential backoff for technical errors, immediate permanent failure for an invalid track, `processing_error` and `processing_attempts` columns, retry from the backoffice.
+5. **Publish after commit**: the event (`activity.processed`, topic `user:{userId}`) is only published once the transaction is committed, so a result that is not in the database is never announced. Its payload is minimal (`activityId`, `status`): the mobile app reloads the activity through the API (ADR-010).
+6. **Concurrency set per queue**: CPU jobs (track processing) have limited concurrency; we add worker instances rather than increase the concurrency of a single one.
+7. **Graceful shutdown**: on shutdown, the worker finishes its in-progress jobs before exiting, so deployments do not interrupt processing.
+8. **Correlation**: the `requestId` received in the job data (ADR-009) is added to all the job's logs and to published events.
 
-### Supervision
+### Monitoring
 
-- Logs Pino par job (début, fin, durée, erreur).
-- Les jobs en échec restent consultables dans Redis (`removeOnFail` limité, pas immédiat).
-- Un tableau de bord (ex. Bull Board) pourra être exposé plus tard, protégé, ou les jobs en échec affichés dans le backoffice via l'API.
+- Pino logs per job (start, end, duration, error).
+- Failed jobs remain viewable in Redis (`removeOnFail` limited, not immediate).
+- A dashboard (e.g. Bull Board) may be exposed later, protected, or failed jobs shown in the backoffice via the API.
 
-## Alternatives envisagées
+## Alternatives Considered
 
-| Option | Pourquoi écartée |
+| Option | Why rejected |
 |---|---|
-| Exécuter les jobs dans l'API | Contraire à l'objectif : l'API doit rester légère (ADR-003) |
-| File dans PostgreSQL (pg-boss, table de jobs) | Possible, mais Redis est déjà présent et BullMQ gère retries, priorités et concurrence |
-| Tâches serverless (Lambda, fonctions) | Hors de l'infrastructure VPS, accès à la base et au bucket plus complexes |
-| Worker sans NestJS (script Node) | Perd le partage des modules de `packages/core` et l'injection de dépendances |
+| Run jobs in the API | Contrary to the goal: the API must stay lightweight (ADR-003) |
+| Queue in PostgreSQL (pg-boss, jobs table) | Possible, but Redis is already present and BullMQ handles retries, priorities and concurrency |
+| Serverless tasks (Lambda, functions) | Outside the VPS infrastructure, access to the database and bucket more complex |
+| Worker without NestJS (Node script) | Loses sharing of `packages/core` modules and dependency injection |
 
-## Conséquences
+## Consequences
 
-### Positives
-- Les traitements lourds n'impactent ni l'API ni le temps réel.
-- Mêmes règles métier que l'API grâce à `packages/core`.
-- Retries et reprise automatiques en cas de panne temporaire.
+### Positive
+- Heavy processing affects neither the API nor real-time.
+- Same business rules as the API thanks to `packages/core`.
+- Automatic retries and recovery in case of a temporary outage.
 
-### Négatives / risques
-- **Redis critique** : un job mis en file peut être perdu si Redis tombe sans persistance (AOF à activer, ADR-001).
-- **Idempotence à tester** : chaque job doit pouvoir être rejoué sans effet de bord.
-- **Mémoire** : les traces longues (plusieurs heures) peuvent être volumineuses ; les traiter en flux si nécessaire.
-- **Notifications APNs repoussées** : dépendent d'un compte Apple Developer (personnel ou d'entreprise), non disponible pour l'instant.
+### Negative / Risks
+- **Redis is critical**: a queued job can be lost if Redis goes down without persistence (AOF to enable, ADR-001).
+- **Idempotency to test**: every job must be replayable without side effects.
+- **Memory**: long tracks (several hours) can be large; process them as streams if necessary.
+- **APNs notifications postponed**: they depend on an Apple Developer account (personal or company), not available for now.
 
-## Références
-- [ADR-001 : Architecture globale](ADR-001-architecture-globale.md)
-- [ADR-003 : Stack et architecture du backend](ADR-003-backend.md)
-- [ADR-009 : Backend · app api](ADR-009-backend-api.md)
-- BullMQ : https://docs.bullmq.io
-- NestJS standalone applications : https://docs.nestjs.com/standalone-applications
+## References
+- [ADR-001: Global architecture](ADR-001-global-architecture.md)
+- [ADR-003: Backend stack and architecture](ADR-003-backend.md)
+- [ADR-009: Backend · api app](ADR-009-backend-api.md)
+- BullMQ: https://docs.bullmq.io
+- NestJS standalone applications: https://docs.nestjs.com/standalone-applications
+
+## Links
+
+- **Details**: [ADR-003](ADR-003-backend.md)
+- **Amended by**: [ADR-019](ADR-019-activity-creation-flow.md) (jobs and failure policy)
+- **Related**: [ADR-001](ADR-001-global-architecture.md), [ADR-009](ADR-009-backend-api.md) (shared foundation), [ADR-010](ADR-010-backend-realtime.md), [ADR-014](ADR-014-revenuecat.md), [ADR-015](ADR-015-posthog.md)

@@ -1,94 +1,98 @@
-# ADR-014 : Abonnements avec RevenueCat
+# ADR-014: Subscriptions with RevenueCat
 
-- **Statut** : accepted
-- **Date** : 2026-09-24
-- **Décideurs** : echimine
-- **En lien avec** : [ADR-006](ADR-006-stack-mobile.md), [ADR-007](ADR-007-architecture-mobile.md), [ADR-009](ADR-009-backend-api.md), [ADR-011](ADR-011-backend-worker.md), [ADR-015](ADR-015-posthog.md), [ADR-016](ADR-016-experimentation.md)
+- **Status**: accepted
+- **Date**: 2026-09-24
+- **Deciders**: echimine
+- **Tags**: subscriptions, ios, monetization, revenuecat
 
-## Contexte
+## Context
 
-L'app propose un **abonnement premium** (fonctionnalités avancées, à définir), vendu par achat intégré sur iOS. Il faut :
-- vendre et renouveler les abonnements via l'App Store (StoreKit) ;
-- savoir, **dans l'app et dans l'API**, si un utilisateur est premium ;
-- afficher un **paywall au design propre à l'app** ;
-- pouvoir **tester des prix, des durées d'essai et des variantes de paywall** sans publier de nouvelle version.
+The app offers a **premium subscription** (advanced features, to be defined), sold as an in-app purchase on iOS. We need to:
+- sell and renew subscriptions via the App Store (StoreKit);
+- know, **in the app and in the API**, whether a user is premium;
+- display a **paywall with the app's own design**;
+- be able to **test prices, trial lengths and paywall variants** without shipping a new version.
 
-Gérer StoreKit directement impose de valider les reçus, suivre les renouvellements, remboursements et périodes de grâce, et calculer les revenus soi-même.
+Handling StoreKit directly means validating receipts, tracking renewals, refunds and grace periods, and computing revenue ourselves.
 
-## Décision
+## Decision
 
-On utilise **RevenueCat** pour les achats intégrés, avec un **paywall SwiftUI maison**.
+We use **RevenueCat** for in-app purchases, with a **custom SwiftUI paywall**.
 
-### Côté iOS
+### iOS side
 
-| Sujet | Choix |
+| Topic | Choice |
 |---|---|
-| SDK | **`purchases-ios`** (RevenueCat) via Swift Package Manager ; pas de `RevenueCatUI` |
-| Paywall | **Écran SwiftUI maison**, alimenté par l'**offering courant** de RevenueCat (produits, prix localisés, essai) |
-| Droits | Un **entitlement** `premium` ; l'app lit `CustomerInfo` pour afficher ou masquer les fonctionnalités |
-| Identité | `Purchases.logIn(userId)` après la connexion (même identifiant que notre base et PostHog), `logOut()` à la déconnexion |
-| Obligations App Store | Bouton « Restaurer mes achats », liens vers les conditions et la politique de confidentialité, gestion de l'abonnement via les réglages iOS |
+| SDK | **`purchases-ios`** (RevenueCat) via Swift Package Manager; no `RevenueCatUI` |
+| Paywall | **Custom SwiftUI screen**, fed by RevenueCat's **current offering** (products, localized prices, trial) |
+| Entitlements | A `premium` **entitlement**; the app reads `CustomerInfo` to show or hide features |
+| Identity | `Purchases.logIn(userId)` after sign-in (same identifier as our database and PostHog), `logOut()` on sign-out |
+| App Store requirements | "Restore purchases" button, links to the terms and the privacy policy, subscription management via iOS settings |
 
-**Paywall piloté à distance malgré le code maison :**
-- Les **prix, durées et essais** viennent des offerings : les changer ne demande pas de nouvelle version.
-- Les **métadonnées d'offering** (JSON configurable dans RevenueCat) pilotent les variantes d'affichage codées dans l'app : titre, argument mis en avant, offre recommandée, variante de mise en page (`"layout": "A"` ou `"B"`).
-- Une variante de paywall qui n'existe pas encore dans le code demande une nouvelle version.
+**Remotely controlled paywall despite the custom code:**
+- **Prices, durations and trials** come from offerings: changing them does not require a new version.
+- **Offering metadata** (JSON configurable in RevenueCat) drives the display variants coded in the app: title, highlighted selling point, recommended offer, layout variant (`"layout": "A"` or `"B"`).
+- A paywall variant that does not yet exist in the code requires a new version.
 
-**Architecture (ADR-007)** : le paywall est une feature `Features/Paywall`. Le SDK RevenueCat reste dans `Infrastructure/`, derrière un protocole du domaine (`SubscriptionService` : offres, achat, restauration, statut). Les autres features ne connaissent que ce protocole.
+**Architecture (ADR-007)**: the paywall is a `Features/Paywall` feature. The RevenueCat SDK stays in `Infrastructure/`, behind a domain protocol (`SubscriptionService`: offers, purchase, restore, status). Other features only know this protocol.
 
-### Côté backend
+### Backend side
 
-L'app ne fait pas foi pour l'API : l'API doit savoir elle-même si un utilisateur est premium.
+The app is not authoritative for the API: the API must know by itself whether a user is premium.
 
-1. RevenueCat envoie un **webhook** à l'API : `POST /v1/webhooks/revenuecat`, authentifié par un en-tête secret configuré dans RevenueCat.
-2. L'API vérifie le secret, enregistre l'événement (dédupliqué par son identifiant) et **met un job en file** (`sync-subscription`), puis répond `200` immédiatement.
-3. Le worker récupère l'**état complet de l'abonné via l'API REST de RevenueCat** (plutôt que de se fier à l'ordre des webhooks) et met à jour le statut premium de l'utilisateur en base.
-4. Le worker envoie aussi l'événement à PostHog (`subscription_started`, `subscription_renewed`, `subscription_cancelled`…) pour relier revenus et usage (ADR-015).
-5. Les endpoints réservés au premium vérifient ce statut en base.
+1. RevenueCat sends a **webhook** to the API: `POST /v1/webhooks/revenuecat`, authenticated by a secret header configured in RevenueCat.
+2. The API checks the secret, records the event (deduplicated by its ID) and **enqueues a job** (`sync-subscription`), then responds `200` immediately.
+3. The worker fetches the **full subscriber state via the RevenueCat REST API** (rather than relying on webhook ordering) and updates the user's premium status in the database.
+4. The worker also sends the event to PostHog (`subscription_started`, `subscription_renewed`, `subscription_cancelled`…) to link revenue and usage (ADR-015).
+5. Premium-only endpoints check this status in the database.
 
-La table qui stocke le statut d'abonnement n'existe pas dans le modèle de la slide 09 : elle sera ajoutée dans l'ADR sur le modèle de données.
+The table that stores the subscription status does not exist in the slide 09 model: it will be added in the data model ADR.
 
-### A/B tests de monétisation
+### Monetization A/B tests
 
-Les tests de **prix, durées, essais et variantes de paywall** passent par **RevenueCat Experiments** : chaque groupe reçoit un offering différent, et RevenueCat mesure conversion, revenu et rétention. Règles communes dans ADR-016.
+Tests of **prices, durations, trials and paywall variants** go through **RevenueCat Experiments**: each group receives a different offering, and RevenueCat measures conversion, revenue and retention. Common rules in ADR-016.
 
-### Prérequis
+### Prerequisites
 
-- **Compte Apple Developer payant** et accord « Paid Apps » signé dans App Store Connect : **obligatoire**, y compris pour tester en sandbox. **Bloquant tant que la question du compte n'est pas réglée.**
-- Produits d'abonnement créés dans App Store Connect, clé d'API In-App Purchase et notifications serveur App Store configurées vers RevenueCat.
-- Fichier de configuration StoreKit dans Xcode pour tester localement sans App Store Connect au début du développement.
+- **Paid Apple Developer account** and "Paid Apps" agreement signed in App Store Connect: **mandatory**, including for sandbox testing. **Blocking until the account question is resolved.**
+- Subscription products created in App Store Connect, In-App Purchase API key and App Store server notifications configured to RevenueCat.
+- StoreKit configuration file in Xcode to test locally without App Store Connect early in development.
 
-## Alternatives envisagées
+## Alternatives Considered
 
-| Option | Pourquoi écartée |
+| Option | Why rejected |
 |---|---|
-| StoreKit 2 seul, sans RevenueCat | Validation, renouvellements, remboursements, webhooks et statistiques de revenu à développer soi-même ; pas d'A/B test de prix |
-| RevenueCat Paywalls (`RevenueCatUI`) | Moins de liberté de design ; les métadonnées d'offering donnent déjà une partie du pilotage à distance |
-| Adapty, Qonversion, Superwall | Fonctionnellement proches ; RevenueCat est le plus répandu et le mieux documenté |
-| Statut premium lu uniquement dans l'app | L'API ne peut pas protéger les fonctionnalités premium côté serveur |
-| Traitement du webhook directement dans l'API (sans worker) | Appel à RevenueCat pendant la réponse au webhook ; en cas de panne, dépendance au nombre limité de renvois de RevenueCat |
-| Appliquer le contenu du webhook sans relire l'état complet | Webhooks possiblement en désordre, en double ou perdus : risque de statut faux |
-| Endpoint `POST /v1/subscriptions/sync` appelé par l'app après un achat | Réduirait le délai avant que l'API voie le premium, mais le webhook suffit pour le MVP ; ajout possible plus tard si le délai gêne |
+| StoreKit 2 alone, without RevenueCat | Validation, renewals, refunds, webhooks and revenue statistics to build ourselves; no price A/B testing |
+| RevenueCat Paywalls (`RevenueCatUI`) | Less design freedom; offering metadata already provides part of the remote control |
+| Adapty, Qonversion, Superwall | Functionally similar; RevenueCat is the most widespread and best documented |
+| Premium status read only in the app | The API cannot protect premium features server-side |
+| Webhook handled directly in the API (without a worker) | Call to RevenueCat while responding to the webhook; in case of an outage, dependence on RevenueCat's limited number of retries |
+| Apply the webhook content without re-reading the full state | Webhooks may arrive out of order, duplicated or lost: risk of a wrong status |
+| `POST /v1/subscriptions/sync` endpoint called by the app after a purchase | Would reduce the delay before the API sees premium, but the webhook is enough for the MVP; can be added later if the delay is a problem |
 
-## Conséquences
+## Consequences
 
-### Positives
-- Achats, renouvellements et remboursements gérés sans code serveur spécifique à Apple.
-- Prix et offres modifiables et testables sans nouvelle version.
-- Paywall au design de l'app.
-- Statut premium connu de l'API, donc des fonctionnalités premium protégées côté serveur.
+### Positive
+- Purchases, renewals and refunds handled without Apple-specific server code.
+- Prices and offers can be changed and tested without a new version.
+- Paywall with the app's design.
+- Premium status known to the API, so premium features are protected server-side.
 
-### Négatives / risques
-- **Compte Apple Developer requis** avant toute implémentation réelle.
-- **Coût** : RevenueCat est gratuit jusqu'à un certain revenu mensuel suivi, puis prélève un pourcentage. Vérifier la grille tarifaire en vigueur.
-- **Dépendance** à un service tiers pour l'état des abonnements (l'App Store reste la vraie source).
-- **Paywall maison** : chaque nouvelle variante de mise en page demande une version de l'app.
-- **Délai accepté** : entre l'achat et la réception du webhook (généralement quelques secondes), l'API peut ne pas encore voir l'utilisateur comme premium. L'app se fie à `CustomerInfo` pour l'affichage immédiat. On attend le webhook, sans synchronisation déclenchée par l'app.
+### Negative / Risks
+- **Apple Developer account required** before any real implementation.
+- **Cost**: RevenueCat is free up to a certain tracked monthly revenue, then takes a percentage. Check the current pricing.
+- **Dependency** on a third-party service for subscription state (the App Store remains the true source).
+- **Custom paywall**: each new layout variant requires an app release.
+- **Accepted delay**: between the purchase and the webhook's arrival (usually a few seconds), the API may not yet see the user as premium. The app relies on `CustomerInfo` for immediate display. We wait for the webhook, with no app-triggered sync.
 
-## Références
-- RevenueCat iOS : https://www.revenuecat.com/docs/getting-started/installation/ios
-- Offerings et métadonnées : https://www.revenuecat.com/docs/tools/offering-metadata
-- Webhooks : https://www.revenuecat.com/docs/integrations/webhooks
-- Experiments : https://www.revenuecat.com/docs/tools/experiments-v1
-- [ADR-015 : Analytics et feature flags avec PostHog](ADR-015-posthog.md)
-- [ADR-016 : Stratégie d'expérimentation](ADR-016-experimentation.md)
+## References
+- RevenueCat iOS: https://www.revenuecat.com/docs/getting-started/installation/ios
+- Offerings and metadata: https://www.revenuecat.com/docs/tools/offering-metadata
+- Webhooks: https://www.revenuecat.com/docs/integrations/webhooks
+- Experiments: https://www.revenuecat.com/docs/tools/experiments-v1
+- [ADR-015: Analytics and feature flags with PostHog](ADR-015-posthog.md)
+- [ADR-016: Experimentation strategy](ADR-016-experimentation.md)
+
+## Links
+
+- **Related**: [ADR-006](ADR-006-mobile-stack.md), [ADR-007](ADR-007-mobile-architecture.md), [ADR-009](ADR-009-backend-api.md), [ADR-011](ADR-011-backend-worker.md), [ADR-015](ADR-015-posthog.md), [ADR-016](ADR-016-experimentation.md)

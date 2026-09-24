@@ -1,66 +1,71 @@
-# ADR-005 : Monorepo Turborepo
+# ADR-005: Turborepo monorepo
 
-- **Statut** : accepted
-- **Date** : 2026-09-24
-- **Décideurs** : echimine
-- **Source** : dossier d'architecture Like-Strava, slide 07 « Monorepo »
-- **En lien avec** : [ADR-002](ADR-002-mobile.md), [ADR-003](ADR-003-backend.md), [ADR-004](ADR-004-backoffice.md)
+- **Status**: accepted
+- **Date**: 2026-09-24
+- **Deciders**: echimine
+- **Tags**: monorepo, turborepo, pnpm, tooling
+- **Source**: Like-Strava architecture deck, slide 07 "Monorepo"
 
-## Contexte
+## Context
 
-Le projet regroupe trois projets : l'app mobile (Swift), le backend (3 apps NestJS, ADR-003) et le backoffice (Next.js, ADR-004). Le backend et le backoffice partagent des contrats (DTO, événements) et le backend partage du métier entre ses trois apps. Le dépôt est déjà initialisé avec Turborepo et pnpm (template create-turbo).
+The project brings together three projects: the mobile app (Swift), the backend (3 NestJS apps, ADR-003) and the backoffice (Next.js, ADR-004). The backend and the backoffice share contracts (DTOs, events) and the backend shares business logic between its three apps. The repository is already initialized with Turborepo and pnpm (create-turbo template).
 
-## Décision
+## Decision
 
-**Les trois projets vivent dans un seul dépôt, géré par Turborepo et pnpm workspaces.**
+**The three projects live in a single repository, managed by Turborepo and pnpm workspaces.**
 
 ```
 strava-app/
 ├── apps/
 │   ├── api/          REST (NestJS)
 │   ├── realtime/     WebSocket (NestJS)
-│   ├── worker/       jobs BullMQ (NestJS)
+│   ├── worker/       BullMQ jobs (NestJS)
 │   ├── admin/        backoffice (Next.js)
-│   └── mobile/       app iOS (Xcode)
+│   └── mobile/       iOS app (Xcode)
 └── packages/
-    ├── contracts/    schémas Zod partagés (DTO, données des jobs, événements)
-    ├── ui/           composants UI partagés
-    ├── db/           schéma Drizzle, client, migrations (ADR-003)
-    ├── core/         modules métier partagés par api, realtime et worker (ADR-003)
-    ├── realtime/     protocole temps réel, topics, publieur Redis (ajouté par ADR-010)
-    ├── eslint-config/       (existant)
-    └── typescript-config/   (existant)
+    ├── contracts/    shared Zod schemas (DTOs, job data, events)
+    ├── ui/           shared UI components
+    ├── db/           Drizzle schema, client, migrations (ADR-003)
+    ├── core/         business modules shared by api, realtime and worker (ADR-003)
+    ├── realtime/     real-time protocol, topics, Redis publisher (added by ADR-010)
+    ├── eslint-config/       (existing)
+    └── typescript-config/   (existing)
 ```
 
-### Principes
+### Principles
 
-- **`packages/contracts` est la source de vérité des échanges** : l'API valide ses entrées avec ces schémas, le backoffice s'en sert pour typer ses appels, le worker et le serveur WS pour les jobs et les événements.
-- **Les dépendances vont des apps vers les packages**, jamais d'une app vers une autre app.
-- **Turborepo orchestre** `build`, `lint`, `check-types` et `dev`, avec cache et ordre de build selon les dépendances (`^build`).
-- **`apps/mobile`** (projet Xcode, Swift Package Manager) est dans le dépôt mais **hors du workspace pnpm et du pipeline Turbo** : Zod n'est pas utilisable en Swift. Les modèles réseau Swift seront **générés depuis une spec OpenAPI** exposée par l'API et dérivée des contrats.
+- **`packages/contracts` is the source of truth for exchanges**: the API validates its inputs with these schemas, the backoffice uses them to type its calls, the worker and the WS server for jobs and events.
+- **Dependencies go from apps to packages**, never from one app to another app.
+- **Turborepo orchestrates** `build`, `lint`, `check-types` and `dev`, with caching and build order based on dependencies (`^build`).
+- **`apps/mobile`** (Xcode project, Swift Package Manager) is in the repository but **outside the pnpm workspace and the Turbo pipeline**: Zod cannot be used in Swift. The Swift network models will be **generated from an OpenAPI spec** exposed by the API and derived from the contracts.
 
-## Alternatives envisagées
+## Alternatives Considered
 
-| Option | Pourquoi écartée |
+| Option | Why rejected |
 |---|---|
-| Un dépôt par projet (polyrepo) | Contrats à publier et versionner séparément, changements transverses en plusieurs PR |
-| Nx | Plus complet mais plus lourd ; Turborepo est déjà en place et suffit |
-| Mobile dans un dépôt séparé | Perte de la vue d'ensemble et de la synchronisation des changements d'API ; le garder dans le dépôt n'impose pas de l'intégrer à Turbo |
+| One repository per project (polyrepo) | Contracts to publish and version separately, cross-cutting changes across several PRs |
+| Nx | More complete but heavier; Turborepo is already in place and is sufficient |
+| Mobile in a separate repository | Loss of the overall view and of the synchronization of API changes; keeping it in the repository does not require integrating it into Turbo |
 
-## Conséquences
+## Consequences
 
-### Positives
-- Un changement d'API (contrat, endpoint, client) se fait en une seule PR.
-- Types partagés entre backend et backoffice sans publication de packages.
-- Cache Turborepo : seules les apps impactées sont reconstruites.
+### Positive
+- An API change (contract, endpoint, client) is made in a single PR.
+- Types shared between backend and backoffice without publishing packages.
+- Turborepo cache: only the affected apps are rebuilt.
 
-### Négatives / risques
-- **Deux chaînes d'outillage** (pnpm/Turbo et Xcode) dans le même dépôt ; la CI doit les traiter séparément.
-- **Génération OpenAPI → Swift** à mettre en place pour que le mobile suive les contrats.
-- **Packages compilés** (`core`, `db`) : configuration de build à soigner (voir ADR-003).
-- **Nettoyage du template** : `apps/web` et `apps/docs` (exemples create-turbo) seront supprimés ou réaffectés lors de la mise en place des apps.
+### Negative / Risks
+- **Two toolchains** (pnpm/Turbo and Xcode) in the same repository; CI must handle them separately.
+- **OpenAPI → Swift generation** to set up so that the mobile app follows the contracts.
+- **Compiled packages** (`core`, `db`): build configuration needs care (see ADR-003).
+- **Template cleanup**: `apps/web` and `apps/docs` (create-turbo examples) will be removed or repurposed when the apps are set up.
 
-## Références
-- Dossier d'architecture Like-Strava, slide 07
-- [ADR-003 : Backend](ADR-003-backend.md)
-- Turborepo : https://turborepo.com/docs
+## References
+- Like-Strava architecture deck, slide 07
+- [ADR-003: Backend](ADR-003-backend.md)
+- Turborepo: https://turborepo.com/docs
+
+## Links
+
+- **Related**: [ADR-002](ADR-002-mobile.md), [ADR-003](ADR-003-backend.md), [ADR-004](ADR-004-backoffice.md)
+- **Amended by**: [ADR-010](ADR-010-backend-realtime.md) (adds `packages/realtime`)

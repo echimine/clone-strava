@@ -1,159 +1,163 @@
-# ADR-010 : Backend · app `realtime` (passerelle WebSocket)
+# ADR-010: Backend · `realtime` app (WebSocket gateway)
 
-- **Statut** : accepted
-- **Date** : 2026-09-24
-- **Décideurs** : echimine
-- **Détaille** : [ADR-003](ADR-003-backend.md)
-- **Amende** : [ADR-005](ADR-005-monorepo.md) (ajout de `packages/realtime`)
-- **En lien avec** : [ADR-001](ADR-001-architecture-globale.md), [ADR-006](ADR-006-stack-mobile.md), [ADR-008](ADR-008-mobile-offline-sync.md), [ADR-009](ADR-009-backend-api.md), [ADR-011](ADR-011-backend-worker.md)
+- **Status**: accepted
+- **Date**: 2026-09-24
+- **Deciders**: echimine
+- **Tags**: backend, realtime, websocket, redis
 
-## Contexte
+## Context
 
-Le serveur `realtime` prévient le mobile quand quelque chose change côté serveur (ex. une activité traitée par le worker, ADR-001). Contraintes :
-- le mobile utilise le **WebSocket natif** `URLSessionWebSocketTask` (ADR-006) : protocole WebSocket standard, sans surcouche ;
-- le mobile fonctionne déjà en **resynchronisant par l'API** à chaque retour au premier plan et à chaque reconnexion (ADR-008) : le temps réel est un confort, pas la source de vérité ;
-- le service doit pouvoir tourner en **plusieurs instances** et être redéployé sans impact sur l'API.
+The `realtime` server notifies the mobile app when something changes on the server side (e.g. an activity processed by the worker, ADR-001). Constraints:
+- the mobile app uses the **native WebSocket** `URLSessionWebSocketTask` (ADR-006): standard WebSocket protocol, with no extra layer;
+- the mobile app already works by **resynchronizing through the API** each time it returns to the foreground and on each reconnection (ADR-008): realtime is a convenience, not the source of truth;
+- the service must be able to run as **multiple instances** and be redeployed without impacting the API.
 
-## Décision
+## Decision
 
-### 1. Une passerelle qui ne fait que du transport
+### 1. A gateway that only does transport
 
-`apps/realtime` **authentifie, garde les connexions et route des événements par topic**. Elle ne contient aucune règle métier, **n'accède pas à la base** et n'appelle pas l'API. Toute la logique reste dans l'API et le worker.
+`apps/realtime` **authenticates, holds connections and routes events by topic**. It contains no business rules, **does not access the database** and does not call the API. All logic stays in the API and the worker.
 
 ### 2. Stack
 
-| Brique | Choix |
+| Building block | Choice |
 |---|---|
-| Framework | **NestJS** (HTTP uniquement pour `/health`) |
-| WebSocket | bibliothèque **`ws`**, `WebSocketServer({ noServer: true })` branché sur l'événement `upgrade` du serveur HTTP de Nest, chemin **`/ws`** |
-| Jetons | JWT **HS256** (`jsonwebtoken`), vérifiés localement |
-| Redis | `ioredis`, connexion dédiée en mode abonné |
-| Protocole | `packages/realtime` (schémas Zod, voir §8) |
-| Socle | Pino, configuration validée par Zod (ADR-009) |
+| Framework | **NestJS** (HTTP only for `/health`) |
+| WebSocket | **`ws`** library, `WebSocketServer({ noServer: true })` hooked to the `upgrade` event of Nest's HTTP server, path **`/ws`** |
+| Tokens | **HS256** JWT (`jsonwebtoken`), verified locally |
+| Redis | `ioredis`, dedicated connection in subscriber mode |
+| Protocol | `packages/realtime` (Zod schemas, see §8) |
+| Foundation | Pino, configuration validated by Zod (ADR-009) |
 
-On n'utilise pas l'adaptateur `@nestjs/platform-ws` : gérer l'`upgrade` soi-même permet de **refuser un jeton invalide par un `401` avant d'ouvrir la connexion WebSocket**.
+We do not use the `@nestjs/platform-ws` adapter: handling the `upgrade` ourselves makes it possible to **reject an invalid token with a `401` before opening the WebSocket connection**.
 
-### 3. Authentification par jeton court
+### 3. Authentication with a short-lived token
 
-1. Le mobile demande un jeton à l'API : `POST /v1/realtime/token`, authentifié par sa session Better Auth (ADR-009).
-2. L'API renvoie un JWT signé avec `REALTIME_TOKEN_SECRET`, valable **60 secondes**, contenant : l'utilisateur (`sub`), les **topics autorisés**, l'émetteur (`iss: clone-strava-api`) et le destinataire (`aud: clone-strava-realtime`).
-3. Le mobile ouvre `wss://…/ws` avec `Authorization: Bearer <jeton>`.
-4. La passerelle vérifie **localement** la signature, l'algorithme, l'émetteur, le destinataire et l'expiration. Aucun appel réseau. Jeton invalide = `401` et connexion refusée.
-5. Le jeton ne sert qu'à l'ouverture : la connexion reste valide après son expiration. **Chaque reconnexion demande un nouveau jeton.** Une session révoquée ne peut donc plus se reconnecter au-delà de 60 secondes.
+1. The mobile app requests a token from the API: `POST /v1/realtime/token`, authenticated by its Better Auth session (ADR-009).
+2. The API returns a JWT signed with `REALTIME_TOKEN_SECRET`, valid for **60 seconds**, containing: the user (`sub`), the **allowed topics**, the issuer (`iss: clone-strava-api`) and the audience (`aud: clone-strava-realtime`).
+3. The mobile app opens `wss://…/ws` with `Authorization: Bearer <token>`.
+4. The gateway verifies **locally** the signature, algorithm, issuer, audience and expiration. No network call. Invalid token = `401` and connection refused.
+5. The token is only used for opening: the connection stays valid after it expires. **Each reconnection requests a new token.** A revoked session therefore cannot reconnect beyond 60 seconds.
 
-Toute connexion qui présente un en-tête `Origin` (navigateur) est refusée : le backoffice n'utilise pas le temps réel (ADR-001).
+Any connection that presents an `Origin` header (browser) is refused: the backoffice does not use realtime (ADR-001).
 
-### 4. Topics et abonnement explicite
+### 4. Topics and explicit subscription
 
-- Le client s'abonne après la connexion : `{ "a": "sub", "topic": "user:123" }`.
-- La passerelle n'accepte que les topics **présents dans le jeton** ; sinon elle répond `sub:err` (`forbidden`).
-- Topics du MVP :
+- The client subscribes after connecting: `{ "a": "sub", "topic": "user:123" }`.
+- The gateway only accepts topics **present in the token**; otherwise it responds `sub:err` (`forbidden`).
+- MVP topics:
 
-| Topic | Destinataire | Exemples d'événements |
+| Topic | Recipient | Example events |
 |---|---|---|
-| `user:{userId}` | L'utilisateur lui-même, sur tous ses appareils | `activity.processed`, `activity.failed` |
+| `user:{userId}` | The user themselves, on all their devices | `activity.processed`, `activity.failed` |
 
-- Plus tard, d'autres topics pourront s'ajouter (ex. `activity:{id}` pour les commentaires en direct) sans changer l'architecture.
+- Later, other topics can be added (e.g. `activity:{id}` for live comments) without changing the architecture.
 
-### 5. Protocole (versionné)
+### 5. Protocol (versioned)
 
-**Événement, serveur → client :**
+**Event, server → client:**
 
 ```json
 { "v": 1, "t": "activity.processed", "id": "evt_…", "data": { "activityId": "…", "status": "processed", "at": "2026-09-24T10:00:00Z" } }
 ```
 
-- `v` : version du protocole ; un client qui reçoit une version inconnue ignore le message.
-- `t` : type d'événement, au format `{ressource}.{verbe}`.
-- `id` : identifiant unique, pour ignorer un doublon côté client.
-- `data` : **contenu minimal**. On n'envoie jamais les données de la ressource : le client recharge par l'API (`GET /v1/activities/:id`). L'API reste l'unique source de vérité, et c'est le même code que la resynchronisation (ADR-008).
+- `v`: protocol version; a client that receives an unknown version ignores the message.
+- `t`: event type, in `{resource}.{verb}` format.
+- `id`: unique identifier, to ignore a duplicate on the client side.
+- `data`: **minimal content**. The resource data is never sent: the client reloads through the API (`GET /v1/activities/:id`). The API remains the single source of truth, and it is the same code as resynchronization (ADR-008).
 
-**Contrôle :**
+**Control:**
 
-| Sens | Messages |
+| Direction | Messages |
 |---|---|
-| Client → serveur | `{a:"sub", topic}`, `{a:"unsub", topic}`, `{a:"ping"}` |
-| Serveur → client | `{a:"sub:ok", topic}`, `{a:"sub:err", topic, reason: "forbidden" \| "limit"}`, `{a:"pong"}` |
+| Client → server | `{a:"sub", topic}`, `{a:"unsub", topic}`, `{a:"ping"}` |
+| Server → client | `{a:"sub:ok", topic}`, `{a:"sub:err", topic, reason: "forbidden" \| "limit"}`, `{a:"pong"}` |
 
-**Codes de fermeture :**
+**Close codes:**
 
-| Code | Signification | Réaction du client |
+| Code | Meaning | Client reaction |
 |---|---|---|
-| `4001` | Jeton invalide ou expiré détecté après l'ouverture | Nouveau jeton, puis reconnexion |
-| `4008` | Quota de messages dépassé | Reconnexion avec backoff |
-| `4009` | Arrêt du serveur (déploiement) | Reconnexion immédiate |
+| `4001` | Invalid or expired token detected after opening | New token, then reconnection |
+| `4008` | Message quota exceeded | Reconnection with backoff |
+| `4009` | Server shutdown (deployment) | Immediate reconnection |
 
-Un message illisible ou inconnu est **ignoré** (jamais d'exception), mais compté dans le quota.
+An unreadable or unknown message is **ignored** (never an exception), but counted toward the quota.
 
-### 6. Diffusion via Redis
+### 6. Broadcasting via Redis
 
-- Un **canal unique** : `realtime:events`.
-- L'API ou le worker publie `{ "topics": ["user:123"], "envelope": { … } }`. **Les topics sont calculés par l'émetteur** : la passerelle n'a rien à décider.
-- Chaque instance de la passerelle est abonnée au canal et envoie l'enveloppe aux connexions locales abonnées à ces topics (registre en mémoire `topic → connexions`).
-- Plusieurs instances possibles, sans sessions collantes.
-- La source d'événements est derrière une interface : remplaçable par un faux en test.
+- A **single channel**: `realtime:events`.
+- The API or the worker publishes `{ "topics": ["user:123"], "envelope": { … } }`. **Topics are computed by the publisher**: the gateway has nothing to decide.
+- Each gateway instance is subscribed to the channel and sends the envelope to local connections subscribed to those topics (in-memory registry `topic → connections`).
+- Multiple instances possible, without sticky sessions.
+- The event source is behind an interface: replaceable by a fake in tests.
 
-### 7. Livraison : au plus une fois
+### 7. Delivery: at most once
 
-- Pas de file persistée, pas de rattrapage : un événement émis pendant que le mobile est déconnecté est perdu.
-- C'est assumé : à chaque connexion ou reconnexion, le mobile recharge l'état par l'API (ADR-008).
+- No persisted queue, no catch-up: an event emitted while the mobile app is disconnected is lost.
+- This is accepted: on each connection or reconnection, the mobile app reloads state through the API (ADR-008).
 
-### 8. Package partagé `packages/realtime`
+### 8. Shared package `packages/realtime`
 
-Sans dépendance à NestJS, utilisé par `api`, `worker` et `realtime` :
-- schémas Zod de l'enveloppe, des messages de contrôle et du message publié sur Redis ;
-- codes de fermeture, nom du canal Redis, version du protocole ;
-- fonctions de nommage des topics (`userTopic(userId)`) ;
-- registre des connexions par topic (utilisé par `realtime`) ;
-- un **publieur** (`publishRealtimeEvent(topics, type, data)`) utilisé par l'API et le worker, qui construit l'enveloppe (avec `id` et `v`) et publie sur Redis.
+With no dependency on NestJS, used by `api`, `worker` and `realtime`:
+- Zod schemas for the envelope, control messages and the message published on Redis;
+- close codes, Redis channel name, protocol version;
+- topic naming functions (`userTopic(userId)`);
+- per-topic connection registry (used by `realtime`);
+- a **publisher** (`publishRealtimeEvent(topics, type, data)`) used by the API and the worker, which builds the envelope (with `id` and `v`) and publishes on Redis.
 
-Ce package s'ajoute à ceux listés dans ADR-005.
+This package is added to those listed in ADR-005.
 
-### 9. Protections et robustesse
+### 9. Protection and robustness
 
-- **Quotas par connexion** : nombre maximal de topics, nombre maximal de messages sur une fenêtre de temps (dépassement → fermeture `4008`), taille maximale d'un message (`maxPayload`).
-- **Heartbeat** : le client envoie un `ping` applicatif toutes les **25 secondes** ; le serveur ferme les connexions silencieuses.
-- **Arrêt propre** : au `SIGTERM`, toutes les connexions sont fermées en `4009` avant l'arrêt (hooks d'arrêt de Nest).
-- **Santé** : `GET /health` (Redis joignable, nombre de connexions).
-- **Reverse proxy** du VPS configuré pour l'`upgrade` WebSocket et des timeouts longs.
+- **Per-connection quotas**: maximum number of topics, maximum number of messages over a time window (exceeded → close `4008`), maximum message size (`maxPayload`).
+- **Heartbeat**: the client sends an application-level `ping` every **25 seconds**; the server closes silent connections.
+- **Graceful shutdown**: on `SIGTERM`, all connections are closed with `4009` before stopping (Nest shutdown hooks).
+- **Health**: `GET /health` (Redis reachable, number of connections).
+- VPS **reverse proxy** configured for the WebSocket `upgrade` and long timeouts.
 
 ### 10. Tests
 
-- Unitaires : encodage/décodage des messages, vérification des jetons, quotas.
-- Intégration : ouverture avec jeton valide et invalide, refus d'un topic non autorisé, diffusion d'un événement vers **deux instances** via Redis, fermeture `4009` à l'arrêt.
+- Unit: message encoding/decoding, token verification, quotas.
+- Integration: opening with a valid and an invalid token, rejection of an unauthorized topic, broadcasting an event to **two instances** via Redis, `4009` close on shutdown.
 
-## Alternatives envisagées
+## Alternatives Considered
 
-| Option | Pourquoi écartée |
+| Option | Why rejected |
 |---|---|
-| Socket.IO | Protocole propriétaire, incompatible avec le WebSocket natif iOS |
-| Adaptateur `@nestjs/platform-ws` | Moins de contrôle sur l'ouverture de connexion (refus avant `upgrade`) |
-| Vérifier la session Better Auth à chaque connexion (lecture en base ou appel à l'API) | Couplage à l'API ou à la base, latence à chaque connexion ; le jeton court évite les deux |
-| Envoyer les valeurs officielles dans l'événement | Deux sources de données pour le mobile ; le rechargement par l'API garde un seul chemin |
-| Abonnement automatique à la connexion | Moins évolutif : l'abonnement explicite permet d'ajouter des topics sans changer le protocole |
-| Redis Streams avec rattrapage des événements manqués | Inutile tant que le mobile resynchronise par l'API |
-| Service managé (Pusher, Ably) | Dépendance SaaS et coût, pour un besoin simple |
+| Socket.IO | Proprietary protocol, incompatible with the native iOS WebSocket |
+| `@nestjs/platform-ws` adapter | Less control over connection opening (rejection before `upgrade`) |
+| Checking the Better Auth session on each connection (database read or API call) | Coupling to the API or the database, latency on each connection; the short-lived token avoids both |
+| Sending the official values in the event | Two data sources for the mobile app; reloading through the API keeps a single path |
+| Automatic subscription on connection | Less extensible: explicit subscription allows adding topics without changing the protocol |
+| Redis Streams with catch-up of missed events | Unnecessary as long as the mobile app resynchronizes through the API |
+| Managed service (Pusher, Ably) | SaaS dependency and cost, for a simple need |
 
-## Conséquences
+## Consequences
 
-### Positives
-- Compatible directement avec `URLSessionWebSocketTask`, sans dépendance côté iOS.
-- Passerelle sans base ni métier : simple, testable, facile à multiplier.
-- Aucune requête réseau pour authentifier une connexion.
-- Ajouter un type d'événement ou un topic ne demande aucun changement d'architecture.
+### Positive
+- Directly compatible with `URLSessionWebSocketTask`, with no dependency on the iOS side.
+- Gateway with no database and no business logic: simple, testable, easy to scale out.
+- No network request to authenticate a connection.
+- Adding an event type or a topic requires no architecture change.
 
-### Négatives / risques
-- **Plomberie à écrire** : registre, quotas, heartbeat, fermeture propre.
-- **Secret partagé** `REALTIME_TOKEN_SECRET` entre `api` et `realtime` : à stocker comme secret, à faire tourner si compromis.
-- **Événements perdus** si le mobile est déconnecté (accepté, ADR-008).
-- **Une requête de plus** à chaque connexion (jeton, puis rechargement de l'activité) : négligeable.
+### Negative / Risks
+- **Plumbing to write**: registry, quotas, heartbeat, graceful shutdown.
+- **Shared secret** `REALTIME_TOKEN_SECRET` between `api` and `realtime`: to be stored as a secret, rotated if compromised.
+- **Lost events** if the mobile app is disconnected (accepted, ADR-008).
+- **One more request** on each connection (token, then activity reload): negligible.
 
-### Pour plus tard
-- **Présence** : marqueur Redis « utilisateur connecté » posé par la passerelle, pour que le worker choisisse entre WebSocket et notification APNs (ADR-006, ADR-011).
+### For later
+- **Presence**: Redis "user connected" marker set by the gateway, so the worker can choose between WebSocket and APNs notification (ADR-006, ADR-011).
 
-## Références
-- [ADR-006 : Stack détaillée du mobile](ADR-006-stack-mobile.md)
-- [ADR-008 : Hors ligne et synchronisation du mobile](ADR-008-mobile-offline-sync.md)
-- [ADR-009 : Backend · app api](ADR-009-backend-api.md)
-- ws : https://github.com/websockets/ws
-- RFC 6455 (WebSocket) : https://www.rfc-editor.org/rfc/rfc6455
+## References
+- [ADR-006: Detailed mobile stack](ADR-006-mobile-stack.md)
+- [ADR-008: Mobile offline and sync](ADR-008-mobile-offline-sync.md)
+- [ADR-009: Backend · api app](ADR-009-backend-api.md)
+- ws: https://github.com/websockets/ws
+- RFC 6455 (WebSocket): https://www.rfc-editor.org/rfc/rfc6455
+
+## Links
+
+- **Details**: [ADR-003](ADR-003-backend.md)
+- **Amends**: [ADR-005](ADR-005-monorepo.md) (adds `packages/realtime`)
+- **Related**: [ADR-001](ADR-001-global-architecture.md), [ADR-006](ADR-006-mobile-stack.md), [ADR-008](ADR-008-mobile-offline-sync.md), [ADR-009](ADR-009-backend-api.md), [ADR-011](ADR-011-backend-worker.md)

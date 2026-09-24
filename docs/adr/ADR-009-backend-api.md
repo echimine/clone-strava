@@ -1,98 +1,102 @@
-# ADR-009 : Backend · app `api` (REST)
+# ADR-009: Backend · `api` app (REST)
 
-- **Statut** : accepted
-- **Date** : 2026-09-24
-- **Décideurs** : echimine
-- **Détaille** : [ADR-003](ADR-003-backend.md) (stack et architecture du backend)
-- **En lien avec** : [ADR-001](ADR-001-architecture-globale.md), [ADR-005](ADR-005-monorepo.md), [ADR-010](ADR-010-backend-realtime.md), [ADR-011](ADR-011-backend-worker.md), [ADR-014](ADR-014-revenuecat.md), [ADR-015](ADR-015-posthog.md)
+- **Status**: accepted
+- **Date**: 2026-09-24
+- **Deciders**: echimine
+- **Tags**: backend, api, nestjs, rest
 
-## Contexte
+## Context
 
-ADR-003 découpe le backend en trois apps NestJS (`api`, `realtime`, `worker`) qui partagent le métier via `packages/core`, `packages/db` et `packages/contracts`. Cet ADR fixe :
-- le **socle commun** aux trois apps (contrats, validation, logs, configuration), auquel ADR-010 et ADR-011 renvoient ;
-- la stack propre à l'app `api` : le seul point d'entrée des clients (mobile et backoffice).
+ADR-003 splits the backend into three NestJS apps (`api`, `realtime`, `worker`) that share business logic via `packages/core`, `packages/db` and `packages/contracts`. This ADR sets:
+- the **common foundation** for the three apps (contracts, validation, logs, configuration), which ADR-010 and ADR-011 refer to;
+- the stack specific to the `api` app: the only entry point for clients (mobile and backoffice).
 
-## Décision
+## Decision
 
-### Socle commun aux trois apps backend
+### Common foundation for the three backend apps
 
-| Sujet | Choix |
+| Topic | Choice |
 |---|---|
-| Contrats partagés | **Zod**, dans `packages/contracts` : corps et réponses de l'API, données des jobs, événements temps réel |
-| Validation dans Nest | Pipe de validation Zod (ex. `nestjs-zod`) : les DTO sont dérivés des schémas de `contracts`, sans class-validator |
-| Configuration | Variables d'environnement **validées par un schéma Zod au démarrage** : l'app refuse de démarrer si une variable manque |
-| Logs | **Pino** via `nestjs-pino` : logs JSON structurés sur la sortie standard |
-| Accès aux données | Drizzle, schéma dans `packages/db` (ADR-003) |
+| Shared contracts | **Zod**, in `packages/contracts`: API request bodies and responses, job payloads, realtime events |
+| Validation in Nest | Zod validation pipe (e.g. `nestjs-zod`): DTOs are derived from the `contracts` schemas, without class-validator |
+| Configuration | Environment variables **validated by a Zod schema at startup**: the app refuses to start if a variable is missing |
+| Logs | **Pino** via `nestjs-pino`: structured JSON logs on standard output |
+| Data access | Drizzle, schema in `packages/db` (ADR-003) |
 
-**Logs, en pratique :**
-- Chaque ligne de log est un objet JSON (niveau, message, contexte, identifiants). Sur le VPS, Docker récupère la sortie standard ; on peut ensuite brancher un outil de consultation sans toucher au code.
-- Chaque requête HTTP reçoit un **identifiant de corrélation** (`requestId`). Il est recopié dans les données des jobs et dans les événements publiés, pour suivre une activité de l'API au worker puis au serveur WS.
-- Les jetons, mots de passe et en-têtes `Authorization` sont **masqués** automatiquement (`redact`).
-- Le suivi des erreurs (ex. Sentry) pourra être ajouté plus tard.
+**Logs, in practice:**
+- Each log line is a JSON object (level, message, context, identifiers). On the VPS, Docker collects standard output; a viewing tool can then be plugged in without touching the code.
+- Each HTTP request gets a **correlation identifier** (`requestId`). It is copied into job payloads and published events, to follow an activity from the API to the worker and then to the WS server.
+- Tokens, passwords and `Authorization` headers are **redacted** automatically (`redact`).
+- Error tracking (e.g. Sentry) can be added later.
 
-### Stack de l'app `api`
+### `api` app stack
 
-| Brique | Choix | Rôle |
+| Building block | Choice | Role |
 |---|---|---|
-| Framework | **NestJS** (adaptateur Express par défaut) | Controllers REST |
-| Authentification | **Better Auth** | Comptes, sessions ; jeton porteur pour iOS, cookie pour le backoffice |
-| Bucket | **AWS SDK v3** (`@aws-sdk/client-s3`, `@aws-sdk/s3-request-presigner`) configuré sur l'endpoint **OVH Object Storage** | URLs pré-signées |
-| Files de jobs | **BullMQ** (`@nestjs/bullmq`), **producteur uniquement** | Mise en file, jamais d'exécution |
-| Redis | client `ioredis` | Publication d'événements temps réel via le publieur de `packages/realtime` (ADR-010) |
-| Jetons temps réel | `jsonwebtoken` (HS256, secret `REALTIME_TOKEN_SECRET` partagé avec `realtime`) | Endpoint `POST /v1/realtime/token` |
-| Abonnements | Webhook **RevenueCat** (ADR-014) | Endpoint `POST /v1/webhooks/revenuecat` |
-| Analytics | `posthog-node`, via le module `analytics` de `packages/core` (ADR-015) | Événements serveur fiables |
-| Documentation | **OpenAPI générée depuis les schémas Zod** | Référence de l'API et génération des modèles Swift (ADR-005) |
-| Protection | `@nestjs/throttler` (limitation de débit) ; pas de CORS : le backoffice passe par le proxy Next.js (ADR-013) et le mobile n'est pas concerné par le CORS | — |
-| Santé | `@nestjs/terminus` | Endpoint `/health` (base, Redis) pour le déploiement |
+| Framework | **NestJS** (default Express adapter) | REST controllers |
+| Authentication | **Better Auth** | Accounts, sessions; bearer token for iOS, cookie for the backoffice |
+| Bucket | **AWS SDK v3** (`@aws-sdk/client-s3`, `@aws-sdk/s3-request-presigner`) configured on the **OVH Object Storage** endpoint | Pre-signed URLs |
+| Job queues | **BullMQ** (`@nestjs/bullmq`), **producer only** | Enqueuing, never execution |
+| Redis | `ioredis` client | Publishing realtime events via the `packages/realtime` publisher (ADR-010) |
+| Realtime tokens | `jsonwebtoken` (HS256, `REALTIME_TOKEN_SECRET` secret shared with `realtime`) | `POST /v1/realtime/token` endpoint |
+| Subscriptions | **RevenueCat** webhook (ADR-014) | `POST /v1/webhooks/revenuecat` endpoint |
+| Analytics | `posthog-node`, via the `analytics` module of `packages/core` (ADR-015) | Reliable server-side events |
+| Documentation | **OpenAPI generated from the Zod schemas** | API reference and generation of Swift models (ADR-005) |
+| Protection | `@nestjs/throttler` (rate limiting); no CORS: the backoffice goes through the Next.js proxy (ADR-013) and the mobile app is not affected by CORS | — |
+| Health | `@nestjs/terminus` | `/health` endpoint (database, Redis) for deployment |
 
-### Principes
+### Principles
 
-1. **L'API ne fait jamais de traitement lourd** : elle valide, écrit en base, met en file et répond (`202 Accepted` pour les traitements asynchrones).
-2. **Les controllers sont minces** : validation Zod, garde d'authentification, appel au service du module (`packages/core`), mise en forme de la réponse.
-3. **Authentification** :
-   - Better Auth est monté sur `/api/auth/*` ;
-   - une garde vérifie la session sur toutes les routes protégées ;
-   - une garde de **rôle admin** protège les endpoints du backoffice (ADR-004) ;
-   - `GET /v1/me` renvoie l'utilisateur courant et son rôle (utilisé par le backoffice pour afficher ou refuser l'accès, ADR-013).
-4. **Jeton temps réel** : `POST /v1/realtime/token`, protégé par la session, renvoie un JWT valable 60 secondes contenant l'utilisateur et ses topics autorisés (`user:{userId}` pour le MVP). Le mobile l'utilise pour ouvrir la connexion WebSocket ; la passerelle le vérifie sans appeler l'API (ADR-010).
-5. **Webhook RevenueCat** : `POST /v1/webhooks/revenuecat`, hors session utilisateur, authentifié par un **en-tête secret** configuré dans RevenueCat. L'API vérifie le secret, enregistre l'événement (dédupliqué par son identifiant), met le job `sync-subscription` en file et répond `200` immédiatement (ADR-014).
-6. **Bucket privé** : aucune lecture publique. Les URLs pré-signées ont une durée courte, et les clés d'objets suivent une convention, par exemple `activities/{userId}/{activityId}/trace.json.gz`.
-7. **Format d'erreur unique** pour toute l'API (code, message, détails de validation), décrit dans `contracts`.
-8. **Routes versionnées** (`/v1/...`) pour pouvoir faire évoluer l'API sans casser les anciennes versions de l'app mobile, qui restent installées sur les téléphones tant que l'utilisateur ne met pas à jour. Pour éviter d'avoir à créer une `/v2` :
-   - **changements compatibles uniquement** : ajouter un champ est permis ; renommer, supprimer ou changer le type d'un champ ne l'est pas ;
-   - **clients tolérants** : l'app ignore les champs inconnus, les nouveaux champs sont optionnels ;
-   - **version minimale de l'app** : l'API expose la version minimale acceptée ; en dessous, l'app demande à l'utilisateur de mettre à jour. On peut ainsi retirer une ancienne version de l'API sans attendre indéfiniment.
+1. **The API never does heavy processing**: it validates, writes to the database, enqueues and responds (`202 Accepted` for asynchronous processing).
+2. **Controllers are thin**: Zod validation, authentication guard, call to the module service (`packages/core`), response formatting.
+3. **Authentication**:
+   - Better Auth is mounted on `/api/auth/*`;
+   - a guard checks the session on all protected routes;
+   - an **admin role** guard protects the backoffice endpoints (ADR-004);
+   - `GET /v1/me` returns the current user and their role (used by the backoffice to display or deny access, ADR-013).
+4. **Realtime token**: `POST /v1/realtime/token`, protected by the session, returns a JWT valid for 60 seconds containing the user and their allowed topics (`user:{userId}` for the MVP). The mobile app uses it to open the WebSocket connection; the gateway verifies it without calling the API (ADR-010).
+5. **RevenueCat webhook**: `POST /v1/webhooks/revenuecat`, outside any user session, authenticated by a **secret header** configured in RevenueCat. The API checks the secret, records the event (deduplicated by its identifier), enqueues the `sync-subscription` job and responds `200` immediately (ADR-014).
+6. **Private bucket**: no public read. Pre-signed URLs have a short lifetime, and object keys follow a convention, for example `activities/{userId}/{activityId}/trace.json.gz`.
+7. **Single error format** for the whole API (code, message, validation details), described in `contracts`.
+8. **Versioned routes** (`/v1/...`) so the API can evolve without breaking old versions of the mobile app, which stay installed on phones until the user updates. To avoid having to create a `/v2`:
+   - **backward-compatible changes only**: adding a field is allowed; renaming, removing or changing the type of a field is not;
+   - **tolerant clients**: the app ignores unknown fields, new fields are optional;
+   - **minimum app version**: the API exposes the minimum accepted version; below it, the app asks the user to update. An old API version can thus be retired without waiting indefinitely.
 
-## Alternatives envisagées
+## Alternatives Considered
 
-| Sujet | Alternative | Pourquoi écartée |
+| Topic | Alternative | Why rejected |
 |---|---|---|
-| Validation | class-validator + class-transformer | Doublon avec les schémas Zod des contrats, qui servent déjà au backoffice et au worker |
-| Contrats | tRPC / ts-rest | Le mobile Swift ne peut pas en profiter ; REST + OpenAPI reste lisible par tous les clients |
-| Logs | Logger intégré de NestJS | Texte non structuré, difficile à filtrer ; pas de corrélation ni de masquage |
-| Logs | Winston | Plus lent et plus verbeux à configurer que Pino pour des logs JSON |
-| Adaptateur HTTP | Fastify | Plus rapide, mais l'intégration Better Auth + NestJS est plus simple avec Express ; à reconsidérer si les performances l'exigent |
-| Bucket | SDK OVH spécifique | L'API S3 standard via AWS SDK v3 évite de dépendre d'OVH |
+| Validation | class-validator + class-transformer | Duplicates the Zod contract schemas, which are already used by the backoffice and the worker |
+| Contracts | tRPC / ts-rest | The Swift mobile app cannot benefit from them; REST + OpenAPI stays readable by all clients |
+| Logs | Built-in NestJS logger | Unstructured text, hard to filter; no correlation or redaction |
+| Logs | Winston | Slower and more verbose to configure than Pino for JSON logs |
+| HTTP adapter | Fastify | Faster, but the Better Auth + NestJS integration is simpler with Express; to be reconsidered if performance requires it |
+| Bucket | OVH-specific SDK | The standard S3 API via AWS SDK v3 avoids depending on OVH |
 
-## Conséquences
+## Consequences
 
-### Positives
-- Un seul schéma Zod par échange, utilisé pour valider, typer (backoffice) et documenter (OpenAPI → Swift).
-- Logs exploitables dès le départ, avec un fil conducteur de l'API jusqu'au WS.
-- L'API reste rapide et prévisible : aucun job ne tourne dans son processus.
+### Positive
+- A single Zod schema per exchange, used to validate, type (backoffice) and document (OpenAPI → Swift).
+- Usable logs from the start, with a common thread from the API to the WS.
+- The API stays fast and predictable: no job runs in its process.
 
-### Négatives / risques
-- **Zod dans NestJS** n'est pas le chemin par défaut : dépendance à une bibliothèque d'intégration (ou pipe maison) et génération OpenAPI à vérifier.
-- **Better Auth avec NestJS** : pas d'intégration officielle, à câbler et tester (bearer pour iOS, cookie pour le backoffice).
-- **OVH via AWS SDK** : endpoint, région et style d'URL à configurer, et à tester sur les URLs pré-signées.
-- **Versionnement** : il faudra maintenir les anciennes versions tant que des apps mobiles non mises à jour les utilisent.
+### Negative / Risks
+- **Zod in NestJS** is not the default path: dependency on an integration library (or a custom pipe), and OpenAPI generation to be verified.
+- **Better Auth with NestJS**: no official integration, to be wired and tested (bearer for iOS, cookie for the backoffice).
+- **OVH via AWS SDK**: endpoint, region and URL style to configure, and to test on pre-signed URLs.
+- **Versioning**: old versions will have to be maintained as long as non-updated mobile apps use them.
 
-## Références
-- [ADR-003 : Stack et architecture du backend](ADR-003-backend.md)
-- [ADR-005 : Monorepo](ADR-005-monorepo.md)
-- Zod : https://zod.dev
-- nestjs-pino : https://github.com/iamolegga/nestjs-pino
-- AWS SDK v3 S3 : https://docs.aws.amazon.com/AWSJavaScriptSDK/v3/latest/client/s3/
-- OVHcloud Object Storage (S3) : https://help.ovhcloud.com/csm/fr-public-cloud-storage-s3-getting-started
-- BullMQ avec NestJS : https://docs.nestjs.com/techniques/queues
+## References
+- [ADR-003: Backend stack and architecture](ADR-003-backend.md)
+- [ADR-005: Monorepo](ADR-005-monorepo.md)
+- Zod: https://zod.dev
+- nestjs-pino: https://github.com/iamolegga/nestjs-pino
+- AWS SDK v3 S3: https://docs.aws.amazon.com/AWSJavaScriptSDK/v3/latest/client/s3/
+- OVHcloud Object Storage (S3): https://help.ovhcloud.com/csm/fr-public-cloud-storage-s3-getting-started
+- BullMQ with NestJS: https://docs.nestjs.com/techniques/queues
+
+## Links
+
+- **Details**: [ADR-003](ADR-003-backend.md) (backend stack and architecture)
+- **Related**: [ADR-001](ADR-001-global-architecture.md), [ADR-005](ADR-005-monorepo.md), [ADR-010](ADR-010-backend-realtime.md), [ADR-011](ADR-011-backend-worker.md), [ADR-014](ADR-014-revenuecat.md), [ADR-015](ADR-015-posthog.md)

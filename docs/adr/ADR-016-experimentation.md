@@ -1,79 +1,83 @@
-# ADR-016 : Stratégie d'expérimentation (A/B tests)
+# ADR-016: Experimentation strategy (A/B tests)
 
-- **Statut** : accepted
-- **Date** : 2026-09-24
-- **Décideurs** : echimine
-- **Dépend de** : [ADR-014](ADR-014-revenuecat.md) (RevenueCat), [ADR-015](ADR-015-posthog.md) (PostHog)
+- **Status**: accepted
+- **Date**: 2026-09-24
+- **Deciders**: echimine
+- **Tags**: experimentation, ab-testing, feature-flags
 
-## Contexte
+## Context
 
-On veut vérifier par la mesure si un changement est meilleur que l'existant : un prix, un paywall, mais aussi un écran d'onboarding, la place d'un bouton, le contenu d'un résumé d'activité. Deux outils savent faire des A/B tests : **RevenueCat Experiments** et **PostHog Experiments**. Sans règles, on risque de tester la même chose dans les deux outils, de fausser les résultats ou d'accumuler des flags morts dans le code.
+We want to verify through measurement whether a change is better than what exists: a price, a paywall, but also an onboarding screen, the placement of a button, the content of an activity summary. Two tools can run A/B tests: **RevenueCat Experiments** and **PostHog Experiments**. Without rules, we risk testing the same thing in both tools, skewing the results, or piling up dead flags in the code.
 
-## Décision
+## Decision
 
-### Qui teste quoi
+### Who tests what
 
-| Ce qu'on teste | Outil | Mesuré par |
+| What we test | Tool | Measured by |
 |---|---|---|
-| **Monétisation** : prix, durée, essai gratuit, offre recommandée, variante de paywall | **RevenueCat Experiments** (un offering par groupe, variantes d'affichage via les métadonnées, ADR-014) | Conversion, revenu, rétention des abonnés |
-| **Produit** : onboarding, écrans, parcours, textes, fonctionnalités | **PostHog Experiments** (flag à plusieurs variantes, ADR-015) | Événements PostHog (activation, rétention, usage) |
+| **Monetization**: price, duration, free trial, recommended offer, paywall variant | **RevenueCat Experiments** (one offering per group, display variants via metadata, ADR-014) | Conversion, revenue, subscriber retention |
+| **Product**: onboarding, screens, flows, copy, features | **PostHog Experiments** (multivariate flag, ADR-015) | PostHog events (activation, retention, usage) |
 
-**Règle** : tout ce qui touche au paywall et aux prix passe **uniquement** par RevenueCat. PostHog ne pilote jamais le paywall, pour éviter que deux expériences se superposent sur le même écran.
+**Rule**: everything related to the paywall and prices goes **only** through RevenueCat. PostHog never drives the paywall, to prevent two experiments from overlapping on the same screen.
 
-### Cycle de vie d'une expérience
+### Experiment lifecycle
 
-1. **Hypothèse écrite** : « Si on montre la carte dans le résumé d'activité, plus d'utilisateurs enregistreront une deuxième activité dans la semaine. »
-2. **Indicateur principal** unique (ex. `second_activity_recorded` sous 7 jours) et **indicateurs de garde** qui ne doivent pas se dégrader (ex. taux de crash, désinstallations, conversion premium).
-3. **Taille d'échantillon et durée** calculées avant le lancement (calculateur de l'outil). Durée minimale d'une semaine complète, pour couvrir les habitudes de la semaine et du week-end.
-4. **Lancement** : répartition aléatoire, le plus souvent 50/50.
-5. **Pas d'arrêt anticipé** parce qu'un résultat « a l'air bon » : on attend la taille d'échantillon prévue. Seule exception : un indicateur de garde qui se dégrade nettement.
-6. **Décision** : on garde la variante gagnante, ou le contrôle si l'écart n'est pas significatif.
-7. **Nettoyage** : le flag et la variante perdante sont **supprimés du code dans les deux semaines** qui suivent la décision.
+1. **Written hypothesis**: "If we show the map in the activity summary, more users will record a second activity within the week."
+2. A single **primary metric** (e.g. `second_activity_recorded` within 7 days) and **guardrail metrics** that must not degrade (e.g. crash rate, uninstalls, premium conversion).
+3. **Sample size and duration** calculated before launch (the tool's calculator). Minimum duration of one full week, to cover weekday and weekend habits.
+4. **Launch**: random assignment, most often 50/50.
+5. **No early stopping** because a result "looks good": we wait for the planned sample size. Only exception: a guardrail metric that degrades clearly.
+6. **Decision**: we keep the winning variant, or the control if the difference is not significant.
+7. **Cleanup**: the flag and the losing variant are **removed from the code within two weeks** after the decision.
 
-### Nommage des flags PostHog
+### PostHog flag naming
 
-| Préfixe | Usage | Exemple |
+| Prefix | Usage | Example |
 |---|---|---|
-| `exp-` | Expérience A/B, durée limitée | `exp-onboarding-3-ecrans` |
-| `ff-` | Déploiement progressif d'une fonctionnalité | `ff-segments-live` |
-| `kill-` | Coupe-circuit permanent | `kill-upload-arriere-plan` |
+| `exp-` | A/B experiment, limited duration | `exp-onboarding-3-screens` |
+| `ff-` | Progressive rollout of a feature | `ff-segments-live` |
+| `kill-` | Permanent kill switch | `kill-background-upload` |
 
-### Règles dans le code
+### Rules in the code
 
-- La variante est lue dans le **store ou le service** via le protocole `FeatureFlags` (ADR-015), jamais directement dans la vue.
-- **Valeur par défaut = contrôle** : si le flag n'est pas disponible, l'utilisateur voit le comportement actuel.
-- Le flag est lu **au moment où l'utilisateur voit l'élément testé** : c'est ce qui enregistre son exposition. Le lire trop tôt compterait des utilisateurs qui n'ont jamais vu la variante.
-- Une expérience qui modifie aussi un comportement serveur lit le flag **côté backend** avec le même `userId`, pour que l'app et l'API voient la même variante.
-- Pas plus de quelques expériences simultanées, et **jamais deux expériences sur le même écran**.
+- The variant is read in the **store or the service** via the `FeatureFlags` protocol (ADR-015), never directly in the view.
+- **Default value = control**: if the flag is not available, the user sees the current behavior.
+- The flag is read **at the moment the user sees the tested element**: this is what records their exposure. Reading it too early would count users who never saw the variant.
+- An experiment that also changes server behavior reads the flag **on the backend** with the same `userId`, so that the app and the API see the same variant.
+- No more than a few simultaneous experiments, and **never two experiments on the same screen**.
 
-### Volume d'utilisateurs
+### User volume
 
-Un A/B test ne donne un résultat fiable qu'avec assez d'utilisateurs. Tant que le nombre d'utilisateurs est faible :
-- on privilégie les **déploiements progressifs** (`ff-`) et l'observation des indicateurs ;
-- on ne lance une expérience que si la taille d'échantillon calculée est atteignable dans un délai raisonnable (quelques semaines).
+An A/B test only gives a reliable result with enough users. As long as the number of users is low:
+- we favor **progressive rollouts** (`ff-`) and watching the metrics;
+- we only launch an experiment if the calculated sample size is reachable within a reasonable time (a few weeks).
 
-## Alternatives envisagées
+## Alternatives Considered
 
-| Option | Pourquoi écartée |
+| Option | Why rejected |
 |---|---|
-| Tout tester dans PostHog, y compris les prix | PostHog ne connaît pas les revenus réels des abonnements aussi bien que RevenueCat, et ne pilote pas les offres de l'App Store |
-| Tout tester dans RevenueCat | RevenueCat ne teste que les offerings et le paywall |
-| Pas de règles communes | Expériences superposées, résultats faussés, flags oubliés dans le code |
+| Test everything in PostHog, including prices | PostHog does not know actual subscription revenue as well as RevenueCat, and does not drive App Store offers |
+| Test everything in RevenueCat | RevenueCat only tests offerings and the paywall |
+| No shared rules | Overlapping experiments, skewed results, flags forgotten in the code |
 
-## Conséquences
+## Consequences
 
-### Positives
-- Chaque type de test a un outil clair, sans chevauchement.
-- Décisions fondées sur des résultats significatifs plutôt que sur l'intuition.
-- Code propre : les flags ont une durée de vie limitée et un nommage explicite.
+### Positive
+- Each type of test has a clear tool, with no overlap.
+- Decisions based on significant results rather than intuition.
+- Clean code: flags have a limited lifetime and explicit naming.
 
-### Négatives / risques
-- **Discipline** : hypothèse, taille d'échantillon et nettoyage demandent de la rigueur à chaque test.
-- **Peu d'utilisateurs au début** : la plupart des tests seront peu concluants ; il faudra l'accepter.
-- **Consentement** (ADR-015) : les utilisateurs qui refusent la mesure ne comptent pas dans les résultats PostHog.
+### Negative / Risks
+- **Discipline**: hypothesis, sample size and cleanup require rigor for every test.
+- **Few users at first**: most tests will be inconclusive; we will have to accept that.
+- **Consent** (ADR-015): users who decline measurement do not count in PostHog results.
 
-## Références
-- PostHog Experiments : https://posthog.com/docs/experiments
-- RevenueCat Experiments : https://www.revenuecat.com/docs/tools/experiments-v1
-- [ADR-014 : Abonnements avec RevenueCat](ADR-014-revenuecat.md)
-- [ADR-015 : Analytics et feature flags avec PostHog](ADR-015-posthog.md)
+## References
+- PostHog Experiments: https://posthog.com/docs/experiments
+- RevenueCat Experiments: https://www.revenuecat.com/docs/tools/experiments-v1
+- [ADR-014: Subscriptions with RevenueCat](ADR-014-revenuecat.md)
+- [ADR-015: Analytics and feature flags with PostHog](ADR-015-posthog.md)
+
+## Links
+
+- **Depends on**: [ADR-014](ADR-014-revenuecat.md) (RevenueCat), [ADR-015](ADR-015-posthog.md) (PostHog)
