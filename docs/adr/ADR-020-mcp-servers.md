@@ -24,6 +24,7 @@ Development is done with an AI assistant (Claude Code). Without access to the pr
 | **Redis** | Inspect BullMQ queues, keys and Pub/Sub while debugging the worker and realtime | ADR-010, ADR-011 | Local | Active (useful once the development Redis is running) |
 | **Mapbox** (hosted) | Geocoding, directions, static maps, Mapbox documentation | ADR-006, ADR-012 | Local | **To authenticate** (`/mcp` → mapbox) |
 | **PostHog** (hosted) | Create and read feature flags and experiments, query events | ADR-015, ADR-016 | Local | **To authenticate** (`/mcp` → posthog) |
+| **Resend** (hosted) | Domain/DNS verification, webhook setup and debugging, sent-email/log lookup for the transactional sender — never reproduced by hand via dashboard clicks or raw `curl` | ADR-023 | Local | Active |
 
 Additional tools already available: **Figma** (mockups), **Claude in Chrome** (manual testing of the backoffice).
 

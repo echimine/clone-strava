@@ -99,4 +99,4 @@ ADR-003 splits the backend into three NestJS apps (`api`, `realtime`, `worker`) 
 ## Links
 
 - **Details**: [ADR-003](ADR-003-backend.md) (backend stack and architecture)
-- **Related**: [ADR-001](ADR-001-global-architecture.md), [ADR-005](ADR-005-monorepo.md), [ADR-010](ADR-010-backend-realtime.md), [ADR-011](ADR-011-backend-worker.md), [ADR-014](ADR-014-revenuecat.md), [ADR-015](ADR-015-posthog.md)
+- **Related**: [ADR-001](ADR-001-global-architecture.md), [ADR-005](ADR-005-monorepo.md), [ADR-010](ADR-010-backend-realtime.md), [ADR-011](ADR-011-backend-worker.md), [ADR-014](ADR-014-revenuecat.md), [ADR-015](ADR-015-posthog.md), [ADR-022](ADR-022-authentication-better-auth.md) (Better Auth providers, sessions, admin role), [ADR-023](ADR-023-transactional-email-resend.md) (Resend webhook)

@@ -80,7 +80,7 @@ Other stack choices rejected: plain Express/Fastify (no modular structure), Mong
 - **Building internal packages**: `packages/core` uses NestJS decorators, so it needs a suitable TypeScript and Turborepo configuration (compiled packages, build order).
 - **Boundaries not enforced by the compiler**: plan ESLint rules (`eslint-plugin-boundaries`) to forbid internal imports between modules. *Amended by [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md)*: package subpath exports and `dependency-cruiser` instead.
 - **PostGIS with Drizzle**: custom geometry types and raw SQL for spatial queries, GiST indexes in the migrations.
-- **Better Auth**: no official NestJS integration and no iOS SDK. To be wired in the api (and session verification in realtime); tokens managed on the Swift side (Keychain).
+- **Better Auth**: only a community-maintained NestJS integration (`@thallesp/nestjs-better-auth`, no first-party one) and no iOS SDK. To be wired in the api (and session verification in realtime); tokens managed on the Swift side (Keychain). *Amended by [ADR-022](ADR-022-authentication-better-auth.md)*: providers (email/password, Google, Apple), the `bearer` plugin for the iOS token, `crossSubDomainCookies` for the backoffice cookie, and admin-only email-OTP 2FA.
 - **Redis is critical** (see ADR-001).
 
 ## References
@@ -95,5 +95,5 @@ Other stack choices rejected: plain Express/Fastify (no modular structure), Mong
 ## Links
 
 - **Depends on**: [ADR-001](ADR-001-global-architecture.md)
-- **Detailed by**: [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md) (module boundary rules)
+- **Detailed by**: [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md) (module boundary rules), [ADR-022](ADR-022-authentication-better-auth.md) (Better Auth providers, sessions, admin role)
 - **Related**: [ADR-005](ADR-005-monorepo.md)

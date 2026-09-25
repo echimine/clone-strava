@@ -317,4 +317,4 @@ We **do not copy** products or offerings into our database:
 ## Links
 
 - **Amended by**: [ADR-019](ADR-019-activity-creation-flow.md) (processing-tracking columns), [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md) (`kudos` and `comment` move to the `engagement` module; one PostgreSQL schema per module)
-- **Related**: [ADR-003](ADR-003-backend.md) (modules and owned tables), [ADR-008](ADR-008-mobile-offline-sync.md), [ADR-009](ADR-009-backend-api.md), [ADR-011](ADR-011-backend-worker.md), [ADR-014](ADR-014-revenuecat.md)
+- **Related**: [ADR-003](ADR-003-backend.md) (modules and owned tables), [ADR-008](ADR-008-mobile-offline-sync.md), [ADR-009](ADR-009-backend-api.md), [ADR-011](ADR-011-backend-worker.md), [ADR-014](ADR-014-revenuecat.md), [ADR-022](ADR-022-authentication-better-auth.md) (`admin` plugin on the `role` column)

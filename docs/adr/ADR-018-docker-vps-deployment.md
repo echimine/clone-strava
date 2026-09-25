@@ -200,4 +200,4 @@ Rules:
 
 ## Links
 
-- **Related**: [ADR-001](ADR-001-global-architecture.md), [ADR-003](ADR-003-backend.md), [ADR-005](ADR-005-monorepo.md), [ADR-009](ADR-009-backend-api.md), [ADR-010](ADR-010-backend-realtime.md), [ADR-011](ADR-011-backend-worker.md), [ADR-013](ADR-013-backoffice-architecture.md), [ADR-017](ADR-017-data-model.md)
+- **Related**: [ADR-001](ADR-001-global-architecture.md), [ADR-003](ADR-003-backend.md), [ADR-005](ADR-005-monorepo.md), [ADR-009](ADR-009-backend-api.md), [ADR-010](ADR-010-backend-realtime.md), [ADR-011](ADR-011-backend-worker.md), [ADR-013](ADR-013-backoffice-architecture.md), [ADR-017](ADR-017-data-model.md), [ADR-023](ADR-023-transactional-email-resend.md) (`mail.` subdomain DNS, `RESEND_API_KEY`)

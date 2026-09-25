@@ -87,4 +87,4 @@ The worker runs the heavy processing that the API puts in a queue (ADR-001). The
 
 - **Details**: [ADR-003](ADR-003-backend.md)
 - **Amended by**: [ADR-019](ADR-019-activity-creation-flow.md) (jobs and failure policy)
-- **Related**: [ADR-001](ADR-001-global-architecture.md), [ADR-009](ADR-009-backend-api.md) (shared foundation), [ADR-010](ADR-010-backend-realtime.md), [ADR-014](ADR-014-revenuecat.md), [ADR-015](ADR-015-posthog.md)
+- **Related**: [ADR-001](ADR-001-global-architecture.md), [ADR-009](ADR-009-backend-api.md) (shared foundation), [ADR-010](ADR-010-backend-realtime.md), [ADR-014](ADR-014-revenuecat.md), [ADR-015](ADR-015-posthog.md), [ADR-023](ADR-023-transactional-email-resend.md) (synchronous, not job-based, for auth emails)

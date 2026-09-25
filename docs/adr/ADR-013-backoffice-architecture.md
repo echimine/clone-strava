@@ -70,7 +70,7 @@ Admin action → Hook (TanStack Query) → api.ts → apiClient → NestJS API �
 ### Communication with the API: same origin via the Next.js proxy
 
 - The browser calls **`/api/...` on the backoffice domain**; Next.js forwards these requests to the NestJS API (rewrites in `next.config`).
-- Benefits: **no CORS**, the **Better Auth cookie** stays on the backoffice domain, the API URL is not exposed to the browser.
+- Benefits: **no CORS**, the **Better Auth cookie** stays on the backoffice domain, the API URL is not exposed to the browser. *Amended by [ADR-022](ADR-022-authentication-better-auth.md)*: the cookie is scoped to `.strava.echimine.fr` (`crossSubDomainCookies`), not narrowly to the backoffice's own subdomain, so a future web app on another subdomain shares the session.
 - The proxy only forwards: no logic, no database writes (ADR-004).
 
 ### Authentication and authorization
@@ -144,4 +144,4 @@ Admin action → Hook (TanStack Query) → api.ts → apiClient → NestJS API �
 ## Links
 
 - **Details**: [ADR-004](ADR-004-backoffice.md)
-- **Related**: [ADR-009](ADR-009-backend-api.md), [ADR-012](ADR-012-backoffice-stack.md)
+- **Related**: [ADR-009](ADR-009-backend-api.md), [ADR-012](ADR-012-backoffice-stack.md), [ADR-022](ADR-022-authentication-better-auth.md) (cookie scope)

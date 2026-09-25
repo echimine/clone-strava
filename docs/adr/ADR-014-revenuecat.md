@@ -95,4 +95,4 @@ Tests of **prices, durations, trials and paywall variants** go through **Revenue
 
 ## Links
 
-- **Related**: [ADR-006](ADR-006-mobile-stack.md), [ADR-007](ADR-007-mobile-architecture.md), [ADR-009](ADR-009-backend-api.md), [ADR-011](ADR-011-backend-worker.md), [ADR-015](ADR-015-posthog.md), [ADR-016](ADR-016-experimentation.md)
+- **Related**: [ADR-006](ADR-006-mobile-stack.md), [ADR-007](ADR-007-mobile-architecture.md), [ADR-009](ADR-009-backend-api.md), [ADR-011](ADR-011-backend-worker.md), [ADR-015](ADR-015-posthog.md), [ADR-016](ADR-016-experimentation.md), [ADR-023](ADR-023-transactional-email-resend.md) (same webhook secret-header pattern)

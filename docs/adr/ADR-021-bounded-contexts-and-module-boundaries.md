@@ -263,4 +263,4 @@ This replaces the `eslint-plugin-boundaries` option mentioned in ADR-003. The ex
 
 - **Details**: [ADR-003](ADR-003-backend.md) (dedicated ADR for module boundary rules; replaces the `eslint-plugin-boundaries` option)
 - **Amends**: [ADR-017](ADR-017-data-model.md) (`kudos` and `comment` move to the new `engagement` module; one PostgreSQL schema per module), [ADR-010](ADR-010-backend-realtime.md) (realtime messages published by a single bridge listener, not by domain modules)
-- **Related**: [ADR-004](ADR-004-backoffice.md), [ADR-005](ADR-005-monorepo.md), [ADR-009](ADR-009-backend-api.md), [ADR-010](ADR-010-backend-realtime.md), [ADR-011](ADR-011-backend-worker.md), [ADR-015](ADR-015-posthog.md), [ADR-019](ADR-019-activity-creation-flow.md)
+- **Related**: [ADR-004](ADR-004-backoffice.md), [ADR-005](ADR-005-monorepo.md), [ADR-009](ADR-009-backend-api.md), [ADR-010](ADR-010-backend-realtime.md), [ADR-011](ADR-011-backend-worker.md), [ADR-015](ADR-015-posthog.md), [ADR-019](ADR-019-activity-creation-flow.md), [ADR-023](ADR-023-transactional-email-resend.md) (`notifications` platform module)
