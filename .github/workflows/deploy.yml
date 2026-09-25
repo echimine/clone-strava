@@ -39,7 +39,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }} # éphémère, fourni par Actions
 
-      - name: Build args (admin uniquement : NEXT_PUBLIC_* inlinés au build)
+      - name: "Build args (admin uniquement : NEXT_PUBLIC_* inlinés au build)"
         id: build-args
         run: |
           if [ "${{ matrix.app }}" = "admin" ]; then
