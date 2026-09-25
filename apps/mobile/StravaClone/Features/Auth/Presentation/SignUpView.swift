@@ -21,6 +21,11 @@ struct SignUpView: View {
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)
                     .accessibilityIdentifier("signUp.email")
+                if !email.isEmpty && !isEmailValid {
+                    Text("Email invalide")
+                        .font(.footnote)
+                        .foregroundStyle(.red)
+                }
                 SecureField("Mot de passe", text: $password)
                     .textContentType(.newPassword)
                     .accessibilityIdentifier("signUp.password")
@@ -45,7 +50,7 @@ struct SignUpView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(Theme.accent)
-                .disabled(store.isSubmitting || name.isEmpty || email.isEmpty || password.isEmpty)
+                .disabled(store.isSubmitting || name.isEmpty || !isEmailValid || password.isEmpty)
                 .accessibilityIdentifier("signUp.submit")
 
                 GoogleSignInButton(store: store)
@@ -57,6 +62,10 @@ struct SignUpView: View {
             }
         }
         .navigationTitle("Créer un compte")
+    }
+
+    private var isEmailValid: Bool {
+        EmailValidation.isValid(email)
     }
 
     private var errorMessage: String? {

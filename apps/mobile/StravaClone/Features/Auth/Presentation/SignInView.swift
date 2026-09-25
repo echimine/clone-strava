@@ -17,6 +17,11 @@ struct SignInView: View {
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)
                     .accessibilityIdentifier("signIn.email")
+                if !email.isEmpty && !isEmailValid {
+                    Text("Email invalide")
+                        .font(.footnote)
+                        .foregroundStyle(.red)
+                }
                 SecureField("Mot de passe", text: $password)
                     .textContentType(.password)
                     .accessibilityIdentifier("signIn.password")
@@ -41,7 +46,7 @@ struct SignInView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(Theme.accent)
-                .disabled(store.isSubmitting || email.isEmpty || password.isEmpty)
+                .disabled(store.isSubmitting || !isEmailValid || password.isEmpty)
                 .accessibilityIdentifier("signIn.submit")
 
                 GoogleSignInButton(store: store)
@@ -53,6 +58,10 @@ struct SignInView: View {
             }
         }
         .navigationTitle("Connexion")
+    }
+
+    private var isEmailValid: Bool {
+        EmailValidation.isValid(email)
     }
 
     private var errorMessage: String? {

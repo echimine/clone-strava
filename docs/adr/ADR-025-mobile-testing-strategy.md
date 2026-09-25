@@ -54,6 +54,16 @@ Add a `mobile-test` job (either in a new `.github/workflows/mobile-ci.yml` or a 
 
 This job is scoped to pull requests and pushes touching `apps/mobile/**` (a path filter), not every push to the monorepo — a change to `apps/api` alone should not spin up a macOS runner. Unlike the backend (ADR-024 §5), there is no existing mobile deploy pipeline this gates today (ADR-018 covers only the four backend Docker apps) — this job's only job is to fail loudly on a broken build/test, not to gate a release step that doesn't exist yet; wiring an actual mobile release pipeline (TestFlight, App Store) is out of scope here and left to a future ADR.
 
+**Status as of this ADR's last update: this CI job is not implemented yet** — `.github/workflows/` only has `deploy.yml` (backend/web). Tests run locally in the meantime, via the root `package.json` scripts (outside the pnpm/Turbo pipeline per ADR-005, plain `xcodebuild` wrappers):
+
+```bash
+pnpm mobile:test      # StravaCloneTests (Swift Testing unit tests) — no backend required
+pnpm mobile:test:ui   # StravaCloneUITests (critical flow XCUITest) — requires the dev backend running:
+                       #   pnpm db:up && pnpm --filter api dev
+```
+
+Both regenerate the Xcode project first (`xcodegen generate`, since `.xcodeproj` is gitignored) and target the `iPhone 17` simulator by default — pass a different `-destination` directly to `xcodebuild` for another device.
+
 ### 5. Coverage: no hard threshold, `codeCoverageEnabled` stays on
 
 The scheme already has `codeCoverageEnabled = YES`. This ADR keeps coverage collection on (useful signal, visible in Xcode and in CI logs) but sets no minimum percentage gate, for the same reason ADR-024 §"Negative/Risks" declines one on the backend: a coverage percentage is a separate, disputable decision, and enforcing one now — on a codebase where most `Features/*` subfolders are still `.gitkeep` placeholders — would either be trivially met by testing nothing meaningful or block feature work outright. Revisit once more features are built out.
