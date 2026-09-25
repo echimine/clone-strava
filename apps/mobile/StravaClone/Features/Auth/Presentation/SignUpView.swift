@@ -27,7 +27,9 @@ struct SignUpView: View {
                         .foregroundStyle(.red)
                 }
                 SecureField("Mot de passe", text: $password)
-                    .textContentType(.newPassword)
+                    // No .textContentType(.newPassword): iOS's Strong Password
+                    // suggestion silently substitutes its own generated password over
+                    // what's typed here — including under XCUITest automation.
                     .accessibilityIdentifier("signUp.password")
             }
 

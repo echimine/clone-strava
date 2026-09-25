@@ -42,7 +42,7 @@ enum AuthFormErrorMessage {
         case .emailAlreadyInUse: "Un compte existe déjà avec cet email."
         case .rateLimited: "Trop de tentatives, réessayez dans une minute."
         case .offline: "Pas de connexion internet."
-        case .other: "Une erreur est survenue, réessayez."
+        case .message(let message): message.isEmpty ? "Une erreur est survenue, réessayez." : message
         }
     }
 }

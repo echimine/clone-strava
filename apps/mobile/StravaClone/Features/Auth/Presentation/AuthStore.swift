@@ -15,17 +15,33 @@ final class AuthStore {
         case emailAlreadyInUse
         case rateLimited
         case offline
-        case other(String)
+        /// A server-provided message (AuthError.server) or a Google-specific failure —
+        /// shown verbatim rather than folded into a generic "something went wrong".
+        case message(String)
 
         init(_ error: AuthError) {
             switch error {
             case .invalidCredentials: self = .invalidCredentials
             case .emailAlreadyInUse: self = .emailAlreadyInUse
             case .rateLimited: self = .rateLimited
+            case .server(let message): self = .message(message)
             case .network(.offline): self = .offline
-            case .network(let apiError): self = .other(String(describing: apiError))
-            case .googleSignInFailed(let message): self = .other(message)
-            case .googleSignInCancelled: self = .other("") // never surfaced, see run(_:)
+            case .network(let apiError): self = .message(FormError.describe(apiError))
+            case .googleSignInFailed(let message): self = .message("Google : \(message)")
+            case .googleSignInCancelled: self = .message("") // never surfaced, see run(_:)
+            }
+        }
+
+        /// A short, non-technical description of a lower-level network failure — the
+        /// cases that don't have a server message to show (transport error, decoding
+        /// failure, an unmapped HTTP status).
+        private static func describe(_ error: APIError) -> String {
+            switch error {
+            case .offline: "Pas de connexion internet."
+            case .unauthorized: "Session expirée, reconnectez-vous."
+            case .decoding: "Réponse du serveur illisible."
+            case .transport: "Impossible de joindre le serveur."
+            case .http(let status, _): "Erreur serveur (code \(status))."
             }
         }
     }
@@ -83,7 +99,7 @@ final class AuthStore {
                 formError = FormError(error)
             }
         } catch {
-            formError = .other(String(describing: error))
+            formError = .message(String(describing: error))
         }
     }
 }

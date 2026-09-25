@@ -1,10 +1,13 @@
 import Foundation
 
 /// Normalized API error: repositories only see these cases (ADR-008 §5 for handling).
+/// `http` carries the raw response body so a repository can read a server-provided
+/// error code/message (e.g. Better Auth's `{ code, message }`, ADR-022) instead of
+/// guessing what went wrong from the status code alone.
 enum APIError: Error, Equatable, Sendable {
     case offline
     case unauthorized
-    case http(status: Int)
+    case http(status: Int, body: Data?)
     case decoding
     case transport(String)
 }
@@ -85,7 +88,7 @@ struct APIClient: Sendable {
         switch http.statusCode {
         case 200..<300: break
         case 401: throw .unauthorized
-        default: throw .http(status: http.statusCode)
+        default: throw .http(status: http.statusCode, body: data)
         }
 
         do {

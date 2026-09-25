@@ -71,11 +71,27 @@ struct APIAuthRepositoryTests {
 
         URLProtocolStub.handler = { request in
             let response = HTTPURLResponse(url: request.url!, statusCode: 422, httpVersion: nil, headerFields: nil)!
-            return (response, Data())
+            let body = #"{"code":"USER_ALREADY_EXISTS","message":"User already exists."}"#.data(using: .utf8)!
+            return (response, body)
         }
 
         await #expect(throws: AuthError.emailAlreadyInUse) {
             try await repository.signUp(email: "a@b.com", password: "secret", name: "Ada")
+        }
+    }
+
+    @Test func signUpWithUnmappedServerErrorSurfacesItsMessage() async throws {
+        let (repository, authSession) = makeRepository()
+        defer { authSession.clear() }
+
+        URLProtocolStub.handler = { request in
+            let response = HTTPURLResponse(url: request.url!, statusCode: 400, httpVersion: nil, headerFields: nil)!
+            let body = #"{"code":"PASSWORD_TOO_SHORT","message":"Password too short"}"#.data(using: .utf8)!
+            return (response, body)
+        }
+
+        await #expect(throws: AuthError.server(message: "Password too short")) {
+            try await repository.signUp(email: "a@b.com", password: "x", name: "Ada")
         }
     }
 

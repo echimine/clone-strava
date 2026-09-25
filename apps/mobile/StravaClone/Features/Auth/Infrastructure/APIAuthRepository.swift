@@ -113,18 +113,38 @@ struct APIAuthRepository: AuthRepository {
         }
     }
 
+    /// Better Auth's error body shape: `{ code, message }` (better-call's `APIError`).
+    private struct ServerErrorBody: Decodable {
+        let code: String?
+        let message: String?
+    }
+
     private func mapError(_ error: APIError) -> AuthError {
         switch error {
-        case .http(status: 429):
-            return .rateLimited
-        case .http(status: 400), .http(status: 422):
-            // Sign-up with an email already in use (exact status/shape not covered by
-            // backend tests yet — ADR-022/§10 risk, to confirm against the real API).
-            return .emailAlreadyInUse
         case .unauthorized:
             return .invalidCredentials
+        case let .http(status: 429, body: _):
+            return .rateLimited
+        case let .http(status: _, body: body):
+            let server = body.flatMap { try? JSONDecoder().decode(ServerErrorBody.self, from: $0) }
+            switch server?.code {
+            case "USER_ALREADY_EXISTS", "USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL":
+                return .emailAlreadyInUse
+            case "INVALID_EMAIL_OR_PASSWORD", "INVALID_PASSWORD", "USER_NOT_FOUND":
+                return .invalidCredentials
+            default:
+                // Any other server-side rejection (password too short/long, invalid
+                // email shape the client-side regex missed, etc.): surface the server's
+                // own message rather than guessing — see AuthError.server's doc comment.
+                return .server(message: server?.message ?? "Une erreur est survenue (code \(errorStatus(error)))")
+            }
         default:
             return .network(error)
         }
+    }
+
+    private func errorStatus(_ error: APIError) -> Int {
+        if case .http(let status, _) = error { return status }
+        return -1
     }
 }
