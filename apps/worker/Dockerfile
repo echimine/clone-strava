@@ -18,7 +18,8 @@ COPY --from=pruner /app/out/json/ .
 RUN pnpm install --frozen-lockfile
 COPY --from=pruner /app/out/full/ .
 RUN pnpm turbo run build --filter=worker
-RUN pnpm --filter=worker deploy --prod /app/out/worker
+# --legacy : pnpm 10+ refuse par défaut sans inject-workspace-packages=true (cf. apps/api/Dockerfile)
+RUN pnpm --filter=worker deploy --prod --legacy /app/out/worker
 
 # ---- runner ----
 FROM node:24-alpine AS runner

@@ -29,8 +29,12 @@ RUN pnpm install --frozen-lockfile
 # Sources complètes élaguées (app + packages internes uniquement)
 COPY --from=pruner /app/out/full/ .
 RUN pnpm turbo run build --filter=api
-# Sortie autonome (prod only) dans /app/out/api, sans devDependencies
-RUN pnpm --filter=api deploy --prod /app/out/api
+# Sortie autonome (prod only) dans /app/out/api, sans devDependencies.
+# --legacy : pnpm 10+ refuse par défaut de déployer un workspace sans
+# inject-workspace-packages=true (ERR_PNPM_DEPLOY_NONINJECTED_WORKSPACE) ; on ne veut
+# pas ce mode ici (juste un node_modules de prod autonome, pas une vraie publication npm),
+# donc on garde le comportement historique de `pnpm deploy` via ce flag.
+RUN pnpm --filter=api deploy --prod --legacy /app/out/api
 
 # ---- runner ----
 # `init: true` côté docker-compose (tini) gère le forwarding de signaux : pas besoin
