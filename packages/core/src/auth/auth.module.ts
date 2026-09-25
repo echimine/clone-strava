@@ -1,6 +1,7 @@
 import { Module, type DynamicModule } from "@nestjs/common";
 import type { Database } from "@repo/db";
-import { DATABASE } from "../infrastructure/index.js";
+import { DATABASE, REDIS, type Redis } from "../infrastructure/index.js";
+import { NotificationsModule, NotificationsService } from "../notifications/index.js";
 import { AUTH_INSTANCE, type AuthModuleOptions } from "./auth.constants.js";
 import { createAuthInstance } from "./create-auth-instance.js";
 import { AuthService } from "./auth.service.js";
@@ -25,12 +26,23 @@ export class AuthModule {
   static forRoot(options: AuthModuleOptions): DynamicModule {
     return {
       module: AuthModule,
+      // This `NotificationsService` instance is only ever used here to send
+      // auth emails (`sendAuthEmail`), never to verify a webhook signature,
+      // so `webhookSecret` is intentionally inert — `webhooks.module.ts`
+      // imports its own `NotificationsModule.forRoot(...)` with the real one
+      // for that purpose.
+      imports: [NotificationsModule.forRoot({ apiKey: options.resendApiKey, webhookSecret: "" })],
       providers: [
         { provide: AUTH_MODULE_OPTIONS, useValue: options },
         {
           provide: AUTH_INSTANCE,
-          useFactory: (db: Database, opts: AuthModuleOptions) => createAuthInstance(db, opts),
-          inject: [DATABASE, AUTH_MODULE_OPTIONS],
+          useFactory: (
+            db: Database,
+            redis: Redis,
+            notifications: NotificationsService,
+            opts: AuthModuleOptions,
+          ) => createAuthInstance(db, redis, notifications, opts),
+          inject: [DATABASE, REDIS, NotificationsService, AUTH_MODULE_OPTIONS],
         },
         AuthService,
       ],

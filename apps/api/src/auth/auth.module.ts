@@ -11,9 +11,12 @@ const config = loadConfig();
 const coreAuthModule = CoreAuthModule.forRoot({
   secret: config.BETTER_AUTH_SECRET,
   baseUrl: config.BETTER_AUTH_URL,
-  // No cross-origin frontend needs Better Auth's cookie today (ADR-009 §"api
-  // stack": "no CORS: the backoffice goes through the Next.js proxy").
-  trustedOrigins: [],
+  // ADR-022: the backoffice (cross-subdomain cookie) and the iOS app
+  // (custom scheme) both need to be trusted explicitly.
+  trustedOrigins: ["https://admin.strava.echimine.fr", "app://strava"],
+  googleClientId: config.GOOGLE_CLIENT_ID,
+  googleClientSecret: config.GOOGLE_CLIENT_SECRET,
+  resendApiKey: config.RESEND_API_KEY,
 });
 
 /**

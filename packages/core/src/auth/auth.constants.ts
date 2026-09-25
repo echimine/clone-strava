@@ -11,4 +11,7 @@ export interface AuthModuleOptions {
   secret: string;
   baseUrl: string;
   trustedOrigins: string[];
+  googleClientId: string;
+  googleClientSecret: string;
+  resendApiKey: string;
 }

@@ -33,16 +33,17 @@ export const auth = betterAuth({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     },
-    apple: {
-      clientId: process.env.APPLE_CLIENT_ID!,       // Services ID
-      clientSecret: process.env.APPLE_CLIENT_SECRET!, // generated JWT (private key + Team ID + Key ID)
-      appBundleIdentifier: process.env.APPLE_APP_BUNDLE_ID!, // native Sign in with Apple on iOS
-    },
+    // apple: added once an Apple Developer Program membership exists — see note below.
+    // apple: {
+    //   clientId: process.env.APPLE_CLIENT_ID!,       // Services ID
+    //   clientSecret: process.env.APPLE_CLIENT_SECRET!, // generated JWT (private key + Team ID + Key ID)
+    //   appBundleIdentifier: process.env.APPLE_APP_BUNDLE_ID!, // native Sign in with Apple on iOS
+    // },
   },
 });
 ```
 
-- **Apple is mandatory**, not optional: an iOS app that offers any third-party sign-in (Google) must also offer Sign in with Apple (App Store Review Guideline 4.8). `appBundleIdentifier` is required for the native flow (`ASAuthorizationController` on iOS) in addition to the web Services ID flow.
+- **Apple is mandatory, not optional, but blocked on an external prerequisite**: an iOS app that offers any third-party sign-in (Google) must also offer Sign in with Apple (App Store Review Guideline 4.8). Setting it up (Services ID, private key, Team ID) requires a **paid Apple Developer Program membership** ($99/year), which does not exist yet as of this ADR's date. **Consequence: Google + email/password sign-in ship first, for development and internal testing only — the app must not be submitted to App Store review until Apple is added**, or Apple will reject it outright for offering Google without Apple. This is tracked as a blocking prerequisite, not a silently-deferred nice-to-have; do not remove this note until Apple is actually wired in.
 - Email/password uses Better Auth's built-in account-enumeration protections (generic error messages, dummy operations on invalid requests) — no custom work needed there.
 - Email verification (`emailVerification.sendOnSignUp`) and password reset (`emailAndPassword.sendResetPassword`) need a transactional email sender; the sender itself (provider, templates) is not decided here and can be a follow-up ADR or an implementation detail — this ADR only requires that both handlers are defined before going to production, since Better Auth no-ops silently otherwise. *Amended by [ADR-023](ADR-023-transactional-email-resend.md)*: Resend, on a dedicated `mail.strava.echimine.fr` subdomain, with React Email templates.
 
@@ -167,7 +168,7 @@ Mechanics:
 ### Negative / Risks
 - **Bearer tokens do not expire on their own the way a short-lived JWT would** unless `session.expiresIn`/`updateAge` are tuned; a stolen Keychain token is valid until the session it maps to ends. Mitigated by keeping the token in the Keychain (not backed up in plaintext) and by the ability to `revokeSession`/`revokeSessions` server-side.
 - **`crossSubDomainCookies` trusts every subdomain of `strava.echimine.fr`** with the session; any future subdomain (e.g. a staging or demo app) must be treated as a trusted first-party surface, or moved to a separate domain instead.
-- **Apple OAuth setup has real operational cost**: Services ID, private key, Team ID, Key ID to generate the client secret JWT, and it must be regenerated periodically (Apple-signed secrets expire) — an operational task to track (VPS/CI secrets rotation), not just a one-time config.
+- **Apple sign-in is not implemented yet**, blocked on a paid Apple Developer Program membership (§1) — the app must stay out of App Store review until it ships. Once unblocked, Apple OAuth setup itself has real operational cost: Services ID, private key, Team ID, Key ID to generate the client secret JWT, and it must be regenerated periodically (Apple-signed secrets expire) — an operational task to track (VPS/CI secrets rotation), not just a one-time config.
 - **An admin who chooses email OTP still depends on outbound email deliverability** for that admin's sign-in: if the transactional email sender (§1) is down or delayed, they are locked out of the backoffice along with everyone waiting on a verification/reset email. Mitigated in two ways: TOTP is offered as a deliverability-independent alternative (§5), and *[ADR-023](ADR-023-transactional-email-resend.md)*'s bounce/complaint webhook flags a broken inbox instead of failing silently. Backup codes are generated for both methods but no explicit recovery UX/runbook is defined yet for "an admin lost their phone and their inbox is also down" — a follow-up, not a blocker.
 - **The "require 2FA for admins" rule is enforced in application code, not by Better Auth itself** (§5): a bug in the `databaseHooks`/guard logic could let a freshly promoted admin in before 2FA is actually set up. Needs a test covering the promotion → guard-blocks-until-verified path.
 

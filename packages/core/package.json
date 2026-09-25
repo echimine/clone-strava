@@ -43,6 +43,10 @@
       "types": "./dist/analytics/index.d.ts",
       "default": "./dist/analytics/index.js"
     },
+    "./notifications": {
+      "types": "./dist/notifications/index.d.ts",
+      "default": "./dist/notifications/index.js"
+    },
     "./storage": {
       "types": "./dist/storage/index.d.ts",
       "default": "./dist/storage/index.js"
@@ -68,6 +72,8 @@
     "@nestjs/common": "11.2.6",
     "@nestjs/core": "11.2.6",
     "@nestjs/event-emitter": "3.1.0",
+    "@react-email/components": "1.0.12",
+    "@react-email/render": "2.1.0",
     "@repo/contracts": "workspace:*",
     "@repo/db": "workspace:*",
     "@repo/realtime": "workspace:*",
@@ -76,12 +82,15 @@
     "drizzle-orm": "0.45.3",
     "ioredis": "6.0.0",
     "posthog-node": "5.53.0",
+    "react": "19.3.0",
     "reflect-metadata": "0.2.2",
+    "resend": "6.29.0",
     "rxjs": "7.8.2"
   },
   "devDependencies": {
     "@repo/typescript-config": "workspace:*",
     "@types/node": "26.6.2",
+    "@types/react": "19.3.0",
     "typescript": "7.0.2",
     "@nestjs/testing": "11.2.6",
     "vitest": "5.0.1",
