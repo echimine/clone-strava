@@ -41,7 +41,7 @@ ADR-003 splits the backend into three NestJS apps (`api`, `realtime`, `worker`) 
 | Realtime tokens | `jsonwebtoken` (HS256, `REALTIME_TOKEN_SECRET` secret shared with `realtime`) | `POST /v1/realtime/token` endpoint |
 | Subscriptions | **RevenueCat** webhook (ADR-014) | `POST /v1/webhooks/revenuecat` endpoint |
 | Analytics | `posthog-node`, via the `analytics` module of `packages/core` (ADR-015) | Reliable server-side events |
-| Documentation | **OpenAPI generated from the Zod schemas** | API reference and generation of Swift models (ADR-005) |
+| Documentation | **OpenAPI generated from the Zod schemas** | API reference and generation of Swift models (ADR-005). *Amended by [ADR-026](ADR-026-openapi-swift-codegen.md)*: also exported to `apps/mobile/.../OpenAPI/openapi.json` by `pnpm mobile:sync-openapi`, drift-checked in CI |
 | Protection | `@nestjs/throttler` (rate limiting); no CORS: the backoffice goes through the Next.js proxy (ADR-013) and the mobile app is not affected by CORS | — |
 | Health | `@nestjs/terminus` | `/health` endpoint (database, Redis) for deployment |
 
@@ -99,4 +99,5 @@ ADR-003 splits the backend into three NestJS apps (`api`, `realtime`, `worker`) 
 ## Links
 
 - **Details**: [ADR-003](ADR-003-backend.md) (backend stack and architecture)
+- **Amended by**: [ADR-026](ADR-026-openapi-swift-codegen.md) (OpenAPI spec export for Swift codegen)
 - **Related**: [ADR-001](ADR-001-global-architecture.md), [ADR-005](ADR-005-monorepo.md), [ADR-010](ADR-010-backend-realtime.md), [ADR-011](ADR-011-backend-worker.md), [ADR-014](ADR-014-revenuecat.md), [ADR-015](ADR-015-posthog.md), [ADR-022](ADR-022-authentication-better-auth.md) (Better Auth providers, sessions, admin role), [ADR-023](ADR-023-transactional-email-resend.md) (Resend webhook)

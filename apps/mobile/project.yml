@@ -49,6 +49,17 @@ packages:
   GoogleSignIn:
     url: https://github.com/google/GoogleSignIn-iOS
     from: 8.0.0
+  # OpenAPI -> Swift types, generated at build time from
+  # StravaClone/Core/Network/OpenAPI/openapi.json (ADR-026).
+  OpenAPIGenerator:
+    url: https://github.com/apple/swift-openapi-generator
+    from: 1.10.0
+  OpenAPIRuntime:
+    url: https://github.com/apple/swift-openapi-runtime
+    from: 1.8.0
+  OpenAPIURLSession:
+    url: https://github.com/apple/swift-openapi-urlsession
+    from: 1.1.0
 
 targets:
   StravaClone:
@@ -94,6 +105,11 @@ targets:
       # Import MapboxMaps only in Features/*/Presentation (ADR-007 rule 6).
       - package: MapboxMaps
       - package: GoogleSignIn
+      - package: OpenAPIRuntime
+      - package: OpenAPIURLSession
+    buildToolPlugins:
+      - plugin: OpenAPIGenerator
+        package: OpenAPIGenerator
     scheme:
       testTargets:
         - StravaCloneTests

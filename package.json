@@ -13,8 +13,9 @@
     "db:down": "docker compose -f docker-compose.dev.yml down",
     "db:studio": "pnpm --filter @repo/db db:studio",
     "mobile:generate": "cd apps/mobile && xcodegen generate",
-    "mobile:test": "pnpm mobile:generate && xcodebuild test -project apps/mobile/StravaClone.xcodeproj -scheme StravaClone -only-testing:StravaCloneTests -destination 'platform=iOS Simulator,name=iPhone 17'",
-    "mobile:test:ui": "pnpm mobile:generate && xcodebuild test -project apps/mobile/StravaClone.xcodeproj -scheme StravaClone -only-testing:StravaCloneUITests -destination 'platform=iOS Simulator,name=iPhone 17'",
+    "mobile:sync-openapi": "turbo run build --filter=api && pnpm --filter api openapi:export",
+    "mobile:test": "pnpm mobile:generate && xcodebuild test -project apps/mobile/StravaClone.xcodeproj -scheme StravaClone -skipPackagePluginValidation -only-testing:StravaCloneTests -destination 'platform=iOS Simulator,name=iPhone 17'",
+    "mobile:test:ui": "pnpm mobile:generate && xcodebuild test -project apps/mobile/StravaClone.xcodeproj -scheme StravaClone -skipPackagePluginValidation -only-testing:StravaCloneUITests -destination 'platform=iOS Simulator,name=iPhone 17'",
     "format": "prettier --write \"**/*.{ts,tsx,md}\""
   },
   "devDependencies": {
