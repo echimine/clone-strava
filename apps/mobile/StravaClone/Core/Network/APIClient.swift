@@ -1,10 +1,13 @@
 import Foundation
 
 /// Normalized API error: repositories only see these cases (ADR-008 §5 for handling).
+/// `http` carries the raw response body so a repository can read a server-provided
+/// error code/message (e.g. Better Auth's `{ code, message }`, ADR-022) instead of
+/// guessing what went wrong from the status code alone.
 enum APIError: Error, Equatable, Sendable {
     case offline
     case unauthorized
-    case http(status: Int)
+    case http(status: Int, body: Data?)
     case decoding
     case transport(String)
 }
@@ -44,6 +47,18 @@ struct APIClient: Sendable {
         path: String,
         body: Body?
     ) async throws(APIError) -> Response {
+        let (response, _): (Response, HTTPURLResponse) = try await sendWithHeaders(method: method, path: path, body: body)
+        return response
+    }
+
+    /// Same as `send`, but also returns the raw HTTP response so a caller can read
+    /// response headers (e.g. Better Auth's `set-auth-token`, ADR-022) — everyone else
+    /// should keep using `send`, which discards it.
+    func sendWithHeaders<Body: Encodable, Response: Decodable>(
+        method: String,
+        path: String,
+        body: Body?
+    ) async throws(APIError) -> (Response, HTTPURLResponse) {
         var request = URLRequest(url: baseURL.appending(path: path))
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Accept")
@@ -73,11 +88,11 @@ struct APIClient: Sendable {
         switch http.statusCode {
         case 200..<300: break
         case 401: throw .unauthorized
-        default: throw .http(status: http.statusCode)
+        default: throw .http(status: http.statusCode, body: data)
         }
 
         do {
-            return try Self.decoder.decode(Response.self, from: data)
+            return (try Self.decoder.decode(Response.self, from: data), http)
         } catch {
             throw .decoding
         }

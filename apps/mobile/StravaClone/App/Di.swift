@@ -35,6 +35,7 @@ final class Di {
     let connectivityMonitor: ConnectivityMonitor
 
     private let recordingService: RecordingService
+    private let authService: AuthService
 
     init(configuration: AppConfiguration = AppConfiguration(), database: AppDatabase) {
         self.configuration = configuration
@@ -46,10 +47,16 @@ final class Di {
 
         // TODO(ADR-014): configure RevenueCat behind a SubscriptionService port (Features/Paywall).
         // TODO(ADR-015): configure PostHog behind an analytics port, session replay disabled.
+        // TODO(ADR-022): Apple Sign-In — blocked on a paid Apple Developer Program membership.
+        // TODO(ADR-022 §5): admin 2FA — credential-only, backoffice web, not applicable to mobile.
 
         recordingService = RecordingService(
             locationProvider: CoreLocationProvider(),
             repository: GRDBRecordingRepository(database: database)
+        )
+        authService = AuthService(
+            repository: APIAuthRepository(apiClient: apiClient, authSession: authSession),
+            googleAuthProvider: GIDGoogleAuthProvider()
         )
     }
 
@@ -63,5 +70,9 @@ final class Di {
 
     func makeRecordingStore() -> RecordingStore {
         RecordingStore(service: recordingService)
+    }
+
+    func makeAuthStore() -> AuthStore {
+        AuthStore(service: authService)
     }
 }

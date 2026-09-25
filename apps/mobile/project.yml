@@ -97,6 +97,7 @@ targets:
     scheme:
       testTargets:
         - StravaCloneTests
+        - StravaCloneUITests
       gatherCoverageData: true
 
   StravaCloneTests:
@@ -108,5 +109,17 @@ targets:
       base:
         GENERATE_INFOPLIST_FILE: YES
         PRODUCT_BUNDLE_IDENTIFIER: fr.echimine.stravaclone.tests
+    dependencies:
+      - target: StravaClone
+
+  StravaCloneUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: StravaCloneUITests
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: fr.echimine.stravaclone.uitests
     dependencies:
       - target: StravaClone
