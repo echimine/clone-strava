@@ -11,6 +11,7 @@
     "check-deps:run": "depcruise apps packages --config .dependency-cruiser.cjs",
     "db:up": "docker compose -f docker-compose.dev.yml up -d",
     "db:down": "docker compose -f docker-compose.dev.yml down",
+    "db:studio": "pnpm --filter @repo/db db:studio",
     "format": "prettier --write \"**/*.{ts,tsx,md}\""
   },
   "devDependencies": {
