@@ -1,0 +1,15 @@
+[
+  {
+    "id": "deploy-strava",
+    "execute-command": "/scripts/deploy-strava.sh",
+    "command-working-directory": "/opt/www/strava.echimine.fr/prod",
+    "response-message": "strava deploy triggered",
+    "trigger-rule": {
+      "match": {
+        "type": "value",
+        "value": "{{ getenv `DEPLOY_TOKEN` }}",
+        "parameter": { "source": "header", "name": "X-Deploy-Token" }
+      }
+    }
+  }
+]

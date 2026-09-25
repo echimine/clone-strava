@@ -1,0 +1,30 @@
+# ADR-018 §"Files and steps" : exclusions build pour les 4 images (api, realtime, worker, admin).
+# `turbo prune --docker` copie le repo dans le stage pruner : ce fichier limite le contexte envoyé
+# au daemon Docker et évite d'embarquer des artefacts locaux dans les images.
+
+# iOS app : hors Docker (ADR-005, ADR-018)
+apps/mobile
+
+node_modules
+**/node_modules
+
+.next
+**/.next
+dist
+**/dist
+.turbo
+**/.turbo
+
+.git
+.github
+
+.env
+.env.*
+!.env.example
+
+*.log
+.DS_Store
+coverage
+**/coverage
+
+docs

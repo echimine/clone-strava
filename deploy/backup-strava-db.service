@@ -1,0 +1,10 @@
+[Unit]
+Description=Backup DB strava vers OVH S3
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=deploy
+EnvironmentFile=/opt/www/strava.echimine.fr/prod/.env
+ExecStart=/bin/bash -c '/opt/backups/backup-db.sh strava.echimine.fr strava-db "$POSTGRES_USER" "$POSTGRES_DB" prod'

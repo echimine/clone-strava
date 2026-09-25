@@ -1,0 +1,212 @@
+# docker-compose.yml de PROD — à copier sur le VPS dans
+# /opt/www/strava.echimine.fr/prod/docker-compose.yml (ADR-018).
+# NE PAS exécuter depuis ce repo : ce fichier est un modèle prêt à déposer sur le VPS,
+# à côté d'un .env (chmod 600, jamais commité) et de redis.conf (idem).
+#
+# Réseaux (ADR-018 §5) :
+#   traefik-public (externe, partagé VPS) : api, realtime, admin
+#   data           (internal)             : db, redis, api, realtime, worker
+#   admin-api      (internal)             : admin <-> api (proxy http://api:3001)
+#   egress         (bridge standard, non exposé) : worker uniquement (Internet sortant :
+#                  bucket OVH, RevenueCat, PostHog)
+#
+# Règles non négociables : aucun `ports:` publié, `no-new-privileges:true` partout,
+# `restart: unless-stopped`, `init: true` sur les services Node, `container_name`
+# uniquement sur `db` (jamais sur realtime/worker), rotation des logs (Pino verbeux).
+
+name: strava
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  db:
+    image: postgis/postgis:17-3.5
+    container_name: strava-db
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    networks: [data]
+    logging: *default-logging
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    # Mot de passe dans le fichier monté (pas en argument de commande, cf. skill deploy-vps).
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    # REDIS_PASSWORD du .env, nécessaire ici uniquement pour que le healthcheck (redis-cli)
+    # puisse s'authentifier ; le vrai mot de passe du serveur vient de redis.conf.
+    env_file: .env
+    volumes:
+      - redis-data:/data
+      - ./redis.conf:/usr/local/etc/redis/redis.conf:ro
+    networks: [data]
+    logging: *default-logging
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" --no-auth-warning ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  api:
+    image: ghcr.io/echimine/strava-api:latest # ou tag SHA pour pinner/rollback
+    restart: unless-stopped
+    init: true
+    security_opt: [no-new-privileges:true]
+    env_file: .env
+    environment:
+      PORT: "3001"
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    networks: [traefik-public, data, admin-api]
+    logging: *default-logging
+    stop_grace_period: 15s
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3001/health',{signal:AbortSignal.timeout(4000)}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 40s
+    labels:
+      - "diun.enable=true"
+      - "diun.notify_on=new;update"
+      - "diun.watch_repo=false"
+      - "traefik.enable=true"
+      - "traefik.http.routers.strava-api.rule=Host(`api.strava.echimine.fr`)"
+      - "traefik.http.routers.strava-api.entrypoints=websecure"
+      - "traefik.http.routers.strava-api.tls.certresolver=letsencrypt"
+      - "traefik.http.services.strava-api.loadbalancer.server.port=3001"
+
+  realtime:
+    image: ghcr.io/echimine/strava-realtime:latest
+    restart: unless-stopped
+    init: true
+    security_opt: [no-new-privileges:true]
+    env_file: .env
+    environment:
+      PORT: "3001"
+    depends_on:
+      redis: { condition: service_healthy }
+    networks: [traefik-public, data]
+    logging: *default-logging
+    stop_grace_period: 15s
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3001/health',{signal:AbortSignal.timeout(4000)}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    labels:
+      - "diun.enable=true"
+      - "diun.notify_on=new;update"
+      - "diun.watch_repo=false"
+      - "traefik.enable=true"
+      - "traefik.http.routers.strava-realtime.rule=Host(`ws.strava.echimine.fr`)"
+      - "traefik.http.routers.strava-realtime.entrypoints=websecure"
+      - "traefik.http.routers.strava-realtime.tls.certresolver=letsencrypt"
+      - "traefik.http.services.strava-realtime.loadbalancer.server.port=3001"
+
+  worker:
+    image: ghcr.io/echimine/strava-worker:latest
+    restart: unless-stopped
+    init: true
+    security_opt: [no-new-privileges:true]
+    env_file: .env
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      api: { condition: service_healthy } # attend que les migrations (au boot api) aient tourné
+    networks: [data, egress]
+    logging: *default-logging
+    stop_grace_period: 120s # laisse finir les jobs BullMQ en cours (worker.close())
+    healthcheck:
+      # Pas de serveur HTTP (ADR-011) : heartbeat file rafraîchi toutes les 15s par le process.
+      test: ["CMD-SHELL", "find /tmp/worker-alive -mmin -1 | grep -q ."]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 30s
+    labels:
+      - "diun.enable=true"
+      - "diun.notify_on=new;update"
+      - "diun.watch_repo=false"
+      # Pas de traefik.enable : jamais exposé (ADR-018 §2).
+
+  admin:
+    image: ghcr.io/echimine/strava-admin:latest
+    restart: unless-stopped
+    init: true
+    security_opt: [no-new-privileges:true]
+    env_file: .env
+    environment:
+      API_INTERNAL_URL: http://api:3001
+    depends_on:
+      api: { condition: service_healthy }
+    networks: [traefik-public, admin-api]
+    logging: *default-logging
+    stop_grace_period: 10s
+    healthcheck:
+      # /login peut répondre un code d'auth/redirect : on accepte tout < 500 (piège connu skill).
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/login',{signal:AbortSignal.timeout(4000)}).then(r=>process.exit(r.status<500?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    labels:
+      - "diun.enable=true"
+      - "diun.notify_on=new;update"
+      - "diun.watch_repo=false"
+      - "traefik.enable=true"
+      - "traefik.http.routers.strava-admin.rule=Host(`admin.strava.echimine.fr`)"
+      - "traefik.http.routers.strava-admin.entrypoints=websecure"
+      - "traefik.http.routers.strava-admin.tls.certresolver=letsencrypt"
+      - "traefik.http.services.strava-admin.loadbalancer.server.port=3000"
+
+volumes:
+  db-data:
+  redis-data:
+
+networks:
+  traefik-public:
+    external: true
+  data:
+    internal: true
+  admin-api:
+    internal: true
+  egress:
+    driver: bridge
