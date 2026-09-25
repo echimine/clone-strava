@@ -56,7 +56,14 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       const status = exception.getStatus();
       const httpResponse = exception.getResponse();
       const message = typeof httpResponse === "string" ? httpResponse : exception.message;
-      return { status, body: { error: { code: httpStatusToCode(status), message } } };
+      // A handler can pass `{ code, message }` to `new HttpException(...)` for a
+      // machine-readable code more specific than the status (e.g. `ADMIN_2FA_REQUIRED`);
+      // anything else falls back to the status-derived code, as before.
+      const code =
+        typeof httpResponse === "object" && httpResponse !== null && "code" in httpResponse
+          ? String((httpResponse as { code: unknown }).code)
+          : httpStatusToCode(status);
+      return { status, body: { error: { code, message } } };
     }
 
     return {

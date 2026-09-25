@@ -7,7 +7,7 @@
     "lint": "turbo run lint",
     "test": "turbo run test",
     "check-types": "turbo run check-types",
-    "check-deps": "turbo run //#check-deps",
+    "check-deps": "depcruise apps packages --config .dependency-cruiser.cjs",
     "check-deps:run": "depcruise apps packages --config .dependency-cruiser.cjs",
     "db:up": "docker compose -f docker-compose.dev.yml up -d",
     "db:down": "docker compose -f docker-compose.dev.yml down",

@@ -1,4 +1,4 @@
-import { boolean, pgEnum, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { boolean, integer, pgEnum, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 /**
  * Better Auth core tables (ADR-009, ADR-017), kept in the `public` schema
@@ -15,6 +15,11 @@ import { boolean, pgEnum, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-
  * so the DB default is only a fallback; `apps/api` must configure
  * `advanced.database.generateId` (or an id generator) to emit UUIDs so the
  * values Better Auth writes match this column type.
+ *
+ * `user.twoFactorEnabled` and the `twoFactor` table are the `twoFactor`
+ * plugin's own schema (ADR-022 §5), field names/types kept exactly as
+ * Better Auth's schema generator defines them (`better-auth/dist/plugins/
+ * two-factor/schema.mjs`).
  */
 
 /** `user.role` (ADR-017, ADR-009 admin guard). */
@@ -31,6 +36,8 @@ export const user = pgTable("user", {
   banned: boolean("banned").notNull().default(false),
   banReason: text("ban_reason"),
   banExpires: timestamp("ban_expires", { withTimezone: true }),
+  // `twoFactor` plugin (ADR-022 §5): checked directly by `AdminGuard`.
+  twoFactorEnabled: boolean("two_factor_enabled").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -75,4 +82,17 @@ export const verification = pgTable("verification", {
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** `twoFactor` plugin (ADR-022 §5): one row per user with 2FA configured. */
+export const twoFactor = pgTable("two_factor", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  secret: text("secret").notNull(),
+  backupCodes: text("backup_codes").notNull(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  verified: boolean("verified").notNull().default(true),
+  failedVerificationCount: integer("failed_verification_count").notNull().default(0),
+  lockedUntil: timestamp("locked_until", { withTimezone: true }),
 });

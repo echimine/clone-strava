@@ -42,7 +42,23 @@ async function bootstrap(): Promise<void> {
   const authInstance = app.get(AUTH_INSTANCE);
   const expressApp = app.getHttpAdapter().getInstance();
   expressApp.all("/api/auth/*splat", toNodeHandler(authInstance));
-  app.use(express.json());
+  // `verify` always receives the pre-parse buffer, for every route; teeing
+  // it onto `req.rawBody` for the Resend webhook alone gives
+  // `ResendWebhookController` byte-exact bytes for its Svix HMAC check
+  // (ADR-023) without a second raw-body-only middleware/route.
+  app.use(
+    express.json({
+      // `verify` types `req` as the bare `http.IncomingMessage`
+      // (body-parser has no express dependency); `originalUrl`/`rawBody`
+      // are express-only, hence the single cast for both reads/writes.
+      verify: (req, _res, buf) => {
+        const request = req as express.Request & { rawBody?: Buffer };
+        if (request.originalUrl === "/v1/webhooks/resend") {
+          request.rawBody = buf;
+        }
+      },
+    }),
+  );
 
   // Versioned routes (ADR-009 §8), excluding `/health` (ADR-018 §6, public,
   // outside rate limiting and authentication) and the Better Auth mount.

@@ -14,6 +14,8 @@ export interface AuthSession {
   email: string;
   name: string;
   role: UserRole;
+  /** Added by the `twoFactor` plugin (ADR-022 §5): required for `AdminGuard`. */
+  twoFactorEnabled: boolean;
 }
 
 /**
@@ -36,6 +38,19 @@ export class AuthService {
       email: result.user.email,
       name: result.user.name,
       role: result.user.role as UserRole,
+      twoFactorEnabled: Boolean(result.user.twoFactorEnabled),
     };
+  }
+
+  /**
+   * Flags `email` as unverified (ADR-023: `ResendWebhookController` calls
+   * this on `email.bounced`/`email.complained`). Goes through Better Auth's
+   * own `internalAdapter` (via `$context`, not the HTTP `api`) since this is
+   * a system-triggered update with no admin session to satisfy the `admin`
+   * plugin's `updateUser` permission check.
+   */
+  async markEmailUnverified(email: string): Promise<void> {
+    const context = await this.auth.$context;
+    await context.internalAdapter.updateUserByEmail(email, { emailVerified: false });
   }
 }
