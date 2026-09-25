@@ -1,5 +1,7 @@
 # ADR-018 : build+push matrix des 4 images (api, realtime, worker, admin) vers GHCR,
 # puis notification du webhook VPS (pattern GHCR -> webhook -> VPS, skill deploy-vps).
+# ADR-024 : job `test` en amont, mêmes Postgres/Redis que docker-compose.dev.yml,
+# qui bloque build-push (donc le déploiement) si `pnpm build && pnpm test` échoue.
 name: deploy
 
 on:
@@ -15,7 +17,72 @@ permissions:
   packages: write # pousser sur GHCR
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: postgis/postgis:17-3.5
+        env:
+          POSTGRES_USER: strava
+          POSTGRES_PASSWORD: strava
+          POSTGRES_DB: strava
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U strava -d strava"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # `apiEnvSchema`/`workerEnvSchema`/`realtimeEnvSchema` (packages/contracts) refusent
+      # de booter sans ces variables (ADR-009) -- `pnpm build`/`test-auth-app.ts` en ont
+      # besoin même si les valeurs non-infra sont des dummies (NotificationsService et les
+      # autres appels externes sont mockés dans les tests, ADR-024 §2).
+      DATABASE_URL: postgres://strava:strava@127.0.0.1:5432/strava
+      REDIS_URL: redis://127.0.0.1:6379
+      BETTER_AUTH_SECRET: ci-dummy-better-auth-secret-32-bytes-min
+      BETTER_AUTH_URL: http://127.0.0.1:3000
+      REALTIME_TOKEN_SECRET: ci-dummy-realtime-token-secret
+      S3_ENDPOINT: http://127.0.0.1:9000
+      S3_REGION: eu-west-1
+      S3_BUCKET: ci-dummy-bucket
+      S3_ACCESS_KEY_ID: ci-dummy-access-key
+      S3_SECRET_ACCESS_KEY: ci-dummy-secret-key
+      REVENUECAT_WEBHOOK_SECRET: ci-dummy-revenuecat-webhook-secret
+      REVENUECAT_API_KEY: ci-dummy-revenuecat-api-key
+      RESEND_API_KEY: ci-dummy-resend-api-key
+      RESEND_WEBHOOK_SECRET: ci-dummy-resend-webhook-secret
+      GOOGLE_CLIENT_ID: ci-dummy-google-client-id
+      GOOGLE_CLIENT_SECRET: ci-dummy-google-client-secret
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm build
+
+      - run: pnpm --filter @repo/db db:migrate
+
+      - run: pnpm test
+
   build-push:
+    needs: test
     runs-on: ubuntu-latest
     strategy:
       matrix:
