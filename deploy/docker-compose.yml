@@ -95,6 +95,10 @@ services:
       - "diun.notify_on=new;update"
       - "diun.watch_repo=false"
       - "traefik.enable=true"
+      # Le conteneur est sur 3 réseaux (traefik-public, data, admin-api) : sans ce label,
+      # Traefik peut choisir arbitrairement un réseau où il n'a pas de route (constaté : 499
+      # / timeout, alors que le conteneur est bien "healthy" et que curl direct fonctionne).
+      - "traefik.docker.network=traefik-public"
       - "traefik.http.routers.strava-api.rule=Host(`api.strava.echimine.fr`)"
       - "traefik.http.routers.strava-api.entrypoints=websecure"
       - "traefik.http.routers.strava-api.tls.certresolver=letsencrypt"
@@ -130,6 +134,8 @@ services:
       - "diun.notify_on=new;update"
       - "diun.watch_repo=false"
       - "traefik.enable=true"
+      # 2 réseaux (traefik-public, data) : cf. commentaire équivalent sur le service api.
+      - "traefik.docker.network=traefik-public"
       - "traefik.http.routers.strava-realtime.rule=Host(`ws.strava.echimine.fr`)"
       - "traefik.http.routers.strava-realtime.entrypoints=websecure"
       - "traefik.http.routers.strava-realtime.tls.certresolver=letsencrypt"
@@ -192,6 +198,8 @@ services:
       - "diun.notify_on=new;update"
       - "diun.watch_repo=false"
       - "traefik.enable=true"
+      # 2 réseaux (traefik-public, admin-api) : cf. commentaire équivalent sur le service api.
+      - "traefik.docker.network=traefik-public"
       - "traefik.http.routers.strava-admin.rule=Host(`admin.strava.echimine.fr`)"
       - "traefik.http.routers.strava-admin.entrypoints=websecure"
       - "traefik.http.routers.strava-admin.tls.certresolver=letsencrypt"
