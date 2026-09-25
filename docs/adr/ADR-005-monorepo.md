@@ -56,7 +56,7 @@ strava-app/
 
 ### Negative / Risks
 - **Two toolchains** (pnpm/Turbo and Xcode) in the same repository; CI must handle them separately.
-- **OpenAPI → Swift generation** to set up so that the mobile app follows the contracts.
+- **OpenAPI → Swift generation** to set up so that the mobile app follows the contracts. *Amended by [ADR-026](ADR-026-openapi-swift-codegen.md)*: done — `swift-openapi-generator` build plugin on a committed `openapi.json`, with drift and contract checks in CI.
 - **Compiled packages** (`core`, `db`): build configuration needs care (see ADR-003).
 - **Template cleanup**: `apps/web` and `apps/docs` (create-turbo examples) will be removed or repurposed when the apps are set up.
 
@@ -68,4 +68,4 @@ strava-app/
 ## Links
 
 - **Related**: [ADR-002](ADR-002-mobile.md), [ADR-003](ADR-003-backend.md), [ADR-004](ADR-004-backoffice.md)
-- **Amended by**: [ADR-010](ADR-010-backend-realtime.md) (adds `packages/realtime`)
+- **Amended by**: [ADR-010](ADR-010-backend-realtime.md) (adds `packages/realtime`), [ADR-026](ADR-026-openapi-swift-codegen.md) (OpenAPI → Swift generation implemented)

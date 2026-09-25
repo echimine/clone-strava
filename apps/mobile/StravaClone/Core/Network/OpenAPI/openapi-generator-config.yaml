@@ -1,0 +1,7 @@
+# swift-openapi-generator build plugin config (ADR-026). The plugin reads the
+# sibling openapi.json at every build; that file is written by
+# `pnpm mobile:sync-openapi`, never edited by hand.
+generate:
+  - types
+  - client
+accessModifier: internal

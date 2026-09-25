@@ -54,7 +54,7 @@ Add a `mobile-test` job (either in a new `.github/workflows/mobile-ci.yml` or a 
 
 This job is scoped to pull requests and pushes touching `apps/mobile/**` (a path filter), not every push to the monorepo — a change to `apps/api` alone should not spin up a macOS runner. Unlike the backend (ADR-024 §5), there is no existing mobile deploy pipeline this gates today (ADR-018 covers only the four backend Docker apps) — this job's only job is to fail loudly on a broken build/test, not to gate a release step that doesn't exist yet; wiring an actual mobile release pipeline (TestFlight, App Store) is out of scope here and left to a future ADR.
 
-**Status as of this ADR's last update: this CI job is not implemented yet** — `.github/workflows/` only has `deploy.yml` (backend/web). Tests run locally in the meantime, via the root `package.json` scripts (outside the pnpm/Turbo pipeline per ADR-005, plain `xcodebuild` wrappers):
+~~**Status as of this ADR's last update: this CI job is not implemented yet**~~ *Amended by [ADR-026](ADR-026-openapi-swift-codegen.md)*: implemented as `.github/workflows/mobile-ci.yml` (macOS, path-filtered to `apps/mobile/**`), running `StravaCloneTests` only — `StravaCloneUITests` still needs a live backend and stays local. Local scripts (outside the pnpm/Turbo pipeline per ADR-005, plain `xcodebuild` wrappers):
 
 ```bash
 pnpm mobile:test      # StravaCloneTests (Swift Testing unit tests) — no backend required
@@ -106,4 +106,5 @@ The scheme already has `codeCoverageEnabled = YES`. This ADR keeps coverage coll
 ## Links
 - **Depends on**: [ADR-002](ADR-002-mobile.md), [ADR-005](ADR-005-monorepo.md), [ADR-006](ADR-006-mobile-stack.md), [ADR-007](ADR-007-mobile-architecture.md)
 - **Amends**: [ADR-007](ADR-007-mobile-architecture.md) (expands its §Tests table into a full strategy with target structure, mocking conventions, and CI)
+- **Amended by**: [ADR-026](ADR-026-openapi-swift-codegen.md) (§4 mobile CI job implemented, unit tests only)
 - **Related**: [ADR-008](ADR-008-mobile-offline-sync.md), [ADR-018](ADR-018-docker-vps-deployment.md), [ADR-024](ADR-024-backend-testing-strategy.md)

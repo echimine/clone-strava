@@ -1,0 +1,54 @@
+# ADR-025 §4 / ADR-026 : build + tests unitaires de l'app iOS sur runner macOS.
+# Le build exécute le plugin swift-openapi-generator : si openapi.json (contrat de
+# l'API) produit des types incompatibles avec le code Swift, la compilation ou
+# OpenAPIContractTests échoue. Filtré sur apps/mobile/** (runners macOS coûteux) ;
+# séparé de deploy.yml pour ne jamais bloquer le déploiement du backend.
+# Les tests UI (pnpm mobile:test:ui) restent locaux : ils exigent le backend.
+name: mobile-ci
+
+on:
+  pull_request:
+    paths:
+      - "apps/mobile/**"
+      - ".github/workflows/mobile-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/mobile/**"
+      - ".github/workflows/mobile-ci.yml"
+
+concurrency:
+  group: mobile-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      # Swift 6 + simulateur "iPhone 17" (cible de pnpm mobile:test) : Xcode 26+.
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      # pnpm sert seulement de lanceur de scripts ici (xcodegen/xcodebuild),
+      # aucune dépendance Node à installer.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - run: brew install xcodegen
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/Library/Developer/Xcode/DerivedData/**/SourcePackages
+          key: spm-${{ hashFiles('apps/mobile/project.yml', 'apps/mobile/**/Package.resolved') }}
+
+      - run: pnpm mobile:test

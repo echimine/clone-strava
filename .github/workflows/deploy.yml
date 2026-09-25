@@ -77,6 +77,17 @@ jobs:
 
       - run: pnpm build
 
+      # ADR-026 : le spec OpenAPI commité (lu par le plugin Swift du mobile) doit
+      # correspondre aux schémas Zod actuels. Sinon : `pnpm mobile:sync-openapi` + commit.
+      - run: pnpm --filter api openapi:export
+
+      - name: Spec OpenAPI du mobile à jour
+        run: |
+          git diff --exit-code apps/mobile/StravaClone/Core/Network/OpenAPI/openapi.json || {
+            echo "::error::openapi.json est désynchronisé des schémas Zod. Lancer 'pnpm mobile:sync-openapi' et commiter le fichier."
+            exit 1
+          }
+
       - run: pnpm --filter @repo/db db:migrate
 
       - run: pnpm test
