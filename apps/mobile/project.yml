@@ -46,6 +46,9 @@ packages:
   MapboxMaps:
     url: https://github.com/mapbox/mapbox-maps-ios
     from: 11.31.0
+  GoogleSignIn:
+    url: https://github.com/google/GoogleSignIn-iOS
+    from: 8.0.0
 
 targets:
   StravaClone:
@@ -72,6 +75,12 @@ targets:
         MBXAccessToken: $(MAPBOX_ACCESS_TOKEN)
         RevenueCatAPIKey: $(REVENUECAT_API_KEY)
         PostHogAPIKey: $(POSTHOG_API_KEY)
+        # Google Sign-In (ADR-022): GIDClientID is read by GIDSignIn at launch;
+        # CFBundleURLTypes lets iOS route the OAuth callback back into the app.
+        GIDClientID: $(GOOGLE_IOS_CLIENT_ID)
+        CFBundleURLTypes:
+          - CFBundleURLSchemes:
+              - $(GOOGLE_IOS_URL_SCHEME)
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: fr.echimine.stravaclone
@@ -84,6 +93,7 @@ targets:
       - package: PostHog
       # Import MapboxMaps only in Features/*/Presentation (ADR-007 rule 6).
       - package: MapboxMaps
+      - package: GoogleSignIn
     scheme:
       testTargets:
         - StravaCloneTests
