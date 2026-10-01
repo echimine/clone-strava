@@ -89,6 +89,8 @@ targets:
         # Google Sign-In (ADR-022): GIDClientID is read by GIDSignIn at launch;
         # CFBundleURLTypes lets iOS route the OAuth callback back into the app.
         GIDClientID: $(GOOGLE_IOS_CLIENT_ID)
+        # Audience of the returned ID token: the backend's web client, verified by Better Auth.
+        GIDServerClientID: $(GOOGLE_SERVER_CLIENT_ID)
         CFBundleURLTypes:
           - CFBundleURLSchemes:
               - $(GOOGLE_IOS_URL_SCHEME)
