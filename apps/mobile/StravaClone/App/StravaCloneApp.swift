@@ -47,15 +47,13 @@ struct RootView: View {
             case .signedIn:
                 TabView {
                     FeedView()
-                        .tabItem { Label("Fil", systemImage: "house") }
+                        .tabItem { Label("Accueil", systemImage: "house") }
+                    MapScreen()
+                        .tabItem { Label("Map", systemImage: "map") }
                     RecordingView(store: recordingStore)
                         .tabItem { Label("Enregistrer", systemImage: "record.circle") }
-                    SegmentsView()
-                        .tabItem { Label("Segments", systemImage: "point.topleft.down.to.point.bottomright.curvepath") }
-                    ProfileView()
+                    ProfileView(store: authStore)
                         .tabItem { Label("Profil", systemImage: "person") }
-                    AuthView(store: authStore)
-                        .tabItem { Label("Compte", systemImage: "person.badge.key") }
                 }
             }
         }
