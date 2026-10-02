@@ -29,6 +29,13 @@
       "when": 1790336627990,
       "tag": "0003_little_blink",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790967611330,
+      "tag": "0004_activity_import",
+      "breakpoints": true
     }
   ]
 }

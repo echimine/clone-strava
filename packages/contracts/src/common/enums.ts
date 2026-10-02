@@ -14,6 +14,10 @@ export type Visibility = z.infer<typeof visibilitySchema>;
 export const processingStatusSchema = z.enum(["pending", "processing", "processed", "failed"]);
 export type ProcessingStatus = z.infer<typeof processingStatusSchema>;
 
+/** `activity.source` (ADR-028 §1). */
+export const activitySourceSchema = z.enum(["recorded", "imported", "manual"]);
+export type ActivitySource = z.infer<typeof activitySourceSchema>;
+
 /** `user_profile.unit_system` (ADR-017). */
 export const unitSystemSchema = z.enum(["metric", "imperial"]);
 export type UnitSystem = z.infer<typeof unitSystemSchema>;
