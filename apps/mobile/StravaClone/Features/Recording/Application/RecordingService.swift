@@ -22,7 +22,8 @@ actor RecordingService {
         let (updates, continuation) = AsyncStream<ActiveRecording>.makeStream(bufferingPolicy: .bufferingNewest(1))
         continuation.yield(recording)
 
-        let samples = await locationProvider.start()
+        await locationProvider.beginBackgroundTracking()
+        let samples = await locationProvider.samples()
         consumer = Task {
             for await sample in samples {
                 guard let updated = await self.record(sample) else { break }
@@ -34,9 +35,11 @@ actor RecordingService {
     }
 
     func stop() async throws {
-        await locationProvider.stop()
+        // Cancelling the consumer terminates its stream: the shared provider stops
+        // the GPS once no other subscriber (e.g. the map) is listening (ADR-027).
         consumer?.cancel()
         consumer = nil
+        await locationProvider.endBackgroundTracking()
         if let recording {
             try await repository.finish(recording.id, at: Date())
         }

@@ -79,7 +79,7 @@ targets:
         UIApplicationSupportsIndirectInputEvents: true
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         UIBackgroundModes: [location]
-        NSLocationWhenInUseUsageDescription: "StravaClone utilise votre position pour enregistrer le tracé de vos activités, y compris écran verrouillé."
+        NSLocationWhenInUseUsageDescription: "StravaClone utilise votre position pour l'afficher sur la carte et enregistrer le tracé de vos activités, y compris écran verrouillé."
         # Values injected from Config/Base.xcconfig (+ optional Secrets.xcconfig), read by AppConfiguration (App/Di.swift).
         APIBaseURL: $(API_BASE_URL)
         RealtimeURL: $(REALTIME_URL)
@@ -104,7 +104,7 @@ targets:
       - package: GRDB
       - package: RevenueCat
       - package: PostHog
-      # Import MapboxMaps only in Features/*/Presentation (ADR-007 rule 6).
+      # Import MapboxMaps only in Features/*/Presentation and Core/DesignSystem/Map (ADR-007 rule 6, ADR-027).
       - package: MapboxMaps
       - package: GoogleSignIn
       - package: OpenAPIRuntime

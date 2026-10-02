@@ -23,6 +23,8 @@ struct StravaCloneApp: App {
         WindowGroup {
             RootView(authStore: di.makeAuthStore(), recordingStore: di.makeRecordingStore())
                 .tint(Theme.accent)
+                .environment(di.locationPermission)
+                .environment(\.locationProvider, di.locationProvider)
                 .onOpenURL { url in
                     // Routes the Google sign-in callback back into the SDK (ADR-022).
                     GIDSignIn.sharedInstance.handle(url)

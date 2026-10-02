@@ -33,6 +33,9 @@ final class Di {
     let apiClient: APIClient
     let webSocketClient: WebSocketClient
     let connectivityMonitor: ConnectivityMonitor
+    /// Single GPS source shared by the map puck and Recording (ADR-027).
+    let locationProvider: CoreLocationProvider
+    let locationPermission: LocationPermissionService
 
     private let recordingService: RecordingService
     private let authService: AuthService
@@ -44,6 +47,8 @@ final class Di {
         apiClient = APIClient(baseURL: configuration.apiBaseURL, authSession: authSession)
         webSocketClient = WebSocketClient(url: configuration.realtimeURL)
         connectivityMonitor = ConnectivityMonitor()
+        locationProvider = CoreLocationProvider()
+        locationPermission = LocationPermissionService()
 
         // TODO(ADR-014): configure RevenueCat behind a SubscriptionService port (Features/Paywall).
         // TODO(ADR-015): configure PostHog behind an analytics port, session replay disabled.
@@ -51,7 +56,7 @@ final class Di {
         // TODO(ADR-022 §5): admin 2FA — credential-only, backoffice web, not applicable to mobile.
 
         recordingService = RecordingService(
-            locationProvider: CoreLocationProvider(),
+            locationProvider: locationProvider,
             repository: GRDBRecordingRepository(database: database)
         )
         authService = AuthService(

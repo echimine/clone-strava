@@ -2,12 +2,13 @@ import SwiftUI
 
 struct RecordingView: View {
     @State var store: RecordingStore
+    @Environment(LocationPermissionService.self) private var permission
 
     var body: some View {
         NavigationStack {
             VStack(spacing: Theme.spacing) {
                 Spacer()
-                // TODO(ADR-002): Mapbox route map (MapboxMaps imported only in Presentation/).
+                // TODO(ADR-027): live trace on AppMap (Core/DesignSystem/Map).
                 Text(distanceText)
                     .font(.system(size: 56, weight: .bold, design: .rounded))
                     .monospacedDigit()
@@ -21,6 +22,9 @@ struct RecordingView: View {
                 }
                 Spacer()
                 Button {
+                    if !store.isRecording {
+                        permission.requestWhenInUseIfNeeded()
+                    }
                     Task { store.isRecording ? await store.stop() : await store.start() }
                 } label: {
                     Text(store.isRecording ? "Arrêter" : "Démarrer")
