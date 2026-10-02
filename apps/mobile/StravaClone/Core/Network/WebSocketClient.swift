@@ -1,63 +1,110 @@
 import Foundation
 
 /// Realtime client over URLSessionWebSocketTask (ADR-006, protocol in ADR-010).
-/// Open in the foreground only; the WS is never the source of truth (ADR-001).
+/// Open in the foreground only; the WS is never the source of truth (ADR-001): a missed
+/// event is caught up by reloading through the API.
+///
+/// - Every (re)connection fetches a new short-lived token, then subscribes to its topics.
+/// - `{"a":"ping"}` every 25 s keeps the connection alive and detects a dead one.
+/// - Reconnection with exponential backoff (1 s → 30 s) on any close or error, which
+///   covers close codes 4001 (token), 4008 (quota) and 4009 (server restart).
+/// - Events are deduplicated by `id` and fanned out to every `events()` subscriber.
 actor WebSocketClient {
+    typealias TokenSource = @Sendable () async throws -> String
+
+    private static let pingInterval: Duration = .seconds(25)
+    private static let maxBackoffSeconds = 30.0
+
     private let url: URL
     private let session: URLSession
-    private var task: URLSessionWebSocketTask?
-    private var continuation: AsyncStream<Data>.Continuation?
+    private var runTask: Task<Void, Never>?
+    private var socket: URLSessionWebSocketTask?
+    private var subscribers: [UUID: AsyncStream<RealtimeEvent>.Continuation] = [:]
+    private var deduplicator = RealtimeEventDeduplicator()
 
     init(url: URL, session: URLSession = .shared) {
         self.url = url
         self.session = session
     }
 
-    /// Opens the connection with a short-lived realtime token and returns the raw
-    /// `{ v, t, id, data }` messages. Features decode and filter the events they need.
-    func connect(token: String) -> AsyncStream<Data> {
-        disconnect()
+    /// Connects (or reconnects with new topics) and keeps the connection up until `stop()`.
+    func start(topics: [String], token: @escaping TokenSource) {
+        stop()
+        runTask = Task { await self.run(topics: topics, token: token) }
+    }
 
-        var request = URLRequest(url: url)
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        let task = session.webSocketTask(with: request)
-        self.task = task
+    func stop() {
+        runTask?.cancel()
+        runTask = nil
+        socket?.cancel(with: .goingAway, reason: nil)
+        socket = nil
+    }
 
-        let (stream, continuation) = AsyncStream<Data>.makeStream()
-        self.continuation = continuation
-        task.resume()
-        Task { await receiveLoop(task) }
-
-        // TODO(ADR-006): subscribe to `user:{userId}` with { "a": "sub", "topic": ... }.
-        // TODO(ADR-006): heartbeat, { "a": "ping" } every 25 s to detect a dead connection.
-        // TODO(ADR-006): reconnection with exponential backoff and a new token every time,
-        //   reacting to close codes 4001 (invalid token), 4008 (quota), 4009 (server restart).
-        // TODO(ADR-006): deduplicate events by `id`, then resync through the API after reconnecting.
+    /// Stream of server events. Stays open across reconnections; ends when the caller
+    /// stops iterating.
+    func events() -> AsyncStream<RealtimeEvent> {
+        let id = UUID()
+        let (stream, continuation) = AsyncStream<RealtimeEvent>.makeStream(bufferingPolicy: .bufferingNewest(50))
+        continuation.onTermination = { @Sendable [weak self] _ in
+            Task { await self?.removeSubscriber(id) }
+        }
+        subscribers[id] = continuation
         return stream
     }
 
-    func disconnect() {
-        task?.cancel(with: .goingAway, reason: nil)
-        task = nil
-        continuation?.finish()
-        continuation = nil
+    private func removeSubscriber(_ id: UUID) {
+        subscribers[id] = nil
     }
 
-    private func receiveLoop(_ task: URLSessionWebSocketTask) async {
-        while self.task === task {
+    private func run(topics: [String], token: TokenSource) async {
+        var failures = 0
+        while !Task.isCancelled {
             do {
-                switch try await task.receive() {
-                case .data(let data):
-                    continuation?.yield(data)
-                case .string(let text):
-                    continuation?.yield(Data(text.utf8))
-                @unknown default:
-                    break
+                let socket = session.webSocketTask(with: try await request(token: token))
+                self.socket = socket
+                socket.resume()
+                for topic in topics {
+                    try await socket.send(.string(RealtimeControlMessage.subscribe(topic: topic)))
+                }
+                failures = 0
+                let pinger = Task {
+                    while !Task.isCancelled {
+                        try? await Task.sleep(for: Self.pingInterval)
+                        try? await socket.send(.string(RealtimeControlMessage.ping))
+                    }
+                }
+                defer { pinger.cancel() }
+                while !Task.isCancelled {
+                    receive(try await socket.receive())
                 }
             } catch {
-                if self.task === task { disconnect() }
-                return
+                // Closed, refused or token failure: fall through to the backoff below.
             }
+            socket?.cancel(with: .goingAway, reason: nil)
+            socket = nil
+            if Task.isCancelled { return }
+            failures += 1
+            let delay = min(Self.maxBackoffSeconds, pow(2, Double(failures - 1)))
+            try? await Task.sleep(for: .seconds(delay))
+        }
+    }
+
+    private func request(token: TokenSource) async throws -> URLRequest {
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(try await token())", forHTTPHeaderField: "Authorization")
+        return request
+    }
+
+    private func receive(_ message: URLSessionWebSocketTask.Message) {
+        let data: Data
+        switch message {
+        case .data(let bytes): data = bytes
+        case .string(let text): data = Data(text.utf8)
+        @unknown default: return
+        }
+        guard let event = RealtimeEvent.decode(data), deduplicator.accept(event.id) else { return }
+        for continuation in subscribers.values {
+            continuation.yield(event)
         }
     }
 }
