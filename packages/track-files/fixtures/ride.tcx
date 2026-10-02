@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2" xmlns:ns3="http://www.garmin.com/xmlschemas/ActivityExtension/v2">
+  <Activities>
+    <Activity Sport="Biking">
+      <Id>2026-05-01T08:00:00Z</Id>
+      <Lap StartTime="2026-05-01T08:00:00Z">
+        <Track>
+          <Trackpoint>
+            <Time>2026-05-01T08:00:00Z</Time>
+            <Position><LatitudeDegrees>48.85</LatitudeDegrees><LongitudeDegrees>2.35</LongitudeDegrees></Position>
+            <AltitudeMeters>35.5</AltitudeMeters>
+            <HeartRateBpm><Value>120</Value></HeartRateBpm>
+            <Cadence>80</Cadence>
+            <Extensions><ns3:TPX><ns3:Speed>5.5</ns3:Speed></ns3:TPX></Extensions>
+          </Trackpoint>
+          <Trackpoint>
+            <Time>2026-05-01T08:00:01Z</Time>
+            <HeartRateBpm><Value>121</Value></HeartRateBpm>
+          </Trackpoint>
+          <Trackpoint>
+            <Time>2026-05-01T08:00:02Z</Time>
+            <Position><LatitudeDegrees>48.8502</LatitudeDegrees><LongitudeDegrees>2.3502</LongitudeDegrees></Position>
+          </Trackpoint>
+          <Trackpoint><Time>2026-05-01T08:00:03Z</Time></Trackpoint>
+        </Track>
+      </Lap>
+    </Activity>
+    <Activity Sport="Running"><Lap StartTime="2026-06-01T08:00:00Z"><Track><Trackpoint><Position><LatitudeDegrees>1</LatitudeDegrees><LongitudeDegrees>1</LongitudeDegrees></Position></Trackpoint></Track></Lap></Activity>
+  </Activities>
+</TrainingCenterDatabase>

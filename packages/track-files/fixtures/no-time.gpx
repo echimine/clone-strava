@@ -1,0 +1,4 @@
+<?xml version="1.0"?>
+<gpx version="1.0" creator="test" xmlns="http://www.topografix.com/GPX/1/0">
+  <trk><trkseg><trkpt lat="45.0" lon="5.0"><ele>200</ele></trkpt><trkpt lat="45.001" lon="5.001"/></trkseg></trk>
+</gpx>
