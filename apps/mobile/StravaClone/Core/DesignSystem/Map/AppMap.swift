@@ -28,16 +28,20 @@ struct AppMap<Content: MapContent>: View {
     }
 
     var body: some View {
-        Map(viewport: $viewport) {
-            if tracksUser {
-                Puck2D(bearing: .heading)
-                    .showsAccuracyRing(true)
+        // Full screen: the map runs under the status bar and the floating tab bar,
+        // while the controls stay inside the safe area.
+        ZStack(alignment: .bottomTrailing) {
+            Map(viewport: $viewport) {
+                if tracksUser {
+                    Puck2D(bearing: .heading)
+                        .showsAccuracyRing(true)
+                }
+                content()
             }
-            content()
-        }
-        .mapStyle(.outdoors)
-        .locationDataModel(bridge.dataModel)
-        .overlay(alignment: .bottomTrailing) {
+            .mapStyle(.outdoors)
+            .locationDataModel(bridge.dataModel)
+            .ignoresSafeArea()
+
             if tracksUser && viewport.followPuck == nil {
                 recenterButton
             }

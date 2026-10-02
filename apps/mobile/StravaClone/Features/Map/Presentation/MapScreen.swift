@@ -19,7 +19,6 @@ struct MapScreen: View {
 
     var body: some View {
         AppMap(viewport: $viewport) {}
-            .ignoresSafeArea(edges: .top)
             .overlay(alignment: .top) {
                 if isLocationBlocked {
                     locationBanner
