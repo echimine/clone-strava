@@ -1,4 +1,4 @@
-import { Injectable, NotImplementedException } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { FollowRepository } from "../repositories/follow.repository.js";
 
 /**
@@ -10,7 +10,8 @@ import { FollowRepository } from "../repositories/follow.repository.js";
 export class GetFolloweeIdsUseCase {
   constructor(private readonly follows: FollowRepository) {}
 
-  async execute(_userId: string): Promise<string[]> {
-    throw new NotImplementedException();
+  async execute(userId: string): Promise<string[]> {
+    const rows = await this.follows.findFolloweeIds(userId);
+    return rows.map((row) => row.followeeId);
   }
 }

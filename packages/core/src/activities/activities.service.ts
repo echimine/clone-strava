@@ -27,7 +27,10 @@ import {
   type ImportActivityResult,
 } from "./use-cases/import-activity-from-file.use-case.js";
 import { ReprocessActivityImportUseCase } from "./use-cases/reprocess-activity-import.use-case.js";
+import { GetFeedPageUseCase } from "./use-cases/get-feed-page.use-case.js";
+import { GetVisibleActivityUseCase } from "./use-cases/get-visible-activity.use-case.js";
 import type { ActivityRecord } from "./domain/activity-record.js";
+import type { FeedActivityPage } from "./domain/feed-activity.js";
 
 /**
  * Public facade of the `activities` module (ADR-021 §1: layer 2, may
@@ -49,6 +52,8 @@ export class ActivitiesService {
     private readonly getActivityImportsUseCase: GetActivityImportsUseCase,
     private readonly importActivityFromFileUseCase: ImportActivityFromFileUseCase,
     private readonly reprocessActivityImportUseCase: ReprocessActivityImportUseCase,
+    private readonly getFeedPageUseCase: GetFeedPageUseCase,
+    private readonly getVisibleActivityUseCase: GetVisibleActivityUseCase,
   ) {}
 
   create(userId: string, request: CreateActivityRequest): Promise<CreateActivityResult> {
@@ -81,6 +86,16 @@ export class ActivitiesService {
   /** Batch read (ADR-021 §2 rule 6): used by `engagement`, `segments` and list screens. */
   getMany(ids: string[]): Promise<ActivityRecord[]> {
     return this.getActivitiesUseCase.execute(ids);
+  }
+
+  /** Feed steps 1-2 (ADR-021 §6, ADR-029): the caller adds authors and engagement. */
+  getFeedPage(viewerId: string, query: { cursor?: string; limit: number }): Promise<FeedActivityPage> {
+    return this.getFeedPageUseCase.execute(viewerId, query);
+  }
+
+  /** The activity if `viewerId` may see it, `null` otherwise (ADR-029). */
+  getVisible(viewerId: string, activityId: string): Promise<ActivityRecord | null> {
+    return this.getVisibleActivityUseCase.execute(viewerId, activityId);
   }
 
   // --- File import (ADR-028) ---

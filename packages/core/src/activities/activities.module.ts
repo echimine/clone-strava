@@ -20,6 +20,8 @@ import { CompleteActivityImportUseCase } from "./use-cases/complete-activity-imp
 import { GetActivityImportsUseCase } from "./use-cases/get-activity-imports.use-case.js";
 import { ImportActivityFromFileUseCase } from "./use-cases/import-activity-from-file.use-case.js";
 import { ReprocessActivityImportUseCase } from "./use-cases/reprocess-activity-import.use-case.js";
+import { GetFeedPageUseCase } from "./use-cases/get-feed-page.use-case.js";
+import { GetVisibleActivityUseCase } from "./use-cases/get-visible-activity.use-case.js";
 import { ImportRateLimiter } from "./services/import-rate-limiter.js";
 import { ImportJobEnqueuer } from "./services/import-job-enqueuer.js";
 import { ActivitiesService } from "./activities.service.js";
@@ -56,6 +58,8 @@ import { ActivitiesService } from "./activities.service.js";
     GetActivityImportsUseCase,
     ImportActivityFromFileUseCase,
     ReprocessActivityImportUseCase,
+    GetFeedPageUseCase,
+    GetVisibleActivityUseCase,
     ActivitiesService,
   ],
   exports: [ActivitiesService],

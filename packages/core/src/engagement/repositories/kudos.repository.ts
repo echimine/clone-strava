@@ -1,5 +1,5 @@
-import { Inject, Injectable, NotImplementedException } from "@nestjs/common";
-import { and, eq } from "drizzle-orm";
+import { Inject, Injectable } from "@nestjs/common";
+import { and, count, eq, inArray } from "drizzle-orm";
 import { schema, type Database } from "@repo/db";
 import { DATABASE } from "../../infrastructure/index.js";
 
@@ -14,11 +14,39 @@ export class KudosRepository {
     });
   }
 
-  countByActivityIds(_activityIds: string[]): Promise<Map<string, number>> {
-    throw new NotImplementedException();
+  async countByActivityIds(activityIds: string[]): Promise<Map<string, number>> {
+    if (activityIds.length === 0) {
+      return new Map();
+    }
+    const rows = await this.db
+      .select({ activityId: schema.kudos.activityId, total: count() })
+      .from(schema.kudos)
+      .where(inArray(schema.kudos.activityId, activityIds))
+      .groupBy(schema.kudos.activityId);
+    return new Map(rows.map((row) => [row.activityId, row.total]));
   }
 
-  async give(_userId: string, _activityId: string): Promise<void> {
-    throw new NotImplementedException();
+  /** The subset of `activityIds` the user gave kudos to. */
+  async findKudoedActivityIds(userId: string, activityIds: string[]): Promise<Set<string>> {
+    if (activityIds.length === 0) {
+      return new Set();
+    }
+    const rows = await this.db
+      .select({ activityId: schema.kudos.activityId })
+      .from(schema.kudos)
+      .where(and(eq(schema.kudos.userId, userId), inArray(schema.kudos.activityId, activityIds)));
+    return new Set(rows.map((row) => row.activityId));
+  }
+
+  /** Idempotent: giving kudos twice keeps one row. */
+  async give(userId: string, activityId: string): Promise<void> {
+    await this.db.insert(schema.kudos).values({ userId, activityId }).onConflictDoNothing();
+  }
+
+  /** Idempotent: removing missing kudos is a no-op. */
+  async remove(userId: string, activityId: string): Promise<void> {
+    await this.db
+      .delete(schema.kudos)
+      .where(and(eq(schema.kudos.userId, userId), eq(schema.kudos.activityId, activityId)));
   }
 }

@@ -11,6 +11,7 @@ import { StorageModule } from "@repo/core/storage";
 import { AdminModule } from "./admin/admin.module.js";
 import { ActivitiesModule } from "./activities/activities.module.js";
 import { AuthModule } from "./auth/auth.module.js";
+import { FeedModule } from "./feed/feed.module.js";
 import { AppBullModule } from "./bull/bull.module.js";
 import { GlobalExceptionFilter } from "./common/global-exception.filter.js";
 import { ConfigModule } from "./config/config.module.js";
@@ -62,6 +63,7 @@ const config = loadConfig();
     AuthModule,
     HealthModule,
     MeModule,
+    FeedModule,
     ActivitiesModule,
     RealtimeTokenModule,
     WebhooksModule,

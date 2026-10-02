@@ -34,10 +34,14 @@ describe("GeocodingService", () => {
   });
 
   it("formats the first feature and asks for a permanent result", async () => {
-    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ features: [annecy] })));
-    const service = new GeocodingService({ accessToken: "sk.test", permanent: true, fetch: fetchMock });
+    const fetchMock = vi.fn(async (_url: URL) => new Response(JSON.stringify({ features: [annecy] })));
+    const service = new GeocodingService({
+      accessToken: "sk.test",
+      permanent: true,
+      fetch: fetchMock as unknown as typeof fetch,
+    });
     expect(await service.reverse(point)).toBe("Annecy, Haute-Savoie");
-    const url = fetchMock.mock.calls[0]![0] as unknown as URL;
+    const url = fetchMock.mock.calls[0]![0];
     expect(url.searchParams.get("permanent")).toBe("true");
     expect(url.searchParams.get("longitude")).toBe("6.12940");
   });
