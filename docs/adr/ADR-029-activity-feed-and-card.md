@@ -40,7 +40,9 @@ ADR-021 §6 steps 1–2 (followees, then a page of activities with stats and map
 
 ### 4. Place name: server-side reverse geocoding
 
-`process-activity` reverse-geocodes the first point of the privacy-zoned route with Mapbox Geocoding v6 (`types=place,locality`, `language=fr`) and stores `activity_track.location_name` as `"{place}, {region}"`. It runs in a new `geocoding` platform module, outside the processing transaction, with a 3 s timeout; any failure stores `null` and never fails processing. Without `MAPBOX_GEOCODING_TOKEN` (a **server-side secret token**, not the app's public one) the module is a no-op. Mapbox's terms forbid storing results from the temporary endpoint: production sets `MAPBOX_GEOCODING_PERMANENT=true` (billed separately).
+`process-activity` reverse-geocodes the first point of the privacy-zoned route with Mapbox Geocoding v6 (`types=place,locality`, `language=fr`) and stores `activity_track.location_name` as `"{place}, {region}"`. It runs in a new `geocoding` platform module, outside the processing transaction, with a 3 s timeout; any failure stores `null` and never fails processing. Without `MAPBOX_GEOCODING_TOKEN` (a dedicated server-side token with default public scopes and no URL restriction, distinct from the app's token) the module is a no-op.
+
+**Temporary vs permanent endpoint**: the permanent endpoint is the only one whose terms allow storing results, but it has no free tier (5 $ / 1,000 requests, sales contact required). This project is a non-commercial clone, not published: production uses the **temporary** endpoint (100,000 free requests per month) and stores the result anyway, a deliberate deviation from Mapbox's terms. `MAPBOX_GEOCODING_PERMANENT=true` switches to the permanent endpoint if the app ever ships.
 
 ### 5. Kudos
 
@@ -70,7 +72,7 @@ ADR-021 §6 steps 1–2 (followees, then a page of activities with stats and map
 - The place name is computed once, on the privacy-zoned route, so it never reveals a hidden start.
 
 ### Negative / Risks
-- **Geocoding cost and terms**: permanent geocoding is billed; activities processed before this ADR keep `location_name = null`.
+- **Geocoding terms**: storing temporary-endpoint results breaches Mapbox's terms; Mapbox may revoke the token, in which case place names become `null` (processing is unaffected). Must move to the permanent endpoint or a free dataset (e.g. GeoNames) before any public release. Activities processed before this ADR keep `location_name = null`.
 - **Followee list in `IN (...)`**: fine for the MVP (ADR-021 "Negative"), a materialized feed later.
 - **Public Mapbox token in image URLs**: normal for public tokens; it must be URL- and scope-restricted in the Mapbox dashboard.
 - **Realtime only reaches the owner** (`user:{id}` topic): followees' new activities appear on pull-to-refresh.
