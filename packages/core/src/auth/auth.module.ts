@@ -5,6 +5,7 @@ import { NotificationsModule, NotificationsService } from "../notifications/inde
 import { AUTH_INSTANCE, type AuthModuleOptions } from "./auth.constants.js";
 import { createAuthInstance } from "./create-auth-instance.js";
 import { AuthService } from "./auth.service.js";
+import { AuthUserRepository } from "./repositories/auth-user.repository.js";
 
 export type { AuthModuleOptions } from "./auth.constants.js";
 
@@ -44,6 +45,7 @@ export class AuthModule {
           ) => createAuthInstance(db, redis, notifications, opts),
           inject: [DATABASE, REDIS, NotificationsService, AUTH_MODULE_OPTIONS],
         },
+        AuthUserRepository,
         AuthService,
       ],
       exports: [AuthService, AUTH_INSTANCE],

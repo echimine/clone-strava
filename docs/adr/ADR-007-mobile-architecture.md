@@ -32,7 +32,7 @@ MyApp/
 │   └── DesignSystem/               colors, typography, reusable SwiftUI components
 └── Features/
     ├── Recording/
-    │   ├── Domain/                 entities + protocols (repositories, LocationProvider)
+    │   ├── Domain/                 entities + protocols (repositories; LocationProvider moved to Core/Domain by ADR-027)
     │   ├── Application/            services + use cases
     │   ├── Infrastructure/         implementations: GRDB, API, Core Location
     │   └── Presentation/           stores + views (Mapbox only here)
@@ -62,7 +62,7 @@ Trivial use cases are accepted to keep a uniform flow.
 3. `Infrastructure/` implements the protocols of `Domain/` and uses `Core/Database` and `Core/Network`.
 4. `Presentation/` depends on `Application/` and `Core/DesignSystem`, never on `Infrastructure/`.
 5. **A feature does not import another feature.** Anything shared moves up into `Core/`.
-6. **Mapbox types stay in `Presentation/`**: conversion from domain coordinates happens at display time.
+6. **Mapbox types stay in `Presentation/`**: conversion from domain coordinates happens at display time. *Amended by [ADR-027](ADR-027-user-location-on-maps.md)*: `Core/DesignSystem/Map/` (shared `AppMap` component and `MapboxLocationBridge`) is presentation code too and may import Mapbox.
 
 ### Location of the technical building blocks (ADR-006)
 
@@ -72,7 +72,7 @@ Trivial use cases are accepted to keep a uniform flow.
 | WebSocketClient | `Core/Network` | `AsyncStream` of typed events, filtered by feature |
 | ConnectivityMonitor | `Core/Network` | Observable state + `AsyncStream` |
 | GRDB database | `Core/Database` | GRDB repositories of each feature; each feature declares its migrations |
-| GPS (Core Location) | `Features/Recording/Infrastructure` | `LocationProvider` protocol of the Recording domain |
+| GPS (Core Location) | ~~`Features/Recording/Infrastructure`~~ `Core/Location` *(Amended by [ADR-027](ADR-027-user-location-on-maps.md))* | Multi-subscriber `LocationProvider` protocol in `Core/Domain`, shared by Map and Recording; `LocationPermissionService` via `environment` |
 
 ### Dependency injection
 
@@ -140,3 +140,4 @@ Trivial use cases are accepted to keep a uniform flow.
 
 - **Details**: [ADR-002](ADR-002-mobile.md) (principles), [ADR-006](ADR-006-mobile-stack.md) (detailed stack)
 - **Related**: [ADR-008](ADR-008-mobile-offline-sync.md) (offline and sync)
+- **Amended by**: [ADR-027](ADR-027-user-location-on-maps.md) (GPS moved to `Core/Location`; Mapbox allowed in `Core/DesignSystem/Map/`)

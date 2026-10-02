@@ -1,0 +1,8 @@
+// Release build settings (referenced by project.yml): Base + production endpoints.
+// Production URLs are public, so they are versioned here and win over Secrets.xcconfig.
+// In xcconfig files "//" starts a comment: write URLs as https:/$()/host.
+
+#include "Base.xcconfig"
+
+API_BASE_URL = https:/$()/api.strava.echimine.fr
+REALTIME_URL = wss:/$()/ws.strava.echimine.fr/ws

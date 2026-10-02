@@ -16,6 +16,7 @@
     "mobile:sync-openapi": "turbo run build --filter=api && pnpm --filter api openapi:export",
     "mobile:test": "pnpm mobile:generate && xcodebuild test -project apps/mobile/StravaClone.xcodeproj -scheme StravaClone -skipPackagePluginValidation -only-testing:StravaCloneTests -destination 'platform=iOS Simulator,name=iPhone 17'",
     "mobile:test:ui": "pnpm mobile:generate && xcodebuild test -project apps/mobile/StravaClone.xcodeproj -scheme StravaClone -skipPackagePluginValidation -only-testing:StravaCloneUITests -destination 'platform=iOS Simulator,name=iPhone 17'",
+    "mobile:prod": "bash scripts/mobile-prod.sh",
     "format": "prettier --write \"**/*.{ts,tsx,md}\""
   },
   "devDependencies": {

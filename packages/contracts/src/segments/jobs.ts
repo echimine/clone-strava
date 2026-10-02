@@ -8,7 +8,7 @@ export const MATCH_SEGMENTS_JOB_NAME = "match-segments";
 
 /** Deterministic job id derived from the entity (ADR-011 §2, ADR-019 §8). */
 export function matchSegmentsJobId(activityId: string): string {
-  return `match-segments:${activityId}`;
+  return `match-segments-${activityId}`;
 }
 
 /** `match-segments` job payload (ADR-019 §8). */

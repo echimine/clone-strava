@@ -30,10 +30,14 @@ export {
   ACTIVITY_PROCESSED,
   ACTIVITY_FAILED,
   ACTIVITY_SEGMENTS_MATCHED,
+  ACTIVITY_IMPORT_COMPLETED,
+  ACTIVITY_IMPORT_FAILED,
   mobileEventTypeSchema,
   activityProcessedDataSchema,
   activityFailedDataSchema,
   activitySegmentsMatchedDataSchema,
+  activityImportCompletedDataSchema,
+  activityImportFailedDataSchema,
   mobileEventDataSchemas,
 } from "./events.js";
 export type {
@@ -41,6 +45,8 @@ export type {
   ActivityProcessedData,
   ActivityFailedData,
   ActivitySegmentsMatchedData,
+  ActivityImportCompletedData,
+  ActivityImportFailedData,
   MobileEventData,
   MobileEventDataFor,
 } from "./events.js";

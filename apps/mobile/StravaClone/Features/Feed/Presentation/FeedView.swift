@@ -1,7 +1,115 @@
 import SwiftUI
 
-struct FeedView: View {
+/// Home tab: the activity feed (ADR-029). Knows nothing of other features (ADR-007 rule 5):
+/// the app shell passes the "+" action and the content shown above the feed (e.g. the
+/// import banner).
+struct FeedView<TopContent: View>: View {
+    @Bindable var store: FeedStore
+    var onImportActivity: () -> Void = {}
+    @ViewBuilder var topContent: () -> TopContent
+
     var body: some View {
-        PlaceholderScreen(title: "Fil", systemImage: "list.bullet.rectangle", message: "Les activités des athlètes suivis apparaîtront ici.")
+        NavigationStack {
+            content
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color(.systemGroupedBackground))
+                .safeAreaInset(edge: .top, spacing: 8) { topContent() }
+                .homeHeader(HomeHeaderActions(onImportActivity: onImportActivity))
+                .task { await store.loadIfNeeded() }
+                .task { await store.observeActivityChanges() }
+                .alert(
+                    store.notice ?? "",
+                    isPresented: Binding(get: { store.notice != nil }, set: { if !$0 { store.notice = nil } })
+                ) {
+                    Button("OK", role: .cancel) {}
+                }
+        }
+    }
+
+    @ViewBuilder private var content: some View {
+        switch store.phase {
+        case .idle, .loading where store.posts.isEmpty:
+            ProgressView()
+        case .failed(let message) where store.posts.isEmpty:
+            ContentUnavailableView {
+                Label(FeedMessages.errorTitle, systemImage: "wifi.exclamationmark")
+            } description: {
+                Text(message)
+            } actions: {
+                Button(FeedMessages.retry) { Task { await store.refresh() } }
+                    .buttonStyle(.borderedProminent)
+            }
+        default:
+            if store.isEmpty {
+                ScrollView {
+                    ContentUnavailableView(
+                        FeedMessages.emptyTitle,
+                        systemImage: "figure.run",
+                        description: Text(FeedMessages.emptyDescription)
+                    )
+                    .padding(.top, 80)
+                }
+                .refreshable { await store.refresh() }
+            } else {
+                list
+            }
+        }
+    }
+
+    private var list: some View {
+        ScrollView {
+            LazyVStack(spacing: Theme.spacing) {
+                ForEach(store.posts) { post in
+                    ActivityCard(
+                        post: post,
+                        onToggleKudos: { Task { await store.toggleKudos(on: post.id) } },
+                        // TODO(ADR-029): open the comments screen once it exists.
+                        onComments: {}
+                    )
+                    .task { await store.loadMoreIfNeeded(currentPost: post) }
+                }
+                if store.isLoadingMore {
+                    ProgressView().padding()
+                }
+            }
+            .padding(.horizontal, Theme.spacing)
+            .padding(.vertical, 8)
+        }
+        .refreshable { await store.refresh() }
+        .accessibilityIdentifier("feed.list")
     }
 }
+
+extension FeedView where TopContent == EmptyView {
+    init(store: FeedStore, onImportActivity: @escaping () -> Void = {}) {
+        self.init(store: store, onImportActivity: onImportActivity) { EmptyView() }
+    }
+}
+
+#if DEBUG
+private struct PreviewFeedRepository: FeedRepository {
+    func page(cursor: String?) async throws(FeedError) -> FeedPage {
+        FeedPage(posts: [.preview], nextCursor: nil)
+    }
+
+    func setKudos(_ given: Bool, activityId: ActivityID) async throws(FeedError) -> KudosState {
+        KudosState(kudosCount: given ? 4 : 3, viewerHasKudoed: given)
+    }
+}
+
+private struct PreviewFeedEvents: FeedEventSource {
+    func activityChanges() async -> AsyncStream<Void> { AsyncStream { _ in } }
+}
+
+#Preview {
+    let repository = PreviewFeedRepository()
+    FeedView(
+        store: FeedStore(
+            loadFeed: LoadFeed(repository: repository),
+            toggleKudos: ToggleKudos(repository: repository),
+            events: PreviewFeedEvents()
+        )
+    )
+    .tint(Theme.accent)
+}
+#endif

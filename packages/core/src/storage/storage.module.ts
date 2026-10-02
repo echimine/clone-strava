@@ -13,6 +13,8 @@ export class StorageModule {
   static forRoot(options: StorageModuleOptions): DynamicModule {
     return {
       module: StorageModule,
+      // Global: every domain module may use it (ADR-021 §2), registered once by each app.
+      global: true,
       providers: [
         { provide: STORAGE_OPTIONS, useValue: options },
         {

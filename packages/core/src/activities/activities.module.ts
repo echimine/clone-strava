@@ -1,6 +1,6 @@
 import { Module } from "@nestjs/common";
 import { BullModule } from "@nestjs/bullmq";
-import { ACTIVITIES_QUEUE_NAME } from "@repo/contracts";
+import { ACTIVITIES_QUEUE_NAME, IMPORTS_QUEUE_NAME } from "@repo/contracts";
 import { SportsModule } from "../sports/index.js";
 import { UsersModule } from "../users/index.js";
 import { SocialModule } from "../social/index.js";
@@ -13,6 +13,17 @@ import { CompleteActivityUseCase } from "./use-cases/complete-activity.use-case.
 import { ProcessActivityUseCase } from "./use-cases/process-activity.use-case.js";
 import { ReconcileStuckActivitiesUseCase } from "./use-cases/reconcile-stuck-activities.use-case.js";
 import { GetActivitiesUseCase } from "./use-cases/get-activities.use-case.js";
+import { ActivityImportRepository } from "./repositories/activity-import.repository.js";
+import { CreateActivityImportUseCase } from "./use-cases/create-activity-import.use-case.js";
+import { RequestImportUploadUrlUseCase } from "./use-cases/request-import-upload-url.use-case.js";
+import { CompleteActivityImportUseCase } from "./use-cases/complete-activity-import.use-case.js";
+import { GetActivityImportsUseCase } from "./use-cases/get-activity-imports.use-case.js";
+import { ImportActivityFromFileUseCase } from "./use-cases/import-activity-from-file.use-case.js";
+import { ReprocessActivityImportUseCase } from "./use-cases/reprocess-activity-import.use-case.js";
+import { GetFeedPageUseCase } from "./use-cases/get-feed-page.use-case.js";
+import { GetVisibleActivityUseCase } from "./use-cases/get-visible-activity.use-case.js";
+import { ImportRateLimiter } from "./services/import-rate-limiter.js";
+import { ImportJobEnqueuer } from "./services/import-job-enqueuer.js";
 import { ActivitiesService } from "./activities.service.js";
 
 /**
@@ -26,7 +37,7 @@ import { ActivitiesService } from "./activities.service.js";
     SportsModule,
     UsersModule,
     SocialModule,
-    BullModule.registerQueue({ name: ACTIVITIES_QUEUE_NAME }),
+    BullModule.registerQueue({ name: ACTIVITIES_QUEUE_NAME }, { name: IMPORTS_QUEUE_NAME }),
   ],
   providers: [
     ActivityRepository,
@@ -38,6 +49,17 @@ import { ActivitiesService } from "./activities.service.js";
     ProcessActivityUseCase,
     ReconcileStuckActivitiesUseCase,
     GetActivitiesUseCase,
+    ActivityImportRepository,
+    ImportRateLimiter,
+    ImportJobEnqueuer,
+    CreateActivityImportUseCase,
+    RequestImportUploadUrlUseCase,
+    CompleteActivityImportUseCase,
+    GetActivityImportsUseCase,
+    ImportActivityFromFileUseCase,
+    ReprocessActivityImportUseCase,
+    GetFeedPageUseCase,
+    GetVisibleActivityUseCase,
     ActivitiesService,
   ],
   exports: [ActivitiesService],

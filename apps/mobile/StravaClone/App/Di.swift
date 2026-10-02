@@ -33,9 +33,19 @@ final class Di {
     let apiClient: APIClient
     let webSocketClient: WebSocketClient
     let connectivityMonitor: ConnectivityMonitor
+    /// Single GPS source shared by the map puck and Recording (ADR-027).
+    let locationProvider: CoreLocationProvider
+    let locationPermission: LocationPermissionService
+
+    /// Shared realtime connection (ADR-010), opened while signed in and in the foreground.
+    let realtimeService: RealtimeService
+    /// Avatars and static maps (ADR-029), one cache for the whole app.
+    let imageLoader = ImageLoader.shared
 
     private let recordingService: RecordingService
     private let authService: AuthService
+    private let importRepository: APIActivityImportRepository
+    private let feedRepository: APIFeedRepository
 
     init(configuration: AppConfiguration = AppConfiguration(), database: AppDatabase) {
         self.configuration = configuration
@@ -44,6 +54,8 @@ final class Di {
         apiClient = APIClient(baseURL: configuration.apiBaseURL, authSession: authSession)
         webSocketClient = WebSocketClient(url: configuration.realtimeURL)
         connectivityMonitor = ConnectivityMonitor()
+        locationProvider = CoreLocationProvider()
+        locationPermission = LocationPermissionService()
 
         // TODO(ADR-014): configure RevenueCat behind a SubscriptionService port (Features/Paywall).
         // TODO(ADR-015): configure PostHog behind an analytics port, session replay disabled.
@@ -51,9 +63,15 @@ final class Di {
         // TODO(ADR-022 §5): admin 2FA — credential-only, backoffice web, not applicable to mobile.
 
         recordingService = RecordingService(
-            locationProvider: CoreLocationProvider(),
+            locationProvider: locationProvider,
             repository: GRDBRecordingRepository(database: database)
         )
+        realtimeService = RealtimeService(
+            client: webSocketClient,
+            tokenProvider: RealtimeTokenProvider(apiClient: apiClient)
+        )
+        importRepository = APIActivityImportRepository(apiClient: apiClient)
+        feedRepository = APIFeedRepository(apiClient: apiClient)
         authService = AuthService(
             repository: APIAuthRepository(apiClient: apiClient, authSession: authSession),
             googleAuthProvider: GIDGoogleAuthProvider()
@@ -74,5 +92,24 @@ final class Di {
 
     func makeAuthStore() -> AuthStore {
         AuthStore(service: authService)
+    }
+
+    func makeFeedStore() -> FeedStore {
+        FeedStore(
+            loadFeed: LoadFeed(repository: feedRepository),
+            toggleKudos: ToggleKudos(repository: feedRepository),
+            events: RealtimeFeedEventSource(client: webSocketClient)
+        )
+    }
+
+    func makeImportStore() -> ImportStore {
+        ImportStore(
+            prepareFile: PrepareImportFile(staging: TemporaryImportFileStager()),
+            importFile: ImportActivityFile(repository: importRepository),
+            tracker: ImportTracker(
+                repository: importRepository,
+                events: RealtimeImportEventSource(client: webSocketClient)
+            )
+        )
     }
 }

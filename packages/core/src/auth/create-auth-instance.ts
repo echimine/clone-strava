@@ -98,6 +98,12 @@ export function createAuthInstance(
       // the session cookie must be readable there too.
       crossSubDomainCookies: { enabled: true, domain: ".strava.echimine.fr" },
       useSecureCookies: true,
+      // Rate limiting keys on the client IP. In production Traefik drops any
+      // client-supplied X-Forwarded-For (untrusted source) and sets its own,
+      // single-value header, which Better Auth trusts without `trustedProxies`.
+      // Locally there is no proxy: Better Auth falls back to 127.0.0.1 only
+      // when NODE_ENV=development (set by the api `dev` script).
+      ipAddress: { ipAddressHeaders: ["x-forwarded-for"] },
     },
     plugins: [
       admin(),

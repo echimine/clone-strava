@@ -20,9 +20,21 @@ struct APIClient: Sendable {
 
     private struct EmptyBody: Encodable {}
 
-    private static let decoder: JSONDecoder = {
+    /// The API writes ISO 8601 with milliseconds (`toISOString()`), which `.iso8601`
+    /// alone rejects: accept both forms.
+    static let decoder: JSONDecoder = {
         let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
+        decoder.dateDecodingStrategy = .custom { decoder in
+            let container = try decoder.singleValueContainer()
+            let value = try container.decode(String.self)
+            if let date = try? Date(value, strategy: Date.ISO8601FormatStyle(includingFractionalSeconds: true)) {
+                return date
+            }
+            if let date = try? Date(value, strategy: .iso8601) {
+                return date
+            }
+            throw DecodingError.dataCorruptedError(in: container, debugDescription: "Invalid ISO 8601 date: \(value)")
+        }
         return decoder
     }()
 
@@ -38,16 +50,27 @@ struct APIClient: Sendable {
         self.authSession = authSession
     }
 
-    func get<Response: Decodable>(_ path: String) async throws(APIError) -> Response {
-        try await send(method: "GET", path: path, body: EmptyBody?.none)
+    func get<Response: Decodable>(_ path: String, query: [URLQueryItem] = []) async throws(APIError) -> Response {
+        try await send(method: "GET", path: path, query: query, body: EmptyBody?.none)
+    }
+
+    /// Body-less call with another verb (e.g. `PUT`/`DELETE` on a sub-resource).
+    func send<Response: Decodable>(method: String, path: String) async throws(APIError) -> Response {
+        try await send(method: method, path: path, body: EmptyBody?.none)
     }
 
     func send<Body: Encodable, Response: Decodable>(
         method: String,
         path: String,
+        query: [URLQueryItem] = [],
         body: Body?
     ) async throws(APIError) -> Response {
-        let (response, _): (Response, HTTPURLResponse) = try await sendWithHeaders(method: method, path: path, body: body)
+        let (response, _): (Response, HTTPURLResponse) = try await sendWithHeaders(
+            method: method,
+            path: path,
+            query: query,
+            body: body
+        )
         return response
     }
 
@@ -57,9 +80,14 @@ struct APIClient: Sendable {
     func sendWithHeaders<Body: Encodable, Response: Decodable>(
         method: String,
         path: String,
+        query: [URLQueryItem] = [],
         body: Body?
     ) async throws(APIError) -> (Response, HTTPURLResponse) {
-        var request = URLRequest(url: baseURL.appending(path: path))
+        var url = baseURL.appending(path: path)
+        if !query.isEmpty {
+            url.append(queryItems: query)
+        }
+        var request = URLRequest(url: url)
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         if let token = authSession.token() {

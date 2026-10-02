@@ -31,6 +31,7 @@ The worker runs the heavy processing that the API puts in a queue (ADR-001). The
 |---|---|---|---|
 | `activities` | `process-activity` | `POST /activities/:id/complete` | Yes |
 | `segments` | `match-segments` (segment efforts) | End of `process-activity` | Yes, separate job (ADR-019) |
+| `imports` | `import-activity`: parses a .gpx/.tcx/.fit file, creates the activity, then chains `process-activity` (*amended by [ADR-028](ADR-028-activity-import-from-file.md)*) | `POST /v1/activity-imports/:id/complete` | Yes |
 | `subscriptions` | `sync-subscription`: reads the subscriber state via the RevenueCat REST API, updates the premium status in the database, sends the event to PostHog (ADR-014) | RevenueCat webhook received by the API | Yes, as soon as subscriptions exist |
 | `media` | map thumbnail generation | End of `process-activity` | Later |
 | `notifications` | APNs delivery | Business events | **Later** (no Apple Developer account yet) |
@@ -39,7 +40,7 @@ The worker runs the heavy processing that the API puts in a queue (ADR-001). The
 
 1. **Processors are thin**: they validate the job data with the Zod schema from `contracts`, then call the service of the relevant module in `packages/core`. No business rules in the processor.
 2. **Idempotent jobs**:
-   - the job ID is derived from the entity (e.g. `process-activity:{activityId}`), which prevents duplicates in the queue;
+   - the job ID is derived from the entity (e.g. `process-activity-{activityId}`), which prevents duplicates in the queue (*amended by [ADR-028](ADR-028-activity-import-from-file.md)*: `-` separator, BullMQ 6 rejects custom job ids containing `:`);
    - a replayed job does not create duplicates in the database, thanks to the transaction and "upsert" writes.
 3. **Retries**: several attempts with exponential backoff for technical errors (database, bucket, Redis). Invalid data (unreadable track) is a permanent failure, with no retry.
 4. **Permanent failure**: the activity moves to `failed` and an `activity.failed` event is published. Policy set in ADR-019: 5 attempts with exponential backoff for technical errors, immediate permanent failure for an invalid track, `processing_error` and `processing_attempts` columns, retry from the backoffice.
@@ -86,5 +87,5 @@ The worker runs the heavy processing that the API puts in a queue (ADR-001). The
 ## Links
 
 - **Details**: [ADR-003](ADR-003-backend.md)
-- **Amended by**: [ADR-019](ADR-019-activity-creation-flow.md) (jobs and failure policy)
+- **Amended by**: [ADR-019](ADR-019-activity-creation-flow.md) (jobs and failure policy), [ADR-028](ADR-028-activity-import-from-file.md) (`imports` queue, `import-activity` job, job id separator)
 - **Related**: [ADR-001](ADR-001-global-architecture.md), [ADR-009](ADR-009-backend-api.md) (shared foundation), [ADR-010](ADR-010-backend-realtime.md), [ADR-014](ADR-014-revenuecat.md), [ADR-015](ADR-015-posthog.md), [ADR-023](ADR-023-transactional-email-resend.md) (synchronous, not job-based, for auth emails)

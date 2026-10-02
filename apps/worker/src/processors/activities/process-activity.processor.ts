@@ -1,6 +1,6 @@
-import { InjectQueue, Processor, WorkerHost } from "@nestjs/bullmq";
+import { InjectQueue, OnWorkerEvent, Processor, WorkerHost } from "@nestjs/bullmq";
 import { Logger } from "@nestjs/common";
-import type { Job, Queue } from "bullmq";
+import { UnrecoverableError, type Job, type Queue } from "bullmq";
 import {
   ACTIVITIES_QUEUE_NAME,
   MATCH_SEGMENTS_JOB_NAME,
@@ -9,7 +9,7 @@ import {
   matchSegmentsJobId,
   processActivityJobSchema,
 } from "@repo/contracts";
-import { ActivitiesService } from "@repo/core/activities";
+import { ActivitiesService, PermanentProcessingError } from "@repo/core/activities";
 
 /**
  * Job name for the recurring reconciliation sweep (ADR-019 §7).
@@ -60,7 +60,15 @@ export class ProcessActivityProcessor extends WorkerHost {
     // (ADR-003, ADR-011 §5, ADR-019 §5). The realtime bridge forwards it to
     // the mobile app; this processor never publishes to Redis directly
     // (ADR-021 §4).
-    await this.activitiesService.process(data);
+    try {
+      await this.activitiesService.process(data);
+    } catch (error) {
+      // Invalid trace: already recorded as `failed`, no retry (ADR-019 §6).
+      if (error instanceof PermanentProcessingError) {
+        throw new UnrecoverableError(error.message);
+      }
+      throw error;
+    }
 
     // Job chaining is the worker's responsibility, not a module's (ADR-021
     // §2 rule 2): enqueue `match-segments` right after a successful
@@ -72,10 +80,31 @@ export class ProcessActivityProcessor extends WorkerHost {
     );
   }
 
+  /** Last technical attempt failed: the activity becomes `failed` / `processing_error` (ADR-019 §6). */
+  @OnWorkerEvent("failed")
+  async onFailed(job: Job | undefined, error: Error): Promise<void> {
+    if (!job || job.name !== PROCESS_ACTIVITY_JOB_NAME || error.name === "UnrecoverableError") {
+      return;
+    }
+    if (job.attemptsMade < (job.opts.attempts ?? 1)) {
+      return;
+    }
+    const data = processActivityJobSchema.safeParse(job.data);
+    if (!data.success) {
+      return;
+    }
+    try {
+      await this.activitiesService.markProcessingFailed(data.data);
+    } catch (markError) {
+      this.logger.error(`Could not mark activity ${data.data.activityId} as failed: ${String(markError)}`);
+    }
+  }
+
   private async reconcile(): Promise<void> {
-    // Re-enqueues `process-activity` for activities left `processing` for
-    // more than 15 minutes without an active job (ADR-019 §7): covers a
-    // failed enqueue, a lost job, or a loss of Redis data (ADR-018 §7).
+    // Re-enqueues `process-activity` for activities, and `import-activity`
+    // for imports (ADR-028 §8), left `processing` for more than 15 minutes
+    // without a live job (ADR-019 §7): covers a failed enqueue, a lost job,
+    // or a loss of Redis data (ADR-018 §7).
     const count = await this.activitiesService.reconcileStuck();
     this.logger.log(`Reconciliation sweep: ${count} activity(ies) re-enqueued`);
   }

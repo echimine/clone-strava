@@ -1,16 +1,48 @@
-import { Injectable, NotImplementedException } from "@nestjs/common";
+import { Injectable, NotFoundException, UnprocessableEntityException } from "@nestjs/common";
+import { ActivitiesService } from "../../activities/index.js";
 import { KudosRepository } from "../repositories/kudos.repository.js";
+import type { KudosState } from "../domain/kudos-state.js";
 
 /**
- * Gives kudos on an activity (ADR-017). Checks the target activity exists
- * and is visible to the user through `ActivitiesService` (ADR-021 §2:
- * `engagement` may depend on `activities`), never a direct table read.
+ * Gives or removes kudos on an activity (ADR-017, ADR-029). Checks the
+ * target activity is visible to the user through `ActivitiesService`
+ * (ADR-021 §2: `engagement` may depend on `activities`), never a direct
+ * table read. Both directions are idempotent.
  */
 @Injectable()
 export class GiveKudosUseCase {
-  constructor(private readonly kudos: KudosRepository) {}
+  constructor(
+    private readonly activities: ActivitiesService,
+    private readonly kudos: KudosRepository,
+  ) {}
 
-  async execute(_userId: string, _activityId: string): Promise<void> {
-    throw new NotImplementedException();
+  async execute(userId: string, activityId: string): Promise<KudosState> {
+    await this.assertCanKudos(userId, activityId);
+    await this.kudos.give(userId, activityId);
+    return this.state(activityId, true);
+  }
+
+  async remove(userId: string, activityId: string): Promise<KudosState> {
+    await this.assertCanKudos(userId, activityId);
+    await this.kudos.remove(userId, activityId);
+    return this.state(activityId, false);
+  }
+
+  private async assertCanKudos(userId: string, activityId: string): Promise<void> {
+    const activity = await this.activities.getVisible(userId, activityId);
+    if (!activity) {
+      throw new NotFoundException({ code: "activity_not_found", message: "Activity not found" });
+    }
+    if (activity.userId === userId) {
+      throw new UnprocessableEntityException({
+        code: "cannot_kudos_own_activity",
+        message: "You cannot give kudos to your own activity",
+      });
+    }
+  }
+
+  private async state(activityId: string, viewerHasKudoed: boolean): Promise<KudosState> {
+    const counts = await this.kudos.countByActivityIds([activityId]);
+    return { activityId, kudosCount: counts.get(activityId) ?? 0, viewerHasKudoed };
   }
 }

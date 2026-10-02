@@ -44,7 +44,7 @@ sequenceDiagram
     iOS->>API: POST /v1/activities/:id/complete
     API->>S3: HEAD trace.json.gz (does the trace exist?)
     API->>DB: UPDATE status = processing
-    API->>R: enqueue process-activity (jobId = process-activity:{id})
+    API->>R: enqueue process-activity (jobId = process-activity-{id})
     API-->>iOS: 202 Accepted
 
     Note over iOS: the app no longer blocks<br/>provisional values displayed
@@ -101,7 +101,7 @@ Body (Zod schema in `packages/contracts`): `id`, `sportTypeCode`, `title`, `desc
 ### 4. Upload completion: `POST /v1/activities/:id/complete`
 
 1. The API checks that the trace exists in the bucket (`HEAD`) and that its size stays under a limit (a pre-signed `PUT` URL cannot enforce the size). Otherwise `409` (`trace_missing` or `trace_too_large`).
-2. If the activity is `pending`: moves to `processing`, then enqueues `process-activity` with the job identifier `process-activity:{activityId}`. Response `202`.
+2. If the activity is `pending`: moves to `processing`, then enqueues `process-activity` with the job identifier `process-activity-{activityId}` (*amended by [ADR-028](ADR-028-activity-import-from-file.md)*: `-` instead of `:`, which BullMQ 6 rejects in custom job ids). Response `202`.
 3. If the activity is already `processing` or `processed`: `202` without enqueueing again (replayed call).
 4. If the activity is `failed`: `409`; reprocessing is triggered from the backoffice.
 
@@ -143,7 +143,7 @@ Activities that stay `pending` (trace never uploaded, app offline for a long tim
 
 ### 8. Segments: `match-segments` job
 
-- Enqueued **after** `process-activity`, with the identifier `match-segments:{activityId}`. It does not delay the official values.
+- Enqueued **after** `process-activity`, with the identifier `match-segments-{activityId}`. It does not delay the official values.
 - Search for candidate segments of the same sport near the route (GiST index), then check that the route actually follows the segment from end to end (tolerance of a few tens of meters).
 - For each segment covered: compute the time from the raw trace, upsert `segment_effort`, **recompute the segment's leaderboard** (`rank`).
 - `private` activities do not appear in public leaderboards.
@@ -208,4 +208,6 @@ Additions to the `activity` table:
 
 - **Amends**: [ADR-017](ADR-017-data-model.md) (processing-tracking columns), [ADR-011](ADR-011-backend-worker.md) (jobs and failure policy)
 - **Amended by**: [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md) (realtime events through the bridge)
+- **Extended by**: [ADR-028](ADR-028-activity-import-from-file.md) (activities imported from a file are created by the worker directly in `processing`, then follow §5-8)
+- **Amended by**: [ADR-028](ADR-028-activity-import-from-file.md) (job id separator `-`)
 - **Related**: [ADR-001](ADR-001-global-architecture.md), [ADR-008](ADR-008-mobile-offline-sync.md), [ADR-009](ADR-009-backend-api.md), [ADR-010](ADR-010-backend-realtime.md), [ADR-018](ADR-018-docker-vps-deployment.md)

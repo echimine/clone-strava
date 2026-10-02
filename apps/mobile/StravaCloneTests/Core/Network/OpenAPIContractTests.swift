@@ -84,4 +84,35 @@ struct OpenAPIContractTests {
             try decoder.decode(Components.Schemas.CreateActivityRequestDto.self, from: missingTitle)
         }
     }
+
+    /// A `GET /v1/feed` answer (`feedResponseSchema`, ADR-029), dates with milliseconds.
+    @Test func feedResponseDecodesAnAPIPayload() throws {
+        let json = Data("""
+        {
+          "items": [{
+            "id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+            "title": "Sortie du matin",
+            "sportTypeCode": "run",
+            "startedAt": "2026-10-02T12:32:00.000Z",
+            "visibility": "public",
+            "locationName": null,
+            "stats": { "distanceM": 10234.5, "movingTimeS": 3120, "elapsedTimeS": 3300, "elevationGainM": 245 },
+            "map": null,
+            "author": { "id": "1b4e28ba-2fa1-41d2-883f-0016d3cca427", "displayName": "Camille Martin", "avatarUrl": null },
+            "engagement": { "kudosCount": 3, "commentCount": 1, "viewerHasKudoed": false },
+            "viewerIsAuthor": true
+          }],
+          "nextCursor": null
+        }
+        """.utf8)
+
+        let dto = try APIClient.decoder.decode(Components.Schemas.FeedResponseDto_Output.self, from: json)
+
+        let item = try #require(dto.items.first)
+        #expect(item.title == "Sortie du matin")
+        #expect(item.locationName == nil)
+        #expect(item.stats.distanceM == 10234.5)
+        #expect(item.engagement.kudosCount == 3)
+        #expect(item.viewerIsAuthor)
+    }
 }

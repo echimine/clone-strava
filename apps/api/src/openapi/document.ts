@@ -28,6 +28,35 @@ export function createOpenApiDocument(app: INestApplication): OpenAPIObject {
     .setTitle("Clone Strava API")
     .setDescription("REST API for the mobile app and the backoffice (ADR-009).")
     .setVersion("1")
+    // 3.1: nullable fields (`z.nullable()`) are `anyOf [..., null]`, which swift-openapi-generator reads (ADR-029).
+    .setOpenAPIVersion("3.1.0")
     .build();
-  return cleanupOpenApiDoc(SwaggerModule.createDocument(app, config));
+  return collapseNullableUnions(cleanupOpenApiDoc(SwaggerModule.createDocument(app, config)));
+}
+
+/**
+ * Zod writes some nullable fields as `anyOf: [{ type: "integer", … }, { type: "null" }]`,
+ * which swift-openapi-generator turns into a wrapper struct that cannot decode a bare value.
+ * Rewrites them as the equivalent `type: ["integer", "null"]` (OpenAPI 3.1), which it maps
+ * to a plain Swift optional (ADR-026, ADR-029). Unions with `$ref`s are left untouched.
+ */
+export function collapseNullableUnions<T>(node: T): T {
+  if (Array.isArray(node)) {
+    return node.map((item) => collapseNullableUnions(item)) as T;
+  }
+  if (typeof node !== "object" || node === null) {
+    return node;
+  }
+  const entries = Object.entries(node).map(([key, value]) => [key, collapseNullableUnions(value)] as const);
+  const schema = Object.fromEntries(entries) as Record<string, unknown>;
+  const anyOf = schema.anyOf;
+  if (Array.isArray(anyOf) && anyOf.length === 2) {
+    const nullIndex = anyOf.findIndex((branch) => (branch as { type?: unknown }).type === "null");
+    const other = anyOf[1 - nullIndex] as Record<string, unknown> | undefined;
+    if (nullIndex !== -1 && other && typeof other.type === "string" && !("$ref" in other)) {
+      const { anyOf: _anyOf, ...rest } = schema;
+      return { ...other, ...rest, type: [other.type, "null"] } as T;
+    }
+  }
+  return schema as T;
 }

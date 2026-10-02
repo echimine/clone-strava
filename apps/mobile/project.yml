@@ -22,7 +22,7 @@ configs:
 
 configFiles:
   Debug: Config/Base.xcconfig
-  Release: Config/Base.xcconfig
+  Release: Config/Release.xcconfig
 
 settings:
   base:
@@ -79,7 +79,7 @@ targets:
         UIApplicationSupportsIndirectInputEvents: true
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         UIBackgroundModes: [location]
-        NSLocationWhenInUseUsageDescription: "StravaClone utilise votre position pour enregistrer le tracé de vos activités, y compris écran verrouillé."
+        NSLocationWhenInUseUsageDescription: "StravaClone utilise votre position pour l'afficher sur la carte et enregistrer le tracé de vos activités, y compris écran verrouillé."
         # Values injected from Config/Base.xcconfig (+ optional Secrets.xcconfig), read by AppConfiguration (App/Di.swift).
         APIBaseURL: $(API_BASE_URL)
         RealtimeURL: $(REALTIME_URL)
@@ -89,9 +89,31 @@ targets:
         # Google Sign-In (ADR-022): GIDClientID is read by GIDSignIn at launch;
         # CFBundleURLTypes lets iOS route the OAuth callback back into the app.
         GIDClientID: $(GOOGLE_IOS_CLIENT_ID)
+        # Audience of the returned ID token: the backend's web client, verified by Better Auth.
+        GIDServerClientID: $(GOOGLE_SERVER_CLIENT_ID)
         CFBundleURLTypes:
           - CFBundleURLSchemes:
               - $(GOOGLE_IOS_URL_SCHEME)
+        # Activity files accepted by the import (ADR-028): lets the Files picker filter them.
+        UTImportedTypeDeclarations:
+          - UTTypeIdentifier: com.topografix.gpx
+            UTTypeDescription: GPS Exchange Format
+            UTTypeConformsTo: [public.xml]
+            UTTypeTagSpecification:
+              public.filename-extension: [gpx]
+              public.mime-type: [application/gpx+xml]
+          - UTTypeIdentifier: com.garmin.tcx
+            UTTypeDescription: Training Center XML
+            UTTypeConformsTo: [public.xml]
+            UTTypeTagSpecification:
+              public.filename-extension: [tcx]
+              public.mime-type: [application/vnd.garmin.tcx+xml]
+          - UTTypeIdentifier: com.garmin.fit
+            UTTypeDescription: Flexible and Interoperable Data Transfer
+            UTTypeConformsTo: [public.data]
+            UTTypeTagSpecification:
+              public.filename-extension: [fit]
+              public.mime-type: [application/vnd.ant.fit]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: fr.echimine.stravaclone
@@ -102,7 +124,7 @@ targets:
       - package: GRDB
       - package: RevenueCat
       - package: PostHog
-      # Import MapboxMaps only in Features/*/Presentation (ADR-007 rule 6).
+      # Import MapboxMaps only in Features/*/Presentation and Core/DesignSystem/Map (ADR-007 rule 6, ADR-027).
       - package: MapboxMaps
       - package: GoogleSignIn
       - package: OpenAPIRuntime

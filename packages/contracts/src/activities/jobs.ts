@@ -11,7 +11,7 @@ export const PROCESS_ACTIVITY_JOB_NAME = "process-activity";
  * enqueue for the same activity never duplicates the job.
  */
 export function processActivityJobId(activityId: string): string {
-  return `process-activity:${activityId}`;
+  return `process-activity-${activityId}`;
 }
 
 /** `process-activity` job payload (ADR-011, ADR-019 §5). */
@@ -21,3 +21,21 @@ export const processActivityJobSchema = z.object({
   requestId: requestIdFieldSchema,
 });
 export type ProcessActivityJob = z.infer<typeof processActivityJobSchema>;
+
+/** `imports` queue (ADR-028 §4): separate from `activities` so bulk imports never delay live recordings. */
+export const IMPORTS_QUEUE_NAME = "imports";
+/** `import-activity` job (ADR-028 §4). */
+export const IMPORT_ACTIVITY_JOB_NAME = "import-activity";
+
+/** Deterministic job id (ADR-011 §2, ADR-028 §9). */
+export function importActivityJobId(importId: string): string {
+  return `import-activity-${importId}`;
+}
+
+/** `import-activity` job payload (ADR-028 §4). */
+export const importActivityJobSchema = z.object({
+  importId: z.uuid(),
+  userId: z.uuid(),
+  requestId: requestIdFieldSchema,
+});
+export type ImportActivityJob = z.infer<typeof importActivityJobSchema>;

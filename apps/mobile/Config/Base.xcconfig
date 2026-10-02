@@ -4,7 +4,7 @@
 
 API_BASE_URL = http:/$()/localhost:3001
 REALTIME_URL = ws:/$()/localhost:3003/ws
-MAPBOX_ACCESS_TOKEN =
+MAPBOX_ACCESS_TOKEN = pk.eyJ1IjoiZWNoaW1pbmUiLCJhIjoiY211cHg2amdnMDdvdjMycXJ5YmhsYWhmdiJ9.K4TXSy0DwKr7NcjH29MO5A
 REVENUECAT_API_KEY =
 POSTHOG_API_KEY =
 
@@ -12,5 +12,8 @@ POSTHOG_API_KEY =
 // From Google Cloud Console > Google Auth Platform > Clients > the "iOS" client's CLIENT_ID / REVERSED_CLIENT_ID.
 GOOGLE_IOS_CLIENT_ID = 671959343698-3cppld1mjqqlji13vf58kchnei4sin9j.apps.googleusercontent.com
 GOOGLE_IOS_URL_SCHEME = com.googleusercontent.apps.671959343698-3cppld1mjqqlji13vf58kchnei4sin9j
+// The backend's "Web application" client (= API GOOGLE_CLIENT_ID). Set as GIDServerClientID so the
+// ID token's `aud` is this client, which is the one Better Auth verifies against.
+GOOGLE_SERVER_CLIENT_ID = 671959343698-98o0birnk8mu0ojbtbjajp98dsr3fmmr.apps.googleusercontent.com
 
 #include? "Secrets.xcconfig"

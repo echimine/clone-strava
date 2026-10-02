@@ -42,7 +42,7 @@ Consistent with ADR-002/007's hexagonal boundary (`Domain` depends on nothing bu
 - GRDB repository tests use a real in-memory `DatabaseQueue`/`DatabasePool` with the real `DatabaseMigrator` run against it, not a fake — the GRDB layer's own correctness (queries, migrations) is exactly what needs to stay real to be worth testing.
 - API repository tests mock at the `URLProtocol` layer (intercepting `URLSession` requests/responses), not by faking the repository's own interface — this exercises the real `URLSession`-based networking code, only stubbing the actual network call.
 
-A shared `StravaCloneTests/TestSupport/` folder holds reusable fakes (`FakeLocationProvider`, a `URLProtocol` stub helper, an in-memory GRDB factory) so each feature's tests reuse one fake per collaborator instead of redefining it per test file — mirroring `apps/api/src/auth/test-auth-app.ts`'s role as a shared bootstrap helper on the backend side (ADR-024 §2).
+A shared `StravaCloneTests/TestSupport/` folder holds reusable fakes (`FakeLocationProvider` — *Amended by [ADR-027](ADR-027-user-location-on-maps.md)*: a fake of the `Core/Domain` multi-subscriber protocol, used by Map and Recording tests —, a `URLProtocol` stub helper, an in-memory GRDB factory) so each feature's tests reuse one fake per collaborator instead of redefining it per test file — mirroring `apps/api/src/auth/test-auth-app.ts`'s role as a shared bootstrap helper on the backend side (ADR-024 §2).
 
 ### 4. CI: a macOS GitHub Actions runner, gating merges to `main`
 
@@ -106,5 +106,5 @@ The scheme already has `codeCoverageEnabled = YES`. This ADR keeps coverage coll
 ## Links
 - **Depends on**: [ADR-002](ADR-002-mobile.md), [ADR-005](ADR-005-monorepo.md), [ADR-006](ADR-006-mobile-stack.md), [ADR-007](ADR-007-mobile-architecture.md)
 - **Amends**: [ADR-007](ADR-007-mobile-architecture.md) (expands its §Tests table into a full strategy with target structure, mocking conventions, and CI)
-- **Amended by**: [ADR-026](ADR-026-openapi-swift-codegen.md) (§4 mobile CI job implemented, unit tests only)
+- **Amended by**: [ADR-026](ADR-026-openapi-swift-codegen.md) (§4 mobile CI job implemented, unit tests only), [ADR-027](ADR-027-user-location-on-maps.md) (`FakeLocationProvider` is a `Core` fake)
 - **Related**: [ADR-008](ADR-008-mobile-offline-sync.md), [ADR-018](ADR-018-docker-vps-deployment.md), [ADR-024](ADR-024-backend-testing-strategy.md)

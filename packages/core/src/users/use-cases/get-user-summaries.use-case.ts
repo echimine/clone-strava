@@ -1,4 +1,4 @@
-import { Injectable, NotImplementedException } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { UserProfileRepository } from "../repositories/user-profile.repository.js";
 import type { UserSummary } from "../domain/user-summary.js";
 
@@ -10,7 +10,18 @@ import type { UserSummary } from "../domain/user-summary.js";
 export class GetUserSummariesUseCase {
   constructor(private readonly userProfiles: UserProfileRepository) {}
 
-  async execute(_userIds: string[]): Promise<UserSummary[]> {
-    throw new NotImplementedException();
+  /** One summary per requested id; users without a profile row get null fields. */
+  async execute(userIds: string[]): Promise<UserSummary[]> {
+    const ids = [...new Set(userIds)];
+    const profiles = new Map((await this.userProfiles.findByIds(ids)).map((p) => [p.userId, p]));
+    return ids.map((userId) => {
+      const profile = profiles.get(userId);
+      return {
+        userId,
+        firstName: profile?.firstName ?? null,
+        lastName: profile?.lastName ?? null,
+        avatarUrl: profile?.avatarUrl ?? null,
+      };
+    });
   }
 }

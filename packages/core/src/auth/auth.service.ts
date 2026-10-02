@@ -2,6 +2,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import type { UserRole } from "@repo/contracts";
 import { AUTH_INSTANCE } from "./auth.constants.js";
 import type { AuthInstance } from "./auth-instance.type.js";
+import { AuthUserRepository } from "./repositories/auth-user.repository.js";
 
 /**
  * Current session, as read from Better Auth (ADR-009 §3: used by
@@ -19,13 +20,32 @@ export interface AuthSession {
 }
 
 /**
+ * Name and picture an account shows to other users (ADR-029): the fallback
+ * of `UsersService.getSummaries` while `user_profile` rows are not created.
+ */
+export interface PublicIdentity {
+  userId: string;
+  name: string;
+  image: string | null;
+}
+
+/**
  * Public facade of the `auth` module (ADR-021 §1, layer 0). Wraps the
  * Better Auth instance so other modules and apps never import
  * `AUTH_INSTANCE` directly (ADR-021 §6 "Public API = index.ts").
  */
 @Injectable()
 export class AuthService {
-  constructor(@Inject(AUTH_INSTANCE) private readonly auth: AuthInstance) {}
+  constructor(
+    @Inject(AUTH_INSTANCE) private readonly auth: AuthInstance,
+    private readonly users: AuthUserRepository,
+  ) {}
+
+  /** Batch read (ADR-021 §2 rule 6): feed authors (ADR-029). */
+  async getPublicIdentities(userIds: string[]): Promise<PublicIdentity[]> {
+    const rows = await this.users.findPublicByIds([...new Set(userIds)]);
+    return rows.map((row) => ({ userId: row.id, name: row.name, image: row.image ?? null }));
+  }
 
   /** `ADR-009 §3`: session guard, `GET /v1/me`. `headers` is the incoming request's `Headers`. */
   async getSession(headers: Headers): Promise<AuthSession | null> {

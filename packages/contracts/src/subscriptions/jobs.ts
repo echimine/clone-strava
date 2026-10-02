@@ -8,7 +8,7 @@ export const SYNC_SUBSCRIPTION_JOB_NAME = "sync-subscription";
 
 /** Deterministic job id derived from the entity (ADR-011 §2). */
 export function syncSubscriptionJobId(userId: string): string {
-  return `sync-subscription:${userId}`;
+  return `sync-subscription-${userId}`;
 }
 
 /**

@@ -78,7 +78,7 @@ This ADR does not migrate existing calls. `APIClient` keeps its typed `APIError`
 - Generated types are Swift 6 / `Sendable`-ready and maintained by Apple.
 
 ### Negative / Risks
-- **Response bodies are not documented yet.** The spec exposes only request DTOs (`CreateActivityRequestDto`, the webhook bodies). Responses such as `/v1/me` or `activitySummarySchema` are declared with no schema, because controllers don't attach their response Zod schemas to Swagger. Until they do, the generated types cover requests only. Wiring response schemas into the controllers (`nestjs-zod` / `@ApiOkResponse`) is the next step.
+- **Response bodies are not documented yet.** The spec exposes only request DTOs (`CreateActivityRequestDto`, the webhook bodies). Responses such as `/v1/me` or `activitySummarySchema` are declared with no schema, because controllers don't attach their response Zod schemas to Swagger. Until they do, the generated types cover requests only. Wiring response schemas into the controllers (`nestjs-zod` / `@ApiOkResponse`) is the next step. *Amended by [ADR-029](ADR-029-activity-feed-and-card.md)*: started with `@ZodResponse` on `GET /v1/feed` and the kudos endpoints; other controllers follow when touched.
 - **Better Auth routes (`/api/auth/*`) are outside the Nest spec**, so their DTOs stay hand-written in `APIAuthRepository`. Better Auth's `openAPI` plugin could close this later.
 - **Plugin trust**: every CLI build needs `-skipPackagePluginValidation`, and each machine approves the plugin once in Xcode.
 - **macOS runner cost and Xcode image drift**: this is mitigated by the path filter and `setup-xcode`, but `mobile:test` targets the `iPhone 17` simulator, which requires Xcode 26+ on the runner image.
@@ -93,4 +93,5 @@ This ADR does not migrate existing calls. `APIClient` keeps its typed `APIError`
 ## Links
 - **Depends on**: [ADR-005](ADR-005-monorepo.md), [ADR-009](ADR-009-backend-api.md), [ADR-025](ADR-025-mobile-testing-strategy.md)
 - **Amends**: [ADR-005](ADR-005-monorepo.md) (closes the OpenAPI → Swift risk), [ADR-009](ADR-009-backend-api.md) (Documentation row), [ADR-025](ADR-025-mobile-testing-strategy.md) (§4 mobile CI job implemented for unit tests)
+- **Amended by**: [ADR-029](ADR-029-activity-feed-and-card.md) (first documented response bodies)
 - **Related**: [ADR-002](ADR-002-mobile.md), [ADR-007](ADR-007-mobile-architecture.md), [ADR-018](ADR-018-docker-vps-deployment.md), [ADR-022](ADR-022-authentication-better-auth.md), [ADR-024](ADR-024-backend-testing-strategy.md)

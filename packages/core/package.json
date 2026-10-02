@@ -54,6 +54,10 @@
     "./realtime": {
       "types": "./dist/realtime/index.d.ts",
       "default": "./dist/realtime/index.js"
+    },
+    "./geocoding": {
+      "types": "./dist/geocoding/index.d.ts",
+      "default": "./dist/geocoding/index.js"
     }
   },
   "files": [
@@ -77,6 +81,7 @@
     "@repo/contracts": "workspace:*",
     "@repo/db": "workspace:*",
     "@repo/realtime": "workspace:*",
+    "@repo/track-files": "workspace:*",
     "better-auth": "1.7.6",
     "bullmq": "6.3.8",
     "drizzle-orm": "0.45.3",

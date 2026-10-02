@@ -45,6 +45,10 @@ export const workerEnvSchema = z.object({
   ...s3EnvShape,
   ...postHogEnvShape,
   REVENUECAT_API_KEY: z.string().min(1),
+  // ADR-029: server-side Mapbox token for reverse geocoding; optional (no place name without it).
+  MAPBOX_GEOCODING_TOKEN: z.string().min(1).optional(),
+  // ADR-029: Mapbox's terms require the (billed) permanent endpoint to store results.
+  MAPBOX_GEOCODING_PERMANENT: z.stringbool().default(false),
 });
 export type WorkerEnv = z.infer<typeof workerEnvSchema>;
 

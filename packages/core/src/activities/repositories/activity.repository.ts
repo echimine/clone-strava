@@ -1,7 +1,9 @@
-import { Inject, Injectable, NotImplementedException } from "@nestjs/common";
-import { eq, inArray } from "drizzle-orm";
+import { Inject, Injectable } from "@nestjs/common";
+import { and, desc, eq, gt, inArray, lt, ne, or, sql } from "drizzle-orm";
 import { schema, type Database } from "@repo/db";
-import { DATABASE } from "../../infrastructure/index.js";
+import { DATABASE, type DbExecutor } from "../../infrastructure/index.js";
+
+type ProcessingStatus = (typeof schema.processingStatusEnum.enumValues)[number];
 
 /** Reads and writes on `activities.activity` only (ADR-021 §6). */
 @Injectable()
@@ -19,19 +21,117 @@ export class ActivityRepository {
     return this.db.query.activity.findMany({ where: inArray(schema.activity.id, ids) });
   }
 
-  findStuckProcessing(_olderThanMinutes: number) {
-    // ADR-019 §7: `activity_processing_status_idx` (partial index, status != 'processed').
-    throw new NotImplementedException();
+  /**
+   * One feed page (ADR-029): the viewer's own processed activities plus the
+   * `public`/`followers` ones of their followees, keyset-paginated on
+   * `(started_at desc, id desc)`. Returns up to `limit + 1` rows so the
+   * caller knows whether a next page exists.
+   */
+  findFeedPage(params: {
+    viewerId: string;
+    followeeIds: string[];
+    before?: { startedAt: Date; id: string };
+    limit: number;
+  }) {
+    const { viewerId, followeeIds, before, limit } = params;
+    const authors =
+      followeeIds.length === 0
+        ? eq(schema.activity.userId, viewerId)
+        : or(
+            eq(schema.activity.userId, viewerId),
+            and(
+              inArray(schema.activity.userId, followeeIds),
+              inArray(schema.activity.visibility, ["public", "followers"]),
+            ),
+          );
+    return this.db
+      .select()
+      .from(schema.activity)
+      .where(
+        and(
+          authors,
+          eq(schema.activity.processingStatus, "processed"),
+          before
+            ? sql`(${schema.activity.startedAt}, ${schema.activity.id}) < (${before.startedAt.toISOString()}::timestamptz, ${before.id}::uuid)`
+            : undefined,
+        ),
+      )
+      .orderBy(desc(schema.activity.startedAt), desc(schema.activity.id))
+      .limit(limit + 1);
   }
 
-  async insert(_values: typeof schema.activity.$inferInsert): Promise<void> {
-    throw new NotImplementedException();
+  /** ADR-019 §7: `activity_processing_status_idx` (partial index, status != 'processed'). */
+  findStuckProcessing(olderThanMinutes: number, limit = 100) {
+    return this.db
+      .select({ id: schema.activity.id, userId: schema.activity.userId })
+      .from(schema.activity)
+      .where(
+        and(
+          eq(schema.activity.processingStatus, "processing"),
+          lt(schema.activity.createdAt, sql`now() - make_interval(mins => ${olderThanMinutes})`),
+        ),
+      )
+      .limit(limit);
   }
 
-  async updateStatus(
-    _id: string,
-    _status: (typeof schema.processingStatusEnum.enumValues)[number],
+  /**
+   * The user's activities whose time interval intersects `[startedAt,
+   * endedAt]`, failed ones excluded (ADR-028 §6). Uses
+   * `activity_user_started_at_idx`; the overlap ratio is computed by the caller.
+   */
+  findOverlapping(userId: string, startedAt: Date, endedAt: Date) {
+    return this.db
+      .select({
+        id: schema.activity.id,
+        startedAt: schema.activity.startedAt,
+        endedAt: schema.activity.endedAt,
+      })
+      .from(schema.activity)
+      .where(
+        and(
+          eq(schema.activity.userId, userId),
+          ne(schema.activity.processingStatus, "failed"),
+          lt(schema.activity.startedAt, endedAt),
+          gt(schema.activity.endedAt, startedAt),
+        ),
+      );
+  }
+
+  /** Idempotent insert (ADR-028 §1: a replayed import job inserts nothing). */
+  async insertIfAbsent(
+    values: typeof schema.activity.$inferInsert,
+    executor: DbExecutor = this.db,
   ): Promise<void> {
-    throw new NotImplementedException();
+    await executor.insert(schema.activity).values(values).onConflictDoNothing({
+      target: schema.activity.id,
+    });
+  }
+
+  async incrementAttempts(id: string): Promise<void> {
+    await this.db
+      .update(schema.activity)
+      .set({ processingAttempts: sql`${schema.activity.processingAttempts} + 1` })
+      .where(eq(schema.activity.id, id));
+  }
+
+  async markProcessed(id: string, executor: DbExecutor = this.db): Promise<void> {
+    await executor
+      .update(schema.activity)
+      .set({ processingStatus: "processed", processingError: null, processedAt: new Date() })
+      .where(eq(schema.activity.id, id));
+  }
+
+  async markFailed(id: string, errorCode: string): Promise<void> {
+    await this.db
+      .update(schema.activity)
+      .set({ processingStatus: "failed", processingError: errorCode, processedAt: new Date() })
+      .where(eq(schema.activity.id, id));
+  }
+
+  async updateStatus(id: string, status: ProcessingStatus): Promise<void> {
+    await this.db
+      .update(schema.activity)
+      .set({ processingStatus: status })
+      .where(eq(schema.activity.id, id));
   }
 }

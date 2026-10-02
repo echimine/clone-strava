@@ -31,7 +31,7 @@ Two kinds of modules:
 | `users` | domain | `user_profile` | Profile, units, default visibility, privacy zone radius, health data |
 | `sports` | domain | `sport_type` | Reference data (populated by migration), per-sport rules |
 | `social` | domain | `follow` | Follow graph: follow, accept, unfollow, "does A follow B", followee lists |
-| `activities` | domain | `activity`, `activity_stats`, `activity_track`, `activity_attachment` | Creation, upload, processing, visibility, feed |
+| `activities` | domain | `activity`, `activity_stats`, `activity_track`, `activity_attachment`, `activity_import` (*amended by ADR-028*) | Creation, upload, processing, visibility, feed, file import |
 | `engagement` | domain | `kudos`, `comment` | Kudos and comments on activities |
 | `segments` | domain | `segment`, `segment_effort` | Segments, matching, leaderboards |
 | `subscriptions` | domain | `user_subscription`, `revenuecat_event` | Premium status, RevenueCat sync |
@@ -121,7 +121,7 @@ Rules:
 
 | Module | Queue · job | Domain events forwarded to the mobile app by the bridge | Analytics events |
 |---|---|---|---|
-| `activities` | `activities` · `process-activity`, recurring reconciliation (ADR-019 §7) | `activities.activity.processed` → `activity.processed`, `activities.activity.failed` → `activity.failed` | `activity_processed`, `activity_failed` |
+| `activities` | `activities` · `process-activity`, recurring reconciliation (ADR-019 §7); `imports` · `import-activity` (*amended by [ADR-028](ADR-028-activity-import-from-file.md)*) | `activities.activity.processed` → `activity.processed`, `activities.activity.failed` → `activity.failed`, `activities.import.completed` → `activity_import.completed`, `activities.import.failed` → `activity_import.failed` | `activity_processed`, `activity_failed`, `activity_imported`, `activity_import_failed` |
 | `segments` | `segments` · `match-segments` | `segments.efforts.matched` → `activity.segments_matched` | — |
 | `subscriptions` | `subscriptions` · `sync-subscription` | — | `subscription_*` (ADR-014) |
 | later | `media` (thumbnails), `notifications` (APNs) | — | — |
@@ -156,6 +156,8 @@ Rules:
   4. `engagement.getCounts(activityIds)` for kudos and comments.
 
   Four queries whatever the page size, and each module keeps full control of its tables.
+
+  *Amended by [ADR-029](ADR-029-activity-feed-and-card.md)*: steps 1–2 run in `activities` (`getFeedPage`), steps 3–4 in `apps/api` (`FeedAssembler`), since `activities` may not call `engagement`. Step 3 also reads `auth.getPublicIdentities` as a name/avatar fallback, plus `engagement.getKudoedBy` for the viewer's kudos. A `geocoding` platform module (Mapbox reverse geocoding) joins `analytics` and `storage`.
 - **Public API = `index.ts`**. `packages/core` exposes one subpath per module (`@repo/core/activities`, …) in its `package.json` `exports`; internals are not exported.
 
 ### 7. One PostgreSQL schema per domain module
@@ -263,4 +265,5 @@ This replaces the `eslint-plugin-boundaries` option mentioned in ADR-003. The ex
 
 - **Details**: [ADR-003](ADR-003-backend.md) (dedicated ADR for module boundary rules; replaces the `eslint-plugin-boundaries` option)
 - **Amends**: [ADR-017](ADR-017-data-model.md) (`kudos` and `comment` move to the new `engagement` module; one PostgreSQL schema per module), [ADR-010](ADR-010-backend-realtime.md) (realtime messages published by a single bridge listener, not by domain modules)
+- **Amended by**: [ADR-028](ADR-028-activity-import-from-file.md) (`activity_import` table, `imports` queue, `activities.import.*` events in the bridge table), [ADR-029](ADR-029-activity-feed-and-card.md) (feed assembly in `apps/api`, `geocoding` platform module)
 - **Related**: [ADR-004](ADR-004-backoffice.md), [ADR-005](ADR-005-monorepo.md), [ADR-009](ADR-009-backend-api.md), [ADR-010](ADR-010-backend-realtime.md), [ADR-011](ADR-011-backend-worker.md), [ADR-015](ADR-015-posthog.md), [ADR-019](ADR-019-activity-creation-flow.md), [ADR-023](ADR-023-transactional-email-resend.md) (`notifications` platform module)

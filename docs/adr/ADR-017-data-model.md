@@ -136,6 +136,8 @@ erDiagram
         string raw_points_s3_key "raw points"
         string map_thumbnail_url
         int point_count
+        string map_polyline "amended by ADR-029"
+        string location_name "amended by ADR-029"
     }
     ACTIVITY_ATTACHMENT {
         uuid id PK
@@ -226,7 +228,7 @@ erDiagram
 | `social` | `social` | `follow` | Slide 09 |
 | `engagement` | `engagement` | `kudos`, `comment` | Slide 09 (*amended by ADR-021*: split from `social`) |
 | `sports` | `sports` | `sport_type` (reference data, populated by migration) | Slide 09 |
-| `activities` | `activities` | `activity`, `activity_stats`, `activity_track`, `activity_attachment` | Slide 09 |
+| `activities` | `activities` | `activity`, `activity_stats`, `activity_track`, `activity_attachment`, `activity_import` | Slide 09 (*amended by ADR-028*: `activity_import`) |
 | `segments` | `segments` | `segment`, `segment_effort` | Slide 09 |
 | `subscriptions` | `subscriptions` | `user_subscription`, `revenuecat_event` | **Addition** (ADR-014) |
 
@@ -280,6 +282,7 @@ We **do not copy** products or offerings into our database:
 
 - `device`: devices and APNs tokens for notifications (ADR-006, ADR-011).
 - Processing-tracking columns (`processing_error`, `processing_attempts`, `processed_at`) on `activity`: **decided in [ADR-019](ADR-019-activity-creation-flow.md)**.
+- *Amended by [ADR-028](ADR-028-activity-import-from-file.md)*: table `activity_import` (import of .gpx/.tcx/.fit files) and column `activity.source` (`recorded` / `imported` / `manual`).
 
 ## Alternatives Considered
 
@@ -316,5 +319,5 @@ We **do not copy** products or offerings into our database:
 
 ## Links
 
-- **Amended by**: [ADR-019](ADR-019-activity-creation-flow.md) (processing-tracking columns), [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md) (`kudos` and `comment` move to the `engagement` module; one PostgreSQL schema per module)
+- **Amended by**: [ADR-019](ADR-019-activity-creation-flow.md) (processing-tracking columns), [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md) (`kudos` and `comment` move to the `engagement` module; one PostgreSQL schema per module), [ADR-028](ADR-028-activity-import-from-file.md) (`activity_import` table, `activity.source`), [ADR-029](ADR-029-activity-feed-and-card.md) (`activity_track.map_polyline`, `location_name`)
 - **Related**: [ADR-003](ADR-003-backend.md) (modules and owned tables), [ADR-008](ADR-008-mobile-offline-sync.md), [ADR-009](ADR-009-backend-api.md), [ADR-011](ADR-011-backend-worker.md), [ADR-014](ADR-014-revenuecat.md), [ADR-022](ADR-022-authentication-better-auth.md) (`admin` plugin on the `role` column)
