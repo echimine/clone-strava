@@ -1,7 +1,8 @@
 import { BullModule } from "@nestjs/bullmq";
 import { Module } from "@nestjs/common";
-import { ACTIVITIES_QUEUE_NAME, SEGMENTS_QUEUE_NAME } from "@repo/contracts";
+import { ACTIVITIES_QUEUE_NAME, IMPORTS_QUEUE_NAME, SEGMENTS_QUEUE_NAME } from "@repo/contracts";
 import { ActivitiesModule } from "@repo/core/activities";
+import { ImportActivityProcessor } from "./import-activity.processor.js";
 import { ProcessActivityProcessor } from "./process-activity.processor.js";
 import { ReconciliationScheduler } from "./reconciliation.scheduler.js";
 
@@ -16,8 +17,13 @@ import { ReconciliationScheduler } from "./reconciliation.scheduler.js";
     // producer (job chaining, ADR-021 §2 rule 2); its own `Processor` lives
     // in `SegmentsProcessorModule`.
     ActivitiesModule,
-    BullModule.registerQueue({ name: ACTIVITIES_QUEUE_NAME }, { name: SEGMENTS_QUEUE_NAME }),
+    // `imports` (ADR-028 §4): consumed by `ImportActivityProcessor`.
+    BullModule.registerQueue(
+      { name: ACTIVITIES_QUEUE_NAME },
+      { name: IMPORTS_QUEUE_NAME },
+      { name: SEGMENTS_QUEUE_NAME },
+    ),
   ],
-  providers: [ProcessActivityProcessor, ReconciliationScheduler],
+  providers: [ProcessActivityProcessor, ImportActivityProcessor, ReconciliationScheduler],
 })
 export class ActivitiesProcessorModule {}

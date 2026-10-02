@@ -2,7 +2,7 @@ import { type ArgumentsHost, Catch, type ExceptionFilter, HttpException, HttpSta
 import type { Response } from "express";
 import { ZodSerializationException, ZodValidationException } from "nestjs-zod";
 import type { ZodError } from "zod";
-import type { ApiErrorResponse } from "@repo/contracts";
+import type { ApiErrorDetail, ApiErrorResponse } from "@repo/contracts";
 
 /**
  * Single API error format for the whole API (ADR-009 §7): `code`, `message`,
@@ -16,6 +16,10 @@ export class GlobalExceptionFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost): void {
     const response = host.switchToHttp().getResponse<Response>();
     const { status, body } = this.toErrorResponse(exception);
+    const retryAfterS = retryAfterOf(exception);
+    if (retryAfterS !== undefined) {
+      response.setHeader("Retry-After", String(retryAfterS));
+    }
 
     if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
       this.logger.error(exception instanceof Error ? exception.stack : exception);
@@ -63,7 +67,14 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         typeof httpResponse === "object" && httpResponse !== null && "code" in httpResponse
           ? String((httpResponse as { code: unknown }).code)
           : httpStatusToCode(status);
-      return { status, body: { error: { code, message } } };
+      // Field-level `details` passed by a handler (e.g. a `422` raised by a use case).
+      const details =
+        typeof httpResponse === "object" &&
+        httpResponse !== null &&
+        Array.isArray((httpResponse as { details?: unknown }).details)
+          ? ((httpResponse as { details: ApiErrorDetail[] }).details)
+          : undefined;
+      return { status, body: { error: details ? { code, message, details } : { code, message } } };
     }
 
     return {
@@ -71,6 +82,19 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       body: { error: { code: "internal_error", message: "Internal server error" } },
     };
   }
+}
+
+/** `retryAfterS` passed by a handler to a `429` (e.g. the import rate limit, ADR-028 §9). */
+function retryAfterOf(exception: unknown): number | undefined {
+  if (!(exception instanceof HttpException)) {
+    return undefined;
+  }
+  const httpResponse = exception.getResponse();
+  const value =
+    typeof httpResponse === "object" && httpResponse !== null
+      ? (httpResponse as { retryAfterS?: unknown }).retryAfterS
+      : undefined;
+  return typeof value === "number" ? value : undefined;
 }
 
 function httpStatusToCode(status: number): string {

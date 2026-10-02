@@ -253,6 +253,149 @@
         ]
       }
     },
+    "/v1/activity-imports": {
+      "post": {
+        "operationId": "ActivityImportsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateActivityImportRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ActivityImports"
+        ]
+      },
+      "get": {
+        "operationId": "ActivityImportsController_list",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "processing",
+                "imported",
+                "duplicate",
+                "failed"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 9007199254740991,
+              "default": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ActivityImports"
+        ]
+      }
+    },
+    "/v1/activity-imports/{id}": {
+      "get": {
+        "operationId": "ActivityImportsController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ActivityImports"
+        ]
+      }
+    },
+    "/v1/activity-imports/{id}/upload-url": {
+      "post": {
+        "operationId": "ActivityImportsController_renewUploadUrl",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ActivityImports"
+        ]
+      }
+    },
+    "/v1/activity-imports/{id}/complete": {
+      "post": {
+        "operationId": "ActivityImportsController_complete",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ActivityImports"
+        ]
+      }
+    },
     "/v1/realtime/token": {
       "post": {
         "operationId": "RealtimeTokenController_issueToken",
@@ -321,6 +464,29 @@
         "parameters": [],
         "responses": {
           "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/v1/admin/activity-imports/{id}/reprocess": {
+      "post": {
+        "operationId": "AdminController_reprocessImport",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
             "description": ""
           }
         },
@@ -407,6 +573,58 @@
           "endedAt",
           "visibility",
           "isManual"
+        ]
+      },
+      "CreateActivityImportRequestDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "gpx",
+              "tcx",
+              "fit"
+            ]
+          },
+          "fileName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "exclusiveMinimum": true,
+            "maximum": 26214400,
+            "minimum": 0
+          },
+          "sportTypeCode": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "public",
+              "followers",
+              "private"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "format",
+          "fileName",
+          "sizeBytes"
         ]
       },
       "RevenueCatWebhookBodyDto": {
