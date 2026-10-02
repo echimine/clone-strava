@@ -21,7 +21,12 @@ struct StravaCloneApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView(authStore: di.makeAuthStore(), recordingStore: di.makeRecordingStore())
+            RootView(
+                authStore: di.makeAuthStore(),
+                recordingStore: di.makeRecordingStore(),
+                importStore: di.makeImportStore(),
+                realtimeService: di.realtimeService
+            )
                 .tint(Theme.accent)
                 .environment(di.locationPermission)
                 .environment(\.locationProvider, di.locationProvider)
@@ -38,6 +43,16 @@ struct StravaCloneApp: App {
 struct RootView: View {
     @State var authStore: AuthStore
     @State var recordingStore: RecordingStore
+    @State var importStore: ImportStore
+    let realtimeService: RealtimeService
+
+    @Environment(\.scenePhase) private var scenePhase
+
+    /// Signed-in user id while the app is in the foreground: drives the realtime connection.
+    private var realtimeUserId: String? {
+        guard scenePhase == .active, case .signedIn(let user) = authStore.state else { return nil }
+        return user.id
+    }
 
     var body: some View {
         Group {
@@ -48,8 +63,30 @@ struct RootView: View {
                 AuthFlowView(store: authStore)
             case .signedIn:
                 TabView {
-                    FeedView()
-                        .tabItem { Label("Accueil", systemImage: "house") }
+                    FeedView(onImportActivity: importStore.startImport) {
+                        if let banner = importStore.banner {
+                            ImportStatusBanner(
+                                banner: banner,
+                                onPickSport: importStore.pickSportAgain,
+                                onDismiss: importStore.dismissBanner
+                            )
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                        }
+                    }
+                    .animation(.default, value: importStore.banner)
+                    .fileImporter(
+                        isPresented: $importStore.isPickingFile,
+                        allowedContentTypes: ImportFileTypes.all,
+                        onCompletion: importStore.filePicked
+                    )
+                    .sheet(item: $importStore.confirmation) { confirmation in
+                        ImportConfirmationSheet(
+                            confirmation: confirmation,
+                            onConfirm: { options in Task { await importStore.confirm(options) } },
+                            onCancel: importStore.cancelConfirmation
+                        )
+                    }
+                    .tabItem { Label("Accueil", systemImage: "house") }
                     MapScreen()
                         .tabItem { Label("Map", systemImage: "map") }
                     RecordingView(store: recordingStore)
@@ -60,5 +97,13 @@ struct RootView: View {
             }
         }
         .task { await authStore.restoreSession() }
+        // Realtime only while signed in and in the foreground (ADR-001, ADR-010).
+        .task(id: realtimeUserId) {
+            if let userId = realtimeUserId {
+                await realtimeService.connect(userId: userId)
+            } else {
+                await realtimeService.disconnect()
+            }
+        }
     }
 }

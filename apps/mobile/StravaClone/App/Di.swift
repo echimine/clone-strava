@@ -37,8 +37,12 @@ final class Di {
     let locationProvider: CoreLocationProvider
     let locationPermission: LocationPermissionService
 
+    /// Shared realtime connection (ADR-010), opened while signed in and in the foreground.
+    let realtimeService: RealtimeService
+
     private let recordingService: RecordingService
     private let authService: AuthService
+    private let importRepository: APIActivityImportRepository
 
     init(configuration: AppConfiguration = AppConfiguration(), database: AppDatabase) {
         self.configuration = configuration
@@ -59,6 +63,11 @@ final class Di {
             locationProvider: locationProvider,
             repository: GRDBRecordingRepository(database: database)
         )
+        realtimeService = RealtimeService(
+            client: webSocketClient,
+            tokenProvider: RealtimeTokenProvider(apiClient: apiClient)
+        )
+        importRepository = APIActivityImportRepository(apiClient: apiClient)
         authService = AuthService(
             repository: APIAuthRepository(apiClient: apiClient, authSession: authSession),
             googleAuthProvider: GIDGoogleAuthProvider()
@@ -79,5 +88,16 @@ final class Di {
 
     func makeAuthStore() -> AuthStore {
         AuthStore(service: authService)
+    }
+
+    func makeImportStore() -> ImportStore {
+        ImportStore(
+            prepareFile: PrepareImportFile(staging: TemporaryImportFileStager()),
+            importFile: ImportActivityFile(repository: importRepository),
+            tracker: ImportTracker(
+                repository: importRepository,
+                events: RealtimeImportEventSource(client: webSocketClient)
+            )
+        )
     }
 }

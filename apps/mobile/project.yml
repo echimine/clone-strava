@@ -94,6 +94,26 @@ targets:
         CFBundleURLTypes:
           - CFBundleURLSchemes:
               - $(GOOGLE_IOS_URL_SCHEME)
+        # Activity files accepted by the import (ADR-028): lets the Files picker filter them.
+        UTImportedTypeDeclarations:
+          - UTTypeIdentifier: com.topografix.gpx
+            UTTypeDescription: GPS Exchange Format
+            UTTypeConformsTo: [public.xml]
+            UTTypeTagSpecification:
+              public.filename-extension: [gpx]
+              public.mime-type: [application/gpx+xml]
+          - UTTypeIdentifier: com.garmin.tcx
+            UTTypeDescription: Training Center XML
+            UTTypeConformsTo: [public.xml]
+            UTTypeTagSpecification:
+              public.filename-extension: [tcx]
+              public.mime-type: [application/vnd.garmin.tcx+xml]
+          - UTTypeIdentifier: com.garmin.fit
+            UTTypeDescription: Flexible and Interoperable Data Transfer
+            UTTypeConformsTo: [public.data]
+            UTTypeTagSpecification:
+              public.filename-extension: [fit]
+              public.mime-type: [application/vnd.ant.fit]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: fr.echimine.stravaclone
