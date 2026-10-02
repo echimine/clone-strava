@@ -75,9 +75,9 @@ export class ImportActivityFromFileUseCase {
     const bytes = await this.download(row, job);
     const sha256 = createHash("sha256").update(bytes).digest("hex");
 
-    const sameContent = await this.imports.findImportedBySha256(row.userId, sha256);
-    if (sameContent?.activityId) {
-      return this.duplicate(row, sameContent.activityId, sha256, job);
+    const sameContent = await this.activityOfSameFile(row.userId, sha256);
+    if (sameContent) {
+      return this.duplicate(row, sameContent, sha256, job);
     }
 
     const parsed = await this.parse(row, bytes, sha256, job);
@@ -141,9 +141,9 @@ export class ImportActivityFromFileUseCase {
     } catch (error) {
       if (isUniqueViolation(error)) {
         // A concurrent import of the same file won the unique index (ADR-028 §6).
-        const winner = await this.imports.findImportedBySha256(row.userId, sha256);
-        if (winner?.activityId) {
-          return this.duplicate(row, winner.activityId, sha256, job);
+        const winner = await this.activityOfSameFile(row.userId, sha256);
+        if (winner) {
+          return this.duplicate(row, winner, sha256, job);
         }
       }
       throw error;
@@ -156,6 +156,24 @@ export class ImportActivityFromFileUseCase {
       sportTypeCode: sport.code,
     });
     return { outcome: "imported", activityId: row.id };
+  }
+
+  /**
+   * The activity an earlier import of this exact file produced, if it still
+   * stands (ADR-028 §6). An earlier import whose activity failed processing or
+   * was deleted releases its hash: the file can then be imported again.
+   */
+  private async activityOfSameFile(userId: string, sha256: string): Promise<string | undefined> {
+    const previous = await this.imports.findImportedBySha256(userId, sha256);
+    if (!previous) {
+      return undefined;
+    }
+    const activity = previous.activityId ? await this.activities.findById(previous.activityId) : undefined;
+    if (activity && activity.processingStatus !== "failed") {
+      return activity.id;
+    }
+    await this.imports.releaseSha256(previous.id);
+    return undefined;
   }
 
   /** Technical retries exhausted (ADR-028 §7): called by the worker on the last failed attempt. */

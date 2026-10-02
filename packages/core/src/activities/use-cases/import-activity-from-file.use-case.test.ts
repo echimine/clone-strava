@@ -59,6 +59,7 @@ function setup(options: { file?: Uint8Array; row?: Partial<ActivityImportRow> } 
     findById: vi.fn().mockResolvedValue(row),
     incrementAttempts: vi.fn(),
     findImportedBySha256: vi.fn().mockResolvedValue(undefined),
+    releaseSha256: vi.fn(),
     markImported: vi.fn(),
     markDuplicate: vi.fn(),
     markFailed: vi.fn(),
@@ -66,6 +67,10 @@ function setup(options: { file?: Uint8Array; row?: Partial<ActivityImportRow> } 
   const activities = {
     findOverlapping: vi.fn().mockResolvedValue([]),
     insertIfAbsent: vi.fn(),
+    findById: vi.fn(async (id: string): Promise<{ id: string; processingStatus: string } | undefined> => ({
+      id,
+      processingStatus: "processed",
+    })),
   };
   const sports = {
     findByCode: vi.fn(async (code: string) =>
@@ -159,6 +164,21 @@ describe("ImportActivityFromFileUseCase", () => {
       ACTIVITY_IMPORT_COMPLETED_EVENT,
       expect.objectContaining({ outcome: "duplicate", activityId: OTHER_ACTIVITY }),
     );
+  });
+
+  it("re-imports a file whose earlier activity failed or was deleted", async () => {
+    for (const previous of [
+      { id: "old-failed", activityId: OTHER_ACTIVITY, failed: true },
+      { id: "old-deleted", activityId: null, failed: false },
+    ]) {
+      const ctx = setup();
+      ctx.imports.findImportedBySha256.mockResolvedValue(previous);
+      ctx.activities.findById.mockResolvedValue(
+        previous.failed ? { id: OTHER_ACTIVITY, processingStatus: "failed" } : undefined,
+      );
+      await expect(ctx.useCase.execute(job)).resolves.toEqual({ outcome: "imported", activityId: IMPORT_ID });
+      expect(ctx.imports.releaseSha256).toHaveBeenCalledWith(previous.id);
+    }
   });
 
   it("marks the same workout from another device as duplicate", async () => {

@@ -53,6 +53,14 @@ export class ActivityImportRepository {
     });
   }
 
+  /**
+   * Drops the hash of an import whose activity failed or was deleted, so the
+   * unique index (ADR-028 §6) no longer blocks a new import of the same file.
+   */
+  async releaseSha256(id: string): Promise<void> {
+    await this.db.update(schema.activityImport).set({ sha256: null }).where(eq(schema.activityImport.id, id));
+  }
+
   /** `pending` -> `processing` (ADR-028 §3 `complete`); `false` if it was not `pending`. */
   async markProcessingIfPending(id: string): Promise<boolean> {
     const updated = await this.db

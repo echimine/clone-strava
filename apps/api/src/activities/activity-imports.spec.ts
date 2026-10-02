@@ -192,6 +192,15 @@ describe("/v1/activity-imports (integration)", () => {
     expect((await json(limited)).error.code).toBe("rate_limited");
   });
 
+  it("gives a counter left without expiry its one-hour window back", async () => {
+    // A counter whose EXPIRE was lost would otherwise lock the user out forever.
+    await redis.set(`ratelimit:activity-imports:${userB}`, "30");
+    expect((await call("", userB, { body: body(randomUUID()) })).status).toBe(429);
+    const ttl = await redis.ttl(`ratelimit:activity-imports:${userB}`);
+    expect(ttl).toBeGreaterThan(0);
+    expect(ttl).toBeLessThanOrEqual(3600);
+  });
+
   it("rejects unauthenticated calls (401)", async () => {
     const response = await fetch(`${baseUrl}/v1/activity-imports`, { method: "GET" });
     expect(response.status).toBe(401);
