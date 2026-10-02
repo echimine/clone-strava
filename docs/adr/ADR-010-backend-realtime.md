@@ -62,7 +62,7 @@ Any connection that presents an `Origin` header (browser) is refused: the backof
 ```
 
 - `v`: protocol version; a client that receives an unknown version ignores the message.
-- `t`: event type, in `{resource}.{verb}` format.
+- `t`: event type, in `{resource}.{verb}` format. *Amended by [ADR-028](ADR-028-activity-import-from-file.md)*: `activity_import.completed` and `activity_import.failed` are added for file imports.
 - `id`: unique identifier, to ignore a duplicate on the client side.
 - `data`: **minimal content**. The resource data is never sent: the client reloads through the API (`GET /v1/activities/:id`). The API remains the single source of truth, and it is the same code as resynchronization (ADR-008).
 
@@ -161,5 +161,5 @@ This package is added to those listed in ADR-005.
 
 - **Details**: [ADR-003](ADR-003-backend.md)
 - **Amends**: [ADR-005](ADR-005-monorepo.md) (adds `packages/realtime`)
-- **Amended by**: [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md) (single realtime bridge in `api` and `worker`)
+- **Amended by**: [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md) (single realtime bridge in `api` and `worker`), [ADR-028](ADR-028-activity-import-from-file.md) (`activity_import.*` events)
 - **Related**: [ADR-001](ADR-001-global-architecture.md), [ADR-006](ADR-006-mobile-stack.md), [ADR-008](ADR-008-mobile-offline-sync.md), [ADR-009](ADR-009-backend-api.md), [ADR-011](ADR-011-backend-worker.md)
