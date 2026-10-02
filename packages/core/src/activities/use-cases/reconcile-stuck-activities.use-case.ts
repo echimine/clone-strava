@@ -1,4 +1,4 @@
-import { Injectable, NotImplementedException } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { InjectQueue } from "@nestjs/bullmq";
 import type { Queue } from "bullmq";
 import {
@@ -7,22 +7,46 @@ import {
   processActivityJobId,
   type ProcessActivityJob,
 } from "@repo/contracts";
+import { enqueueUnique } from "../../infrastructure/index.js";
 import { ActivityRepository } from "../repositories/activity.repository.js";
+import { ActivityImportRepository } from "../repositories/activity-import.repository.js";
+import { ImportJobEnqueuer } from "../services/import-job-enqueuer.js";
+
+/** ADR-019 §7, ADR-028 §8: older than this in `processing` counts as stuck. */
+const STUCK_AFTER_MINUTES = 15;
 
 /**
- * Reconciliation (ADR-019 §7): re-enqueues activities stuck `processing`
- * for more than 15 minutes without an active job, every 10 minutes.
- * `apps/worker` schedules this use case (no scheduler dependency in
- * `packages/core`, ADR-021 §6: modules stay framework-thin).
+ * Reconciliation (ADR-019 §7, ADR-028 §8): re-enqueues activities and
+ * imports stuck `processing` for more than 15 minutes without a live job,
+ * every 10 minutes. `apps/worker` schedules this use case (no scheduler
+ * dependency in `packages/core`, ADR-021 §6).
  */
 @Injectable()
 export class ReconcileStuckActivitiesUseCase {
   constructor(
     private readonly activities: ActivityRepository,
+    private readonly imports: ActivityImportRepository,
+    private readonly importEnqueuer: ImportJobEnqueuer,
     @InjectQueue(ACTIVITIES_QUEUE_NAME) private readonly queue: Queue<ProcessActivityJob>,
   ) {}
 
+  /** Returns the number of jobs re-enqueued. */
   async execute(): Promise<number> {
-    throw new NotImplementedException();
+    let count = 0;
+    for (const activity of await this.activities.findStuckProcessing(STUCK_AFTER_MINUTES)) {
+      const added = await enqueueUnique(
+        this.queue,
+        PROCESS_ACTIVITY_JOB_NAME,
+        { activityId: activity.id, userId: activity.userId },
+        processActivityJobId(activity.id),
+      );
+      if (added) count++;
+    }
+    for (const stuckImport of await this.imports.findStuckProcessing(STUCK_AFTER_MINUTES)) {
+      if (await this.importEnqueuer.enqueue({ importId: stuckImport.id, userId: stuckImport.userId })) {
+        count++;
+      }
+    }
+    return count;
   }
 }

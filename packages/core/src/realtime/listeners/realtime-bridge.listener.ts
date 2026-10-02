@@ -2,6 +2,8 @@ import { Inject, Injectable, Logger } from "@nestjs/common";
 import { OnEvent } from "@nestjs/event-emitter";
 import {
   ACTIVITY_FAILED,
+  ACTIVITY_IMPORT_COMPLETED,
+  ACTIVITY_IMPORT_FAILED,
   ACTIVITY_PROCESSED,
   ACTIVITY_SEGMENTS_MATCHED,
   userTopic,
@@ -9,9 +11,13 @@ import {
 } from "@repo/realtime";
 import {
   ACTIVITY_FAILED_EVENT,
+  ACTIVITY_IMPORT_COMPLETED_EVENT,
+  ACTIVITY_IMPORT_FAILED_EVENT,
   ACTIVITY_PROCESSED_EVENT,
   SEGMENTS_EFFORTS_MATCHED_EVENT,
   type ActivityFailedEvent,
+  type ActivityImportCompletedEvent,
+  type ActivityImportFailedEvent,
   type ActivityProcessedEvent,
   type SegmentsEffortsMatchedEvent,
 } from "@repo/contracts";
@@ -29,6 +35,8 @@ import { REALTIME_PUBLISHER } from "../realtime.constants.js";
  * | `activities.activity.processed`  | `activity.processed`          |
  * | `activities.activity.failed`     | `activity.failed`             |
  * | `segments.efforts.matched`       | `activity.segments_matched`   |
+ * | `activities.import.completed`    | `activity_import.completed`   |
+ * | `activities.import.failed`       | `activity_import.failed`      |
  *
  * An event absent from this table never reaches a client (ADR-021 §4).
  *
@@ -76,6 +84,32 @@ export class RealtimeBridge {
           at: new Date().toISOString(),
         },
       ),
+    );
+  }
+
+  /** ADR-028 §10. */
+  @OnEvent(ACTIVITY_IMPORT_COMPLETED_EVENT, { async: true })
+  async onActivityImportCompleted(event: ActivityImportCompletedEvent): Promise<void> {
+    await this.forward(ACTIVITY_IMPORT_COMPLETED_EVENT, event.userId, () =>
+      this.publisher.publishRealtimeEvent([userTopic(event.userId)], ACTIVITY_IMPORT_COMPLETED, {
+        importId: event.importId,
+        activityId: event.activityId,
+        status: event.outcome,
+        at: new Date().toISOString(),
+      }),
+    );
+  }
+
+  /** ADR-028 §10. */
+  @OnEvent(ACTIVITY_IMPORT_FAILED_EVENT, { async: true })
+  async onActivityImportFailed(event: ActivityImportFailedEvent): Promise<void> {
+    await this.forward(ACTIVITY_IMPORT_FAILED_EVENT, event.userId, () =>
+      this.publisher.publishRealtimeEvent([userTopic(event.userId)], ACTIVITY_IMPORT_FAILED, {
+        importId: event.importId,
+        status: "failed",
+        code: event.code,
+        at: new Date().toISOString(),
+      }),
     );
   }
 

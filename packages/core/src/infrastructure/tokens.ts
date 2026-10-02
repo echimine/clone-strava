@@ -15,3 +15,8 @@ export const REDIS = Symbol("REDIS");
 
 export type { Database };
 export type { Redis };
+
+/** A Drizzle transaction, as passed to `db.transaction(async (tx) => ...)`. */
+export type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
+/** Either the connection or an open transaction: repository writes accept both. */
+export type DbExecutor = Database | Transaction;

@@ -12,6 +12,8 @@ export class AnalyticsModule {
   static forRoot(options: AnalyticsModuleOptions): DynamicModule {
     return {
       module: AnalyticsModule,
+      // Global: every domain module may use it (ADR-021 §2), registered once by each app.
+      global: true,
       providers: [{ provide: ANALYTICS_OPTIONS, useValue: options }, AnalyticsService],
       exports: [AnalyticsService],
     };

@@ -2,6 +2,8 @@ import { Inject, Injectable, Optional, type OnApplicationShutdown } from "@nestj
 import { PostHog } from "posthog-node";
 import type {
   ActivityFailedProperties,
+  ActivityImportedProperties,
+  ActivityImportFailedProperties,
   ActivityProcessedProperties,
   AnalyticsEventName,
 } from "@repo/contracts";
@@ -16,6 +18,8 @@ import { ANALYTICS_OPTIONS, type AnalyticsModuleOptions } from "./analytics.cons
 export interface AnalyticsEventPropertiesMap {
   activity_processed: ActivityProcessedProperties;
   activity_failed: ActivityFailedProperties;
+  activity_imported: ActivityImportedProperties;
+  activity_import_failed: ActivityImportFailedProperties;
 }
 
 /**

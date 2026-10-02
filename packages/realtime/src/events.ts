@@ -8,11 +8,16 @@ import { z } from "zod";
 export const ACTIVITY_PROCESSED = "activity.processed";
 export const ACTIVITY_FAILED = "activity.failed";
 export const ACTIVITY_SEGMENTS_MATCHED = "activity.segments_matched";
+/** File imports (ADR-028 §10). */
+export const ACTIVITY_IMPORT_COMPLETED = "activity_import.completed";
+export const ACTIVITY_IMPORT_FAILED = "activity_import.failed";
 
 export const mobileEventTypeSchema = z.enum([
   ACTIVITY_PROCESSED,
   ACTIVITY_FAILED,
   ACTIVITY_SEGMENTS_MATCHED,
+  ACTIVITY_IMPORT_COMPLETED,
+  ACTIVITY_IMPORT_FAILED,
 ]);
 export type MobileEventType = z.infer<typeof mobileEventTypeSchema>;
 
@@ -43,17 +48,39 @@ export type ActivitySegmentsMatchedData = z.infer<
   typeof activitySegmentsMatchedDataSchema
 >;
 
+/** `activityId`: the created activity (`imported`) or the existing one (`duplicate`). */
+export const activityImportCompletedDataSchema = z.object({
+  importId: z.string(),
+  activityId: z.string(),
+  status: z.enum(["imported", "duplicate"]),
+  at: z.iso.datetime(),
+});
+export type ActivityImportCompletedData = z.infer<typeof activityImportCompletedDataSchema>;
+
+/** `code`: the import error code (ADR-028 §7), the only thing the app shows; no personal data. */
+export const activityImportFailedDataSchema = z.object({
+  importId: z.string(),
+  status: z.literal("failed"),
+  code: z.string(),
+  at: z.iso.datetime(),
+});
+export type ActivityImportFailedData = z.infer<typeof activityImportFailedDataSchema>;
+
 /** Data schema for each mobile event type, keyed by its `t` value. */
 export const mobileEventDataSchemas = {
   [ACTIVITY_PROCESSED]: activityProcessedDataSchema,
   [ACTIVITY_FAILED]: activityFailedDataSchema,
   [ACTIVITY_SEGMENTS_MATCHED]: activitySegmentsMatchedDataSchema,
+  [ACTIVITY_IMPORT_COMPLETED]: activityImportCompletedDataSchema,
+  [ACTIVITY_IMPORT_FAILED]: activityImportFailedDataSchema,
 } as const satisfies Record<MobileEventType, z.ZodType>;
 
 export type MobileEventData =
   | ActivityProcessedData
   | ActivityFailedData
-  | ActivitySegmentsMatchedData;
+  | ActivitySegmentsMatchedData
+  | ActivityImportCompletedData
+  | ActivityImportFailedData;
 
 /** Data payload type for a given mobile event type, e.g. `MobileEventDataFor<typeof ACTIVITY_PROCESSED>`. */
 export type MobileEventDataFor<T extends MobileEventType> = z.infer<
