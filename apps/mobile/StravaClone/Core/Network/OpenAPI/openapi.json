@@ -1,5 +1,5 @@
 {
-  "openapi": "3.0.0",
+  "openapi": "3.1.0",
   "paths": {
     "/health": {
       "get": {
@@ -656,16 +656,20 @@
                       ]
                     },
                     "movingTimeS": {
-                      "type": "integer",
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
                       "minimum": -9007199254740991,
-                      "maximum": 9007199254740991,
-                      "nullable": true
+                      "maximum": 9007199254740991
                     },
                     "elapsedTimeS": {
-                      "type": "integer",
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
                       "minimum": -9007199254740991,
-                      "maximum": 9007199254740991,
-                      "nullable": true
+                      "maximum": 9007199254740991
                     },
                     "elevationGainM": {
                       "type": [
@@ -683,7 +687,10 @@
                   "additionalProperties": false
                 },
                 "map": {
-                  "type": "object",
+                  "type": [
+                    "object",
+                    "null"
+                  ],
                   "properties": {
                     "polyline": {
                       "type": "string",
@@ -691,17 +698,14 @@
                     },
                     "precision": {
                       "type": "number",
-                      "enum": [
-                        5
-                      ]
+                      "const": 5
                     }
                   },
                   "required": [
                     "polyline",
                     "precision"
                   ],
-                  "additionalProperties": false,
-                  "nullable": true
+                  "additionalProperties": false
                 },
                 "author": {
                   "type": "object",
@@ -773,10 +777,11 @@
             }
           },
           "nextCursor": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
           }
         },
         "required": [
@@ -877,9 +882,8 @@
           },
           "sizeBytes": {
             "type": "integer",
-            "exclusiveMinimum": true,
-            "maximum": 26214400,
-            "minimum": 0
+            "exclusiveMinimum": 0,
+            "maximum": 26214400
           },
           "sportTypeCode": {
             "type": "string",

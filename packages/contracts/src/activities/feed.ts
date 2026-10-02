@@ -54,7 +54,7 @@ export type FeedItem = z.infer<typeof feedItemSchema>;
 /** `GET /v1/feed` response (ADR-029): `nextCursor` is null on the last page. */
 export const feedResponseSchema = z.object({
   items: z.array(feedItemSchema),
-  nextCursor: z.string().nullable(),
+  nextCursor: z.string().min(1).nullable(),
 });
 export type FeedResponse = z.infer<typeof feedResponseSchema>;
 

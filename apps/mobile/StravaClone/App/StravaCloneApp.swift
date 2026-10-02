@@ -25,9 +25,12 @@ struct StravaCloneApp: App {
                 authStore: di.makeAuthStore(),
                 recordingStore: di.makeRecordingStore(),
                 importStore: di.makeImportStore(),
+                feedStore: di.makeFeedStore(),
                 realtimeService: di.realtimeService
             )
                 .tint(Theme.accent)
+                .environment(\.imageLoader, di.imageLoader)
+                .environment(\.mapboxAccessToken, di.configuration.mapboxAccessToken)
                 .environment(di.locationPermission)
                 .environment(\.locationProvider, di.locationProvider)
                 .onOpenURL { url in
@@ -44,6 +47,7 @@ struct RootView: View {
     @State var authStore: AuthStore
     @State var recordingStore: RecordingStore
     @State var importStore: ImportStore
+    @State var feedStore: FeedStore
     let realtimeService: RealtimeService
 
     @Environment(\.scenePhase) private var scenePhase
@@ -61,9 +65,10 @@ struct RootView: View {
                 ProgressView()
             case .signedOut:
                 AuthFlowView(store: authStore)
+                    .onAppear { feedStore.reset() }
             case .signedIn:
                 TabView {
-                    FeedView(onImportActivity: importStore.startImport) {
+                    FeedView(store: feedStore, onImportActivity: importStore.startImport) {
                         if let banner = importStore.banner {
                             ImportStatusBanner(
                                 banner: banner,
