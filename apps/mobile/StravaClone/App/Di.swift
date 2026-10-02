@@ -40,7 +40,7 @@ final class Di {
     /// Shared realtime connection (ADR-010), opened while signed in and in the foreground.
     let realtimeService: RealtimeService
     /// Avatars and static maps (ADR-029), one cache for the whole app.
-    let imageLoader = ImageLoader()
+    let imageLoader = ImageLoader.shared
 
     private let recordingService: RecordingService
     private let authService: AuthService

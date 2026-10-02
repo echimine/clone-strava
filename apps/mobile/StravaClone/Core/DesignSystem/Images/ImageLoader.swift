@@ -5,6 +5,9 @@ import UIKit
 /// memory, responses in a disk `URLCache`. Static map URLs are deterministic, so the HTTP
 /// cache serves them again across launches. Concurrent requests for one URL share a task.
 actor ImageLoader {
+    /// App-wide instance: one memory and disk cache for every screen.
+    static let shared = ImageLoader()
+
     private let session: URLSession
     private let memory = NSCache<NSURL, UIImage>()
     private var inFlight: [URL: Task<UIImage?, Never>] = [:]
@@ -50,7 +53,7 @@ actor ImageLoader {
 
 extension EnvironmentValues {
     /// Shared loader, injected by the app root (`Di`).
-    @Entry var imageLoader = ImageLoader()
+    @Entry var imageLoader: ImageLoader = .shared
     /// Public Mapbox token used by static map images (ADR-029).
     @Entry var mapboxAccessToken = ""
 }
