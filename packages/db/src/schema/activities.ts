@@ -113,6 +113,10 @@ export const activityTrack = activitiesSchema.table(
     rawPointsS3Key: text("raw_points_s3_key"),
     mapThumbnailUrl: text("map_thumbnail_url"),
     pointCount: integer("point_count"),
+    // ADR-029: polyline5 of `route`, simplified to fit a static map URL (≤ 2000 chars).
+    mapPolyline: text("map_polyline"),
+    // ADR-029: reverse-geocoded place of the (privacy-zoned) start point, e.g. "Annecy, Haute-Savoie".
+    locationName: text("location_name"),
   },
   (table) => [
     // ADR-017 "Main indexes": spatial search, segment detection.

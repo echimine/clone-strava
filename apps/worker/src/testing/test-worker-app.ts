@@ -5,6 +5,7 @@ import { EventEmitterModule } from "@nestjs/event-emitter";
 import { Test } from "@nestjs/testing";
 import { Redis } from "ioredis";
 import { AnalyticsModule } from "@repo/core/analytics";
+import { GeocodingModule } from "@repo/core/geocoding";
 import { CoreInfrastructureModule, DATABASE, type Database } from "@repo/core/infrastructure";
 import { RealtimeBridgeModule } from "@repo/core/realtime";
 import { StorageModule, StorageService } from "@repo/core/storage";
@@ -71,6 +72,7 @@ export async function bootstrapTestWorkerApp(): Promise<TestWorkerApp> {
         accessKeyId: "test",
         secretAccessKey: "test",
       }),
+      GeocodingModule.forRoot({}),
       EventEmitterModule.forRoot({ wildcard: true, delimiter: "." }),
       RealtimeBridgeModule,
       ActivitiesProcessorModule,

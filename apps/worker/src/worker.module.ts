@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { EventEmitterModule } from "@nestjs/event-emitter";
 import { AnalyticsModule } from "@repo/core/analytics";
+import { GeocodingModule } from "@repo/core/geocoding";
 import { CoreInfrastructureModule } from "@repo/core/infrastructure";
 import { RealtimeBridgeModule } from "@repo/core/realtime";
 import { StorageModule } from "@repo/core/storage";
@@ -41,6 +42,10 @@ const config = loadConfig();
       bucket: config.S3_BUCKET,
       accessKeyId: config.S3_ACCESS_KEY_ID,
       secretAccessKey: config.S3_SECRET_ACCESS_KEY,
+    }),
+    GeocodingModule.forRoot({
+      accessToken: config.MAPBOX_GEOCODING_TOKEN,
+      permanent: config.MAPBOX_GEOCODING_PERMANENT,
     }),
     // `wildcard`/`delimiter` so listeners can subscribe to `{module}.*`
     // patterns (ADR-021 §3). Events are "same process only" (ADR-021 §3):

@@ -36,6 +36,13 @@
       "when": 1790967611330,
       "tag": "0004_activity_import",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790973611466,
+      "tag": "0005_activity_feed",
+      "breakpoints": true
     }
   ]
 }

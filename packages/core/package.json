@@ -54,6 +54,10 @@
     "./realtime": {
       "types": "./dist/realtime/index.d.ts",
       "default": "./dist/realtime/index.js"
+    },
+    "./geocoding": {
+      "types": "./dist/geocoding/index.d.ts",
+      "default": "./dist/geocoding/index.js"
     }
   },
   "files": [

@@ -4,6 +4,7 @@ import { EventEmitterModule } from "@nestjs/event-emitter";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { ZodSerializerInterceptor, ZodValidationPipe } from "nestjs-zod";
 import { AnalyticsModule } from "@repo/core/analytics";
+import { GeocodingModule } from "@repo/core/geocoding";
 import { CoreInfrastructureModule } from "@repo/core/infrastructure";
 import { RealtimeBridgeModule } from "@repo/core/realtime";
 import { StorageModule } from "@repo/core/storage";
@@ -48,6 +49,8 @@ const config = loadConfig();
       accessKeyId: config.S3_ACCESS_KEY_ID,
       secretAccessKey: config.S3_SECRET_ACCESS_KEY,
     }),
+    // Processing (the only geocoding user) runs in the worker: no token here (ADR-029).
+    GeocodingModule.forRoot({}),
     // Forwards domain events emitted here to the mobile app via Redis
     // (ADR-021 §4). `apps/api` currently emits none itself (only the
     // worker does, after job processing), but is loaded per ADR-021 §4

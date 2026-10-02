@@ -14,6 +14,7 @@ import {
 } from "@repo/contracts";
 import type { Database } from "@repo/db";
 import { AnalyticsService } from "../../analytics/index.js";
+import { GeocodingService } from "../../geocoding/index.js";
 import { DATABASE } from "../../infrastructure/index.js";
 import { ObjectTooLargeError, StorageService } from "../../storage/index.js";
 import { UsersService } from "../../users/index.js";
@@ -23,6 +24,7 @@ import { ActivityTrackRepository } from "../repositories/activity-track.reposito
 import { computeMetrics } from "../domain/compute-metrics.js";
 import { applyPrivacyZone } from "../domain/apply-privacy-zone.js";
 import { cleanTrace, maxPlausibleSpeedMs } from "../domain/clean-trace.js";
+import { feedPolyline } from "../domain/feed-polyline.js";
 import { computeHeartRate } from "../domain/heart-rate.js";
 import { PermanentProcessingError } from "../domain/processing-error.js";
 import { simplifyRoute, toLineStringEwkt, toPointEwkt } from "../domain/simplify-route.js";
@@ -53,6 +55,7 @@ export class ProcessActivityUseCase {
     private readonly users: UsersService,
     private readonly storage: StorageService,
     private readonly analytics: AnalyticsService,
+    private readonly geocoding: GeocodingService,
     private readonly events: EventEmitter2,
   ) {}
 
@@ -77,6 +80,10 @@ export class ProcessActivityUseCase {
     const heartRate = computeHeartRate(points);
     const { privacyZoneRadiusM } = await this.users.getActivityDefaults(activity.userId);
     const shown = simplifyRoute(applyPrivacyZone(points, { radiusM: privacyZoneRadiusM }), ROUTE_TOLERANCE_M);
+    // ADR-029: feed card data, from the privacy-zoned route only. Geocoding is
+    // best effort and stays outside the transaction.
+    const mapPolyline = feedPolyline(shown);
+    const locationName = shown.length >= 2 ? await this.geocoding.reverse(shown[0]!) : null;
 
     await this.db.transaction(async (tx) => {
       await this.activityStats.upsert(
@@ -101,6 +108,8 @@ export class ProcessActivityUseCase {
           startPoint: shown.length >= 2 ? toPointEwkt(shown[0]!) : null,
           rawPointsS3Key: activityTraceKey(activity.userId, activity.id),
           pointCount: points.length,
+          mapPolyline,
+          locationName,
         },
         tx,
       );

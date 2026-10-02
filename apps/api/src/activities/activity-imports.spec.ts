@@ -11,6 +11,7 @@ import { activityImportSourceKey } from "@repo/contracts";
 import { ActivitiesModule } from "@repo/core/activities";
 import { AnalyticsModule } from "@repo/core/analytics";
 import { AuthService } from "@repo/core/auth";
+import { GeocodingModule } from "@repo/core/geocoding";
 import { CoreInfrastructureModule, DATABASE, type Database } from "@repo/core/infrastructure";
 import { StorageModule, StorageService } from "@repo/core/storage";
 import { ensureTestDatabaseMigrated, TEST_DATABASE_URL, TEST_REDIS_URL } from "../auth/test-auth-app.js";
@@ -81,6 +82,7 @@ describe("/v1/activity-imports (integration)", () => {
           accessKeyId: "test",
           secretAccessKey: "test",
         }),
+        GeocodingModule.forRoot({}),
         EventEmitterModule.forRoot({ wildcard: true, delimiter: "." }),
         ActivitiesModule,
       ],

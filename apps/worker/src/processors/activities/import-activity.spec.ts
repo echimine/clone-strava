@@ -94,11 +94,14 @@ describe("import-activity (integration)", () => {
     expect(stats?.distance_m).toBeGreaterThan(1000);
     expect(stats?.elapsed_time_s).toBe(600);
 
-    const [track] = await sql<{ route: string | null }>(
-      "select ST_AsText(route) as route from activities.activity_track where activity_id = $1",
+    const [track] = await sql<{ route: string | null; map_polyline: string | null; location_name: string | null }>(
+      "select ST_AsText(route) as route, map_polyline, location_name from activities.activity_track where activity_id = $1",
       [importId],
     );
     expect(track?.route).toMatch(/^LINESTRING/);
+    // ADR-029: feed map data; no geocoding token in tests, so no place name.
+    expect(track?.map_polyline?.length).toBeGreaterThan(0);
+    expect(track?.location_name).toBeNull();
 
     const types = await waitFor(async () => {
       const mine = ctx.realtimeMessages
