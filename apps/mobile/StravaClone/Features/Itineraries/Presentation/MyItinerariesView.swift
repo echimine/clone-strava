@@ -3,8 +3,10 @@ import SwiftUI
 /// Profil > Mes Itinéraires (ADR-030 §8): feed-style cards from the cache, most recently
 /// updated first, page by page; a full resync on opening and on pull-to-refresh.
 /// "Créer" is injected: the app shell opens the editor, or says a connection is required.
+/// A card opens the Itinerary's detail page, offline too.
 struct MyItinerariesView: View {
     @Bindable var store: ItineraryListStore
+    let makeDetailStore: @MainActor (ItineraryID) -> ItineraryDetailStore
     let onCreate: () -> Void
 
     var body: some View {
@@ -19,6 +21,9 @@ struct MyItinerariesView: View {
                     }
                     .accessibilityIdentifier("createItineraryFromList")
                 }
+            }
+            .navigationDestination(for: ItineraryID.self) { id in
+                ItineraryDetailView(store: makeDetailStore(id))
             }
             .task(id: store.limit) { await store.observe() }
             .task { await store.refresh() }
@@ -47,8 +52,11 @@ struct MyItinerariesView: View {
                 syncBanner
                 LazyVStack(spacing: Theme.spacing) {
                     ForEach(store.itineraries) { itinerary in
-                        ItineraryCard(itinerary: itinerary)
-                            .onAppear { store.loadMoreIfNeeded(current: itinerary) }
+                        NavigationLink(value: itinerary.id) {
+                            ItineraryCard(itinerary: itinerary)
+                        }
+                        .buttonStyle(.plain)
+                        .onAppear { store.loadMoreIfNeeded(current: itinerary) }
                     }
                 }
                 .padding(.horizontal, Theme.spacing)

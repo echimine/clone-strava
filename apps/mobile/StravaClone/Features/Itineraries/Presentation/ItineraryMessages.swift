@@ -1,7 +1,20 @@
 import Foundation
 
-/// French strings of saving and listing Itineraries.
+/// French strings of saving, listing and viewing Itineraries.
 enum ItineraryMessages {
+    static let trackUnavailableOffline = "Tracé pas encore téléchargé : il s'affichera au retour du réseau."
+    static let trackUnavailable = "Tracé indisponible pour le moment."
+    static let elevationProfile = "Profil d'altitude"
+
+    /// Credit of the altitudes (ADR-030 §3).
+    static func elevationSource(_ source: ElevationSource) -> String {
+        switch source {
+        case .ign: "Altitudes : IGN"
+        case .mixed: "Altitudes : IGN, Open-Meteo / Copernicus"
+        case .openMeteo: "Altitudes : Open-Meteo / Copernicus"
+        }
+    }
+
     static let myItineraries = "Mes Itinéraires"
     static let create = "Créer"
     static let connectionRequired = "Connexion requise"

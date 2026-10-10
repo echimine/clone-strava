@@ -47,6 +47,14 @@ struct APIItineraryRepository: ItineraryRepository {
         return ItineraryPage(items: response.items.compactMap(\.model), nextCursor: response.nextCursor)
     }
 
+    func detail(id: ItineraryID) async throws(ItineraryError) -> ItineraryDetail {
+        let response: DetailResponse = try await call { () async throws(APIError) in
+            try await apiClient.get("/v1/itineraries/\(id)")
+        }
+        guard let detail = response.model else { throw .server(code: nil) }
+        return detail
+    }
+
     private func call<T>(_ operation: () async throws(APIError) -> T) async throws(ItineraryError) -> T {
         do {
             return try await operation()
