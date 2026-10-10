@@ -47,7 +47,7 @@ The state is **saved to the database at each step**: if the app is killed, sync 
 ### 3. Sync queue
 
 - A GRDB table `sync_operation`: operation type, target entity, number of attempts, next attempt, last error.
-- MVP operations: `create_activity`, `upload_trace`, `complete_activity`. Others will be added (edit or delete an activity, kudos, comment).
+- MVP operations: `create_activity`, `upload_trace`, `complete_activity`. Others will be added (edit or delete an activity, kudos, comment). *Amended by [ADR-030](ADR-030-itineraries-on-ios.md)*: the queue is first built for `rename_itinerary` and `delete_itinerary` (coalesced per Itinerary: last rename wins, a delete cancels a pending rename); background draining with `BGTaskScheduler` arrives with the activity operations.
 - **Ordering guaranteed per entity**: an activity's trace is not sent before the activity is created.
 - **Triggers**: end of a recording, network coming back (`NWPathMonitor`), app returning to the foreground, and iOS background task (`BGTaskScheduler`) to drain the queue when the app is not open.
 - **Background trace upload**: the `PUT` to the bucket uses a background `URLSession` (`background` configuration), which continues even if the user leaves the app.
@@ -80,7 +80,7 @@ An activity in `failed` is **never deleted automatically**: its points stay on t
 ### 7. Local data retention
 
 - **Raw GPS points** stay on the phone until `processed`, then are deleted (the server keeps the raw trace in the bucket). The simplified route is kept for display.
-- Read data (feed, profiles, other people's activities) is **cached** in GRDB for offline browsing, and refreshed when the network is available.
+- Read data (feed, profiles, other people's activities) is **cached** in GRDB for offline browsing, and refreshed when the network is available. *Amended by [ADR-030](ADR-030-itineraries-on-ios.md)*: the athlete's Itineraries (list and detail, without Waypoints or Legs) are the first data cached in GRDB, wiped on sign-out.
 - **Conflicts**: for the MVP, the server is authoritative. A local change that is sent overwrites the server version; data received from the server overwrites the local cache.
 
 ## Open Questions for the Backend
@@ -126,3 +126,4 @@ An activity in `failed` is **never deleted automatically**: its points stay on t
 ## Links
 
 - **Depends on**: [ADR-001](ADR-001-global-architecture.md), [ADR-006](ADR-006-mobile-stack.md), [ADR-007](ADR-007-mobile-architecture.md)
+- **Amended by**: [ADR-030](ADR-030-itineraries-on-ios.md) (first `sync_operation` operations and first GRDB cache: Itineraries)

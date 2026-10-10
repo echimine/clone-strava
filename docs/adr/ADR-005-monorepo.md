@@ -28,6 +28,7 @@ strava-app/
     ├── db/           Drizzle schema, client, migrations (ADR-003)
     ├── core/         business modules shared by api, realtime and worker (ADR-003)
     ├── realtime/     real-time protocol, topics, Redis publisher (added by ADR-010)
+    ├── geo/          pure geometry: distance, resampling, elevation gain, polylines (added by ADR-030)
     ├── eslint-config/       (existing)
     └── typescript-config/   (existing)
 ```
@@ -68,4 +69,4 @@ strava-app/
 ## Links
 
 - **Related**: [ADR-002](ADR-002-mobile.md), [ADR-003](ADR-003-backend.md), [ADR-004](ADR-004-backoffice.md)
-- **Amended by**: [ADR-010](ADR-010-backend-realtime.md) (adds `packages/realtime`), [ADR-026](ADR-026-openapi-swift-codegen.md) (OpenAPI → Swift generation implemented)
+- **Amended by**: [ADR-010](ADR-010-backend-realtime.md) (adds `packages/realtime`), [ADR-026](ADR-026-openapi-swift-codegen.md) (OpenAPI → Swift generation implemented), [ADR-030](ADR-030-itineraries-on-ios.md) (adds `packages/geo`)

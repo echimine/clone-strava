@@ -33,10 +33,12 @@ Two kinds of modules:
 | `social` | domain | `follow` | Follow graph: follow, accept, unfollow, "does A follow B", followee lists |
 | `activities` | domain | `activity`, `activity_stats`, `activity_track`, `activity_attachment`, `activity_import` (*amended by ADR-028*) | Creation, upload, processing, visibility, feed, file import |
 | `engagement` | domain | `kudos`, `comment` | Kudos and comments on activities |
+| `itineraries` | domain | `itinerary`, `itinerary_waypoint`, `itinerary_leg` (*amended by [ADR-030](ADR-030-itineraries-on-ios.md)*) | Planned Itineraries: Waypoints, Legs, metrics |
 | `segments` | domain | `segment`, `segment_effort` | Segments, matching, leaderboards |
 | `subscriptions` | domain | `user_subscription`, `revenuecat_event` | Premium status, RevenueCat sync |
 | `analytics` | platform | — | `posthog-node` wrapper, typed event catalog (ADR-015) |
 | `storage` | platform | — | S3 client on OVH: pre-signed URLs, `HEAD`, reading raw traces (ADR-009) |
+| `elevation` | platform | — | Altitudes for a list of points: IGN RGE ALTI, Open-Meteo fallback outside France (*amended by [ADR-030](ADR-030-itineraries-on-ios.md)*) |
 | `realtime` | platform | — | **Realtime bridge** (§4): the only listener that forwards selected domain events to Redis for the `realtime` gateway, through the `packages/realtime` publisher (ADR-010) |
 
 **Amendment to ADR-017**: `kudos` and `comment` move from `social` to the new `engagement` module; `social` keeps only `follow`. This breaks the cycle described above. ADR-017's "Tables per module" table is updated accordingly.
@@ -52,10 +54,11 @@ A module may call **only the modules listed in its row**, and only through their
 |---|---|---|
 | 0 | `auth`, `users`, `sports`, `subscriptions` | — |
 | 1 | `social` | `users` |
+| 1 | `itineraries` | `sports`, `users` (*amended by [ADR-030](ADR-030-itineraries-on-ios.md)*) |
 | 2 | `activities` | `sports`, `users`, `social` |
 | 3 | `engagement` | `activities`, `social`, `users` |
 | 3 | `segments` | `activities`, `sports` |
-| any | every domain module | `analytics`, `storage` (platform modules), `packages/db`, `packages/contracts` |
+| any | every domain module | `analytics`, `storage` (platform modules), `packages/db`, `packages/contracts`. *Amended by [ADR-030](ADR-030-itineraries-on-ios.md)*: also the `elevation` platform module and `packages/geo` (`@repo/geo`: pure distance, resampling, elevation gain and polyline functions, moved out of `activities/domain`) |
 
 Domain modules never import `packages/realtime` nor the `realtime` platform module: they emit domain events, and the bridge decides what reaches the mobile app (§3).
 
@@ -122,6 +125,7 @@ Rules:
 | Module | Queue · job | Domain events forwarded to the mobile app by the bridge | Analytics events |
 |---|---|---|---|
 | `activities` | `activities` · `process-activity`, recurring reconciliation (ADR-019 §7); `imports` · `import-activity` (*amended by [ADR-028](ADR-028-activity-import-from-file.md)*) | `activities.activity.processed` → `activity.processed`, `activities.activity.failed` → `activity.failed`, `activities.import.completed` → `activity_import.completed`, `activities.import.failed` → `activity_import.failed` | `activity_processed`, `activity_failed`, `activity_imported`, `activity_import_failed` |
+| `itineraries` (*amended by [ADR-030](ADR-030-itineraries-on-ios.md)*) | — | `itineraries.itinerary.saved` → `itinerary.saved`, `itineraries.itinerary.deleted` → `itinerary.deleted` | `itinerary_created`, `itinerary_updated`, `itinerary_renamed`, `itinerary_deleted`, `itinerary_save_failed` |
 | `segments` | `segments` · `match-segments` | `segments.efforts.matched` → `activity.segments_matched` | — |
 | `subscriptions` | `subscriptions` · `sync-subscription` | — | `subscription_*` (ADR-014) |
 | later | `media` (thumbnails), `notifications` (APNs) | — | — |
@@ -174,6 +178,7 @@ sports         sport_type
 social         follow
 activities     activity, activity_stats, activity_track, activity_attachment
 engagement     kudos, comment
+itineraries    itinerary, itinerary_waypoint, itinerary_leg   (added by ADR-030)
 segments       segment, segment_effort
 subscriptions  user_subscription, revenuecat_event
 ```
@@ -265,5 +270,5 @@ This replaces the `eslint-plugin-boundaries` option mentioned in ADR-003. The ex
 
 - **Details**: [ADR-003](ADR-003-backend.md) (dedicated ADR for module boundary rules; replaces the `eslint-plugin-boundaries` option)
 - **Amends**: [ADR-017](ADR-017-data-model.md) (`kudos` and `comment` move to the new `engagement` module; one PostgreSQL schema per module), [ADR-010](ADR-010-backend-realtime.md) (realtime messages published by a single bridge listener, not by domain modules)
-- **Amended by**: [ADR-028](ADR-028-activity-import-from-file.md) (`activity_import` table, `imports` queue, `activities.import.*` events in the bridge table), [ADR-029](ADR-029-activity-feed-and-card.md) (feed assembly in `apps/api`, `geocoding` platform module)
+- **Amended by**: [ADR-028](ADR-028-activity-import-from-file.md) (`activity_import` table, `imports` queue, `activities.import.*` events in the bridge table), [ADR-029](ADR-029-activity-feed-and-card.md) (feed assembly in `apps/api`, `geocoding` platform module), [ADR-030](ADR-030-itineraries-on-ios.md) (`itineraries` domain module, `elevation` platform module, `@repo/geo` package, `itinerary.*` events in the bridge table)
 - **Related**: [ADR-004](ADR-004-backoffice.md), [ADR-005](ADR-005-monorepo.md), [ADR-009](ADR-009-backend-api.md), [ADR-010](ADR-010-backend-realtime.md), [ADR-011](ADR-011-backend-worker.md), [ADR-015](ADR-015-posthog.md), [ADR-019](ADR-019-activity-creation-flow.md), [ADR-023](ADR-023-transactional-email-resend.md) (`notifications` platform module)
