@@ -7,11 +7,16 @@ struct SaveItinerary: Sendable {
     let repository: any ItineraryRepository
     let cache: any ItineraryCache
 
-    func callAsFunction(_ creation: ItineraryCreation) async throws(ItineraryError) -> ItineraryDetail {
-        let detail = try await repository.create(creation)
+    func callAsFunction(_ creation: ItineraryCreation) async throws(ItineraryError) -> CreatedItinerary {
+        let created = try await repository.create(creation)
         // The list's thumbnail comes with the next resync; until then, the saved track.
         // A failed local write is not a failed save: the next resync lists it.
-        try? await cache.save(detail, mapPolyline: detail.track.mapPolyline())
-        return detail
+        try? await cache.save(created.detail, mapPolyline: created.detail.track.mapPolyline())
+        return created
+    }
+
+    /// Replaces the Itinerary this use case created (`PUT`, same repository and cache).
+    var update: UpdateItinerary {
+        UpdateItinerary(repository: repository, cache: cache)
     }
 }

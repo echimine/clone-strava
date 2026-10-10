@@ -68,3 +68,15 @@ extension ItineraryDetail {
         )
     }
 }
+
+extension CreatedItinerary {
+    /// `201`: the Itinerary did not exist yet.
+    static func new(_ detail: ItineraryDetail) -> CreatedItinerary {
+        CreatedItinerary(detail: detail, isReplay: false)
+    }
+
+    /// `200`: an earlier try was stored, its answer lost.
+    static func replay(_ detail: ItineraryDetail) -> CreatedItinerary {
+        CreatedItinerary(detail: detail, isReplay: true)
+    }
+}

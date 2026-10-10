@@ -18,7 +18,7 @@ struct APIItineraryRepository: ItineraryRepository {
         let error: Body
     }
 
-    func create(_ creation: ItineraryCreation) async throws(ItineraryError) -> ItineraryDetail {
+    func create(_ creation: ItineraryCreation) async throws(ItineraryError) -> CreatedItinerary {
         let body = CreateRequest(
             waypoints: creation.waypoints.map { .init(lat: $0.latitude, lon: $0.longitude) },
             legs: creation.legs.map { leg in
@@ -31,11 +31,11 @@ struct APIItineraryRepository: ItineraryRepository {
             sportTypeCode: creation.sport.rawValue,
             id: creation.id.description
         )
-        let response: DetailResponse = try await call { () async throws(APIError) in
-            try await apiClient.send(method: "POST", path: "/v1/itineraries", body: body)
+        let (response, http): (DetailResponse, HTTPURLResponse) = try await call { () async throws(APIError) in
+            try await apiClient.sendWithHeaders(method: "POST", path: "/v1/itineraries", body: body)
         }
         guard let detail = response.model else { throw .server(code: nil) }
-        return detail
+        return CreatedItinerary(detail: detail, isReplay: http.statusCode == 200)
     }
 
     func update(_ edit: ItineraryCreation) async throws(ItineraryError) -> ItineraryDetail {

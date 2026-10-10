@@ -17,11 +17,11 @@ struct SaveItineraryTests {
         let repository = FakeItineraryRepository()
         let cache = GRDBItineraryCache(database: try AppDatabase.inMemory())
         let detail = ItineraryDetail.fixture(1, name: "Tour du lac")
-        repository.createResults = [.success(detail)]
+        repository.createResults = [.success(.new(detail))]
 
         let saved = try await SaveItinerary(repository: repository, cache: cache)(creation)
 
-        #expect(saved == detail)
+        #expect(saved == .new(detail))
         #expect(repository.creations == [creation])
         let summaries = try await cache.summaries(limit: 20)
         #expect(summaries.map(\.id) == [.fixture(1)])

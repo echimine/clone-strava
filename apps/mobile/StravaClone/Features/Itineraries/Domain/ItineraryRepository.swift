@@ -17,10 +17,18 @@ struct ItineraryCreation: Equatable, Sendable {
     let legs: [Leg]
 }
 
+/// What `POST /v1/itineraries` answered (ADR-030 §6).
+struct CreatedItinerary: Equatable, Sendable {
+    let detail: ItineraryDetail
+    /// `200`: the id was already stored, by an earlier try whose answer was lost. The detail
+    /// is what that try sent, which may be older than this request.
+    let isReplay: Bool
+}
+
 /// Itinerary API port (ADR-007): implemented over `/v1/itineraries`, faked in tests.
 protocol ItineraryRepository: Sendable {
     /// Creates the Itinerary, or returns it unchanged when the same athlete replays the id.
-    func create(_ creation: ItineraryCreation) async throws(ItineraryError) -> ItineraryDetail
+    func create(_ creation: ItineraryCreation) async throws(ItineraryError) -> CreatedItinerary
     /// One page of the athlete's Itineraries, most recently updated first.
     func page(cursor: String?) async throws(ItineraryError) -> ItineraryPage
     /// The detail kept for offline viewing; `notFound` once deleted (or never the athlete's).

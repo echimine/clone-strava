@@ -7,6 +7,7 @@ import Testing
 struct ItinerarySaveStoreTests {
     private let a = Coordinate(latitude: 45.900, longitude: 6.120)
     private let b = Coordinate(latitude: 45.901, longitude: 6.121)
+    private let c = Coordinate(latitude: 45.902, longitude: 6.122)
 
     private func trace(_ points: [Coordinate]) async -> ItineraryDraft {
         let editor = ItineraryEditor(sport: .run, router: FakeItineraryRouter())
@@ -62,7 +63,7 @@ struct ItinerarySaveStoreTests {
 
     @Test func aSuccessfulSaveSendsTheEditorsIdAndEnds() async throws {
         let repository = FakeItineraryRepository()
-        repository.createResults = [.success(.fixture(4))]
+        repository.createResults = [.success(.new(.fixture(4)))]
         let store = try makeStore(repository)
         store.name = "Tour du lac"
 
@@ -76,7 +77,7 @@ struct ItinerarySaveStoreTests {
     /// A `503` keeps the editor as it is and offers a retry, which replays the same id.
     @Test func aFailedSaveOffersARetryUnderTheSameId() async throws {
         let repository = FakeItineraryRepository()
-        repository.createResults = [.failure(.unavailable), .success(.fixture(4))]
+        repository.createResults = [.failure(.unavailable), .success(.new(.fixture(4)))]
         let store = try makeStore(repository)
         store.name = "Tour du lac"
         let draft = await trace([a, b])
@@ -90,6 +91,63 @@ struct ItinerarySaveStoreTests {
         await store.save(draft)
         #expect(store.phase == .saved)
         #expect(repository.creations.map(\.id) == [.fixture(4), .fixture(4)])
+    }
+
+    /// The first `POST` was stored but its answer lost; the athlete edits, then retries: the
+    /// replay answers the old content, so the current draft follows as a `PUT`.
+    @Test func aReplayAfterTheDraftChangedSendsTheCurrentDraftAsAnUpdate() async throws {
+        let repository = FakeItineraryRepository()
+        repository.createResults = [.failure(.network), .success(.replay(.fixture(4, name: "Tour du lac")))]
+        repository.updateResults = [.success(.fixture(4, name: "Tour du lac par le col"))]
+        let store = try makeStore(repository)
+        store.name = "Tour du lac"
+        await store.save(await trace([a, b]))
+
+        store.name = "Tour du lac par le col"
+        let edited = await trace([a, b, c])
+        await store.save(edited)
+
+        #expect(store.phase == .saved)
+        #expect(repository.creations.map(\.id) == [.fixture(4), .fixture(4)])
+        let expected = try edited.creation(id: .fixture(4), name: "Tour du lac par le col")
+        #expect(repository.updates == [expected])
+    }
+
+    @Test func aReplayOfTheUnchangedDraftSendsNoUpdate() async throws {
+        let repository = FakeItineraryRepository()
+        repository.createResults = [.failure(.network), .success(.replay(.fixture(4)))]
+        let store = try makeStore(repository)
+        store.name = "Tour du lac"
+        let draft = await trace([a, b])
+
+        await store.save(draft)
+        await store.save(draft)
+
+        #expect(store.phase == .saved)
+        #expect(repository.updates.isEmpty)
+    }
+
+    /// Once a replay shows the Itinerary exists, a failed update says the changes are not
+    /// saved, and the retry replaces it (`PUT`) rather than posting again.
+    @Test func aFailedUpdateAfterAReplayIsRetriedAsAnUpdate() async throws {
+        let repository = FakeItineraryRepository()
+        repository.createResults = [.failure(.network), .success(.replay(.fixture(4)))]
+        repository.updateResults = [.failure(.unavailable), .success(.fixture(4))]
+        let store = try makeStore(repository)
+        store.name = "Tour du lac"
+        await store.save(await trace([a, b]))
+        let edited = await trace([a, b, c])
+
+        await store.save(edited)
+        #expect(store.phase == .failed(
+            message: "Altitudes momentanément indisponibles : vos modifications ne sont pas encore enregistrées.",
+            canRetry: true
+        ))
+
+        await store.save(edited)
+        #expect(store.phase == .saved)
+        #expect(repository.creations.count == 2)
+        #expect(repository.updates.count == 2)
     }
 
     @Test func aRefusedSaveCannotBeRetried() async throws {

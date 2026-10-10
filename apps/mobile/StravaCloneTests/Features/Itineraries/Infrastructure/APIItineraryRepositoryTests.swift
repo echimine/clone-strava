@@ -99,7 +99,7 @@ struct APIItineraryRepositoryTests {
         let json = detailJSON()
         ItineraryURLProtocolStub.handler.value = { _ in (201, json) }
 
-        let detail = try await repository.create(creation)
+        let created = try await repository.create(creation)
 
         let request = try #require(ItineraryURLProtocolStub.requests.value.first)
         #expect(request.httpMethod == "POST")
@@ -113,7 +113,7 @@ struct APIItineraryRepositoryTests {
         let legs = try #require(body["legs"] as? [[String: String]])
         #expect(legs == [["mode": "follow", "polyline6": "_mopvA_cptJ_pR?_pR?"]])
 
-        #expect(detail == ItineraryDetail.fixture(7, name: "Tour du lac", sport: .hike, elevationSource: .mixed))
+        #expect(created == .new(ItineraryDetail.fixture(7, name: "Tour du lac", sport: .hike, elevationSource: .mixed)))
     }
 
     @Test func aStraightLegCarriesNoGeometry() async throws {
@@ -143,13 +143,14 @@ struct APIItineraryRepositoryTests {
         }
 
         await #expect(throws: ItineraryError.server(code: nil)) { try await repository.create(creation) }
-        let detail = try await repository.create(creation)
+        let created = try await repository.create(creation)
 
         let ids = try ItineraryURLProtocolStub.requests.value.map { request in
             try #require(try JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any])["id"] as? String
         }
         #expect(ids == ["00000000-0000-4000-8000-000000000007", "00000000-0000-4000-8000-000000000007"])
-        #expect(detail.id == .fixture(7))
+        #expect(created.detail.id == .fixture(7))
+        #expect(created.isReplay)
     }
 
     @Test func mapsErrors() async {
