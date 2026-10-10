@@ -25,7 +25,8 @@ enum LegMode: String, Hashable, Sendable {
 enum LegState: Hashable, Sendable {
     /// Geometry is final for the Leg's current endpoints and mode.
     case computed
-    /// A routing request is in flight.
+    /// Waiting for its path: a routing request is in flight, or will be sent when the
+    /// Waypoint being dragged rests or is released.
     case computing
     /// Routing failed for a temporary reason; the Leg still `follow`s and must be retried.
     case pending
@@ -104,6 +105,84 @@ struct ItineraryDraft: Equatable, Sendable {
         return makeRequest(forLegsIn: legs.count - 1 ... legs.count - 1)
     }
 
+    /// Switches a Leg between following the network and a straight line. Only that Leg
+    /// changes: back to `follow`, it is the only one requested.
+    mutating func setMode(_ mode: LegMode, ofLeg id: LegID) -> LegRoutingRequest? {
+        guard let index = legs.firstIndex(where: { $0.id == id }), legs[index].mode != mode else { return nil }
+        legs[index].mode = mode
+        invalidateLeg(at: index)
+        return mode == .follow ? makeRequest(forLegsIn: index ... index) : nil
+    }
+
+    /// "Supprimer" in a Waypoint's bubble. Removing the start or the finish drops its Leg;
+    /// an intermediate Waypoint's neighbors are joined by one new Leg, which follows the
+    /// network unless both removed Legs were straight.
+    mutating func removeWaypoint(_ id: WaypointID) -> LegRoutingRequest? {
+        guard let index = waypoints.firstIndex(where: { $0.id == id }) else { return nil }
+        waypoints.remove(at: index)
+        guard !legs.isEmpty else { return nil }
+        if index == 0 {
+            legs.removeFirst()
+            return nil
+        }
+        if index == waypoints.count {
+            legs.removeLast()
+            return nil
+        }
+        let joined = index - 1
+        let removed = legs.remove(at: index)
+        if removed.mode == .follow {
+            legs[joined].mode = .follow
+        }
+        invalidateLeg(at: joined)
+        return legs[joined].mode == .follow ? makeRequest(forLegsIn: joined ... joined) : nil
+    }
+
+    /// Pulling a Leg: a Waypoint is inserted where it was pulled, splitting the Leg in two
+    /// Legs of the same mode, drawn straight until requested.
+    mutating func insertWaypoint(intoLeg id: LegID, at coordinate: Coordinate) -> WaypointID? {
+        guard let index = legs.firstIndex(where: { $0.id == id }) else { return nil }
+        let waypoint = Waypoint(id: WaypointID(), coordinate: coordinate)
+        waypoints.insert(waypoint, at: index + 1)
+        legs.insert(Leg(id: LegID(), mode: legs[index].mode, path: nil, version: 0, state: .computed), at: index + 1)
+        invalidateLeg(at: index)
+        invalidateLeg(at: index + 1)
+        return waypoint.id
+    }
+
+    /// The finger drags a Waypoint: its Legs are drawn straight to it until requested again.
+    mutating func moveWaypoint(_ id: WaypointID, to coordinate: Coordinate) {
+        guard let index = waypoints.firstIndex(where: { $0.id == id }), waypoints[index].coordinate != coordinate else {
+            return
+        }
+        waypoints[index].coordinate = coordinate
+        for leg in adjacentLegs(ofWaypointAt: index) {
+            invalidateLeg(at: leg)
+        }
+    }
+
+    /// One request for the `follow` Legs on either side of a Waypoint (3 points when both
+    /// follow), or `nil` when both are straight.
+    mutating func routeLegs(around id: WaypointID) -> LegRoutingRequest? {
+        guard let index = waypoints.firstIndex(where: { $0.id == id }) else { return nil }
+        let following = adjacentLegs(ofWaypointAt: index).filter { legs[$0].mode == .follow }
+        guard let first = following.first, let last = following.last else { return nil }
+        return makeRequest(forLegsIn: first ... last)
+    }
+
+    /// Whether the Legs a request covers are unchanged since it was made.
+    func isCurrent(_ request: LegRoutingRequest) -> Bool {
+        currentRange(of: request) != nil
+    }
+
+    /// One request per `follow` Leg still waiting for its path, e.g. in a state brought back
+    /// by undo or redo after its answer was dropped.
+    func requestsForComputingLegs() -> [LegRoutingRequest] {
+        legs.indices
+            .filter { legs[$0].mode == .follow && legs[$0].state == .computing }
+            .map { request(forLegsIn: $0 ... $0) }
+    }
+
     // MARK: Router answers
 
     /// A path was found: the Legs take its geometry and their Waypoints the snapped positions.
@@ -165,11 +244,27 @@ struct ItineraryDraft: Equatable, Sendable {
 
     // MARK: Private
 
+    /// Indices of the Legs ending or starting at a Waypoint, in order.
+    private func adjacentLegs(ofWaypointAt index: Int) -> [Int] {
+        [index - 1, index].filter(legs.indices.contains)
+    }
+
+    /// The Leg's endpoints or mode changed: its path is dropped and older answers become stale.
+    private mutating func invalidateLeg(at index: Int) {
+        legs[index].path = nil
+        legs[index].version += 1
+        legs[index].state = legs[index].mode == .follow ? .computing : .computed
+    }
+
     private mutating func makeRequest(forLegsIn range: ClosedRange<Int>) -> LegRoutingRequest {
         for index in range {
             legs[index].state = .computing
         }
-        return LegRoutingRequest(
+        return request(forLegsIn: range)
+    }
+
+    private func request(forLegsIn range: ClosedRange<Int>) -> LegRoutingRequest {
+        LegRoutingRequest(
             targets: range.map { LegRoutingRequest.Target(legID: legs[$0].id, version: legs[$0].version) },
             waypoints: waypoints[range.lowerBound ... range.upperBound + 1].map(\.coordinate),
             profile: sport.routingProfile
