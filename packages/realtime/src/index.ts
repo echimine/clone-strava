@@ -32,12 +32,16 @@ export {
   ACTIVITY_SEGMENTS_MATCHED,
   ACTIVITY_IMPORT_COMPLETED,
   ACTIVITY_IMPORT_FAILED,
+  ITINERARY_SAVED,
+  ITINERARY_DELETED,
   mobileEventTypeSchema,
   activityProcessedDataSchema,
   activityFailedDataSchema,
   activitySegmentsMatchedDataSchema,
   activityImportCompletedDataSchema,
   activityImportFailedDataSchema,
+  itinerarySavedDataSchema,
+  itineraryDeletedDataSchema,
   mobileEventDataSchemas,
 } from "./events.js";
 export type {
@@ -47,6 +51,8 @@ export type {
   ActivitySegmentsMatchedData,
   ActivityImportCompletedData,
   ActivityImportFailedData,
+  ItinerarySavedData,
+  ItineraryDeletedData,
   MobileEventData,
   MobileEventDataFor,
 } from "./events.js";

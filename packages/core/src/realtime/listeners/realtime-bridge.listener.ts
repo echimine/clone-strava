@@ -6,6 +6,8 @@ import {
   ACTIVITY_IMPORT_FAILED,
   ACTIVITY_PROCESSED,
   ACTIVITY_SEGMENTS_MATCHED,
+  ITINERARY_DELETED,
+  ITINERARY_SAVED,
   userTopic,
   type RealtimePublisher,
 } from "@repo/realtime";
@@ -14,11 +16,15 @@ import {
   ACTIVITY_IMPORT_COMPLETED_EVENT,
   ACTIVITY_IMPORT_FAILED_EVENT,
   ACTIVITY_PROCESSED_EVENT,
+  ITINERARY_DELETED_EVENT,
+  ITINERARY_SAVED_EVENT,
   SEGMENTS_EFFORTS_MATCHED_EVENT,
   type ActivityFailedEvent,
   type ActivityImportCompletedEvent,
   type ActivityImportFailedEvent,
   type ActivityProcessedEvent,
+  type ItineraryDeletedEvent,
+  type ItinerarySavedEvent,
   type SegmentsEffortsMatchedEvent,
 } from "@repo/contracts";
 import { REALTIME_PUBLISHER } from "../realtime.constants.js";
@@ -37,6 +43,8 @@ import { REALTIME_PUBLISHER } from "../realtime.constants.js";
  * | `segments.efforts.matched`       | `activity.segments_matched`   |
  * | `activities.import.completed`    | `activity_import.completed`   |
  * | `activities.import.failed`       | `activity_import.failed`      |
+ * | `itineraries.itinerary.saved`    | `itinerary.saved`             |
+ * | `itineraries.itinerary.deleted`  | `itinerary.deleted`           |
  *
  * An event absent from this table never reaches a client (ADR-021 §4).
  *
@@ -109,6 +117,27 @@ export class RealtimeBridge {
         status: "failed",
         code: event.code,
         at: new Date().toISOString(),
+      }),
+    );
+  }
+
+  /** ADR-030 §9: creation, full update and rename. No catch-up (ADR-010). */
+  @OnEvent(ITINERARY_SAVED_EVENT, { async: true })
+  async onItinerarySaved(event: ItinerarySavedEvent): Promise<void> {
+    await this.forward(ITINERARY_SAVED_EVENT, event.userId, () =>
+      this.publisher.publishRealtimeEvent([userTopic(event.userId)], ITINERARY_SAVED, {
+        itineraryId: event.itineraryId,
+        updatedAt: event.updatedAt,
+      }),
+    );
+  }
+
+  /** ADR-030 §9. */
+  @OnEvent(ITINERARY_DELETED_EVENT, { async: true })
+  async onItineraryDeleted(event: ItineraryDeletedEvent): Promise<void> {
+    await this.forward(ITINERARY_DELETED_EVENT, event.userId, () =>
+      this.publisher.publishRealtimeEvent([userTopic(event.userId)], ITINERARY_DELETED, {
+        itineraryId: event.itineraryId,
       }),
     );
   }

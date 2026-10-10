@@ -3,6 +3,7 @@ import { SportsModule } from "../sports/index.js";
 import { ItinerariesService } from "./itineraries.service.js";
 import { ItineraryGeometryRepository } from "./repositories/itinerary-geometry.repository.js";
 import { ItineraryRepository } from "./repositories/itinerary.repository.js";
+import { ItineraryLifecycleEvents } from "./services/itinerary-lifecycle-events.service.js";
 import { ItineraryMeasurementService } from "./services/itinerary-measurement.service.js";
 import { ItinerarySaveService } from "./services/itinerary-save.service.js";
 import { CreateItineraryUseCase } from "./use-cases/create-itinerary.use-case.js";
@@ -15,7 +16,8 @@ import { UpdateItineraryUseCase } from "./use-cases/update-itinerary.use-case.js
 
 /**
  * `itineraries` module (ADR-030 §4, ADR-021 §1, layer 1). Needs the global
- * `ElevationModule` registered by the app. Exports only its service.
+ * `ElevationModule`, `AnalyticsModule` and `EventEmitterModule` registered
+ * by the app. Exports only its service.
  */
 @Module({
   imports: [SportsModule],
@@ -24,6 +26,7 @@ import { UpdateItineraryUseCase } from "./use-cases/update-itinerary.use-case.js
     ItineraryGeometryRepository,
     ItineraryMeasurementService,
     ItinerarySaveService,
+    ItineraryLifecycleEvents,
     PreviewItineraryMetricsUseCase,
     CreateItineraryUseCase,
     GetItineraryUseCase,
