@@ -1,9 +1,9 @@
+import { haversineDistanceM } from "@repo/geo";
 import { describe, expect, it } from "vitest";
 import { applyPrivacyZone } from "./apply-privacy-zone.js";
 import { cleanTrace, maxPlausibleSpeedMs } from "./clean-trace.js";
-import { haversineDistanceM } from "./compute-metrics.js";
 import { computeHeartRate } from "./heart-rate.js";
-import { simplifyRoute, toLineStringEwkt, toPointEwkt } from "./simplify-route.js";
+import { toLineStringEwkt, toPointEwkt } from "./ewkt.js";
 
 // ~111 m per 0.001 degree of latitude.
 const line = (count: number, stepDeg = 0.001) =>
@@ -64,20 +64,7 @@ describe("applyPrivacyZone", () => {
   });
 });
 
-describe("simplifyRoute", () => {
-  it("collapses collinear points to the two ends", () => {
-    expect(simplifyRoute(line(50), 5)).toHaveLength(2);
-  });
-
-  it("keeps a corner above the tolerance", () => {
-    const corner = [
-      { lat: 48, lon: 2 },
-      { lat: 48.001, lon: 2 },
-      { lat: 48.001, lon: 2.001 },
-    ];
-    expect(simplifyRoute(corner, 5)).toHaveLength(3);
-  });
-
+describe("EWKT", () => {
   it("writes EWKT with longitude first", () => {
     expect(toPointEwkt({ lat: 48.5, lon: 2.25 })).toBe("SRID=4326;POINT(2.25 48.5)");
     expect(toLineStringEwkt([{ lat: 1, lon: 2 }, { lat: 3, lon: 4 }])).toBe(

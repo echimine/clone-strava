@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { activity, activityAttachment, activityStats, activityTrack } from "./activities.js";
 import { user } from "./auth.js";
 import { comment, kudos } from "./engagement.js";
+import { itinerary, itineraryLeg, itineraryWaypoint } from "./itineraries.js";
 import { segment, segmentEffort } from "./segments.js";
 import { follow } from "./social.js";
 import { sportType } from "./sports.js";
@@ -40,16 +41,25 @@ describe("schema table names and owning PostgreSQL schema (ADR-017, ADR-021 §7)
       name: "segment_effort",
       schema: "segments",
     });
+    expect(getTableConfig(itinerary)).toMatchObject({ name: "itinerary", schema: "itineraries" });
+    expect(getTableConfig(itineraryWaypoint)).toMatchObject({
+      name: "itinerary_waypoint",
+      schema: "itineraries",
+    });
+    expect(getTableConfig(itineraryLeg)).toMatchObject({ name: "itinerary_leg", schema: "itineraries" });
     expect(getTableConfig(userSubscription)).toMatchObject({
       name: "user_subscription",
       schema: "subscriptions",
     });
   });
 
-  it("gives `activity` no default id, unlike server-generated identifiers", () => {
+  it("gives `activity` and `itinerary` no default id, unlike server-generated identifiers", () => {
     const config = getTableConfig(activity);
     const idColumn = config.columns.find((column) => column.name === "id");
     expect(idColumn?.hasDefault).toBe(false);
+
+    const itineraryId = getTableConfig(itinerary).columns.find((column) => column.name === "id");
+    expect(itineraryId?.hasDefault).toBe(false);
 
     const statsIdColumn = getTableConfig(userProfile).columns.find((c) => c.name === "user_id");
     expect(statsIdColumn?.primary).toBe(true);
@@ -61,5 +71,9 @@ describe("schema table names and owning PostgreSQL schema (ADR-017, ADR-021 §7)
 
     const segmentIndexes = getTableConfig(segment).indexes;
     expect(segmentIndexes.some((i) => i.config.method === "gist")).toBe(true);
+  });
+
+  it("gives the Itinerary track no GiST index, never searched spatially (ADR-030 §5)", () => {
+    expect(getTableConfig(itinerary).indexes.some((i) => i.config.method === "gist")).toBe(false);
   });
 });

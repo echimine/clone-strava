@@ -8,6 +8,7 @@ import { Logger } from "nestjs-pino";
 import { AUTH_INSTANCE } from "@repo/core/auth";
 import { runMigrations } from "@repo/db/migrate";
 import { AppModule } from "./app.module.js";
+import { JSON_BODY_LIMIT } from "./common/json-body.js";
 import { loadConfig } from "./config/env.js";
 import { applyGlobalPrefix, createOpenApiDocument } from "./openapi/document.js";
 
@@ -47,6 +48,7 @@ async function bootstrap(): Promise<void> {
   // (ADR-023) without a second raw-body-only middleware/route.
   app.use(
     express.json({
+      limit: JSON_BODY_LIMIT,
       // `verify` types `req` as the bare `http.IncomingMessage`
       // (body-parser has no express dependency); `originalUrl`/`rawBody`
       // are express-only, hence the single cast for both reads/writes.

@@ -5,6 +5,7 @@ import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { ZodSerializerInterceptor, ZodValidationPipe } from "nestjs-zod";
 import { AnalyticsModule } from "@repo/core/analytics";
 import { GeocodingModule } from "@repo/core/geocoding";
+import { ElevationModule } from "@repo/core/elevation";
 import { CoreInfrastructureModule } from "@repo/core/infrastructure";
 import { RealtimeBridgeModule } from "@repo/core/realtime";
 import { StorageModule } from "@repo/core/storage";
@@ -17,6 +18,7 @@ import { GlobalExceptionFilter } from "./common/global-exception.filter.js";
 import { ConfigModule } from "./config/config.module.js";
 import { loadConfig } from "./config/env.js";
 import { HealthModule } from "./health/health.module.js";
+import { ItinerariesModule } from "./itineraries/itineraries.module.js";
 import { AppLoggingModule } from "./logging/logging.module.js";
 import { MeModule } from "./me/me.module.js";
 import { RealtimeTokenModule } from "./realtime-token/realtime-token.module.js";
@@ -52,6 +54,8 @@ const config = loadConfig();
     }),
     // Processing (the only geocoding user) runs in the worker: no token here (ADR-029).
     GeocodingModule.forRoot({}),
+    // Itinerary altitudes (ADR-030 §3): IGN, then Open-Meteo; no key needed.
+    ElevationModule.forRoot({}),
     // Forwards domain events emitted here to the mobile app via Redis
     // (ADR-021 §4). `apps/api` currently emits none itself (only the
     // worker does, after job processing), but is loaded per ADR-021 §4
@@ -65,6 +69,7 @@ const config = loadConfig();
     MeModule,
     FeedModule,
     ActivitiesModule,
+    ItinerariesModule,
     RealtimeTokenModule,
     WebhooksModule,
     AdminModule,
