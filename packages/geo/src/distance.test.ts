@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { haversineDistanceM } from "./index.js";
+import { haversineDistanceM, trackDistanceM } from "./index.js";
 
 /** One degree of arc on the 6,371 km sphere: 2πR / 360. */
 const ONE_DEGREE_M = 111_194.93;
@@ -16,5 +16,22 @@ describe("haversineDistanceM", () => {
   it("shrinks a degree of longitude away from the equator", () => {
     expect(haversineDistanceM({ lat: 0, lon: 0 }, { lat: 0, lon: 1 })).toBeCloseTo(ONE_DEGREE_M, 1);
     expect(haversineDistanceM({ lat: 60, lon: 0 }, { lat: 60, lon: 1 })).toBeCloseTo(55_597, 0);
+  });
+});
+
+describe("trackDistanceM", () => {
+  it("is zero for an empty track or a single point", () => {
+    expect(trackDistanceM([])).toBe(0);
+    expect(trackDistanceM([{ lat: 45, lon: 6 }])).toBe(0);
+  });
+
+  it("sums the legs between consecutive points, there and back", () => {
+    const track = [
+      { lat: 45, lon: 6 },
+      { lat: 46, lon: 6 },
+      { lat: 47, lon: 6 },
+      { lat: 46, lon: 6 },
+    ];
+    expect(trackDistanceM(track)).toBeCloseTo(3 * ONE_DEGREE_M, 0);
   });
 });
