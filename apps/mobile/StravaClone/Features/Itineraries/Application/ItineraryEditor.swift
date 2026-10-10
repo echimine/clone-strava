@@ -136,6 +136,13 @@ final class ItineraryEditor {
         perform { $0.removeWaypoint(id) }
     }
 
+    /// Another sport picked in the stats card. In another category (foot ↔ wheels), the
+    /// `follow` Legs are requested again in parallel batches while editing goes on; the
+    /// change is one undo entry, restoring the sport and the Legs of before.
+    func changeSport(to sport: ItinerarySport) {
+        performAll { $0.changeSport(to: sport) }
+    }
+
     /// The finger lands on a Waypoint.
     func beginDrag(_ id: WaypointID) {
         guard drag == nil, draft.waypoints.contains(where: { $0.id == id }) else { return }
@@ -185,6 +192,7 @@ final class ItineraryEditor {
         } else if let request = draft.routeLegs(around: ended.waypointID) {
             send(request)
         }
+        requestStrandedLegs()
     }
 
     /// Back to the draft before the last gesture. Legs it left computing are requested again
@@ -246,14 +254,17 @@ final class ItineraryEditor {
 
     /// Applies a one-shot gesture; it becomes an undo entry only if it changed the draft.
     private func perform(_ gesture: (inout ItineraryDraft) -> LegRoutingRequest?) {
+        performAll { draft in gesture(&draft).map { [$0] } ?? [] }
+    }
+
+    private func performAll(_ gesture: (inout ItineraryDraft) -> [LegRoutingRequest]) {
         guard drag == nil else { return }
         let before = draft
-        let request = gesture(&draft)
+        let requests = gesture(&draft)
         guard draft != before else { return }
         record(before)
-        if let request {
-            send(request)
-        }
+        requests.forEach { send($0) }
+        requestStrandedLegs()
     }
 
     private func record(_ previous: ItineraryDraft) {
@@ -263,11 +274,7 @@ final class ItineraryEditor {
 
     private func restore(_ state: ItineraryDraft) {
         draft = state
-        let awaited = inFlight.values.map(\.request).filter(draft.isCurrent)
-        for request in draft.requestsForComputingLegs()
-        where !awaited.contains(where: { !$0.legIDs.isDisjoint(with: request.legIDs) }) {
-            send(request)
-        }
+        requestStrandedLegs()
     }
 
     // MARK: Elevation
@@ -299,13 +306,15 @@ final class ItineraryEditor {
               let request = draft.routeLegs(around: current.waypointID) else { return }
         current.pause = (send(request), request)
         drag = current
+        requestStrandedLegs()
     }
 
     @discardableResult
     private func send(_ request: LegRoutingRequest) -> UUID {
         let legIDs = request.legIDs
-        for entry in inFlight.values where !entry.request.legIDs.isDisjoint(with: legIDs) {
+        for (token, entry) in inFlight where !entry.request.legIDs.isDisjoint(with: legIDs) {
             entry.task.cancel()
+            inFlight[token] = nil
         }
         let token = UUID()
         let router = router
@@ -340,6 +349,7 @@ final class ItineraryEditor {
         case .success(let path): draft.apply(path, to: request)
         case .failure(let error): draft.fail(error, for: request)
         }
+        defer { requestStrandedLegs() }
         guard case .applied(let followUps) = resolution else { return }
         switch outcome {
         case .success:
@@ -348,12 +358,26 @@ final class ItineraryEditor {
                 notice = nil
             }
         case .failure(let error):
-            notice = Notice(error)
+            // Several Legs with no path are requested again one by one: none went straight yet.
+            if error != .noPath || followUps.isEmpty {
+                notice = Notice(error)
+            }
             if error == .rateLimited {
                 scheduleBackoff()
             }
         }
         followUps.forEach { send($0) }
+    }
+
+    /// Legs left computing with no request in flight, e.g. once a gesture overtook their
+    /// batch, are requested again; those around the dragged Waypoint wait for its pause.
+    private func requestStrandedLegs() {
+        let awaited = inFlight.values.map(\.request).filter(draft.isCurrent)
+        var excluded = Set<LegID>()
+        if let drag, let index = draft.waypoints.firstIndex(where: { $0.id == drag.waypointID }) {
+            excluded = Set([index - 1, index].filter(draft.legs.indices.contains).map { draft.legs[$0].id })
+        }
+        draft.requestsForStrandedLegs(awaited: awaited, excluding: excluded).forEach { send($0) }
     }
 
     /// Saturated: the pending Legs are retried after a delay doubled at each new `429`.
