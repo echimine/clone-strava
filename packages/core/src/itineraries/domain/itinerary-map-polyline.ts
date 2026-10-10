@@ -1,4 +1,4 @@
-import { encodePolyline, simplifyTrack, type LonLat } from "@repo/geo";
+import { encodeWithinBudget, type LonLat } from "@repo/geo";
 
 /**
  * Budget of `map_polyline` (ADR-030 §5, same as ADR-029): once
@@ -19,11 +19,5 @@ export function itineraryMapPolyline(track: LonLat[], maxChars = ITINERARY_MAP_P
   if (track.length < 2) {
     throw new RangeError("An Itinerary track has at least 2 points");
   }
-  for (let toleranceM = FIRST_TOLERANCE_M; ; toleranceM *= 2) {
-    const simplified = simplifyTrack(track, toleranceM);
-    const encoded = encodePolyline(simplified);
-    if (encoded.length <= maxChars || simplified.length <= 2) {
-      return encoded;
-    }
-  }
+  return encodeWithinBudget(track, { maxChars, firstToleranceM: FIRST_TOLERANCE_M });
 }
