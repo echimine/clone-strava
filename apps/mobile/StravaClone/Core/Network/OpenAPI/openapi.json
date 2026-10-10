@@ -638,6 +638,103 @@
         "tags": [
           "Itineraries"
         ]
+      },
+      "put": {
+        "operationId": "ItinerariesController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateItineraryRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItineraryDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Itineraries"
+        ]
+      },
+      "patch": {
+        "operationId": "ItinerariesController_rename",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameItineraryRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItineraryDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Itineraries"
+        ]
+      },
+      "delete": {
+        "operationId": "ItinerariesController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          }
+        },
+        "tags": [
+          "Itineraries"
+        ]
       }
     },
     "/v1/realtime/token": {
@@ -1442,6 +1539,97 @@
           "nextCursor"
         ],
         "additionalProperties": false
+      },
+      "UpdateItineraryRequestDto": {
+        "type": "object",
+        "properties": {
+          "waypoints": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "lat": {
+                  "type": "number",
+                  "minimum": -90,
+                  "maximum": 90
+                },
+                "lon": {
+                  "type": "number",
+                  "minimum": -180,
+                  "maximum": 180
+                }
+              },
+              "required": [
+                "lat",
+                "lon"
+              ]
+            }
+          },
+          "legs": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "mode": {
+                      "type": "string",
+                      "const": "follow"
+                    },
+                    "polyline6": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "mode",
+                    "polyline6"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "mode": {
+                      "type": "string",
+                      "const": "straight"
+                    }
+                  },
+                  "required": [
+                    "mode"
+                  ]
+                }
+              ]
+            }
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "sportTypeCode": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "waypoints",
+          "legs",
+          "name",
+          "sportTypeCode"
+        ]
+      },
+      "RenameItineraryRequestDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          }
+        },
+        "required": [
+          "name"
+        ]
       },
       "RevenueCatWebhookBodyDto": {
         "type": "object",

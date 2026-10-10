@@ -24,6 +24,13 @@ export const createItineraryRequestSchema = saveItineraryRequestSchema.extend({ 
 export type CreateItineraryRequest = z.infer<typeof createItineraryRequestSchema>;
 
 /**
+ * `PATCH /v1/itineraries/:id` body (ADR-030 §6): renaming outside the
+ * editor, with no recomputation.
+ */
+export const renameItineraryRequestSchema = z.object({ name: itineraryNameSchema });
+export type RenameItineraryRequest = z.infer<typeof renameItineraryRequestSchema>;
+
+/**
  * A stored Leg: its mode and its 2D path as polyline6 (the Mapbox geometry
  * of a `follow` Leg, the server-drawn segment of a `straight` one).
  */

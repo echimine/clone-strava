@@ -1,4 +1,19 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, ParseUUIDPipe, Post, Query, Res, UseGuards } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Put,
+  Query,
+  Res,
+  UseGuards,
+} from "@nestjs/common";
 import { ApiResponse } from "@nestjs/swagger";
 import type { Response } from "express";
 import { createZodDto, ZodResponse } from "nestjs-zod";
@@ -9,6 +24,8 @@ import {
   itinerarySchema,
   listItinerariesQuerySchema,
   listItinerariesResponseSchema,
+  renameItineraryRequestSchema,
+  saveItineraryRequestSchema,
   type Itinerary,
   type ItineraryMetrics,
   type ListItinerariesResponse,
@@ -20,6 +37,8 @@ import { SessionGuard, type AuthenticatedUser } from "../auth/session.guard.js";
 class ItineraryMetricsPreviewRequestDto extends createZodDto(itineraryMetricsPreviewRequestSchema) {}
 class ItineraryMetricsDto extends createZodDto(itineraryMetricsSchema) {}
 class CreateItineraryRequestDto extends createZodDto(createItineraryRequestSchema) {}
+class UpdateItineraryRequestDto extends createZodDto(saveItineraryRequestSchema) {}
+class RenameItineraryRequestDto extends createZodDto(renameItineraryRequestSchema) {}
 class ItineraryDto extends createZodDto(itinerarySchema) {}
 class ListItinerariesQueryDto extends createZodDto(listItinerariesQuerySchema) {}
 class ListItinerariesResponseDto extends createZodDto(listItinerariesResponseSchema) {}
@@ -73,5 +92,40 @@ export class ItinerariesController {
   @ZodResponse({ status: 200, type: ItineraryDto })
   get(@Param("id", ParseUUIDPipe) itineraryId: string, @CurrentUser() user: AuthenticatedUser): Promise<Itinerary> {
     return this.itineraries.get(user.userId, itineraryId);
+  }
+
+  /**
+   * Replaces name, sport, Waypoints and Legs, and recomputes everything,
+   * altitudes included. `404` if unknown or someone else's, `422` invalid
+   * name, sport or geometry, `503` (retryable, nothing written) when an
+   * elevation provider fails.
+   */
+  @Put(":id")
+  @ZodResponse({ status: 200, type: ItineraryDto })
+  update(
+    @Param("id", ParseUUIDPipe) itineraryId: string,
+    @Body() body: UpdateItineraryRequestDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<Itinerary> {
+    return this.itineraries.update(user.userId, itineraryId, body);
+  }
+
+  /** Renames, with no recomputation; `updatedAt` moves. `404` if unknown or someone else's. */
+  @Patch(":id")
+  @ZodResponse({ status: 200, type: ItineraryDto })
+  rename(
+    @Param("id", ParseUUIDPipe) itineraryId: string,
+    @Body() body: RenameItineraryRequestDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<Itinerary> {
+    return this.itineraries.rename(user.userId, itineraryId, body.name);
+  }
+
+  /** Hard delete. `204`; `404` if unknown, already deleted or someone else's. */
+  @Delete(":id")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiResponse({ status: 204, description: "Deleted" })
+  remove(@Param("id", ParseUUIDPipe) itineraryId: string, @CurrentUser() user: AuthenticatedUser): Promise<void> {
+    return this.itineraries.delete(user.userId, itineraryId);
   }
 }
