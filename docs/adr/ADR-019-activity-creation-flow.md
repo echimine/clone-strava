@@ -112,7 +112,7 @@ If enqueueing fails after the move to `processing`, the **reconciliation job** (
 1. Read the activity, the profile (privacy zone) and the sport type.
 2. Download and **validate** the trace (Zod schema). Unreadable or empty trace: permanent failure.
 3. **Cleanup**: remove points that are too inaccurate, speed jumps that are impossible for the sport, duplicate timestamps.
-4. **Metrics**: distance, moving time and total time, elevation gain (smoothed altitude), average and maximum speeds, heart rate, calories.
+4. **Metrics**: distance, moving time and total time, elevation gain (smoothed altitude), average and maximum speeds, heart rate, calories. *Amended by [ADR-030](ADR-030-itineraries-on-ios.md)*: distance and elevation gain come from `@repo/geo`; the gain is computed on the cleaned trace resampled every ~20 m with a 2 m hysteresis (parameters passed as arguments), which is what "smoothed altitude" now means. Activities processed earlier keep their figures.
 5. **Route**: simplified `LineString` and start point, in SRID 4326 (ADR-017).
 6. **Privacy zone**: the first and last meters of the route (radius `privacy_zone_radius_m` from the profile) are removed from the route stored in `activity_track`, which is the version shown to others. The full raw trace stays private in the bucket.
 7. **Transaction**: upsert of `activity_stats`, upsert of `activity_track`, move to `processed` (`processed_at`).
@@ -210,4 +210,5 @@ Additions to the `activity` table:
 - **Amended by**: [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md) (realtime events through the bridge)
 - **Extended by**: [ADR-028](ADR-028-activity-import-from-file.md) (activities imported from a file are created by the worker directly in `processing`, then follow §5-8)
 - **Amended by**: [ADR-028](ADR-028-activity-import-from-file.md) (job id separator `-`)
+- **Amended by**: [ADR-030](ADR-030-itineraries-on-ios.md) (§5 elevation-gain algorithm shared with Itineraries in `@repo/geo`)
 - **Related**: [ADR-001](ADR-001-global-architecture.md), [ADR-008](ADR-008-mobile-offline-sync.md), [ADR-009](ADR-009-backend-api.md), [ADR-010](ADR-010-backend-realtime.md), [ADR-018](ADR-018-docker-vps-deployment.md)

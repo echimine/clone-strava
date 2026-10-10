@@ -49,7 +49,7 @@ Any connection that presents an `Origin` header (browser) is refused: the backof
 
 | Topic | Recipient | Example events |
 |---|---|---|
-| `user:{userId}` | The user themselves, on all their devices | `activity.processed`, `activity.failed` |
+| `user:{userId}` | The user themselves, on all their devices | `activity.processed`, `activity.failed` (*amended by [ADR-030](ADR-030-itineraries-on-ios.md)*: also `itinerary.saved`, `itinerary.deleted`) |
 
 - Later, other topics can be added (e.g. `activity:{id}` for live comments) without changing the architecture.
 
@@ -161,5 +161,5 @@ This package is added to those listed in ADR-005.
 
 - **Details**: [ADR-003](ADR-003-backend.md)
 - **Amends**: [ADR-005](ADR-005-monorepo.md) (adds `packages/realtime`)
-- **Amended by**: [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md) (single realtime bridge in `api` and `worker`), [ADR-028](ADR-028-activity-import-from-file.md) (`activity_import.*` events)
+- **Amended by**: [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md) (single realtime bridge in `api` and `worker`), [ADR-028](ADR-028-activity-import-from-file.md) (`activity_import.*` events), [ADR-030](ADR-030-itineraries-on-ios.md) (`itinerary.*` events)
 - **Related**: [ADR-001](ADR-001-global-architecture.md), [ADR-006](ADR-006-mobile-stack.md), [ADR-008](ADR-008-mobile-offline-sync.md), [ADR-009](ADR-009-backend-api.md), [ADR-011](ADR-011-backend-worker.md)
