@@ -31,13 +31,14 @@ const followAB = encodePolyline([A, { lat: 45.905, lon: 6.12 }, B], 6);
 const geometry = { waypoints: [A, B, C], legs: [{ mode: "follow", polyline6: followAB }, { mode: "straight" }] };
 
 /**
- * `POST /v1/itineraries`, `GET /v1/itineraries/:id` and `GET
- * /v1/itineraries` over real HTTP (ADR-024 §2 integration tier, ADR-030
- * §5, §6): real Nest, Postgres (migration 0006) and Redis from
+ * The lifecycle of `/v1/itineraries` (create, read, list, `PUT`, `PATCH`,
+ * `DELETE`) over real HTTP (ADR-024 §2 integration tier, ADR-030 §5, §6):
+ * real Nest, Postgres (migration 0006) and Redis from
  * `docker-compose.dev.yml`, sessions from `x-test-user`. Only the
- * `elevation` module's `fetch` is faked: IGN answers `terrain` everywhere.
+ * `elevation` module's `fetch` is faked: IGN answers `terrain` south of
+ * 46° N and has no data beyond, where Open-Meteo answers 1,000 m.
  */
-describe("/v1/itineraries create and read (integration)", () => {
+describe("/v1/itineraries lifecycle (integration)", () => {
   let app: NestExpressApplication;
   let baseUrl: string;
   const athlete = randomUUID();
@@ -49,13 +50,18 @@ describe("/v1/itineraries create and read (integration)", () => {
 
   const fakeFetch = async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
     const url = new URL(input instanceof Request ? input.url : String(input));
-    if (url.hostname !== "data.geopf.fr") throw new Error(`Unexpected request to ${url}`);
     elevationCalls += 1;
     if (elevationDown) return new Response("Bad gateway", { status: 502 });
+    if (url.hostname === "api.open-meteo.com") {
+      // Open-Meteo answers a flat 1,000 m wherever IGN has no data.
+      return Response.json({ elevation: url.searchParams.get("latitude")!.split(",").map(() => 1000) });
+    }
+    if (url.hostname !== "data.geopf.fr") throw new Error(`Unexpected request to ${url}`);
     const body = JSON.parse(String(init?.body)) as Record<string, string>;
     const lons = body.lon!.split("|").map(Number);
     const points = body.lat!.split("|").map((lat, i) => ({ lat: Number(lat), lon: lons[i]! }));
-    return Response.json({ elevations: points.map(terrain) });
+    // IGN covers nothing from 46° N.
+    return Response.json({ elevations: points.map((point) => (point.lat >= 46 ? -99999 : terrain(point))) });
   };
 
   async function sql(text: string, params: unknown[] = []) {
@@ -76,6 +82,12 @@ describe("/v1/itineraries create and read (integration)", () => {
 
   function newItinerary(overrides: Record<string, unknown> = {}) {
     return { id: randomUUID(), name: "Tour du Semnoz", sportTypeCode: "hike", ...geometry, ...overrides };
+  }
+
+  async function createOne(user = athlete) {
+    const response = await create(newItinerary(), user);
+    expect(response.status).toBe(201);
+    return (await response.json()) as Itinerary;
   }
 
   beforeAll(async () => {
@@ -243,6 +255,123 @@ describe("/v1/itineraries create and read (integration)", () => {
       elevationDown = false;
     }
     expect((await call(`/${body.id}`, athlete)).status).toBe(404);
+  });
+
+  describe("PUT /v1/itineraries/:id", () => {
+    /** Beyond IGN's coverage in the fake: Open-Meteo answers 1,000 m everywhere. */
+    const D = { lat: 46, lon: 6.12 };
+    const E = { lat: 46.01, lon: 6.12 };
+    const replacement = { name: "Crêt de Châtillon", sportTypeCode: "run", waypoints: [D, E], legs: [{ mode: "straight" }] };
+
+    it("replaces name, sport, Waypoints and Legs and recomputes distance, gain and source", async () => {
+      const created = await createOne();
+      const response = await call(`/${created.id}`, athlete, { method: "PUT", body: replacement });
+      expect(response.status).toBe(200);
+      const updated = (await response.json()) as Itinerary;
+      expect(updated).toMatchObject({
+        id: created.id,
+        name: "Crêt de Châtillon",
+        sportTypeCode: "run",
+        waypoints: [D, E],
+        legs: [{ mode: "straight", polyline6: encodePolyline([D, E], 6) }],
+        distanceM: Math.round(0.01 * M_PER_DEG_LAT * 10) / 10,
+        elevationGainM: 0,
+        elevationSource: "open_meteo",
+        createdAt: created.createdAt,
+      });
+      expect(updated.track.altitudesM.every((altitude) => altitude === 1000)).toBe(true);
+      expect(Date.parse(updated.updatedAt)).toBeGreaterThan(Date.parse(created.updatedAt));
+      expect(await (await call(`/${created.id}`, athlete)).json()).toEqual(updated);
+    });
+
+    it("answers a retryable 503 and changes nothing when the elevation provider fails", async () => {
+      const created = await createOne();
+      elevationDown = true;
+      try {
+        const response = await call(`/${created.id}`, athlete, { method: "PUT", body: replacement });
+        expect(response.status).toBe(503);
+        expect(((await response.json()) as { error: { code: string } }).error.code).toBe("elevation_unavailable");
+      } finally {
+        elevationDown = false;
+      }
+      expect(await (await call(`/${created.id}`, athlete)).json()).toEqual(created);
+    });
+
+    it("answers 404 for another athlete's Itinerary or an unknown id, without computing or writing", async () => {
+      const created = await createOne();
+      const callsBefore = elevationCalls;
+      expect((await call(`/${created.id}`, other, { method: "PUT", body: replacement })).status).toBe(404);
+      expect((await call(`/${randomUUID()}`, athlete, { method: "PUT", body: replacement })).status).toBe(404);
+      expect(elevationCalls).toBe(callsBefore);
+      expect(await (await call(`/${created.id}`, athlete)).json()).toEqual(created);
+    });
+
+    it("rejects an invalid replacement with 422 and changes nothing", async () => {
+      const created = await createOne();
+      const response = await call(`/${created.id}`, athlete, { method: "PUT", body: { ...replacement, sportTypeCode: "swim" } });
+      expect(response.status).toBe(422);
+      expect(await (await call(`/${created.id}`, athlete)).json()).toEqual(created);
+    });
+  });
+
+  describe("PATCH /v1/itineraries/:id", () => {
+    it("renames the Itinerary and moves updated_at, without calling the elevation module", async () => {
+      const created = await createOne();
+      const callsBefore = elevationCalls;
+      const response = await call(`/${created.id}`, athlete, { method: "PATCH", body: { name: "  Semnoz par les crêtes " } });
+      expect(response.status).toBe(200);
+      const renamed = (await response.json()) as Itinerary;
+      expect(elevationCalls).toBe(callsBefore);
+      expect(renamed).toEqual({ ...created, name: "Semnoz par les crêtes", updatedAt: renamed.updatedAt });
+      expect(Date.parse(renamed.updatedAt)).toBeGreaterThan(Date.parse(created.updatedAt));
+      expect(await (await call(`/${created.id}`, athlete)).json()).toEqual(renamed);
+    });
+
+    it("rejects an empty name, once trimmed, and a name over 100 characters", async () => {
+      const created = await createOne();
+      for (const name of ["   ", "x".repeat(101)]) {
+        expect((await call(`/${created.id}`, athlete, { method: "PATCH", body: { name } })).status).toBe(422);
+      }
+      expect(await (await call(`/${created.id}`, athlete)).json()).toEqual(created);
+    });
+
+    it("answers 404 for another athlete's Itinerary or an unknown id", async () => {
+      const created = await createOne();
+      expect((await call(`/${created.id}`, other, { method: "PATCH", body: { name: "Volé" } })).status).toBe(404);
+      expect((await call(`/${randomUUID()}`, athlete, { method: "PATCH", body: { name: "Volé" } })).status).toBe(404);
+      expect(await (await call(`/${created.id}`, athlete)).json()).toEqual(created);
+    });
+  });
+
+  describe("DELETE /v1/itineraries/:id", () => {
+    it("answers 204 with no body, then the Itinerary is gone", async () => {
+      const created = await createOne();
+      const response = await call(`/${created.id}`, athlete, { method: "DELETE" });
+      expect(response.status).toBe(204);
+      expect(await response.text()).toBe("");
+      expect((await call(`/${created.id}`, athlete)).status).toBe(404);
+      expect((await call(`/${created.id}`, athlete, { method: "DELETE" })).status).toBe(404);
+    });
+
+    it("answers 404 for another athlete's Itinerary, and keeps it", async () => {
+      const created = await createOne();
+      expect((await call(`/${created.id}`, other, { method: "DELETE" })).status).toBe(404);
+      expect((await call(`/${created.id}`, athlete)).status).toBe(200);
+    });
+  });
+
+  it("deletes a user's Itineraries, Waypoints and Legs with the account", async () => {
+    const leaving = randomUUID();
+    await sql('insert into "user" (id, name, email) values ($1, $2, $3)', [leaving, "Leaving", `${leaving}@test.local`]);
+    const { id } = await createOne(leaving);
+    await sql('delete from "user" where id = $1', [leaving]);
+    const [counts] = await sql(
+      `select (select count(*) from itineraries.itinerary where id = $1)::int as itineraries,
+              (select count(*) from itineraries.itinerary_waypoint where itinerary_id = $1)::int as waypoints,
+              (select count(*) from itineraries.itinerary_leg where itinerary_id = $1)::int as legs`,
+      [id],
+    );
+    expect(counts).toEqual({ itineraries: 0, waypoints: 0, legs: 0 });
   });
 
   describe("GET /v1/itineraries", () => {

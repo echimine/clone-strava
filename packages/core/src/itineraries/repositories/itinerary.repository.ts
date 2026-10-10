@@ -51,6 +51,46 @@ export class ItineraryRepository {
     return inserted.length > 0;
   }
 
+  /**
+   * Full update of the athlete's Itinerary (ADR-030 §6), `updated_at`
+   * included; `false` if unknown or someone else's.
+   */
+  async update(
+    userId: string,
+    id: string,
+    values: ItineraryValues,
+    executor: DbExecutor = this.db,
+  ): Promise<boolean> {
+    const updated = await executor
+      .update(t)
+      .set({ ...values, track: toLineStringZEwkt(values.track), updatedAt: sql`now()` })
+      .where(and(eq(t.id, id), eq(t.userId, userId)))
+      .returning({ id: t.id });
+    return updated.length > 0;
+  }
+
+  /** Renames the athlete's Itinerary and moves `updated_at`; `false` if unknown or someone else's. */
+  async rename(userId: string, id: string, name: string): Promise<boolean> {
+    const renamed = await this.db
+      .update(t)
+      .set({ name, updatedAt: sql`now()` })
+      .where(and(eq(t.id, id), eq(t.userId, userId)))
+      .returning({ id: t.id });
+    return renamed.length > 0;
+  }
+
+  /**
+   * Hard delete of the athlete's Itinerary (ADR-017); its Waypoints and
+   * Legs go in cascade. `false` if unknown or someone else's.
+   */
+  async delete(userId: string, id: string): Promise<boolean> {
+    const deleted = await this.db
+      .delete(t)
+      .where(and(eq(t.id, id), eq(t.userId, userId)))
+      .returning({ id: t.id });
+    return deleted.length > 0;
+  }
+
   /** The athlete's Itinerary with its track decoded; undefined if unknown or someone else's. */
   async findOwned(userId: string, id: string) {
     const [row] = await this.db

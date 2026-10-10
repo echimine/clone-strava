@@ -1,8 +1,9 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import type { Itinerary } from "@repo/contracts";
 import { toItinerary } from "../domain/itinerary-view.js";
 import { ItineraryGeometryRepository } from "../repositories/itinerary-geometry.repository.js";
 import { ItineraryRepository } from "../repositories/itinerary.repository.js";
+import { itineraryNotFound } from "./itinerary-not-found.js";
 
 /**
  * `GET /v1/itineraries/:id` (ADR-030 §6). Someone else's Itinerary
@@ -18,7 +19,7 @@ export class GetItineraryUseCase {
   async execute(userId: string, itineraryId: string): Promise<Itinerary> {
     const row = await this.itineraries.findOwned(userId, itineraryId);
     if (!row) {
-      throw new NotFoundException({ code: "not_found", message: "Itinerary not found" });
+      throw itineraryNotFound();
     }
     return toItinerary({ ...row, ...(await this.geometries.find(itineraryId)) });
   }

@@ -6,9 +6,12 @@ import { ItineraryRepository } from "./repositories/itinerary.repository.js";
 import { ItineraryMeasurementService } from "./services/itinerary-measurement.service.js";
 import { ItinerarySaveService } from "./services/itinerary-save.service.js";
 import { CreateItineraryUseCase } from "./use-cases/create-itinerary.use-case.js";
+import { DeleteItineraryUseCase } from "./use-cases/delete-itinerary.use-case.js";
 import { GetItineraryUseCase } from "./use-cases/get-itinerary.use-case.js";
 import { ListItinerariesUseCase } from "./use-cases/list-itineraries.use-case.js";
 import { PreviewItineraryMetricsUseCase } from "./use-cases/preview-itinerary-metrics.use-case.js";
+import { RenameItineraryUseCase } from "./use-cases/rename-itinerary.use-case.js";
+import { UpdateItineraryUseCase } from "./use-cases/update-itinerary.use-case.js";
 
 /**
  * `itineraries` module (ADR-030 §4, ADR-021 §1, layer 1). Needs the global
@@ -25,6 +28,9 @@ import { PreviewItineraryMetricsUseCase } from "./use-cases/preview-itinerary-me
     CreateItineraryUseCase,
     GetItineraryUseCase,
     ListItinerariesUseCase,
+    UpdateItineraryUseCase,
+    RenameItineraryUseCase,
+    DeleteItineraryUseCase,
     ItinerariesService,
   ],
   exports: [ItinerariesService],
