@@ -16,6 +16,7 @@ enum ItineraryMessages {
     }
 
     static let myItineraries = "Mes Itinéraires"
+    static let backToList = "Revenir à la liste"
     static let create = "Créer"
     static let connectionRequired = "Connexion requise"
     static let emptyTitle = "Aucun Itinéraire"
