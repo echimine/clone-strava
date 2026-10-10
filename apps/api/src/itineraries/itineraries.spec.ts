@@ -1,11 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { APP_FILTER, APP_INTERCEPTOR, APP_PIPE } from "@nestjs/core";
+import { EventEmitterModule } from "@nestjs/event-emitter";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { Test } from "@nestjs/testing";
 import express from "express";
 import { ZodSerializerInterceptor, ZodValidationPipe } from "nestjs-zod";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Itinerary, ListItinerariesResponse } from "@repo/contracts";
+import { AnalyticsModule } from "@repo/core/analytics";
 import { AuthService } from "@repo/core/auth";
 import { ElevationModule } from "@repo/core/elevation";
 import { CoreInfrastructureModule, DATABASE, type Database } from "@repo/core/infrastructure";
@@ -95,6 +97,8 @@ describe("/v1/itineraries lifecycle (integration)", () => {
     const moduleRef = await Test.createTestingModule({
       imports: [
         CoreInfrastructureModule.forRoot({ databaseUrl: TEST_DATABASE_URL, redisUrl: TEST_REDIS_URL }),
+        AnalyticsModule.forRoot({}),
+        EventEmitterModule.forRoot({ wildcard: true, delimiter: "." }),
         ElevationModule.forRoot({ fetch: fakeFetch as typeof fetch }),
         ItinerariesModule,
       ],

@@ -5,6 +5,8 @@ import {
   ACTIVITY_IMPORT_FAILED,
   ACTIVITY_PROCESSED,
   ACTIVITY_SEGMENTS_MATCHED,
+  ITINERARY_DELETED,
+  ITINERARY_SAVED,
   userTopic,
 } from "@repo/realtime";
 import type { RealtimePublisher } from "@repo/realtime";
@@ -94,6 +96,29 @@ describe("RealtimeBridge", () => {
     ];
     expect(type).toBe(ACTIVITY_IMPORT_FAILED);
     expect(data).toMatchObject({ importId: "imp_1", status: "failed", code: "no_gps_data" });
+  });
+
+  it("forwards itineraries.itinerary.saved as itinerary.saved with its updatedAt only", async () => {
+    const publisher = createFakePublisher();
+    const bridge = new RealtimeBridge(publisher);
+
+    await bridge.onItinerarySaved({ itineraryId: "itn_1", userId: "user_1", updatedAt: "2026-10-10T08:00:00.000Z" });
+
+    expect(publisher.publishRealtimeEvent).toHaveBeenCalledExactlyOnceWith([userTopic("user_1")], ITINERARY_SAVED, {
+      itineraryId: "itn_1",
+      updatedAt: "2026-10-10T08:00:00.000Z",
+    });
+  });
+
+  it("forwards itineraries.itinerary.deleted as itinerary.deleted", async () => {
+    const publisher = createFakePublisher();
+    const bridge = new RealtimeBridge(publisher);
+
+    await bridge.onItineraryDeleted({ itineraryId: "itn_1", userId: "user_1" });
+
+    expect(publisher.publishRealtimeEvent).toHaveBeenCalledExactlyOnceWith([userTopic("user_1")], ITINERARY_DELETED, {
+      itineraryId: "itn_1",
+    });
   });
 
   it("logs a warning and does not throw when the publisher fails", async () => {

@@ -115,7 +115,11 @@ final class Di {
     }
 
     func makeItineraryEditorStore(sport: ItinerarySport) -> ItineraryEditorStore {
-        ItineraryEditorStore(editor: ItineraryEditor(sport: sport, router: itineraryRouter))
+        ItineraryEditorStore(editor: ItineraryEditor(
+            sport: sport,
+            router: itineraryRouter,
+            metricsPreviewer: APIItineraryMetricsPreviewer(apiClient: apiClient)
+        ))
     }
 
     func makeItinerarySaveStore() -> ItinerarySaveStore {

@@ -4,6 +4,7 @@ import type { Itinerary, SaveItineraryRequest } from "@repo/contracts";
 import { DATABASE } from "../../infrastructure/index.js";
 import { ItineraryGeometryRepository } from "../repositories/itinerary-geometry.repository.js";
 import { ItineraryRepository } from "../repositories/itinerary.repository.js";
+import { ItineraryLifecycleEvents } from "../services/itinerary-lifecycle-events.service.js";
 import { ItinerarySaveService } from "../services/itinerary-save.service.js";
 import { GetItineraryUseCase } from "./get-itinerary.use-case.js";
 import { itineraryNotFound } from "./itinerary-not-found.js";
@@ -14,7 +15,8 @@ import { itineraryNotFound } from "./itinerary-not-found.js";
  * again. The `itinerary` row, its Waypoints and its Legs are written in one
  * transaction. Unknown or someone else's Itinerary: `404`, checked before
  * computing anything. A `422` or `503` writes nothing. Returns only once the
- * transaction has committed: a returned Itinerary is always a write.
+ * transaction has committed, after its lifecycle events: a returned
+ * Itinerary is always a write.
  */
 @Injectable()
 export class UpdateItineraryUseCase {
@@ -24,6 +26,7 @@ export class UpdateItineraryUseCase {
     private readonly geometries: ItineraryGeometryRepository,
     private readonly save: ItinerarySaveService,
     private readonly getItinerary: GetItineraryUseCase,
+    private readonly lifecycle: ItineraryLifecycleEvents,
   ) {}
 
   async execute(userId: string, itineraryId: string, request: SaveItineraryRequest): Promise<Itinerary> {
@@ -31,7 +34,7 @@ export class UpdateItineraryUseCase {
       throw itineraryNotFound();
     }
 
-    const prepared = await this.save.prepare(request);
+    const prepared = await this.lifecycle.trackSaveFailure(userId, () => this.save.prepare(request));
     const updated = await this.db.transaction(async (tx) => {
       const found = await this.itineraries.update(userId, itineraryId, prepared.values, tx);
       if (found) {
@@ -43,6 +46,8 @@ export class UpdateItineraryUseCase {
       // Deleted while the computation was running.
       throw itineraryNotFound();
     }
-    return this.getItinerary.execute(userId, itineraryId);
+    const itinerary = await this.getItinerary.execute(userId, itineraryId);
+    this.lifecycle.updated(userId, itinerary, prepared.sportCategory);
+    return itinerary;
   }
 }
