@@ -31,6 +31,28 @@ struct ItineraryEditorStoreTests {
         #expect(store.distanceText == "1,11 km")
     }
 
+    @Test func anotherSportFromTheStatsCardRedrawsTheLegsDashedUntilRecomputed() async {
+        let router = FakeItineraryRouter()
+        let store = makeStore(sport: .run, router: router)
+        store.tap(at: a)
+        store.tap(at: b)
+        store.tap(at: c)
+        await store.editor.settle()
+        await router.hold()
+
+        store.changeSport(to: .ride)
+        await router.waitForCalls(3)
+
+        #expect(store.sportLabel == "Vélo")
+        #expect(store.lines.map(\.isProvisional) == [true, true])
+        #expect(store.canUndo)
+
+        await router.release()
+        await store.editor.settle()
+        #expect(store.lines.map(\.isProvisional) == [false, false])
+        #expect(await router.calls.last?.profile == .cycling)
+    }
+
     @Test func markersShowTheStartThenTheFinishAtTheLastWaypoint() async {
         let store = makeStore(router: FakeItineraryRouter())
 
