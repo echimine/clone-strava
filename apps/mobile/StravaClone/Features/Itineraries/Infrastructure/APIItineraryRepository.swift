@@ -6,6 +6,7 @@ struct APIItineraryRepository: ItineraryRepository {
     private typealias CreateRequest = Components.Schemas.CreateItineraryRequestDto
     private typealias DetailResponse = Components.Schemas.ItineraryDto_Output
     private typealias ListResponse = Components.Schemas.ListItinerariesResponseDto_Output
+    private typealias RenameRequest = Components.Schemas.RenameItineraryRequestDto
 
     let apiClient: APIClient
     /// The API's maximum: a full resync reads every page.
@@ -55,7 +56,26 @@ struct APIItineraryRepository: ItineraryRepository {
         return detail
     }
 
-    private func call<T>(_ operation: () async throws(APIError) -> T) async throws(ItineraryError) -> T {
+    func rename(id: ItineraryID, to name: String) async throws(ItineraryError) -> ItineraryDetail {
+        let response: DetailResponse = try await call(rejectingClientErrors: true) { () async throws(APIError) in
+            try await apiClient.send(method: "PATCH", path: "/v1/itineraries/\(id)", body: RenameRequest(name: name))
+        }
+        guard let detail = response.model else { throw .server(code: nil) }
+        return detail
+    }
+
+    func delete(id: ItineraryID) async throws(ItineraryError) {
+        let _: NoContent = try await call(rejectingClientErrors: true) { () async throws(APIError) in
+            try await apiClient.send(method: "DELETE", path: "/v1/itineraries/\(id)")
+        }
+    }
+
+    /// `rejectingClientErrors`: any `4xx` without a case of its own is `invalid`, never worth
+    /// retrying (the queued changes, ADR-030 §8).
+    private func call<T>(
+        rejectingClientErrors: Bool = false,
+        _ operation: () async throws(APIError) -> T
+    ) async throws(ItineraryError) -> T {
         do {
             return try await operation()
         } catch {
@@ -67,7 +87,8 @@ struct APIItineraryRepository: ItineraryRepository {
             case .http(503, _): throw .unavailable
             case .http(let status, let body):
                 let code = body.flatMap { try? JSONDecoder().decode(ErrorEnvelope.self, from: $0) }?.error.code
-                throw status == 422 ? .invalid(code: code) : .server(code: code)
+                let isRejected = status == 422 || (rejectingClientErrors && (400 ..< 500).contains(status))
+                throw isRejected ? .invalid(code: code) : .server(code: code)
             case .decoding: throw .server(code: nil)
             case .transport: throw .network
             }

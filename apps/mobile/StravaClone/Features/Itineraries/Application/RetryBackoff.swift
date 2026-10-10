@@ -1,6 +1,6 @@
 import Foundation
 
-/// Exponential backoff between retries when routing is saturated (`429`, ADR-030 §2):
+/// Exponential backoff between retries: routing saturated (`429`, ADR-030 §2), queued changes (§8):
 /// `initialDelay`, then twice as long each time, never more than `maxDelay`.
 struct RetryBackoff: Equatable, Sendable {
     var initialDelay: Duration = .seconds(2)

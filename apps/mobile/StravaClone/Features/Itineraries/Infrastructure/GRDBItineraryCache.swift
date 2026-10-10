@@ -3,7 +3,9 @@ import GRDB
 
 /// GRDB adapter of `ItineraryCache` (ADR-030 §8), tables `itinerary` and `itinerary_detail`
 /// (migration `itineraries_v1` in `AppDatabase`). Rows follow the API: one per Itinerary,
-/// its detail deleted with it.
+/// its detail deleted with it. A pending change of `sync_operation` (#38) wins over them: a
+/// pending rename shows its name, an Itinerary pending deletion is hidden, and a resync keeps
+/// the rows a pending change targets.
 struct GRDBItineraryCache: ItineraryCache {
     let database: AppDatabase
 
@@ -35,9 +37,10 @@ struct GRDBItineraryCache: ItineraryCache {
             try String.fetchAll(db, sql: """
                 SELECT itinerary.id FROM itinerary
                 LEFT JOIN itinerary_detail ON itinerary_detail.itinerary_id = itinerary.id
-                WHERE itinerary_detail.updated_at IS NULL OR itinerary_detail.updated_at <> itinerary.updated_at
+                WHERE (itinerary_detail.updated_at IS NULL OR itinerary_detail.updated_at <> itinerary.updated_at)
+                AND itinerary.id NOT IN (SELECT entity_id FROM sync_operation WHERE type = ?)
                 ORDER BY itinerary.updated_at DESC, itinerary.id
-                """)
+                """, arguments: [ItinerarySyncOperation.delete.rawValue])
             .compactMap { ItineraryID($0) }
         }
     }
@@ -52,6 +55,7 @@ struct GRDBItineraryCache: ItineraryCache {
 
     func delete(id: ItineraryID) async throws {
         try await database.writer.write { db in
+            _ = try ItinerarySyncOperation.rows(of: id).deleteAll(db)
             _ = try ItineraryDetailRow.deleteOne(db, key: id.description)
             _ = try ItineraryRow.deleteOne(db, key: id.description)
         }
@@ -60,8 +64,8 @@ struct GRDBItineraryCache: ItineraryCache {
     func replaceSummaries(with summaries: [ItinerarySummary]) async throws {
         try await database.writer.write { db in
             let ids = summaries.map(\.id.description)
-            // #38: keep the rows a pending sync operation targets.
-            try ItineraryRow.filter(!ids.contains(Column("id"))).deleteAll(db)
+            let targeted = try ItinerarySyncOperation.targetedIDs.fetchAll(db)
+            try ItineraryRow.filter(!(ids + targeted).contains(Column("id"))).deleteAll(db)
             for summary in summaries {
                 try ItineraryRow(summary).upsert(db)
             }
@@ -95,19 +99,29 @@ struct GRDBItineraryCache: ItineraryCache {
     }
 
     private static func fetchItinerary(_ db: Database, id: ItineraryID) throws -> CachedItinerary? {
-        guard let row = try ItineraryRow.fetchOne(db, key: id.description), let summary = row.summary else {
+        guard try !ItinerarySyncOperation.pendingDeletionIDs.fetchSet(db).contains(id.description),
+              var row = try ItineraryRow.fetchOne(db, key: id.description) else {
             return nil
         }
+        row.name = try ItinerarySyncOperation.pendingNames(db)[row.id] ?? row.name
+        guard let summary = row.summary else { return nil }
         let detail = try ItineraryDetailRow.fetchOne(db, key: id.description)?.model(row: row)
         return CachedItinerary(summary: summary, detail: detail)
     }
 
     private static func fetchSummaries(_ db: Database, limit: Int) throws -> [ItinerarySummary] {
-        try ItineraryRow
+        let hidden = try ItinerarySyncOperation.pendingDeletionIDs.fetchAll(db)
+        let names = try ItinerarySyncOperation.pendingNames(db)
+        return try ItineraryRow
+            .filter(!hidden.contains(Column("id")))
             .order(Column("updated_at").desc, Column("id"))
             .limit(limit)
             .fetchAll(db)
-            .compactMap(\.summary)
+            .compactMap { row in
+                var row = row
+                row.name = names[row.id] ?? row.name
+                return row.summary
+            }
     }
 }
 

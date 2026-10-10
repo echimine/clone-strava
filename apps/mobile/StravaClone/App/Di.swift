@@ -44,7 +44,8 @@ final class Di {
     let realtimeService: RealtimeService
     /// Avatars and static maps (ADR-029), one cache for the whole app.
     let imageLoader = ImageLoader.shared
-    /// Full resync of the Itinerary cache (ADR-030 §8), triggered by the app shell.
+    /// Full resync of the Itinerary cache and its queue of changes (ADR-030 §8), triggered by
+    /// the app shell.
     let itinerarySynchronizer: ItinerarySynchronizer
 
     private let recordingService: RecordingService
@@ -83,7 +84,16 @@ final class Di {
         itineraryRouter = MapboxDirectionsRouter(accessToken: configuration.mapboxItinerariesToken)
         itineraryRepository = APIItineraryRepository(apiClient: apiClient)
         itineraryCache = GRDBItineraryCache(database: database)
-        itinerarySynchronizer = ItinerarySynchronizer(repository: itineraryRepository, cache: itineraryCache)
+        itinerarySynchronizer = ItinerarySynchronizer(
+            repository: itineraryRepository,
+            cache: itineraryCache,
+            changes: ItineraryChangeSender(
+                repository: itineraryRepository,
+                cache: itineraryCache,
+                queue: GRDBItineraryChangeQueue(database: database),
+                sessionRefresher: APISessionRefresher(apiClient: apiClient, authSession: authSession)
+            )
+        )
         authService = AuthService(
             repository: APIAuthRepository(apiClient: apiClient, authSession: authSession),
             googleAuthProvider: GIDGoogleAuthProvider()

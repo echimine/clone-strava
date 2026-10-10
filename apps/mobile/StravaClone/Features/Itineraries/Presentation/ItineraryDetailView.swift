@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Detail page pushed from Mes Itinéraires (ADR-030 §8): a scrolling page that works offline
 /// from the cache. It closes by itself once the Itinerary is gone (`404`, deleted elsewhere).
-/// `actions` is the toolbar slot for Modifier (#37), Renommer and Supprimer (#38).
+/// `actions` is the toolbar slot for Modifier (#37); Renommer and Supprimer (#38) sit beside it.
 struct ItineraryDetailView<Actions: View>: View {
     @State var store: ItineraryDetailStore
     @ViewBuilder var actions: () -> Actions
@@ -19,6 +19,7 @@ struct ItineraryDetailView<Actions: View>: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .primaryAction) { actions() }
+            ToolbarItem(placement: .primaryAction) { ItineraryManageMenu(store: store) }
         }
         .task { await store.observe() }
         .onChange(of: store.isGone) { _, isGone in
