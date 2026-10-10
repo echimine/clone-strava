@@ -59,6 +59,9 @@ protocol ItineraryCache: Sendable {
     func observeItinerary(id: ItineraryID) -> AsyncStream<CachedItinerary?>
     func summaries(limit: Int) async throws -> [ItinerarySummary]
     func detail(id: ItineraryID) async throws -> ItineraryDetail?
+    /// When the cached row last changed on the server; nil when not cached. An Itinerary
+    /// pending deletion still answers: the comparison with a realtime save needs it (#39).
+    func updatedAt(id: ItineraryID) async throws -> Date?
     /// Writes a detail just received (after a save), with the row shown in the list.
     func save(_ detail: ItineraryDetail, mapPolyline: EncodedPolyline) async throws
     /// The Itineraries whose detail is missing or older than their row: to prefetch.

@@ -92,7 +92,8 @@ final class Di {
                 cache: itineraryCache,
                 queue: GRDBItineraryChangeQueue(database: database),
                 sessionRefresher: APISessionRefresher(apiClient: apiClient, authSession: authSession)
-            )
+            ),
+            events: RealtimeItineraryEventSource(client: webSocketClient)
         )
         authService = AuthService(
             repository: APIAuthRepository(apiClient: apiClient, authSession: authSession),

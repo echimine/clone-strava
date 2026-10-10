@@ -5,13 +5,16 @@ import Foundation
 /// pull-to-refresh, network back) and the local rows no longer returned are deleted. Then
 /// every detail whose Itinerary changed (or is new) is fetched, so any detail opens offline.
 /// Triggers arriving during a resync join it. Each resync first sends the pending changes
-/// (`ItineraryChangeSender`, ADR-008 §3), so the queue drains on the same triggers.
+/// (`ItineraryChangeSender`, ADR-008 §3), so the queue drains on the same triggers. In
+/// between, realtime events reflect what another device saves or deletes (ADR-030 §9).
 @MainActor
 final class ItinerarySynchronizer {
     private let repository: any ItineraryRepository
     private let cache: any ItineraryCache
     /// Renames and deletes waiting to be sent; nil where a test needs none.
     private let changes: ItineraryChangeSender?
+    /// Changes made on another device (ADR-030 §9); nil where a test needs none.
+    private let events: (any ItineraryEventSource)?
     private var running: Task<Result<Void, ItineraryError>, Never>?
     /// Bumped by sign-out: a resync started before must not write anything.
     private var generation = 0
@@ -22,11 +25,13 @@ final class ItinerarySynchronizer {
         repository: any ItineraryRepository,
         cache: any ItineraryCache,
         changes: ItineraryChangeSender? = nil,
+        events: (any ItineraryEventSource)? = nil,
         maxConcurrentDetailFetches: Int = 4
     ) {
         self.repository = repository
         self.cache = cache
         self.changes = changes
+        self.events = events
         self.maxConcurrentDetailFetches = maxConcurrentDetailFetches
     }
 
@@ -52,6 +57,41 @@ final class ItinerarySynchronizer {
             try? await refresh()
         }
     }
+
+    /// Runs for as long as the realtime events do (ADR-030 §9), one event after the other,
+    /// so a delete always lands after the save that preceded it.
+    func applyRemoteChanges() async {
+        guard let events else { return }
+        for await event in await events.events() {
+            await apply(event)
+        }
+    }
+
+    /// A save no newer than the cached row is an echo (of this device's own write, or of a
+    /// resync that already brought it) and is ignored; otherwise the detail is fetched and
+    /// written. A delete forgets the Itinerary and its pending changes; an open detail closes.
+    /// A failure leaves the cache as it was: the next resync catches up.
+    func apply(_ event: ItineraryEvent) async {
+        let generation = generation
+        switch event {
+        case .deleted(let id):
+            try? await cache.delete(id: id)
+        case .saved(let id, let updatedAt):
+            let cachedAt: Date?
+            do {
+                cachedAt = try await cache.updatedAt(id: id)
+            } catch {
+                return
+            }
+            guard let cachedAt else {
+                await loadNewItinerary(id: id, generation: generation)
+                return
+            }
+            guard updatedAt > cachedAt else { return }
+            try? await loadDetail(id: id, generation: generation)
+        }
+    }
+
 
     /// Renames locally at once, then sends (ADR-030 §8).
     func rename(id: ItineraryID, to name: String) async throws(ItinerarySaveIssue) {
@@ -136,6 +176,13 @@ final class ItinerarySynchronizer {
                 fetchNext()
             }
         }
+    }
+
+    /// Created on another device: listed with its detail, thumbnail drawn from the track
+    /// until the next resync brings the server's (like `SaveItinerary`).
+    private func loadNewItinerary(id: ItineraryID, generation: Int) async {
+        guard let detail = try? await repository.detail(id: id), self.generation == generation else { return }
+        try? await cache.save(detail, mapPolyline: detail.track.mapPolyline())
     }
 
     private func loadDetail(id: ItineraryID, generation: Int) async throws(ItineraryError) {

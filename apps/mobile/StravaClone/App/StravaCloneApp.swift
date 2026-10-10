@@ -163,5 +163,10 @@ struct RootView: View {
             try? await itinerarySynchronizer.refresh()
             await itinerarySynchronizer.resyncOnReconnection(connectivityChanges())
         }
+        // ADR-030 §9: what another device saves or deletes shows here live.
+        .task(id: realtimeUserId) {
+            guard realtimeUserId != nil else { return }
+            await itinerarySynchronizer.applyRemoteChanges()
+        }
     }
 }

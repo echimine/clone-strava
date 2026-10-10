@@ -25,6 +25,10 @@ struct GRDBItineraryCache: ItineraryCache {
         try await database.writer.read { db in try Self.fetchItinerary(db, id: id)?.detail }
     }
 
+    func updatedAt(id: ItineraryID) async throws -> Date? {
+        try await database.writer.read { db in try ItineraryRow.fetchOne(db, key: id.description)?.updatedAt }
+    }
+
     func save(_ detail: ItineraryDetail, mapPolyline: EncodedPolyline) async throws {
         try await database.writer.write { db in
             try ItineraryRow(detail: detail, mapPolyline: mapPolyline).upsert(db)
