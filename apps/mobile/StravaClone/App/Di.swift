@@ -153,11 +153,12 @@ final class Di {
         ItineraryListStore(cache: itineraryCache, synchronizer: itinerarySynchronizer, source: source, analytics: analytics)
     }
 
-    /// The Map tab sheet has its own list (own page size), over the same cache.
+    /// The Map tab carousel has its own list (own page size), over the same cache.
     func makeMapItinerariesStore() -> MapItinerariesStore {
         MapItinerariesStore(
             list: makeItineraryListStore(source: .mapTab),
-            makeDetailStore: { [self] id in makeItineraryDetailStore(id: id, source: .mapTab) }
+            makeDetailStore: { [self] id in makeItineraryDetailStore(id: id, source: .mapTab) },
+            makeEditFlow: { [self] id in makeItineraryEditFlow(id: id) }
         )
     }
 

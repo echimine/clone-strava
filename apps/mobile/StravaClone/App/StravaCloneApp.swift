@@ -117,11 +117,20 @@ struct RootView: View {
                         )
                     }
                     .tabItem { Label("Accueil", systemImage: "house") }
-                    MapScreen(
-                        onCreateItinerary: { itineraryCreation.start(from: .mapTab) },
-                        focusedPath: mapItinerariesStore.focusedPath
-                    ) {
-                        MapItinerariesSheet(store: mapItinerariesStore)
+                    NavigationStack {
+                        MapScreen(
+                            onCreateItinerary: { itineraryCreation.start(from: .mapTab) },
+                            focusedPath: mapItinerariesStore.focusedPath
+                        ) {
+                            MapItinerariesCarousel(store: mapItinerariesStore)
+                        }
+                        .navigationDestination(for: ItineraryID.self) { [mapItinerariesStore] id in
+                            ItineraryDetailPage(
+                                id: id,
+                                makeDetailStore: mapItinerariesStore.makeDetailStore,
+                                makeEditFlow: mapItinerariesStore.makeEditFlow
+                            )
+                        }
                     }
                     .tabItem { Label("Map", systemImage: "map") }
                     RecordingView(store: recordingStore)
