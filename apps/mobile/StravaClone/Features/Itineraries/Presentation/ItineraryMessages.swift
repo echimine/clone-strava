@@ -6,6 +6,12 @@ enum ItineraryMessages {
     static let trackUnavailable = "Tracé indisponible pour le moment."
     static let elevationProfile = "Profil d'altitude"
 
+    /// The elevation gain, "≈" when Open-Meteo provided altitudes (ADR-030 §3).
+    static func elevationGain(_ meters: Double, source: ElevationSource?) -> String {
+        let gain = ActivityFormatters.elevation(meters)
+        return source?.isApproximate == true ? "≈ \(gain)" : gain
+    }
+
     /// Credit of the altitudes (ADR-030 §3).
     static func elevationSource(_ source: ElevationSource) -> String {
         switch source {
