@@ -38,9 +38,15 @@ final class ItineraryEditor {
         var pauseOutcome: Result<RoutedPath, RoutingError>?
     }
 
-    private(set) var draft: ItineraryDraft
+    private(set) var draft: ItineraryDraft {
+        didSet { updateElevation() }
+    }
     private(set) var notice: Notice?
-    private var drag: Drag?
+    private var drag: Drag? {
+        didSet { updateElevation() }
+    }
+    /// Elevation gain of the full track, measured by the API once a gesture is over (ADR-030 §3).
+    let elevation: ItineraryElevationPreview
     /// Drafts before each gesture, most recent last. Being values, they are restored as is.
     private var undoStack: [ItineraryDraft] = []
     private var redoStack: [ItineraryDraft] = []
@@ -50,9 +56,17 @@ final class ItineraryEditor {
     @ObservationIgnored private var inFlight: [UUID: (request: LegRoutingRequest, task: Task<Void, Never>)] = [:]
     @ObservationIgnored private var pauseTask: Task<Void, Never>?
 
-    /// - Parameter pauseDelay: how long a dragged Waypoint must rest before its Legs are requested.
-    init(sport: ItinerarySport, router: any ItineraryRouter, pauseDelay: Duration = .milliseconds(300)) {
+    /// - Parameters:
+    ///   - metricsPreviewer: measures the elevation gain; `nil` leaves it idle.
+    ///   - pauseDelay: how long a dragged Waypoint must rest before its Legs are requested.
+    init(
+        sport: ItinerarySport,
+        router: any ItineraryRouter,
+        metricsPreviewer: (any ItineraryMetricsPreviewer)? = nil,
+        pauseDelay: Duration = .milliseconds(300)
+    ) {
         draft = ItineraryDraft(sport: sport)
+        elevation = ItineraryElevationPreview(previewer: metricsPreviewer)
         self.router = router
         self.pauseDelay = pauseDelay
     }
@@ -105,9 +119,11 @@ final class ItineraryEditor {
     /// The finger pulls a Leg: a Waypoint is inserted there and dragged from now on.
     func beginInsertion(intoLeg id: LegID, at coordinate: Coordinate) {
         guard drag == nil else { return }
-        let origin = draft
-        guard let waypointID = draft.insertWaypoint(intoLeg: id, at: coordinate) else { return }
-        drag = Drag(waypointID: waypointID, origin: origin, hasChanged: true)
+        var inserted = draft
+        guard let waypointID = inserted.insertWaypoint(intoLeg: id, at: coordinate) else { return }
+        // The drag starts before the draft changes: the new track is never measured mid-gesture.
+        drag = Drag(waypointID: waypointID, origin: draft, hasChanged: true)
+        draft = inserted
         restartPauseTimer()
     }
 
@@ -164,11 +180,13 @@ final class ItineraryEditor {
         notice = nil
     }
 
-    /// Waits until every routing request in flight, follow-ups included, has been answered.
+    /// Waits until every routing request in flight, follow-ups included, has been answered,
+    /// then the elevation preview they led to.
     func settle() async {
         while let task = inFlight.values.first?.task {
             await task.value
         }
+        await elevation.settle()
     }
 
     // MARK: History
@@ -196,6 +214,19 @@ final class ItineraryEditor {
         for request in draft.requestsForComputingLegs()
         where !awaited.contains(where: { !$0.legIDs.isDisjoint(with: request.legIDs) }) {
             send(request)
+        }
+    }
+
+    // MARK: Elevation
+
+    /// The gain is measured on release only: a gesture that changed the draft keeps it greyed out.
+    private func updateElevation() {
+        if let drag, draft != drag.origin {
+            elevation.update(.changing)
+        } else if let request = draft.metricsRequest {
+            elevation.update(.settled(request))
+        } else {
+            elevation.update(draft.waypoints.count < 2 ? .empty : .changing)
         }
     }
 
