@@ -80,6 +80,7 @@
     "@react-email/render": "2.1.0",
     "@repo/contracts": "workspace:*",
     "@repo/db": "workspace:*",
+    "@repo/geo": "workspace:*",
     "@repo/realtime": "workspace:*",
     "@repo/track-files": "workspace:*",
     "better-auth": "1.7.6",

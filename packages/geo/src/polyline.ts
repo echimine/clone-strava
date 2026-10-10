@@ -1,4 +1,4 @@
-import type { LonLat } from "./simplify-route.js";
+import type { LonLat } from "./types.js";
 
 /**
  * Google encoded polyline algorithm (ADR-029), the format the Mapbox Static

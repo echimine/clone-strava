@@ -1,17 +1,13 @@
-/** Point in WGS 84 degrees. */
-export interface LonLat {
-  lat: number;
-  lon: number;
-}
+import type { LonLat } from "./types.js";
 
 const METERS_PER_DEGREE = 111_320;
 
 /**
- * Douglas-Peucker simplification of the route stored as a `LineString`
- * (ADR-019 §5 step 5), with a tolerance in meters. Uses a local
- * equirectangular projection, accurate enough at activity scale.
+ * Douglas-Peucker simplification of a track (ADR-019 §5 step 5), with a
+ * tolerance in meters. Uses a local equirectangular projection, accurate
+ * enough at activity scale. Returns a subset of the input points, unchanged.
  */
-export function simplifyRoute<T extends LonLat>(points: T[], toleranceM: number): T[] {
+export function simplifyTrack<T extends LonLat>(points: T[], toleranceM: number): T[] {
   if (points.length <= 2) {
     return points;
   }
@@ -55,14 +51,4 @@ function perpendicularDistance(
   }
   const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / lengthSquared));
   return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
-}
-
-/** EWKT accepted by the PostGIS `geometry(LineString, 4326)` column (ADR-017). */
-export function toLineStringEwkt(points: LonLat[]): string {
-  return `SRID=4326;LINESTRING(${points.map((p) => `${p.lon} ${p.lat}`).join(",")})`;
-}
-
-/** EWKT accepted by the PostGIS `geometry(Point, 4326)` column (ADR-017). */
-export function toPointEwkt(point: LonLat): string {
-  return `SRID=4326;POINT(${point.lon} ${point.lat})`;
 }

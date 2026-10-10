@@ -1,5 +1,4 @@
-import { encodePolyline } from "./encode-polyline.js";
-import { simplifyRoute, type LonLat } from "./simplify-route.js";
+import { encodePolyline, simplifyTrack, type LonLat } from "@repo/geo";
 
 /**
  * Budget of the encoded route kept for the feed (ADR-029): once
@@ -20,7 +19,7 @@ export function feedPolyline(points: LonLat[], maxChars = FEED_POLYLINE_MAX_CHAR
     return null;
   }
   for (const tolerance of TOLERANCES_M) {
-    const encoded = encodePolyline(simplifyRoute(points, tolerance));
+    const encoded = encodePolyline(simplifyTrack(points, tolerance));
     if (encoded.length <= maxChars) {
       return encoded;
     }
