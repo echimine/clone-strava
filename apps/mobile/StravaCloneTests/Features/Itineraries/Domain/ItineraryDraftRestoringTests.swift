@@ -45,8 +45,7 @@ struct ItineraryDraftRestoringTests {
 
         let creation = try draft.creation(id: saved.id, name: saved.name)
 
-        #expect(creation.waypoints == saved.waypoints)
-        #expect(creation.legs == saved.legs)
+        #expect(creation.geometry == saved.geometry)
         #expect(creation.sport == .ride)
     }
 

@@ -121,7 +121,7 @@ struct APIItineraryRepositoryTests {
         let json = detailJSON()
         ItineraryURLProtocolStub.handler.value = { _ in (201, json) }
         let straight = ItineraryCreation(
-            id: creation.id, name: creation.name, sport: .run, waypoints: creation.waypoints, legs: [.straight]
+            id: creation.id, name: creation.name, sport: .run, waypoints: creation.geometry.waypoints, legs: [.straight]
         )
 
         _ = try await repository.create(straight)

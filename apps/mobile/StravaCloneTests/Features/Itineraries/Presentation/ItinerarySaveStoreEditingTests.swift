@@ -37,7 +37,7 @@ struct ItinerarySaveStoreEditingTests {
         #expect(repository.creations.isEmpty)
         #expect(repository.updates.map(\.id) == [.fixture(9)])
         #expect(repository.updates.map(\.name) == ["Tour du lac par le col"])
-        #expect(repository.updates.map(\.legs) == [[.straight]])
+        #expect(repository.updates.map(\.geometry.legs) == [[.straight]])
     }
 
     @Test func aFailedSaveOffersARetryOnTheSameItinerary() async throws {

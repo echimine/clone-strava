@@ -20,8 +20,8 @@ struct APIItineraryRepository: ItineraryRepository {
 
     func create(_ creation: ItineraryCreation) async throws(ItineraryError) -> CreatedItinerary {
         let body = CreateRequest(
-            waypoints: creation.waypoints.map { .init(lat: $0.latitude, lon: $0.longitude) },
-            legs: creation.legs.map { leg in
+            waypoints: creation.geometry.waypoints.map { .init(lat: $0.latitude, lon: $0.longitude) },
+            legs: creation.geometry.legs.map { leg in
                 switch leg {
                 case .follow(let path): .case1(.init(mode: .follow, polyline6: path.value))
                 case .straight: .case2(.init(mode: .straight))
@@ -40,8 +40,8 @@ struct APIItineraryRepository: ItineraryRepository {
 
     func update(_ edit: ItineraryCreation) async throws(ItineraryError) -> ItineraryDetail {
         let body = UpdateRequest(
-            waypoints: edit.waypoints.map { .init(lat: $0.latitude, lon: $0.longitude) },
-            legs: edit.legs.map { leg in
+            waypoints: edit.geometry.waypoints.map { .init(lat: $0.latitude, lon: $0.longitude) },
+            legs: edit.geometry.legs.map { leg in
                 switch leg {
                 case .follow(let path): .case1(.init(mode: .follow, polyline6: path.value))
                 case .straight: .case2(.init(mode: .straight))
@@ -150,13 +150,15 @@ private extension Components.Schemas.ItineraryDto_Output {
             id: id,
             name: name,
             sport: sport,
-            waypoints: waypoints.map { Coordinate(latitude: $0.lat, longitude: $0.lon) },
-            legs: legs.map { leg in
-                switch leg.mode {
-                case .follow: .follow(EncodedPolyline(value: leg.polyline6, precision: 6))
-                case .straight: .straight
+            geometry: ItineraryGeometry(
+                waypoints: waypoints.map { Coordinate(latitude: $0.lat, longitude: $0.lon) },
+                legs: legs.map { leg in
+                    switch leg.mode {
+                    case .follow: .follow(EncodedPolyline(value: leg.polyline6, precision: 6))
+                    case .straight: .straight
+                    }
                 }
-            }
+            )
         )
     }
 }

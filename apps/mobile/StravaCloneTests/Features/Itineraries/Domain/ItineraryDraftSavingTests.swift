@@ -27,10 +27,10 @@ struct ItineraryDraftSavingTests {
         #expect(creation.id == .fixture(1))
         #expect(creation.name == "Tour du lac")
         #expect(creation.sport == .hike)
-        #expect(creation.waypoints == [a, b])
+        #expect(creation.geometry.waypoints == [a, b])
         // The fake network turns at the corner (start.lat, end.lon).
         let corner = Coordinate(latitude: 45.900, longitude: 6.121)
-        #expect(creation.legs == [.follow(EncodedPolyline(encoding: [a, corner, b], precision: 6))])
+        #expect(creation.geometry.legs == [.follow(EncodedPolyline(encoding: [a, corner, b], precision: 6))])
     }
 
     @Test func aLegWithNoPathIsSentStraight() async throws {
@@ -40,7 +40,7 @@ struct ItineraryDraftSavingTests {
 
         let creation = try editor.draft.creation(id: .fixture(1), name: "Ligne droite")
 
-        #expect(creation.legs == [.straight, .straight])
+        #expect(creation.geometry.legs == [.straight, .straight])
     }
 
     @Test func aStartAndAFinishAreNeeded() async {

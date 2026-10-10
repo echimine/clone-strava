@@ -5,8 +5,8 @@ import Foundation
 /// answers with `answer`, by default a gain of 10 m per Waypoint measured by IGN.
 /// `hold()` suspends answers until `release()`, to observe in-flight states and races.
 actor FakeItineraryMetricsPreviewer: ItineraryMetricsPreviewer {
-    private(set) var requests: [ItineraryMetricsRequest] = []
-    private var answer: @Sendable (ItineraryMetricsRequest) -> Result<ItineraryMetrics, ItineraryMetricsError> = {
+    private(set) var requests: [ItineraryGeometry] = []
+    private var answer: @Sendable (ItineraryGeometry) -> Result<ItineraryMetrics, ItineraryMetricsError> = {
         .success(FakeItineraryMetricsPreviewer.metrics(gain: Double($0.waypoints.count * 10)))
     }
     private var isHolding = false
@@ -16,7 +16,7 @@ actor FakeItineraryMetricsPreviewer: ItineraryMetricsPreviewer {
         ItineraryMetrics(distance: Distance(meters: 1_000), elevationGain: gain, elevationSource: source)
     }
 
-    func answer(with answer: @escaping @Sendable (ItineraryMetricsRequest) -> Result<ItineraryMetrics, ItineraryMetricsError>) {
+    func answer(with answer: @escaping @Sendable (ItineraryGeometry) -> Result<ItineraryMetrics, ItineraryMetricsError>) {
         self.answer = answer
     }
 
@@ -47,7 +47,7 @@ actor FakeItineraryMetricsPreviewer: ItineraryMetricsPreviewer {
         }
     }
 
-    func metrics(for request: ItineraryMetricsRequest) async throws(ItineraryMetricsError) -> ItineraryMetrics {
+    func metrics(for request: ItineraryGeometry) async throws(ItineraryMetricsError) -> ItineraryMetrics {
         requests.append(request)
         if isHolding {
             await withCheckedContinuation { held.append($0) }

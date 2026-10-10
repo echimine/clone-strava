@@ -28,7 +28,7 @@ private final class MetricsURLProtocolStub: URLProtocol, @unchecked Sendable {
 
 @Suite(.serialized)
 struct APIItineraryMetricsPreviewerTests {
-    private let request = ItineraryMetricsRequest(
+    private let request = ItineraryGeometry(
         waypoints: [
             Coordinate(latitude: 45.9, longitude: 6.12),
             Coordinate(latitude: 45.901, longitude: 6.121),

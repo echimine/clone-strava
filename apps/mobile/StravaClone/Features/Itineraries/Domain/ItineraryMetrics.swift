@@ -17,18 +17,6 @@ extension ElevationSource {
     }
 }
 
-/// The `{ waypoints, legs }` the API measures (ADR-030 §6): a `follow` Leg carries the
-/// router's geometry, a `straight` one nothing.
-struct ItineraryMetricsRequest: Equatable, Sendable {
-    enum Leg: Equatable, Sendable {
-        case follow(EncodedPolyline)
-        case straight
-    }
-
-    let waypoints: [Coordinate]
-    let legs: [Leg]
-}
-
 /// Why the metrics could not be previewed. Either way the editor shows the gain as
 /// unavailable with a retry button, and nothing is blocked.
 enum ItineraryMetricsError: Error, Equatable, Sendable {
@@ -39,5 +27,5 @@ enum ItineraryMetricsError: Error, Equatable, Sendable {
 /// `POST /v1/itineraries/metrics-preview` port (ADR-007): runs the save computation and
 /// writes nothing. Faked in tests.
 protocol ItineraryMetricsPreviewer: Sendable {
-    func metrics(for request: ItineraryMetricsRequest) async throws(ItineraryMetricsError) -> ItineraryMetrics
+    func metrics(for geometry: ItineraryGeometry) async throws(ItineraryMetricsError) -> ItineraryMetrics
 }

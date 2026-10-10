@@ -69,7 +69,7 @@ struct ItineraryEditorSportChangeTests {
 
         #expect(await router.calls.dropFirst(9).map(\.waypoints) == [(0 ... 2).map(point), (4 ... 9).map(point)])
         #expect(editor.draft.legs[2 ... 3] == straight)
-        #expect(editor.draft.metricsRequest != nil)
+        #expect(editor.draft.geometry != nil)
     }
 
     @Test func aBatchWithNoPathIsRequestedLegByLeg() async {
@@ -96,7 +96,7 @@ struct ItineraryEditorSportChangeTests {
     /// Every `follow` Leg has its path for the new sport, nothing waits any more.
     private func expectEveryFollowLegRouted(_ editor: ItineraryEditor, router: FakeItineraryRouter, after setupCalls: Int) async {
         #expect(editor.draft.legs.filter { $0.mode == .follow }.allSatisfy { $0.state == .computed })
-        #expect(editor.draft.metricsRequest != nil)
+        #expect(editor.draft.geometry != nil)
         #expect(await router.calls.dropFirst(setupCalls).allSatisfy { $0.profile == .cycling })
     }
 

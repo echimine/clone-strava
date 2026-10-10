@@ -7,8 +7,7 @@ struct SavedItinerary: Equatable, Sendable {
     let id: ItineraryID
     let name: String
     let sport: ItinerarySport
-    /// Positions as stored: snapped for a snapped Waypoint.
-    let waypoints: [Coordinate]
-    /// Leg *n* joins Waypoints *n* and *n + 1*; a `follow` Leg carries its stored path.
-    let legs: [ItineraryCreation.Leg]
+    /// Positions as stored (snapped for a snapped Waypoint); a `follow` Leg carries its
+    /// stored path.
+    let geometry: ItineraryGeometry
 }

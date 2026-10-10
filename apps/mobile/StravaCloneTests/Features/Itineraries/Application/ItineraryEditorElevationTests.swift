@@ -25,7 +25,7 @@ struct ItineraryEditorElevationTests {
         return editor
     }
 
-    private func gridLeg(_ start: Coordinate, _ end: Coordinate) -> ItineraryMetricsRequest.Leg {
+    private func gridLeg(_ start: Coordinate, _ end: Coordinate) -> ItineraryGeometry.Leg {
         .follow(EncodedPolyline(encoding: [start, Coordinate(latitude: start.latitude, longitude: end.longitude), end], precision: 6))
     }
 
@@ -39,7 +39,7 @@ struct ItineraryEditorElevationTests {
         await editor.settle()
 
         #expect(await previewer.requests == [
-            ItineraryMetricsRequest(waypoints: [a, b], legs: [gridLeg(a, b)]),
+            ItineraryGeometry(waypoints: [a, b], legs: [gridLeg(a, b)]),
         ])
         #expect(editor.elevation.status == .measured)
         #expect(editor.elevation.metrics == FakeItineraryMetricsPreviewer.metrics(gain: 20))
@@ -188,7 +188,7 @@ struct ItineraryEditorElevationTests {
         editor.endDrag()
         await editor.settle()
 
-        #expect(await previewer.requests.last == ItineraryMetricsRequest(waypoints: [a, elsewhere, b], legs: [.straight, .straight]))
+        #expect(await previewer.requests.last == ItineraryGeometry(waypoints: [a, elsewhere, b], legs: [.straight, .straight]))
         #expect(editor.elevation.status == .measured)
     }
 }

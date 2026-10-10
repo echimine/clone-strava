@@ -4,17 +4,10 @@ import Foundation
 /// a lost answer does not create a duplicate. `PUT /v1/itineraries/:id` sends the same
 /// content for an existing id.
 struct ItineraryCreation: Equatable, Sendable {
-    /// A Leg as sent to the API: a `follow` Leg carries the router's geometry as is.
-    enum Leg: Equatable, Sendable {
-        case follow(EncodedPolyline)
-        case straight
-    }
-
     let id: ItineraryID
     let name: String
     let sport: ItinerarySport
-    let waypoints: [Coordinate]
-    let legs: [Leg]
+    let geometry: ItineraryGeometry
 }
 
 /// What `POST /v1/itineraries` answered (ADR-030 §6).
