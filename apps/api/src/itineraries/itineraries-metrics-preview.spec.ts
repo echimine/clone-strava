@@ -277,12 +277,11 @@ describe("POST /v1/itineraries/metrics-preview (integration)", () => {
 
   it("writes nothing for the athlete", async () => {
     expect((await preview(hillBody)).status).toBe(200);
-    // Every athlete-owned table of the `itineraries` schema stays empty for them.
+    // `itinerary` is the only athlete-owned table (migration 0006); Waypoints and Legs hang off it.
     const tables = await sql(
       `select table_name from information_schema.columns where table_schema = 'itineraries' and column_name = 'user_id'`,
     );
-    for (const { table_name } of tables as { table_name: string }[]) {
-      expect(await sql(`select 1 from itineraries."${table_name}" where user_id = $1`, [athlete])).toEqual([]);
-    }
+    expect(tables).toEqual([{ table_name: "itinerary" }]);
+    expect(await sql("select 1 from itineraries.itinerary where user_id = $1", [athlete])).toEqual([]);
   });
 });

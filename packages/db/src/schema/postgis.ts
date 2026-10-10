@@ -32,3 +32,6 @@ export const geometryPoint = geometryType("geometry(Point,4326)");
 
 /** `geometry(LineString, 4326)` column. */
 export const geometryLineString = geometryType("geometry(LineString,4326)");
+
+/** `geometry(LineStringZ, 4326)` column: Z is an altitude in meters (ADR-030 §5). */
+export const geometryLineStringZ = geometryType("geometry(LineStringZ,4326)");
