@@ -31,6 +31,7 @@ struct StravaCloneApp: App {
                 makeItinerarySaveStore: di.makeItinerarySaveStore,
                 itineraryListStore: di.makeItineraryListStore(),
                 makeItineraryDetailStore: di.makeItineraryDetailStore,
+                makeItineraryEditFlow: di.makeItineraryEditFlow,
                 itineraryCreation: di.makeItineraryCreationFlow(),
                 itinerarySynchronizer: di.itinerarySynchronizer,
                 connectivityChanges: di.connectivityChanges
@@ -60,6 +61,7 @@ struct RootView: View {
     let makeItinerarySaveStore: @MainActor () -> ItinerarySaveStore
     @State var itineraryListStore: ItineraryListStore
     let makeItineraryDetailStore: @MainActor (ItineraryID) -> ItineraryDetailStore
+    let makeItineraryEditFlow: @MainActor (ItineraryID) -> ItineraryEditFlow
     @State var itineraryCreation: ItineraryCreationFlow
     let itinerarySynchronizer: ItinerarySynchronizer
     let connectivityChanges: @MainActor () -> AsyncStream<Bool>
@@ -118,6 +120,7 @@ struct RootView: View {
                         MyItinerariesView(
                             store: itineraryListStore,
                             makeDetailStore: makeItineraryDetailStore,
+                            makeEditFlow: makeItineraryEditFlow,
                             onCreate: itineraryCreation.start
                         )
                     }

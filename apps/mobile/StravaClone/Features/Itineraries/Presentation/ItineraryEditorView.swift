@@ -26,6 +26,17 @@ struct ItineraryEditorView: View {
         .overlay(alignment: .top) { header }
         .safeAreaInset(edge: .bottom) { statsCard }
         .task { await store.retryPendingLegsOnReconnection() }
+        .onAppear(perform: frameReopenedItinerary)
+    }
+
+    /// "Modifier" reopens a saved Itinerary: the map frames it rather than the athlete.
+    private func frameReopenedItinerary() {
+        let line = store.lines.flatMap(\.coordinates).map(\.locationCoordinate)
+        guard line.count >= 2 else { return }
+        viewport = .overview(
+            geometry: LineString(line),
+            geometryPadding: EdgeInsets(top: 120, leading: 40, bottom: 220, trailing: 40)
+        )
     }
 
     // MARK: Map
