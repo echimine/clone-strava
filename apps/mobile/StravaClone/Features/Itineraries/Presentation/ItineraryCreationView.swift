@@ -1,17 +1,29 @@
 import SwiftUI
 
-/// "Créer" from the Map tab: the athlete picks a sport, then traces in the editor.
+/// "Créer" from the Map tab or Mes Itinéraires: the athlete picks a sport, traces in the
+/// editor, then saves. The Itinerary's id is generated when the editor opens (ADR-030 §6).
 struct ItineraryCreationView: View {
     let makeEditorStore: @MainActor (ItinerarySport) -> ItineraryEditorStore
+    let makeSaveStore: @MainActor () -> ItinerarySaveStore
     let onClose: () -> Void
 
     @State private var editorStore: ItineraryEditorStore?
+    @State private var saveStore: ItinerarySaveStore?
 
     var body: some View {
-        if let editorStore {
+        if let editorStore, let saveStore {
             ItineraryEditorView(store: editorStore, onClose: onClose)
+                .safeAreaInset(edge: .bottom) {
+                    ItinerarySaveBar(store: saveStore, draft: editorStore.editor.draft, onSaved: onClose)
+                }
         } else {
-            ItinerarySportPicker(onPick: { editorStore = makeEditorStore($0) }, onCancel: onClose)
+            ItinerarySportPicker(
+                onPick: { sport in
+                    saveStore = makeSaveStore()
+                    editorStore = makeEditorStore(sport)
+                },
+                onCancel: onClose
+            )
         }
     }
 }

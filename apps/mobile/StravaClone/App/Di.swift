@@ -44,12 +44,16 @@ final class Di {
     let realtimeService: RealtimeService
     /// Avatars and static maps (ADR-029), one cache for the whole app.
     let imageLoader = ImageLoader.shared
+    /// Full resync of the Itinerary cache (ADR-030 §8), triggered by the app shell.
+    let itinerarySynchronizer: ItinerarySynchronizer
 
     private let recordingService: RecordingService
     private let authService: AuthService
     private let importRepository: APIActivityImportRepository
     private let feedRepository: APIFeedRepository
     private let itineraryRouter: MapboxDirectionsRouter
+    private let itineraryRepository: APIItineraryRepository
+    private let itineraryCache: GRDBItineraryCache
 
     init(configuration: AppConfiguration = AppConfiguration(), database: AppDatabase) {
         self.configuration = configuration
@@ -77,6 +81,9 @@ final class Di {
         importRepository = APIActivityImportRepository(apiClient: apiClient)
         feedRepository = APIFeedRepository(apiClient: apiClient)
         itineraryRouter = MapboxDirectionsRouter(accessToken: configuration.mapboxItinerariesToken)
+        itineraryRepository = APIItineraryRepository(apiClient: apiClient)
+        itineraryCache = GRDBItineraryCache(database: database)
+        itinerarySynchronizer = ItinerarySynchronizer(repository: itineraryRepository, cache: itineraryCache)
         authService = AuthService(
             repository: APIAuthRepository(apiClient: apiClient, authSession: authSession),
             googleAuthProvider: GIDGoogleAuthProvider()
@@ -113,6 +120,33 @@ final class Di {
             router: itineraryRouter,
             metricsPreviewer: APIItineraryMetricsPreviewer(apiClient: apiClient)
         ))
+    }
+
+    func makeItinerarySaveStore() -> ItinerarySaveStore {
+        ItinerarySaveStore(save: SaveItinerary(repository: itineraryRepository, cache: itineraryCache))
+    }
+
+    func makeItineraryListStore() -> ItineraryListStore {
+        ItineraryListStore(cache: itineraryCache, synchronizer: itinerarySynchronizer)
+    }
+
+    func makeItineraryCreationFlow() -> ItineraryCreationFlow {
+        let connectivityMonitor = connectivityMonitor
+        return ItineraryCreationFlow(isOnline: { connectivityMonitor.status.isConnected })
+    }
+
+    /// `true` while a network route exists, current state first (`ConnectivityMonitor`).
+    func connectivityChanges() -> AsyncStream<Bool> {
+        let updates = connectivityMonitor.updates()
+        return AsyncStream { continuation in
+            let task = Task {
+                for await status in updates {
+                    continuation.yield(status.isConnected)
+                }
+                continuation.finish()
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
     }
 
     func makeImportStore() -> ImportStore {
