@@ -13,7 +13,8 @@ enum ItineraryMessages {
     static func saveIssue(_ issue: ItinerarySaveIssue) -> String {
         switch issue {
         case .incomplete: "Placez un départ et une arrivée pour enregistrer."
-        case .legsPending: "Calcul du tracé en cours : patientez avant d'enregistrer."
+        case .legsComputing: "Calcul du tracé en cours : patientez avant d'enregistrer."
+        case .legsPending: "Un tronçon est en attente : il sera recalculé au retour du réseau, puis vous pourrez enregistrer."
         case .invalidName: "Le nom doit compter de 1 à 100 caractères."
         }
     }

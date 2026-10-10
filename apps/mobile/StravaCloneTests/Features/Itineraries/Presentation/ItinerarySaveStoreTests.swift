@@ -29,6 +29,26 @@ struct ItinerarySaveStoreTests {
         #expect(store.blocker(for: await trace([a, b])) == nil)
     }
 
+    /// Only "Enregistrer" waits for a pending Leg (ADR-030 §2), and says why.
+    @Test func saveExplainsItWaitsForAPendingLeg() async throws {
+        let store = try makeStore(FakeItineraryRepository())
+        let router = FakeItineraryRouter()
+        await router.fail(with: .temporary)
+        let editor = ItineraryEditor(sport: .run, router: router)
+        editor.addWaypoint(at: a)
+        editor.addWaypoint(at: b)
+        await editor.settle()
+
+        #expect(store.blocker(for: editor.draft)
+            == "Un tronçon est en attente : il sera recalculé au retour du réseau, puis vous pourrez enregistrer.")
+
+        await router.answer(with: FakeItineraryRouter.gridPath)
+        editor.retryPendingLegs()
+        #expect(store.blocker(for: editor.draft) == "Calcul du tracé en cours : patientez avant d'enregistrer.")
+        await editor.settle()
+        #expect(store.blocker(for: editor.draft) == nil)
+    }
+
     @Test func theNameMustHaveOneToAHundredCharacters() throws {
         let store = try makeStore(FakeItineraryRepository())
 

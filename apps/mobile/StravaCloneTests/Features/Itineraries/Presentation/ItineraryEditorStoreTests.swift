@@ -74,6 +74,55 @@ struct ItineraryEditorStoreTests {
         #expect(store.message == nil)
     }
 
+    @Test func explainsAPendingLegAndOffersToRetryIt() async {
+        let router = FakeItineraryRouter()
+        await router.fail(with: .temporary)
+        let store = makeStore(router: router)
+        store.tap(at: a)
+        store.tap(at: b)
+        await store.editor.settle()
+
+        #expect(store.message == "Calcul du tracé impossible pour le moment : le tronçon est en attente et sera recalculé au retour du réseau.")
+        #expect(store.canRetryPendingLegs)
+
+        await router.answer(with: FakeItineraryRouter.gridPath)
+        store.retryPendingLegs()
+        await store.editor.settle()
+        #expect(store.message == nil)
+        #expect(!store.canRetryPendingLegs)
+    }
+
+    @Test func saysWhenRoutingIsSaturated() async {
+        let router = FakeItineraryRouter()
+        await router.fail(with: .rateLimited)
+        let store = ItineraryEditorStore(editor: ItineraryEditor(
+            sport: .run,
+            router: router,
+            backoff: RetryBackoff(initialDelay: .seconds(60), maxDelay: .seconds(60))
+        ))
+        store.tap(at: a)
+        store.tap(at: b)
+        await store.editor.settle()
+
+        #expect(store.message
+            == "Le service de calcul des tracés est momentanément saturé : le tronçon est en attente et sera recalculé automatiquement.")
+        // The backoff retries by itself: no button to bypass it.
+        #expect(!store.canRetryPendingLegs)
+    }
+
+    @Test func saysWhenTheWaypointLimitIsReached() async {
+        let store = makeStore(router: FakeItineraryRouter())
+        for index in 0 ..< ItineraryDraft.maxWaypoints {
+            store.tap(at: Coordinate(latitude: 45.900 + Double(index) * 0.001, longitude: 6.120))
+        }
+        await store.editor.settle()
+
+        store.tap(at: c)
+
+        #expect(store.markers.count == 200)
+        #expect(store.message == "Limite de 200 points de passage atteinte : supprimez-en un pour en ajouter un autre.")
+    }
+
     @Test func guidesTheFirstTaps() {
         let store = makeStore(router: FakeItineraryRouter())
         #expect(store.hint == "Touchez la carte pour placer le départ.")

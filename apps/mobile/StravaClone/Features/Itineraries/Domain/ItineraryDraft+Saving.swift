@@ -4,7 +4,9 @@ import Foundation
 enum ItinerarySaveIssue: Error, Equatable, Sendable {
     /// A start and a finish are needed.
     case incomplete
-    /// A `follow` Leg is still being computed or pending: only "Save" waits (ADR-030 §2).
+    /// A `follow` Leg is still being computed.
+    case legsComputing
+    /// A `follow` Leg waits for routing to be available again: only "Save" waits (ADR-030 §2).
     case legsPending
     /// The name must have 1 to 100 characters once trimmed.
     case invalidName
@@ -16,8 +18,11 @@ extension ItineraryDraft {
     /// Nothing but the name stands in the way of saving.
     var saveIssue: ItinerarySaveIssue? {
         guard waypoints.count >= 2 else { return .incomplete }
-        let isPending = legs.contains { $0.mode == .follow && ($0.state != .computed || $0.path == nil) }
-        return isPending ? .legsPending : nil
+        if hasPendingLegs {
+            return .legsPending
+        }
+        let isComputing = legs.contains { $0.mode == .follow && ($0.state != .computed || $0.path == nil) }
+        return isComputing ? .legsComputing : nil
     }
 
     /// The `POST /v1/itineraries` request for this draft, under the app-generated `id`.
