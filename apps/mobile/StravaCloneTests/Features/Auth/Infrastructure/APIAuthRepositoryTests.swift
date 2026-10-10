@@ -2,6 +2,8 @@ import Foundation
 import Testing
 @testable import StravaClone
 
+/// Serialized: every test scripts the shared `URLProtocolStub.handler`.
+@Suite(.serialized)
 struct APIAuthRepositoryTests {
     private func makeRepository() -> (APIAuthRepository, AuthSession) {
         // Unique Keychain service per test run so tests never read/pollute the real
@@ -120,6 +122,44 @@ struct APIAuthRepositoryTests {
 
         #expect(user == AuthUser(id: "u2", email: "g@b.com", name: "Gina"))
         #expect(authSession.token() == "token-456")
+    }
+
+    /// Launch-time check over `get-session`, like the refresh after a `401` (ADR-022).
+    @Test func currentUserReadsTheSessionAndKeepsARenewedToken() async throws {
+        let (repository, authSession) = makeRepository()
+        authSession.clear()
+        authSession.store(token: "old-token")
+        defer { authSession.clear() }
+
+        URLProtocolStub.handler = { request in
+            #expect(request.url?.path == "/api/auth/get-session")
+            #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer old-token")
+            let response = HTTPURLResponse(
+                url: request.url!,
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: ["set-auth-token": "new-token"]
+            )!
+            let body = #"{"session":{"id":"s"},"user":{"id":"u3","email":"c@b.com","name":"Cy"}}"#.data(using: .utf8)!
+            return (response, body)
+        }
+
+        let user = try await repository.currentUser()
+
+        #expect(user == AuthUser(id: "u3", email: "c@b.com", name: "Cy"))
+        #expect(authSession.token() == "new-token")
+    }
+
+    @Test func currentUserWithoutASessionIsInvalidCredentials() async throws {
+        let (repository, authSession) = makeRepository()
+        defer { authSession.clear() }
+
+        URLProtocolStub.handler = { request in
+            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: [:])!
+            return (response, Data("null".utf8))
+        }
+
+        await #expect(throws: AuthError.invalidCredentials) { try await repository.currentUser() }
     }
 }
 

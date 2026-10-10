@@ -12,7 +12,8 @@ enum APIError: Error, Equatable, Sendable {
     case transport(String)
 }
 
-/// Answer of a call whose success has no body (`204 No Content`, e.g. a `DELETE`).
+/// Answer of a call whose success has no body (`204 No Content`, e.g. a `DELETE`), or
+/// whose body the caller ignores: it is never decoded.
 struct NoContent: Decodable, Equatable, Sendable {}
 
 /// REST client for the platform API, URLSession + async/await (ADR-006).
