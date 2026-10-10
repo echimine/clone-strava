@@ -3,7 +3,8 @@ import Observation
 
 /// Runs the Itinerary editor over time (ADR-030 §2): applies gestures to the draft, sends
 /// the routing requests they need, cancels requests overtaken by a newer one, and applies
-/// answers back to the draft.
+/// answers back to the draft. Routing failures never block editing: pending Legs are
+/// requested again when the network comes back, or after a backoff when saturated.
 @Observable
 @MainActor
 final class ItineraryEditor {
@@ -15,6 +16,8 @@ final class ItineraryEditor {
         case routingUnavailable
         /// The routing quota is used up (`429`); the Leg is pending.
         case routingSaturated
+        /// The draft has `ItineraryDraft.maxWaypoints`: the Waypoint was not added.
+        case waypointLimitReached
 
         init(_ error: RoutingError) {
             switch error {
@@ -55,20 +58,32 @@ final class ItineraryEditor {
     @ObservationIgnored private let pauseDelay: Duration
     @ObservationIgnored private var inFlight: [UUID: (request: LegRoutingRequest, task: Task<Void, Never>)] = [:]
     @ObservationIgnored private var pauseTask: Task<Void, Never>?
+    @ObservationIgnored private let backoff: RetryBackoff
+    @ObservationIgnored private let sleep: @Sendable (Duration) async throws -> Void
+    /// Retries already delayed by the backoff since the last routing success.
+    @ObservationIgnored private var backoffAttempt = 0
+    /// Waiting out the backoff before retrying the pending Legs.
+    private var backoffTask: Task<Void, Never>?
 
     /// - Parameters:
     ///   - metricsPreviewer: measures the elevation gain; `nil` leaves it idle.
     ///   - pauseDelay: how long a dragged Waypoint must rest before its Legs are requested.
+    ///   - backoff: delays between retries while routing is saturated (`429`).
+    ///   - sleep: waits out a backoff delay; replaced in tests.
     init(
         sport: ItinerarySport,
         router: any ItineraryRouter,
         metricsPreviewer: (any ItineraryMetricsPreviewer)? = nil,
-        pauseDelay: Duration = .milliseconds(300)
+        pauseDelay: Duration = .milliseconds(300),
+        backoff: RetryBackoff = RetryBackoff(),
+        sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
     ) {
         draft = ItineraryDraft(sport: sport)
         elevation = ItineraryElevationPreview(previewer: metricsPreviewer)
         self.router = router
         self.pauseDelay = pauseDelay
+        self.backoff = backoff
+        self.sleep = sleep
     }
 
     /// Waypoint under the finger, if any.
@@ -93,10 +108,21 @@ final class ItineraryEditor {
         drag == nil && !redoStack.isEmpty
     }
 
+    /// A Leg waits for routing to be available again: "Enregistrer" waits too.
+    var hasPendingLegs: Bool {
+        draft.hasPendingLegs
+    }
+
+    /// Pending Legs can be requested now; while saturated, the backoff retries them by itself.
+    var canRetryPendingLegs: Bool {
+        hasPendingLegs && backoffTask == nil
+    }
+
     // MARK: Gestures
 
-    /// Tap on the map: start, then each next Waypoint at the end.
+    /// Tap on the map: start, then each next Waypoint at the end, up to the cap.
     func addWaypoint(at coordinate: Coordinate) {
+        guard !refuseIfFull() else { return }
         perform { $0.appendWaypoint(at: coordinate) }
     }
 
@@ -118,7 +144,7 @@ final class ItineraryEditor {
 
     /// The finger pulls a Leg: a Waypoint is inserted there and dragged from now on.
     func beginInsertion(intoLeg id: LegID, at coordinate: Coordinate) {
-        guard drag == nil else { return }
+        guard drag == nil, !refuseIfFull() else { return }
         var inserted = draft
         guard let waypointID = inserted.insertWaypoint(intoLeg: id, at: coordinate) else { return }
         // The drag starts before the draft changes: the new track is never measured mid-gesture.
@@ -180,6 +206,26 @@ final class ItineraryEditor {
         notice = nil
     }
 
+    // MARK: Resilience
+
+    /// Requests the pending Legs again, unless the backoff is about to.
+    func retryPendingLegs() {
+        guard backoffTask == nil else { return }
+        draft.retryPendingLegs().forEach { send($0) }
+    }
+
+    /// Runs for as long as `connectivity` does (`true` when connected): the pending Legs are
+    /// requested again each time the network comes back. The first value is the current
+    /// state, not a change.
+    func retryPendingLegs(onReconnectionOf connectivity: AsyncStream<Bool>) async {
+        var wasConnected: Bool?
+        for await isConnected in connectivity {
+            defer { wasConnected = isConnected }
+            guard isConnected, wasConnected == false else { continue }
+            retryPendingLegs()
+        }
+    }
+
     /// Waits until every routing request in flight, follow-ups included, has been answered,
     /// then the elevation preview they led to.
     func settle() async {
@@ -190,6 +236,13 @@ final class ItineraryEditor {
     }
 
     // MARK: History
+
+    /// At the cap, a new Waypoint is refused with a notice.
+    private func refuseIfFull() -> Bool {
+        guard draft.isFull else { return false }
+        notice = .waypointLimitReached
+        return true
+    }
 
     /// Applies a one-shot gesture; it becomes an undo entry only if it changed the draft.
     private func perform(_ gesture: (inout ItineraryDraft) -> LegRoutingRequest?) {
@@ -288,9 +341,37 @@ final class ItineraryEditor {
         case .failure(let error): draft.fail(error, for: request)
         }
         guard case .applied(let followUps) = resolution else { return }
-        if case .failure(let error) = outcome {
+        switch outcome {
+        case .success:
+            backoffAttempt = 0
+            if notice == .routingUnavailable || notice == .routingSaturated, !draft.hasPendingLegs {
+                notice = nil
+            }
+        case .failure(let error):
             notice = Notice(error)
+            if error == .rateLimited {
+                scheduleBackoff()
+            }
         }
         followUps.forEach { send($0) }
+    }
+
+    /// Saturated: the pending Legs are retried after a delay doubled at each new `429`.
+    /// Several `429`s answered together wait for the same retry.
+    private func scheduleBackoff() {
+        guard backoffTask == nil else { return }
+        let delay = backoff.delay(beforeRetry: backoffAttempt)
+        backoffAttempt += 1
+        let sleep = sleep
+        backoffTask = Task { [weak self] in
+            do {
+                try await sleep(delay)
+            } catch {
+                return
+            }
+            guard let self, !Task.isCancelled else { return }
+            self.backoffTask = nil
+            self.retryPendingLegs()
+        }
     }
 }

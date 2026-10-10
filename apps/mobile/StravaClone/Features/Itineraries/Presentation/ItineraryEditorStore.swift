@@ -43,9 +43,15 @@ final class ItineraryEditorStore {
     let editor: ItineraryEditor
     private(set) var selection: Selection?
     @ObservationIgnored private var lastDragPoint: CGPoint?
+    @ObservationIgnored private let connectivityChanges: @MainActor () -> AsyncStream<Bool>
 
-    init(editor: ItineraryEditor) {
+    /// - Parameter connectivityChanges: `true` while a network route exists, current state first.
+    init(
+        editor: ItineraryEditor,
+        connectivityChanges: @escaping @MainActor () -> AsyncStream<Bool> = { AsyncStream { $0.finish() } }
+    ) {
         self.editor = editor
+        self.connectivityChanges = connectivityChanges
     }
 
     // MARK: State
@@ -136,10 +142,19 @@ final class ItineraryEditorStore {
     var message: String? {
         switch editor.notice {
         case .noPath: "Aucun chemin trouvé près de ce point : le tronçon passe en ligne droite."
-        case .routingUnavailable: "Calcul du tracé impossible pour le moment : le tronçon est en attente."
-        case .routingSaturated: "Le calcul des tracés est saturé : le tronçon est en attente."
+        case .routingUnavailable:
+            "Calcul du tracé impossible pour le moment : le tronçon est en attente et sera recalculé au retour du réseau."
+        case .routingSaturated:
+            "Le service de calcul des tracés est momentanément saturé : le tronçon est en attente et sera recalculé automatiquement."
+        case .waypointLimitReached:
+            "Limite de \(ItineraryDraft.maxWaypoints) points de passage atteinte : supprimez-en un pour en ajouter un autre."
         case nil: nil
         }
+    }
+
+    /// "Réessayer" next to the message, while a Leg is pending and no backoff is under way.
+    var canRetryPendingLegs: Bool {
+        editor.canRetryPendingLegs
     }
 
     // MARK: Intents
@@ -215,6 +230,16 @@ final class ItineraryEditorStore {
 
     func dismissMessage() {
         editor.dismissNotice()
+    }
+
+    func retryPendingLegs() {
+        editor.retryPendingLegs()
+    }
+
+    /// For as long as the screen is shown: pending Legs are requested again when the network
+    /// comes back (ADR-030 §2).
+    func retryPendingLegsOnReconnection() async {
+        await editor.retryPendingLegs(onReconnectionOf: connectivityChanges())
     }
 
     // MARK: Private
