@@ -147,6 +147,29 @@ final class Di {
         ItineraryDetailStore(id: id, cache: itineraryCache, synchronizer: itinerarySynchronizer)
     }
 
+    /// "Modifier" on a detail (ADR-030 §5): the editor reopens on the stored Waypoints and Legs.
+    func makeItineraryEditFlow(id: ItineraryID) -> ItineraryEditFlow {
+        let connectivityMonitor = connectivityMonitor
+        return ItineraryEditFlow(
+            id: id,
+            isOnline: { connectivityMonitor.status.isConnected },
+            load: LoadSavedItinerary(repository: itineraryRepository, cache: itineraryCache),
+            makeEditorStore: { [self] draft in
+                ItineraryEditorStore(
+                    editor: ItineraryEditor(
+                        restoring: draft,
+                        router: itineraryRouter,
+                        metricsPreviewer: APIItineraryMetricsPreviewer(apiClient: apiClient)
+                    ),
+                    connectivityChanges: connectivityChanges
+                )
+            },
+            makeSaveStore: { [self] saved in
+                ItinerarySaveStore(update: UpdateItinerary(repository: itineraryRepository, cache: itineraryCache), itinerary: saved)
+            }
+        )
+    }
+
     func makeItineraryCreationFlow() -> ItineraryCreationFlow {
         let connectivityMonitor = connectivityMonitor
         return ItineraryCreationFlow(isOnline: { connectivityMonitor.status.isConnected })

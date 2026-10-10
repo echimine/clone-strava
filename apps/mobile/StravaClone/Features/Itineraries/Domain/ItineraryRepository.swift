@@ -1,7 +1,8 @@
 import Foundation
 
 /// What `POST /v1/itineraries` needs (ADR-030 §6): the app-generated id, so a replay after
-/// a lost answer does not create a duplicate.
+/// a lost answer does not create a duplicate. `PUT /v1/itineraries/:id` sends the same
+/// content for an existing id.
 struct ItineraryCreation: Equatable, Sendable {
     /// A Leg as sent to the API: a `follow` Leg carries the router's geometry as is.
     enum Leg: Equatable, Sendable {
@@ -28,6 +29,10 @@ protocol ItineraryRepository: Sendable {
     func rename(id: ItineraryID, to name: String) async throws(ItineraryError) -> ItineraryDetail
     /// `DELETE`, answered `204`. Any client error but `404` is `invalid`.
     func delete(id: ItineraryID) async throws(ItineraryError)
+    /// Waypoints and Legs as stored, for "Modifier"; `notFound` once deleted.
+    func savedItinerary(id: ItineraryID) async throws(ItineraryError) -> SavedItinerary
+    /// Replaces the whole Itinerary under its id (name, sport, Waypoints, Legs), recomputed.
+    func update(_ edit: ItineraryCreation) async throws(ItineraryError) -> ItineraryDetail
 }
 
 /// What the cache holds about one Itinerary, as its detail screen observes it.

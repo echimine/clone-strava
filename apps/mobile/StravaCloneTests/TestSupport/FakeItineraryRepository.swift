@@ -14,6 +14,10 @@ final class FakeItineraryRepository: ItineraryRepository, @unchecked Sendable {
     private var _renameCalls: [(ItineraryID, String)] = []
     private var _deleteCalls: [ItineraryID] = []
     private var _changeResult: Result<Void, ItineraryError> = .failure(.offline)
+    private var _saved: [ItineraryID: Result<SavedItinerary, ItineraryError>] = [:]
+    private var _savedCalls: [ItineraryID] = []
+    private var _updateResults: [Result<ItineraryDetail, ItineraryError>] = []
+    private var _updates: [ItineraryCreation] = []
     private var gate: AsyncStream<Void>?
     private var gateContinuation: AsyncStream<Void>.Continuation?
 
@@ -33,6 +37,20 @@ final class FakeItineraryRepository: ItineraryRepository, @unchecked Sendable {
     /// `offline` until scripted.
     func setChangeResult(_ result: Result<Void, ItineraryError>) {
         lock.withLock { _changeResult = result }
+    }
+
+    /// Answers of the next `update` calls, in order; the last one repeats.
+    var updateResults: [Result<ItineraryDetail, ItineraryError>] {
+        get { lock.withLock { _updateResults } }
+        set { lock.withLock { _updateResults = newValue } }
+    }
+
+    var updates: [ItineraryCreation] { lock.withLock { _updates } }
+    var savedItineraryCalls: [ItineraryID] { lock.withLock { _savedCalls } }
+
+    /// The Waypoints and Legs answered for `id`; an unscripted id answers `offline`.
+    func setSavedItinerary(_ result: Result<SavedItinerary, ItineraryError>, for id: ItineraryID) {
+        lock.withLock { _saved[id] = result }
     }
 
     /// The detail answered for `id`; an unscripted id answers `offline`.
@@ -103,5 +121,22 @@ final class FakeItineraryRepository: ItineraryRepository, @unchecked Sendable {
             return _changeResult
         }
         try result.get()
+    }
+
+    func savedItinerary(id: ItineraryID) async throws(ItineraryError) -> SavedItinerary {
+        let result = lock.withLock {
+            _savedCalls.append(id)
+            return _saved[id]
+        }
+        return try (result ?? .failure(.offline)).get()
+    }
+
+    func update(_ edit: ItineraryCreation) async throws(ItineraryError) -> ItineraryDetail {
+        let result = lock.withLock {
+            _updates.append(edit)
+            return _updateResults.count > 1 ? _updateResults.removeFirst() : _updateResults.first
+        }
+        guard let result else { throw .server(code: "unscripted") }
+        return try result.get()
     }
 }
