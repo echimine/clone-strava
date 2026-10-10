@@ -23,7 +23,7 @@ type RawBodyRequest = express.Request & { rawBody?: Buffer };
  * `POST /v1/webhooks/resend` (ADR-023): outside any user session,
  * authenticated by a Svix HMAC signature over the raw request body
  * (`NotificationsService.verifyWebhookSignature`, never the SDK directly --
- * ADR-021 §6 module boundary). `main.ts` tees the pre-parse buffer onto
+ * ADR-021 §6 module boundary). `jsonBodyParser` tees the pre-parse buffer onto
  * `req.rawBody` for this route alone, since Svix verification needs the
  * exact bytes Resend signed, not the re-serialized parsed body.
  *
@@ -52,7 +52,7 @@ export class ResendWebhookController {
   ): Promise<{ received: true }> {
     if (request.rawBody === undefined) {
       // Should never happen given the scoped `express.json` `verify`
-      // callback in `main.ts` -- fail loudly rather than silently skip
+      // callback in `jsonBodyParser` -- fail loudly rather than silently skip
       // signature verification.
       throw new BadRequestException("Missing raw body for webhook signature verification");
     }

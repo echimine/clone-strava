@@ -3,7 +3,6 @@ import { APP_FILTER, APP_INTERCEPTOR, APP_PIPE } from "@nestjs/core";
 import { EventEmitterModule } from "@nestjs/event-emitter";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { Test } from "@nestjs/testing";
-import express from "express";
 import { ZodSerializerInterceptor, ZodValidationPipe } from "nestjs-zod";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { ItineraryMetrics } from "@repo/contracts";
@@ -16,7 +15,7 @@ import { encodePolyline, type LonLat } from "@repo/geo";
 import { ensureTestDatabaseMigrated, TEST_DATABASE_URL, TEST_REDIS_URL } from "../auth/test-auth-app.js";
 import { SessionGuard } from "../auth/session.guard.js";
 import { GlobalExceptionFilter } from "../common/global-exception.filter.js";
-import { JSON_BODY_LIMIT } from "../common/json-body.js";
+import { jsonBodyParser } from "../common/json-body.js";
 import { ItinerariesController } from "./itineraries.controller.js";
 
 /** Meters per degree of latitude on the haversine sphere (R = 6,371,000 m). */
@@ -136,7 +135,7 @@ describe("POST /v1/itineraries/metrics-preview (integration)", () => {
 
     // Same JSON body parser as `main.ts`: a long Itinerary exceeds express's 100 kB default.
     app = moduleRef.createNestApplication<NestExpressApplication>({ bodyParser: false });
-    app.use(express.json({ limit: JSON_BODY_LIMIT }));
+    app.use(jsonBodyParser());
     app.setGlobalPrefix("v1");
     await app.listen(0);
     const address = app.getHttpServer().address();
