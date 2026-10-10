@@ -1,22 +1,7 @@
+import { encodePolyline } from "@repo/geo";
 import { describe, expect, it } from "vitest";
-import { encodePolyline } from "./encode-polyline.js";
 import { decodeFeedCursor, encodeFeedCursor, InvalidFeedCursorError } from "./feed-cursor.js";
 import { feedPolyline } from "./feed-polyline.js";
-
-describe("encodePolyline", () => {
-  it("matches Google's reference vector", () => {
-    const points = [
-      { lat: 38.5, lon: -120.2 },
-      { lat: 40.7, lon: -120.95 },
-      { lat: 43.252, lon: -126.453 },
-    ];
-    expect(encodePolyline(points)).toBe("_p~iF~ps|U_ulLnnqC_mqNvxq`@");
-  });
-
-  it("returns an empty string for no points", () => {
-    expect(encodePolyline([])).toBe("");
-  });
-});
 
 describe("feedPolyline", () => {
   it("returns null when there is nothing to draw", () => {

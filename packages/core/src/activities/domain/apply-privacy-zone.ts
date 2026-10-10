@@ -1,4 +1,4 @@
-import { haversineDistanceM } from "./compute-metrics.js";
+import { haversineDistanceM } from "@repo/geo";
 
 export interface PrivacyZoneOptions {
   /** `user_profile.privacy_zone_radius_m` (ADR-017). */

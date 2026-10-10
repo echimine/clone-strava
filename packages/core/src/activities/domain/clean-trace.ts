@@ -1,4 +1,4 @@
-import { haversineDistanceM } from "./compute-metrics.js";
+import { haversineDistanceM } from "@repo/geo";
 
 /** Minimal point shape the cleanup needs; extra fields are kept untouched. */
 export interface CleanablePoint {

@@ -14,7 +14,8 @@
  *  4. only the `realtime` platform module may import `@repo/realtime`
  *     from within `packages/core` (§2, §4, §9.4);
  *  5. the app matrix of §8 (§9);
- *  6. no circular dependencies (§9.6).
+ *  6. `@repo/geo` is pure: it imports nothing outside itself (ADR-030 §4);
+ *  7. no circular dependencies (§9.6).
  *
  * See "Alternatives Considered" in ADR-021 for why this replaces
  * `eslint-plugin-boundaries`.
@@ -160,7 +161,19 @@ module.exports = {
       to: { path: "^apps/(?!$1/)[^/]+/" },
     },
 
-    // --- 6. no circular dependencies (§9.6) ---
+    // --- 6. @repo/geo is pure (ADR-030 §4) ---
+    {
+      name: "geo-is-pure",
+      comment:
+        "ADR-030 §4: packages/geo holds pure functions — no NestJS, no " +
+        "database, no I/O, no other workspace package; it imports nothing " +
+        "outside itself",
+      severity: "error",
+      from: { path: "^packages/geo/src/", pathNot: "\\.test\\.ts$" },
+      to: { pathNot: "^packages/geo/src/" },
+    },
+
+    // --- 7. no circular dependencies (§9.6) ---
     {
       name: "no-circular",
       comment: "ADR-021 §9.6: the module graph is acyclic",
