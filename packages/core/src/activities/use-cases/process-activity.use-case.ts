@@ -13,6 +13,7 @@ import {
   type Trace,
 } from "@repo/contracts";
 import type { Database } from "@repo/db";
+import { simplifyTrack } from "@repo/geo";
 import { AnalyticsService } from "../../analytics/index.js";
 import { GeocodingService } from "../../geocoding/index.js";
 import { DATABASE } from "../../infrastructure/index.js";
@@ -27,7 +28,7 @@ import { cleanTrace, maxPlausibleSpeedMs } from "../domain/clean-trace.js";
 import { feedPolyline } from "../domain/feed-polyline.js";
 import { computeHeartRate } from "../domain/heart-rate.js";
 import { PermanentProcessingError } from "../domain/processing-error.js";
-import { simplifyRoute, toLineStringEwkt, toPointEwkt } from "../domain/simplify-route.js";
+import { toLineStringEwkt, toPointEwkt } from "../domain/ewkt.js";
 
 /** Compressed traces above this size are refused (several hours at 1 Hz stay far below). */
 const MAX_TRACE_BYTES = 50 * 1024 * 1024;
@@ -79,7 +80,7 @@ export class ProcessActivityUseCase {
     const metrics = computeMetrics(points);
     const heartRate = computeHeartRate(points);
     const { privacyZoneRadiusM } = await this.users.getActivityDefaults(activity.userId);
-    const shown = simplifyRoute(applyPrivacyZone(points, { radiusM: privacyZoneRadiusM }), ROUTE_TOLERANCE_M);
+    const shown = simplifyTrack(applyPrivacyZone(points, { radiusM: privacyZoneRadiusM }), ROUTE_TOLERANCE_M);
     // ADR-029: feed card data, from the privacy-zoned route only. Geocoding is
     // best effort and stays outside the transaction.
     const mapPolyline = feedPolyline(shown);

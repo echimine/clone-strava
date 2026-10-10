@@ -1,7 +1,15 @@
 import SwiftUI
 
-struct ProfileView: View {
+/// Profile tab. Knows nothing of other features (ADR-007 rule 5): the app shell passes the
+/// "Mes Itinéraires" screen (ADR-030), and what a sign-out would lose (changes not sent yet,
+/// ADR-030 §8): when `signOutWarning` returns a message, a confirmation shows it first.
+struct ProfileView<Itineraries: View>: View {
     @State var store: AuthStore
+    var signOutWarning: @MainActor () async -> String? = { nil }
+    @ViewBuilder var itineraries: () -> Itineraries
+
+    @State private var pendingSignOutWarning: String?
+
     var body: some View {
         NavigationStack {
             Form {
@@ -12,12 +20,43 @@ struct ProfileView: View {
                     }
                 }
                 Section {
-                    Button("Se déconnecter", role: .destructive) {
-                        Task { await store.signOut() }
+                    NavigationLink {
+                        itineraries()
+                    } label: {
+                        Label("Mes Itinéraires", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
                     }
+                    .accessibilityIdentifier("myItinerariesLink")
+                }
+                Section {
+                    Button("Se déconnecter", role: .destructive) {
+                        Task {
+                            if let warning = await signOutWarning() {
+                                pendingSignOutWarning = warning
+                            } else {
+                                await store.signOut()
+                            }
+                        }
+                    }
+                    .accessibilityIdentifier("signOut")
                 }
             }
             .navigationTitle("Compte")
+            .confirmationDialog(
+                "Se déconnecter ?",
+                isPresented: Binding(
+                    get: { pendingSignOutWarning != nil },
+                    set: { if !$0 { pendingSignOutWarning = nil } }
+                ),
+                titleVisibility: .visible,
+                presenting: pendingSignOutWarning
+            ) { _ in
+                Button("Se déconnecter", role: .destructive) {
+                    Task { await store.signOut() }
+                }
+                Button("Annuler", role: .cancel) {}
+            } message: { warning in
+                Text(warning)
+            }
         }
     }
 }

@@ -14,7 +14,8 @@
  *  4. only the `realtime` platform module may import `@repo/realtime`
  *     from within `packages/core` (§2, §4, §9.4);
  *  5. the app matrix of §8 (§9);
- *  6. no circular dependencies (§9.6).
+ *  6. `@repo/geo` is pure: it imports nothing outside itself (ADR-030 §4);
+ *  7. no circular dependencies (§9.6).
  *
  * See "Alternatives Considered" in ADR-021 for why this replaces
  * `eslint-plugin-boundaries`.
@@ -30,12 +31,13 @@ const DOMAIN_MODULES = [
   "engagement",
   "segments",
   "subscriptions",
+  "itineraries",
 ];
 
 /**
  * ADR-021 §2 "Allowed dependencies between modules": each domain module may
  * depend, among core domain modules, only on the modules listed here (plus
- * itself). Platform modules (`analytics`, `storage`) are always allowed for
+ * itself). Platform modules (`analytics`, `storage`, `elevation`, …) are always allowed for
  * every domain module and are therefore not restricted by this table; the
  * `realtime` platform module is never allowed for a domain module (rule 4
  * below), including for the modules with an empty list here.
@@ -49,6 +51,9 @@ const ALLOWED_DEPENDENCIES = {
   activities: ["sports", "users", "social"],
   engagement: ["activities", "social", "users"],
   segments: ["activities", "sports"],
+  // ADR-030 §4: `users` only through the `user_id` foreign key; never
+  // `social` nor `activities`.
+  itineraries: ["sports", "users"],
 };
 
 /** One `forbidden` rule per domain module, from the allow-list above. */
@@ -160,7 +165,19 @@ module.exports = {
       to: { path: "^apps/(?!$1/)[^/]+/" },
     },
 
-    // --- 6. no circular dependencies (§9.6) ---
+    // --- 6. @repo/geo is pure (ADR-030 §4) ---
+    {
+      name: "geo-is-pure",
+      comment:
+        "ADR-030 §4: packages/geo holds pure functions — no NestJS, no " +
+        "database, no I/O, no other workspace package; it imports nothing " +
+        "outside itself",
+      severity: "error",
+      from: { path: "^packages/geo/src/", pathNot: "\\.test\\.ts$" },
+      to: { pathNot: "^packages/geo/src/" },
+    },
+
+    // --- 7. no circular dependencies (§9.6) ---
     {
       name: "no-circular",
       comment: "ADR-021 §9.6: the module graph is acyclic",

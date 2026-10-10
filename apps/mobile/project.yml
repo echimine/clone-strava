@@ -80,10 +80,17 @@ targets:
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         UIBackgroundModes: [location]
         NSLocationWhenInUseUsageDescription: "StravaClone utilise votre position pour l'afficher sur la carte et enregistrer le tracé de vos activités, y compris écran verrouillé."
+        # Debug on a physical iPhone reaches the dev API on the Mac (http://<mac>.local, Secrets.xcconfig):
+        # plain HTTP is allowed on the local network only, and iOS asks for local network access.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+        NSLocalNetworkUsageDescription: "StravaClone se connecte au serveur de développement sur votre réseau local."
         # Values injected from Config/Base.xcconfig (+ optional Secrets.xcconfig), read by AppConfiguration (App/Di.swift).
         APIBaseURL: $(API_BASE_URL)
         RealtimeURL: $(REALTIME_URL)
         MBXAccessToken: $(MAPBOX_ACCESS_TOKEN)
+        # Mapbox Directions token dedicated to Itineraries (ADR-030 §2), distinct from the map's.
+        MapboxItinerariesToken: $(MAPBOX_ITINERARIES_TOKEN)
         RevenueCatAPIKey: $(REVENUECAT_API_KEY)
         PostHogAPIKey: $(POSTHOG_API_KEY)
         # Google Sign-In (ADR-022): GIDClientID is read by GIDSignIn at launch;

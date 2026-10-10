@@ -115,4 +115,141 @@ struct OpenAPIContractTests {
         #expect(item.engagement.kudosCount == 3)
         #expect(item.viewerIsAuthor)
     }
+
+    // MARK: Itineraries (ADR-030 §6)
+
+    /// `{ waypoints, legs }` as `POST /v1/itineraries`, `PUT /v1/itineraries/:id` and
+    /// `metrics-preview` accept them (`itineraryGeometrySchema`): one `follow`, one `straight` Leg.
+    private let geometryJSON = """
+      "waypoints": [{ "lat": 45.9, "lon": 6.12 }, { "lat": 45.91, "lon": 6.12 }, { "lat": 45.92, "lon": 6.12 }],
+      "legs": [{ "mode": "follow", "polyline6": "_mopvA_cptJ_pR?" }, { "mode": "straight" }]
+    """
+
+    private func json(_ fields: String...) -> Data {
+        Data("{\(fields.joined(separator: ","))}".utf8)
+    }
+
+    /// The keys a request DTO encodes, top level and per Leg.
+    private func encodedKeys(_ value: some Encodable) throws -> (top: Set<String>, legs: [Set<String>]) {
+        let object = try #require(try JSONSerialization.jsonObject(with: encoder.encode(value)) as? [String: Any])
+        let legs = try #require(object["legs"] as? [[String: Any]])
+        return (Set(object.keys), legs.map { Set($0.keys) })
+    }
+
+    @Test func createItineraryRequestRoundTripsAnAPIPayload() throws {
+        let payload = json(#""id": "7c9e6679-7425-40de-944b-e07fc1f90ae7", "name": "Tour du lac", "sportTypeCode": "hike""#, geometryJSON)
+
+        let dto = try decoder.decode(Components.Schemas.CreateItineraryRequestDto.self, from: payload)
+
+        #expect(dto.id == "7c9e6679-7425-40de-944b-e07fc1f90ae7")
+        #expect(dto.name == "Tour du lac")
+        #expect(dto.sportTypeCode == "hike")
+        #expect(dto.waypoints.map(\.lat) == [45.9, 45.91, 45.92])
+        #expect(dto.legs == [.case1(.init(mode: .follow, polyline6: "_mopvA_cptJ_pR?")), .case2(.init(mode: .straight))])
+        let keys = try encodedKeys(dto)
+        #expect(keys.top == ["id", "name", "sportTypeCode", "waypoints", "legs"])
+        #expect(keys.legs == [["mode", "polyline6"], ["mode"]])
+    }
+
+    @Test func updateItineraryRequestRoundTripsAnAPIPayload() throws {
+        let payload = json(#""name": "Tour du lac", "sportTypeCode": "run""#, geometryJSON)
+
+        let dto = try decoder.decode(Components.Schemas.UpdateItineraryRequestDto.self, from: payload)
+
+        #expect(dto.name == "Tour du lac")
+        #expect(dto.sportTypeCode == "run")
+        #expect(dto.legs.count == 2)
+        let keys = try encodedKeys(dto)
+        #expect(keys.top == ["name", "sportTypeCode", "waypoints", "legs"])
+        #expect(keys.legs == [["mode", "polyline6"], ["mode"]])
+    }
+
+    @Test func metricsPreviewRequestRoundTripsAnAPIPayload() throws {
+        let dto = try decoder.decode(Components.Schemas.ItineraryMetricsPreviewRequestDto.self, from: json(geometryJSON))
+
+        #expect(dto.waypoints.map(\.lon) == [6.12, 6.12, 6.12])
+        let keys = try encodedKeys(dto)
+        #expect(keys.top == ["waypoints", "legs"])
+        #expect(keys.legs == [["mode", "polyline6"], ["mode"]])
+    }
+
+    @Test func itineraryRequestsRejectAPayloadMissingARequiredField() {
+        let noName = json(#""id": "7c9e6679-7425-40de-944b-e07fc1f90ae7", "sportTypeCode": "hike""#, geometryJSON)
+        #expect(throws: DecodingError.self) { try decoder.decode(Components.Schemas.CreateItineraryRequestDto.self, from: noName) }
+        let noSport = json(#""name": "Tour du lac""#, geometryJSON)
+        #expect(throws: DecodingError.self) { try decoder.decode(Components.Schemas.UpdateItineraryRequestDto.self, from: noSport) }
+        let noLegs = json(#""waypoints": [{ "lat": 45.9, "lon": 6.12 }]"#)
+        #expect(throws: DecodingError.self) {
+            try decoder.decode(Components.Schemas.ItineraryMetricsPreviewRequestDto.self, from: noLegs)
+        }
+    }
+
+    /// `GET /v1/itineraries/:id`, also the answer of a save (`itinerarySchema`).
+    private let itineraryJSON = """
+      "id": "7c9e6679-7425-40de-944b-e07fc1f90ae7", "name": "Tour du lac", "sportTypeCode": "hike",
+      "distanceM": 2224.4, "elevationGainM": 87.5, "elevationSource": "open_meteo",
+      "waypoints": [{ "lat": 45.9, "lon": 6.12 }, { "lat": 45.92, "lon": 6.12 }],
+      "legs": [{ "mode": "straight", "polyline6": "_mopvA_cptJ_pR?" }],
+      "track": { "polyline6": "_mopvA_cptJ_pR?", "altitudesM": [446.5, 534] },
+      "createdAt": "2026-10-10T07:00:00.500Z"
+    """
+
+    @Test func itineraryDetailDecodesAnAPIPayload() throws {
+        let payload = json(itineraryJSON, #""updatedAt": "2026-10-10T08:00:00.500Z""#)
+
+        let dto = try APIClient.decoder.decode(Components.Schemas.ItineraryDto_Output.self, from: payload)
+
+        #expect(dto.id == "7c9e6679-7425-40de-944b-e07fc1f90ae7")
+        #expect(dto.elevationSource == .open_meteo)
+        #expect(dto.legs.map(\.mode) == [.straight])
+        #expect(dto.track.altitudesM == [446.5, 534])
+        #expect(dto.updatedAt.timeIntervalSince(dto.createdAt) == 3600)
+    }
+
+    @Test func itineraryDetailRejectsAPayloadMissingARequiredField() {
+        #expect(throws: DecodingError.self) {
+            try APIClient.decoder.decode(Components.Schemas.ItineraryDto_Output.self, from: json(itineraryJSON))
+        }
+    }
+
+    /// `GET /v1/itineraries` (`listItinerariesResponseSchema`).
+    private let listItemJSON = """
+      "id": "7c9e6679-7425-40de-944b-e07fc1f90ae7", "name": "Tour du lac", "sportTypeCode": "hike",
+      "distanceM": 2224.4, "elevationGainM": 87.5, "updatedAt": "2026-10-10T08:00:00.500Z"
+    """
+
+    @Test func itineraryListPageDecodesAnAPIPayload() throws {
+        let payload = Data(#"{ "items": [{\#(listItemJSON), "mapPolyline": "_zcwG_ijd@"}], "nextCursor": "abc" }"#.utf8)
+
+        let dto = try APIClient.decoder.decode(Components.Schemas.ListItinerariesResponseDto_Output.self, from: payload)
+
+        let item = try #require(dto.items.first)
+        #expect(item.name == "Tour du lac")
+        #expect(item.mapPolyline == "_zcwG_ijd@")
+        #expect(dto.nextCursor == "abc")
+    }
+
+    @Test func itineraryListPageRejectsAPayloadMissingARequiredField() {
+        let noThumbnail = Data(#"{ "items": [{\#(listItemJSON)}], "nextCursor": null }"#.utf8)
+        #expect(throws: DecodingError.self) {
+            try APIClient.decoder.decode(Components.Schemas.ListItinerariesResponseDto_Output.self, from: noThumbnail)
+        }
+    }
+
+    /// `POST /v1/itineraries/metrics-preview` (`itineraryMetricsSchema`).
+    @Test func itineraryMetricsDecodeAnAPIPayloadAndRejectAMissingField() throws {
+        let dto = try decoder.decode(
+            Components.Schemas.ItineraryMetricsDto_Output.self,
+            from: json(#""distanceM": 2224.4, "elevationGainM": 87.5, "elevationSource": "mixed""#)
+        )
+        #expect(dto.distanceM == 2224.4)
+        #expect(dto.elevationSource == .mixed)
+
+        #expect(throws: DecodingError.self) {
+            try decoder.decode(
+                Components.Schemas.ItineraryMetricsDto_Output.self,
+                from: json(#""distanceM": 2224.4, "elevationGainM": 87.5"#)
+            )
+        }
+    }
 }

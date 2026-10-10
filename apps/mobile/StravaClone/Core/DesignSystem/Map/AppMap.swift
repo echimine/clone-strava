@@ -3,10 +3,13 @@ import SwiftUI
 
 /// Shared map of every map screen (ADR-027 §4): Outdoors style, user puck fed by the
 /// app's single GPS source, recenter button. Screens add their own content (trace,
-/// route, markers) through the `@MapContentBuilder` closure.
+/// route, markers) through the `@MapContentBuilder` closure. `bottomInset` is the height
+/// of what covers the bottom of the map (a carousel): the camera, the Mapbox ornaments and the
+/// recenter button stay above it.
 struct AppMap<Content: MapContent>: View {
     @Binding var viewport: Viewport
     var showsUserLocation = true
+    var bottomInset: CGFloat = 0
     @MapContentBuilder let content: () -> Content
 
     @Environment(\.locationProvider) private var locationProvider
@@ -16,10 +19,12 @@ struct AppMap<Content: MapContent>: View {
     init(
         viewport: Binding<Viewport>,
         showsUserLocation: Bool = true,
+        bottomInset: CGFloat = 0,
         @MapContentBuilder content: @escaping () -> Content
     ) {
         _viewport = viewport
         self.showsUserLocation = showsUserLocation
+        self.bottomInset = bottomInset
         self.content = content
     }
 
@@ -40,6 +45,7 @@ struct AppMap<Content: MapContent>: View {
             }
             .mapStyle(.outdoors)
             .locationDataModel(bridge.dataModel)
+            .additionalSafeAreaInsets(.bottom, bottomInset)
             .ignoresSafeArea()
 
             if tracksUser && viewport.followPuck == nil {
@@ -67,10 +73,12 @@ struct AppMap<Content: MapContent>: View {
                 .font(.title3)
                 .foregroundStyle(Theme.accent)
                 .frame(width: 48, height: 48)
-                .background(.regularMaterial, in: Circle())
-                .shadow(radius: 2)
+                .contentShape(Circle())
+                .glassBackground(in: Circle(), interactive: true)
         }
+        .buttonStyle(.plain)
         .padding(Theme.spacing)
+        .padding(.bottom, bottomInset)
         .accessibilityLabel("Recentrer sur ma position")
         .accessibilityIdentifier("recenterButton")
     }

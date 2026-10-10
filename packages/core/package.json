@@ -58,6 +58,14 @@
     "./geocoding": {
       "types": "./dist/geocoding/index.d.ts",
       "default": "./dist/geocoding/index.js"
+    },
+    "./elevation": {
+      "types": "./dist/elevation/index.d.ts",
+      "default": "./dist/elevation/index.js"
+    },
+    "./itineraries": {
+      "types": "./dist/itineraries/index.d.ts",
+      "default": "./dist/itineraries/index.js"
     }
   },
   "files": [
@@ -80,6 +88,7 @@
     "@react-email/render": "2.1.0",
     "@repo/contracts": "workspace:*",
     "@repo/db": "workspace:*",
+    "@repo/geo": "workspace:*",
     "@repo/realtime": "workspace:*",
     "@repo/track-files": "workspace:*",
     "better-auth": "1.7.6",
