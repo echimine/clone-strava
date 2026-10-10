@@ -19,7 +19,8 @@ final class ItineraryEditorStore {
     struct Line: Identifiable, Equatable {
         let id: LegID
         let coordinates: [Coordinate]
-        /// Straight placeholder while the path is computed or pending: drawn dashed.
+        /// Path not final yet, computed or pending: drawn dashed, as a straight placeholder or
+        /// the former path while recomputed for a new sport.
         let isProvisional: Bool
     }
 
@@ -55,6 +56,10 @@ final class ItineraryEditorStore {
     }
 
     // MARK: State
+
+    var sport: ItinerarySport {
+        editor.draft.sport
+    }
 
     var sportLabel: String {
         ActivityFormatters.sportLabel(editor.draft.sport.sportType)
@@ -216,6 +221,13 @@ final class ItineraryEditorStore {
         drag(to: coordinate, at: point)
         lastDragPoint = nil
         editor.endDrag()
+    }
+
+    /// Another sport picked in the stats card: in another category, the Legs that follow
+    /// roads and trails are recomputed while editing goes on.
+    func changeSport(to sport: ItinerarySport) {
+        selection = nil
+        editor.changeSport(to: sport)
     }
 
     func undo() {

@@ -43,6 +43,44 @@ enum ItineraryMessages {
         }
     }
 
+    static let actions = "Actions"
+    static let rename = "Renommer"
+    static let renameTitle = "Renommer l'Itinéraire"
+    static let namePlaceholder = "Nom"
+    static let cancel = "Annuler"
+    static let delete = "Supprimer"
+    static let deleteTitle = "Supprimer cet Itinéraire ?"
+    static let deleteMessage = "Il disparaîtra de tous vos appareils. Cette action est définitive."
+
+    /// A queued change the server turned down (ADR-030 §8).
+    static func refused(_ refusal: ItineraryChangeRefusal) -> String {
+        switch refusal {
+        case .rename: "Renommage refusé par le serveur : le nom précédent est rétabli."
+        case .delete: "Suppression refusée par le serveur : l'Itinéraire est rétabli."
+        }
+    }
+
+    /// The sign-out confirmation, when changes have not been sent yet; nil when none.
+    static func signOutWarning(pendingChanges: Int) -> String? {
+        switch pendingChanges {
+        case ...0: nil
+        case 1: "1 modification d'Itinéraire n'a pas encore été envoyée : elle sera perdue."
+        default: "\(pendingChanges) modifications d'Itinéraires n'ont pas encore été envoyées : elles seront perdues."
+        }
+    }
+
+    static let edit = "Modifier"
+
+    /// Why "Modifier" could not reopen the editor.
+    static func editUnavailable(_ error: ItineraryError) -> String {
+        switch error {
+        case .offline: connectionRequired
+        case .notFound: "Cet Itinéraire n'existe plus."
+        case .unauthorized: "Votre session a expiré, reconnectez-vous."
+        case .network, .server, .unavailable, .invalid, .conflict: "Chargement de l'Itinéraire impossible pour le moment."
+        }
+    }
+
     static func syncFailed(_ error: ItineraryError) -> String {
         error == .offline ? offline : syncFailed
     }

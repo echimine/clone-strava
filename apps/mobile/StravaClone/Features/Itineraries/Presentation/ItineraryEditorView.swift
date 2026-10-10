@@ -4,9 +4,9 @@ import SwiftUI
 /// Itinerary editor (ADR-030 §2): centered on the athlete (ADR-027), each tap on the map
 /// adds a Waypoint at the end. Waypoints are dragged, a Leg's middle handle is pulled to
 /// insert one, a tap opens a bubble (remove a Waypoint, switch a Leg's mode), and every
-/// gesture can be undone. The stats card shows the sport, the distance and the elevation
-/// gain measured by the API on release (ADR-030 §3). Routing failures leave Legs pending,
-/// requested again when the network comes back, while editing goes on.
+/// gesture can be undone. The stats card shows the sport, which can be changed, the distance
+/// and the elevation gain measured by the API on release (ADR-030 §3). Routing failures leave
+/// Legs pending, requested again when the network comes back, while editing goes on.
 struct ItineraryEditorView: View {
     @State var store: ItineraryEditorStore
     let onClose: () -> Void
@@ -26,6 +26,17 @@ struct ItineraryEditorView: View {
         .overlay(alignment: .top) { header }
         .safeAreaInset(edge: .bottom) { statsCard }
         .task { await store.retryPendingLegsOnReconnection() }
+        .onAppear(perform: frameReopenedItinerary)
+    }
+
+    /// "Modifier" reopens a saved Itinerary: the map frames it rather than the athlete.
+    private func frameReopenedItinerary() {
+        let line = store.lines.flatMap(\.coordinates).map(\.locationCoordinate)
+        guard line.count >= 2 else { return }
+        viewport = .overview(
+            geometry: LineString(line),
+            geometryPadding: EdgeInsets(top: 120, leading: 40, bottom: 220, trailing: 40)
+        )
     }
 
     // MARK: Map
@@ -203,8 +214,7 @@ struct ItineraryEditorView: View {
     private var statsCard: some View {
         VStack(alignment: .trailing, spacing: 8) {
             HStack(spacing: Theme.spacing) {
-                Label(store.sportLabel, systemImage: store.sportSymbol)
-                    .font(.subheadline.weight(.semibold))
+                sportMenu
                 Spacer()
                 stat(store.distanceText, label: "Distance", isStale: store.isDistanceStale, identifier: "itineraryDistance")
                 if store.isElevationUnavailable {
@@ -226,6 +236,34 @@ struct ItineraryEditorView: View {
         .padding(.bottom, 8)
         .animation(.default, value: store.distanceText)
         .animation(.default, value: store.elevationText)
+    }
+
+    /// The sport can change while editing: in another category, the Legs are recomputed.
+    private var sportMenu: some View {
+        Menu {
+            Picker("Sport", selection: Binding(get: { store.sport }, set: { store.changeSport(to: $0) })) {
+                ForEach(ItinerarySport.allCases, id: \.self) { sport in
+                    Label(
+                        ActivityFormatters.sportLabel(sport.sportType),
+                        systemImage: ActivityFormatters.sportSymbol(sport.sportType)
+                    )
+                    .tag(sport)
+                    .accessibilityIdentifier("itineraryEditorSport.\(sport.rawValue)")
+                }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Label(store.sportLabel, systemImage: store.sportSymbol)
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            .font(.subheadline.weight(.semibold))
+        }
+        .foregroundStyle(.primary)
+        .accessibilityLabel("Sport : \(store.sportLabel)")
+        .accessibilityHint("Changer le sport de l'itinéraire")
+        .accessibilityIdentifier("itinerarySportMenu")
     }
 
     private func stat(_ value: String, label: String, isStale: Bool, identifier: String) -> some View {

@@ -50,6 +50,27 @@ final class ItineraryDetailStore {
         }
     }
 
+    /// Renommer (ADR-030 §8): the new name shows at once, offline too, and is sent later.
+    /// `false` when the name does not have 1 to 100 characters.
+    func rename(to name: String) async -> Bool {
+        do {
+            try await synchronizer.rename(id: id, to: name)
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    /// Supprimer, once confirmed: the Itinerary disappears at once and the page closes.
+    func delete() async {
+        await synchronizer.delete(id: id)
+    }
+
+    /// Whether "Renommer" can be confirmed with this name.
+    nonisolated static func isValidName(_ name: String) -> Bool {
+        ItineraryName.validated(name) != nil
+    }
+
     var distanceText: String {
         summary.map { ActivityFormatters.distance($0.distance) } ?? "—"
     }
