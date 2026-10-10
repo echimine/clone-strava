@@ -43,7 +43,7 @@ describe("computeMetrics", () => {
     expect(metrics.movingTimeS).toBe(10);
   });
 
-  it("sums only positive elevation deltas into elevationGainM", () => {
+  it("counts climbs on the track resampled by distance into elevationGainM", () => {
     const points: TracePoint[] = [
       { lat: 0, lon: 0, elevationM: 100, timestampMs: 0 },
       { lat: 0.001, lon: 0, elevationM: 120, timestampMs: 10_000 },
@@ -53,6 +53,41 @@ describe("computeMetrics", () => {
 
     const metrics = computeMetrics(points, 0);
 
-    expect(metrics.elevationGainM).toBe(20 + 20);
+    // Legs of ~111.195 m sampled every 20 m: the 120 m summit falls between
+    // samples (highest at 100 m along: ~117.99), the lowest sample of the
+    // descent is ~90.65 (220 m along), and the last point (110) is kept.
+    // (117.99 - 100) + (110 - 90.65) ≈ 37.34.
+    expect(metrics.elevationGainM).toBeCloseTo(37.34, 2);
+  });
+
+  it("does not count altitude drift while stopped as elevation gain", () => {
+    // Barometer drift at a standstill, then a flat move: no distance covered
+    // while the altitude wobbles, so the resampled track has no climb.
+    const points: TracePoint[] = [
+      { lat: 0, lon: 0, elevationM: 100, timestampMs: 0 },
+      { lat: 0, lon: 0, elevationM: 103, timestampMs: 10_000 },
+      { lat: 0, lon: 0, elevationM: 100, timestampMs: 20_000 },
+      { lat: 0, lon: 0, elevationM: 103, timestampMs: 30_000 },
+      { lat: 0, lon: 0, elevationM: 100, timestampMs: 40_000 },
+      { lat: 0.001, lon: 0, elevationM: 100, timestampMs: 60_000 },
+    ];
+
+    const metrics = computeMetrics(points, 0);
+
+    expect(metrics.elevationGainM).toBe(0);
+  });
+
+  it("ignores altitude noise smaller than the 2 m hysteresis", () => {
+    // Legs of ~111 m, altitude wobbling by 1.5 m: GPS noise, not a climb.
+    const points: TracePoint[] = [
+      { lat: 0, lon: 0, elevationM: 100, timestampMs: 0 },
+      { lat: 0.001, lon: 0, elevationM: 101.5, timestampMs: 30_000 },
+      { lat: 0.002, lon: 0, elevationM: 100, timestampMs: 60_000 },
+      { lat: 0.003, lon: 0, elevationM: 101.5, timestampMs: 90_000 },
+    ];
+
+    const metrics = computeMetrics(points, 0);
+
+    expect(metrics.elevationGainM).toBe(0);
   });
 });
