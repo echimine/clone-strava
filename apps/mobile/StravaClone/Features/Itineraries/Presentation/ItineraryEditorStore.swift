@@ -45,14 +45,25 @@ final class ItineraryEditorStore {
     private(set) var selection: Selection?
     @ObservationIgnored private var lastDragPoint: CGPoint?
     @ObservationIgnored private let connectivityChanges: @MainActor () -> AsyncStream<Bool>
+    @ObservationIgnored private let tracking: ItineraryEditorTracking
+    /// Journey events already sent in this session.
+    @ObservationIgnored private var sent: Set<String> = []
 
-    /// - Parameter connectivityChanges: `true` while a network route exists, current state first.
+    /// - Parameters:
+    ///   - connectivityChanges: `true` while a network route exists, current state first.
+    ///   - tracking: where the session's journey events go (issue #20).
     init(
         editor: ItineraryEditor,
-        connectivityChanges: @escaping @MainActor () -> AsyncStream<Bool> = { AsyncStream { $0.finish() } }
+        connectivityChanges: @escaping @MainActor () -> AsyncStream<Bool> = { AsyncStream { $0.finish() } },
+        tracking: ItineraryEditorTracking = .none
     ) {
         self.editor = editor
         self.connectivityChanges = connectivityChanges
+        self.tracking = tracking
+        editor.onFirstRateLimit = { [weak self] in
+            guard let self else { return }
+            self.sendOnce(.itineraryRoutingRateLimited(itineraryId: self.tracking.itineraryID.description))
+        }
     }
 
     // MARK: State
@@ -170,7 +181,30 @@ final class ItineraryEditorStore {
             selection = nil
             return
         }
+        let wasEmpty = editor.draft.waypoints.isEmpty
         editor.addWaypoint(at: coordinate)
+        if wasEmpty, !editor.draft.waypoints.isEmpty {
+            sendOnce(.itineraryEditorFirstWaypointPlaced(
+                itineraryId: tracking.itineraryID.description,
+                sportTypeCode: editor.draft.sport.sportType.code
+            ))
+        }
+    }
+
+    /// The editor shows: sent once per session.
+    func opened() {
+        sendOnce(.itineraryEditorOpened(itineraryId: tracking.itineraryID.description, mode: tracking.mode, source: tracking.source))
+    }
+
+    /// The editor closes, saved or not, with what happened during the session. Only the
+    /// first close counts.
+    func closed(_ outcome: AnalyticsEvent.EditorOutcome) {
+        sendOnce(.itineraryEditorClosed(
+            itineraryId: tracking.itineraryID.description,
+            outcome: outcome,
+            hasChanges: editor.hasChanges,
+            counters: editor.counters
+        ))
     }
 
     func tapWaypoint(_ id: WaypointID) {
@@ -256,6 +290,11 @@ final class ItineraryEditorStore {
 
     // MARK: Private
 
+    private func sendOnce(_ event: AnalyticsEvent) {
+        guard sent.insert(event.name).inserted else { return }
+        tracking.analytics.capture(event)
+    }
+
     /// Point halfway along a line.
     private static func midpoint(of line: [Coordinate]) -> Coordinate {
         let segments = Array(zip(line, line.dropFirst()))
@@ -272,5 +311,19 @@ final class ItineraryEditorStore {
             remaining -= length
         }
         return line[0]
+    }
+}
+
+/// Where an editor session's journey events go, and what links them (issue #20).
+struct ItineraryEditorTracking {
+    let analytics: any AnalyticsClient
+    /// Generated when the editor opens, or the edited Itinerary's: the API events carry it too.
+    let itineraryID: ItineraryID
+    let mode: AnalyticsEvent.EditorMode
+    let source: AnalyticsEvent.EditorSource
+
+    /// Sends nothing.
+    static var none: ItineraryEditorTracking {
+        ItineraryEditorTracking(analytics: NoAnalyticsClient(), itineraryID: ItineraryID(), mode: .create, source: .mapTab)
     }
 }

@@ -11,12 +11,18 @@ struct ItineraryListStoreTests {
         let cache: GRDBItineraryCache
     }
 
-    private func make(pageSize: Int = 20) throws -> Context {
+    private func make(pageSize: Int = 20, analytics: FakeAnalyticsClient = FakeAnalyticsClient()) throws -> Context {
         let repository = FakeItineraryRepository()
         let cache = GRDBItineraryCache(database: try AppDatabase.inMemory())
         let synchronizer = ItinerarySynchronizer(repository: repository, cache: cache)
         return Context(
-            store: ItineraryListStore(cache: cache, synchronizer: synchronizer, pageSize: pageSize),
+            store: ItineraryListStore(
+                cache: cache,
+                synchronizer: synchronizer,
+                pageSize: pageSize,
+                source: .mapTab,
+                analytics: analytics
+            ),
             repository: repository,
             cache: cache
         )
@@ -79,6 +85,17 @@ struct ItineraryListStoreTests {
         #expect(context.store.itineraries.map(\.id) == [.fixture(1), .fixture(2), .fixture(3)])
     }
 
+    /// `itinerary_list_viewed` (issue #20) counts every cached Itinerary, not the page shown.
+    @Test func viewingTheListSendsWhereAndHowManyItineraries() async throws {
+        let analytics = FakeAnalyticsClient()
+        let context = try make(pageSize: 2, analytics: analytics)
+        try await context.cache.replaceSummaries(with: (1 ... 3).map { .fixture($0) })
+
+        await context.store.viewed()
+
+        #expect(analytics.events == [.itineraryListViewed(source: .mapTab, itineraryCount: 3)])
+    }
+
     @Test func refreshingReplacesTheListWithTheServers() async throws {
         let context = try make()
         try await context.cache.replaceSummaries(with: [.fixture(1)])
@@ -97,21 +114,26 @@ struct ItineraryListStoreTests {
 @MainActor
 struct ItineraryCreationFlowTests {
     @Test func creatingOpensTheEditorWhenOnline() {
-        let flow = ItineraryCreationFlow(isOnline: { true })
+        let analytics = FakeAnalyticsClient()
+        let flow = ItineraryCreationFlow(isOnline: { true }, analytics: analytics)
 
-        flow.start()
+        flow.start(from: .profile)
 
         #expect(flow.isPresented)
+        #expect(flow.source == .profile)
         #expect(flow.toast == nil)
+        #expect(analytics.events.isEmpty)
     }
 
     /// "Créer" stays active offline and says why nothing opens (ADR-030 §8).
     @Test func creatingOfflineShowsConnectionRequired() {
-        let flow = ItineraryCreationFlow(isOnline: { false })
+        let analytics = FakeAnalyticsClient()
+        let flow = ItineraryCreationFlow(isOnline: { false }, analytics: analytics)
 
-        flow.start()
+        flow.start(from: .mapTab)
 
         #expect(!flow.isPresented)
         #expect(flow.toast == "Connexion requise")
+        #expect(analytics.events == [.itineraryOfflineEditBlocked(action: .create)])
     }
 }

@@ -25,25 +25,29 @@ final class ItineraryEditFlow {
     @ObservationIgnored private let load: LoadSavedItinerary
     @ObservationIgnored private let makeEditorStore: @MainActor (ItineraryDraft) -> ItineraryEditorStore
     @ObservationIgnored private let makeSaveStore: @MainActor (SavedItinerary) -> ItinerarySaveStore
+    @ObservationIgnored private let analytics: any AnalyticsClient
 
     init(
         id: ItineraryID,
         isOnline: @escaping @MainActor () -> Bool,
         load: LoadSavedItinerary,
         makeEditorStore: @escaping @MainActor (ItineraryDraft) -> ItineraryEditorStore,
-        makeSaveStore: @escaping @MainActor (SavedItinerary) -> ItinerarySaveStore
+        makeSaveStore: @escaping @MainActor (SavedItinerary) -> ItinerarySaveStore,
+        analytics: any AnalyticsClient = NoAnalyticsClient()
     ) {
         self.id = id
         self.isOnline = isOnline
         self.load = load
         self.makeEditorStore = makeEditorStore
         self.makeSaveStore = makeSaveStore
+        self.analytics = analytics
     }
 
     func start() async {
         guard !isLoading, session == nil else { return }
         guard isOnline() else {
             toast = ItineraryMessages.connectionRequired
+            analytics.capture(.itineraryOfflineEditBlocked(action: .edit))
             return
         }
         isLoading = true

@@ -58,6 +58,8 @@ protocol ItineraryCache: Sendable {
     /// Lists and details show the name of a pending rename (ADR-030 §8).
     func observeItinerary(id: ItineraryID) -> AsyncStream<CachedItinerary?>
     func summaries(limit: Int) async throws -> [ItinerarySummary]
+    /// How many Itineraries the lists show, those pending deletion left out.
+    func count() async throws -> Int
     func detail(id: ItineraryID) async throws -> ItineraryDetail?
     /// When the cached row last changed on the server; nil when not cached. An Itinerary
     /// pending deletion still answers: the comparison with a realtime save needs it (#39).

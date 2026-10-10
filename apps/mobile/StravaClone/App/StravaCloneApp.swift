@@ -31,7 +31,7 @@ struct StravaCloneApp: App {
                 makeItinerarySaveStore: di.makeItinerarySaveStore,
                 itineraryListStore: di.makeItineraryListStore(),
                 mapItinerariesStore: di.makeMapItinerariesStore(),
-                makeItineraryDetailStore: di.makeItineraryDetailStore,
+                makeItineraryDetailStore: { [di] id in di.makeItineraryDetailStore(id: id, source: .profile) },
                 makeItineraryEditFlow: di.makeItineraryEditFlow,
                 itineraryCreation: di.makeItineraryCreationFlow(),
                 itinerarySynchronizer: di.itinerarySynchronizer,
@@ -58,10 +58,11 @@ struct RootView: View {
     @State var importStore: ImportStore
     @State var feedStore: FeedStore
     let realtimeService: RealtimeService
-    let makeItineraryEditorStore: @MainActor (ItinerarySport) -> ItineraryEditorStore
+    let makeItineraryEditorStore: @MainActor (ItinerarySport, ItineraryID, AnalyticsEvent.EditorSource) -> ItineraryEditorStore
     let makeItinerarySaveStore: @MainActor () -> ItinerarySaveStore
     @State var itineraryListStore: ItineraryListStore
     @State var mapItinerariesStore: MapItinerariesStore
+    /// Details pushed from Profil > Mes Itinéraires.
     let makeItineraryDetailStore: @MainActor (ItineraryID) -> ItineraryDetailStore
     let makeItineraryEditFlow: @MainActor (ItineraryID) -> ItineraryEditFlow
     @State var itineraryCreation: ItineraryCreationFlow
@@ -117,7 +118,7 @@ struct RootView: View {
                     }
                     .tabItem { Label("Accueil", systemImage: "house") }
                     MapScreen(
-                        onCreateItinerary: itineraryCreation.start,
+                        onCreateItinerary: { itineraryCreation.start(from: .mapTab) },
                         focusedPath: mapItinerariesStore.focusedPath
                     ) {
                         MapItinerariesSheet(store: mapItinerariesStore)
@@ -132,14 +133,16 @@ struct RootView: View {
                             store: itineraryListStore,
                             makeDetailStore: makeItineraryDetailStore,
                             makeEditFlow: makeItineraryEditFlow,
-                            onCreate: itineraryCreation.start
+                            onCreate: { itineraryCreation.start(from: .profile) }
                         )
                     }
                     .tabItem { Label("Profil", systemImage: "person") }
                 }
                 .fullScreenCover(isPresented: $itineraryCreation.isPresented) {
                     ItineraryCreationView(
-                        makeEditorStore: makeItineraryEditorStore,
+                        makeEditorStore: { [itineraryCreation] sport, id in
+                            makeItineraryEditorStore(sport, id, itineraryCreation.source)
+                        },
                         makeSaveStore: makeItinerarySaveStore,
                         onClose: { itineraryCreation.isPresented = false }
                     )
