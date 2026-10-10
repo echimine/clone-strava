@@ -4,7 +4,8 @@ import SwiftUI
 /// Itinerary editor (ADR-030 §2): centered on the athlete (ADR-027), each tap on the map
 /// adds a Waypoint at the end. Waypoints are dragged, a Leg's middle handle is pulled to
 /// insert one, a tap opens a bubble (remove a Waypoint, switch a Leg's mode), and every
-/// gesture can be undone. The stats card shows the sport and the distance.
+/// gesture can be undone. The stats card shows the sport, the distance and the elevation
+/// gain measured by the API on release (ADR-030 §3).
 struct ItineraryEditorView: View {
     @State var store: ItineraryEditorStore
     let onClose: () -> Void
@@ -193,20 +194,23 @@ struct ItineraryEditorView: View {
     }
 
     private var statsCard: some View {
-        HStack(spacing: Theme.spacing) {
-            Label(store.sportLabel, systemImage: store.sportSymbol)
-                .font(.subheadline.weight(.semibold))
-            Spacer()
-            VStack(alignment: .trailing, spacing: 2) {
-                Text(store.distanceText)
-                    .font(.title2.bold())
-                    .monospacedDigit()
-                    .foregroundStyle(store.isDistanceStale ? .secondary : .primary)
-                    .contentTransition(.numericText())
-                    .accessibilityIdentifier("itineraryDistance")
-                Text("Distance")
-                    .font(.caption)
+        VStack(alignment: .trailing, spacing: 8) {
+            HStack(spacing: Theme.spacing) {
+                Label(store.sportLabel, systemImage: store.sportSymbol)
+                    .font(.subheadline.weight(.semibold))
+                Spacer()
+                stat(store.distanceText, label: "Distance", isStale: store.isDistanceStale, identifier: "itineraryDistance")
+                if store.isElevationUnavailable {
+                    elevationUnavailable
+                } else {
+                    stat(store.elevationText, label: "D+", isStale: store.isElevationStale, identifier: "itineraryElevationGain")
+                }
+            }
+            if let source = store.elevationSourceText {
+                Text(source)
+                    .font(.caption2)
                     .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("itineraryElevationSource")
             }
         }
         .padding(Theme.spacing)
@@ -214,5 +218,32 @@ struct ItineraryEditorView: View {
         .padding(.horizontal, Theme.spacing)
         .padding(.bottom, 8)
         .animation(.default, value: store.distanceText)
+        .animation(.default, value: store.elevationText)
+    }
+
+    private func stat(_ value: String, label: String, isStale: Bool, identifier: String) -> some View {
+        VStack(alignment: .trailing, spacing: 2) {
+            Text(value)
+                .font(.title2.bold())
+                .monospacedDigit()
+                .foregroundStyle(isStale ? .secondary : .primary)
+                .contentTransition(.numericText())
+                .accessibilityIdentifier(identifier)
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    /// The preview failed: editing goes on, and the gain can be asked again.
+    private var elevationUnavailable: some View {
+        VStack(alignment: .trailing, spacing: 2) {
+            Text("D+ indisponible")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            Button("Réessayer", action: store.retryElevation)
+                .font(.caption.bold())
+                .accessibilityIdentifier("retryItineraryElevationGain")
+        }
     }
 }
