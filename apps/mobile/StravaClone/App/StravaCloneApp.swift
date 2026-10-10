@@ -26,7 +26,8 @@ struct StravaCloneApp: App {
                 recordingStore: di.makeRecordingStore(),
                 importStore: di.makeImportStore(),
                 feedStore: di.makeFeedStore(),
-                realtimeService: di.realtimeService
+                realtimeService: di.realtimeService,
+                makeItineraryEditorStore: di.makeItineraryEditorStore
             )
                 .tint(Theme.accent)
                 .environment(\.imageLoader, di.imageLoader)
@@ -49,8 +50,10 @@ struct RootView: View {
     @State var importStore: ImportStore
     @State var feedStore: FeedStore
     let realtimeService: RealtimeService
+    let makeItineraryEditorStore: @MainActor (ItinerarySport) -> ItineraryEditorStore
 
     @Environment(\.scenePhase) private var scenePhase
+    @State private var isCreatingItinerary = false
 
     /// Signed-in user id while the app is in the foreground: drives the realtime connection.
     private var realtimeUserId: String? {
@@ -92,7 +95,13 @@ struct RootView: View {
                         )
                     }
                     .tabItem { Label("Accueil", systemImage: "house") }
-                    MapScreen()
+                    MapScreen(onCreateItinerary: { isCreatingItinerary = true })
+                        .fullScreenCover(isPresented: $isCreatingItinerary) {
+                            ItineraryCreationView(
+                                makeEditorStore: makeItineraryEditorStore,
+                                onClose: { isCreatingItinerary = false }
+                            )
+                        }
                         .tabItem { Label("Map", systemImage: "map") }
                     RecordingView(store: recordingStore)
                         .tabItem { Label("Enregistrer", systemImage: "record.circle") }

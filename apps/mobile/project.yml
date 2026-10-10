@@ -84,6 +84,8 @@ targets:
         APIBaseURL: $(API_BASE_URL)
         RealtimeURL: $(REALTIME_URL)
         MBXAccessToken: $(MAPBOX_ACCESS_TOKEN)
+        # Mapbox Directions token dedicated to Itineraries (ADR-030 §2), distinct from the map's.
+        MapboxItinerariesToken: $(MAPBOX_ITINERARIES_TOKEN)
         RevenueCatAPIKey: $(REVENUECAT_API_KEY)
         PostHogAPIKey: $(POSTHOG_API_KEY)
         # Google Sign-In (ADR-022): GIDClientID is read by GIDSignIn at launch;

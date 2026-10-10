@@ -5,6 +5,8 @@ struct AppConfiguration: Sendable {
     let apiBaseURL: URL
     let realtimeURL: URL
     let mapboxAccessToken: String
+    /// Mapbox Directions token dedicated to Itineraries (ADR-030 §2), never the map's token.
+    let mapboxItinerariesToken: String
     let revenueCatAPIKey: String
     let postHogAPIKey: String
 
@@ -18,6 +20,7 @@ struct AppConfiguration: Sendable {
         apiBaseURL = url("APIBaseURL", fallback: "http://localhost:3001")
         realtimeURL = url("RealtimeURL", fallback: "ws://localhost:3003/ws")
         mapboxAccessToken = value("MBXAccessToken")
+        mapboxItinerariesToken = value("MapboxItinerariesToken")
         revenueCatAPIKey = value("RevenueCatAPIKey")
         postHogAPIKey = value("PostHogAPIKey")
     }
@@ -46,6 +49,7 @@ final class Di {
     private let authService: AuthService
     private let importRepository: APIActivityImportRepository
     private let feedRepository: APIFeedRepository
+    private let itineraryRouter: MapboxDirectionsRouter
 
     init(configuration: AppConfiguration = AppConfiguration(), database: AppDatabase) {
         self.configuration = configuration
@@ -72,6 +76,7 @@ final class Di {
         )
         importRepository = APIActivityImportRepository(apiClient: apiClient)
         feedRepository = APIFeedRepository(apiClient: apiClient)
+        itineraryRouter = MapboxDirectionsRouter(accessToken: configuration.mapboxItinerariesToken)
         authService = AuthService(
             repository: APIAuthRepository(apiClient: apiClient, authSession: authSession),
             googleAuthProvider: GIDGoogleAuthProvider()
@@ -100,6 +105,10 @@ final class Di {
             toggleKudos: ToggleKudos(repository: feedRepository),
             events: RealtimeFeedEventSource(client: webSocketClient)
         )
+    }
+
+    func makeItineraryEditorStore(sport: ItinerarySport) -> ItineraryEditorStore {
+        ItineraryEditorStore(editor: ItineraryEditor(sport: sport, router: itineraryRouter))
     }
 
     func makeImportStore() -> ImportStore {
