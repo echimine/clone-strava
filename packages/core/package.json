@@ -58,6 +58,14 @@
     "./geocoding": {
       "types": "./dist/geocoding/index.d.ts",
       "default": "./dist/geocoding/index.js"
+    },
+    "./elevation": {
+      "types": "./dist/elevation/index.d.ts",
+      "default": "./dist/elevation/index.js"
+    },
+    "./itineraries": {
+      "types": "./dist/itineraries/index.d.ts",
+      "default": "./dist/itineraries/index.js"
     }
   },
   "files": [

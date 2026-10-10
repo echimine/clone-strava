@@ -497,6 +497,37 @@
         ]
       }
     },
+    "/v1/itineraries/metrics-preview": {
+      "post": {
+        "operationId": "ItinerariesController_previewMetrics",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ItineraryMetricsPreviewRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItineraryMetricsDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Itineraries"
+        ]
+      }
+    },
     "/v1/realtime/token": {
       "post": {
         "operationId": "RealtimeTokenController_issueToken",
@@ -931,6 +962,100 @@
           "activityId",
           "kudosCount",
           "viewerHasKudoed"
+        ],
+        "additionalProperties": false
+      },
+      "ItineraryMetricsPreviewRequestDto": {
+        "type": "object",
+        "properties": {
+          "waypoints": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "lat": {
+                  "type": "number",
+                  "minimum": -90,
+                  "maximum": 90
+                },
+                "lon": {
+                  "type": "number",
+                  "minimum": -180,
+                  "maximum": 180
+                }
+              },
+              "required": [
+                "lat",
+                "lon"
+              ]
+            }
+          },
+          "legs": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "mode": {
+                      "type": "string",
+                      "const": "follow"
+                    },
+                    "polyline6": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "mode",
+                    "polyline6"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "mode": {
+                      "type": "string",
+                      "const": "straight"
+                    }
+                  },
+                  "required": [
+                    "mode"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "required": [
+          "waypoints",
+          "legs"
+        ]
+      },
+      "ItineraryMetricsDto_Output": {
+        "type": "object",
+        "properties": {
+          "distanceM": {
+            "type": "number",
+            "minimum": 0
+          },
+          "elevationGainM": {
+            "type": "number",
+            "minimum": 0
+          },
+          "elevationSource": {
+            "type": "string",
+            "enum": [
+              "ign",
+              "mixed",
+              "open_meteo"
+            ]
+          }
+        },
+        "required": [
+          "distanceM",
+          "elevationGainM",
+          "elevationSource"
         ],
         "additionalProperties": false
       },

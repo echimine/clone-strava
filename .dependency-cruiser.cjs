@@ -31,12 +31,13 @@ const DOMAIN_MODULES = [
   "engagement",
   "segments",
   "subscriptions",
+  "itineraries",
 ];
 
 /**
  * ADR-021 §2 "Allowed dependencies between modules": each domain module may
  * depend, among core domain modules, only on the modules listed here (plus
- * itself). Platform modules (`analytics`, `storage`) are always allowed for
+ * itself). Platform modules (`analytics`, `storage`, `elevation`, …) are always allowed for
  * every domain module and are therefore not restricted by this table; the
  * `realtime` platform module is never allowed for a domain module (rule 4
  * below), including for the modules with an empty list here.
@@ -50,6 +51,9 @@ const ALLOWED_DEPENDENCIES = {
   activities: ["sports", "users", "social"],
   engagement: ["activities", "social", "users"],
   segments: ["activities", "sports"],
+  // ADR-030 §4: `users` only through the `user_id` foreign key; never
+  // `social` nor `activities`.
+  itineraries: ["sports", "users"],
 };
 
 /** One `forbidden` rule per domain module, from the allow-list above. */
