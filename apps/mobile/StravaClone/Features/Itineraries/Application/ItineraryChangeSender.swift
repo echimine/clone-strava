@@ -80,8 +80,8 @@ final class ItineraryChangeSender {
         let (stream, continuation) = AsyncStream.makeStream(of: ItineraryChangeRefusal.self)
         let key = UUID()
         refusalContinuations[key] = continuation
-        continuation.onTermination = { _ in
-            Task { @MainActor [weak self] in self?.refusalContinuations[key] = nil }
+        continuation.onTermination = { [weak self] _ in
+            Task { @MainActor in self?.refusalContinuations[key] = nil }
         }
         return stream
     }
