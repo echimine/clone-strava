@@ -4,20 +4,29 @@ import Foundation
 /// list, every page, is read again on each trigger (foreground, Mes Itinéraires opening,
 /// pull-to-refresh, network back) and the local rows no longer returned are deleted. Then
 /// every detail whose Itinerary changed (or is new) is fetched, so any detail opens offline.
-/// Triggers arriving during a resync join it. #38 drains its queue on the same triggers.
+/// Triggers arriving during a resync join it. Each resync first sends the pending changes
+/// (`ItineraryChangeSender`, ADR-008 §3), so the queue drains on the same triggers.
 @MainActor
 final class ItinerarySynchronizer {
     private let repository: any ItineraryRepository
     private let cache: any ItineraryCache
+    /// Renames and deletes waiting to be sent; nil where a test needs none.
+    private let changes: ItineraryChangeSender?
     private var running: Task<Result<Void, ItineraryError>, Never>?
     /// Bumped by sign-out: a resync started before must not write anything.
     private var generation = 0
     /// Details fetched at the same time after a resync.
     private let maxConcurrentDetailFetches: Int
 
-    init(repository: any ItineraryRepository, cache: any ItineraryCache, maxConcurrentDetailFetches: Int = 4) {
+    init(
+        repository: any ItineraryRepository,
+        cache: any ItineraryCache,
+        changes: ItineraryChangeSender? = nil,
+        maxConcurrentDetailFetches: Int = 4
+    ) {
         self.repository = repository
         self.cache = cache
+        self.changes = changes
         self.maxConcurrentDetailFetches = maxConcurrentDetailFetches
     }
 
@@ -44,9 +53,30 @@ final class ItinerarySynchronizer {
         }
     }
 
-    /// Sign-out: drops the resync in flight and wipes the cache (#38 adds the queue).
+    /// Renames locally at once, then sends (ADR-030 §8).
+    func rename(id: ItineraryID, to name: String) async throws(ItinerarySaveIssue) {
+        try await changes?.rename(id: id, to: name)
+    }
+
+    /// Hides the Itinerary at once, then sends the delete.
+    func delete(id: ItineraryID) async {
+        await changes?.delete(id: id)
+    }
+
+    /// The changes a sign-out would lose: the confirmation warns about them.
+    func pendingChangeCount() async -> Int {
+        await changes?.pendingCount() ?? 0
+    }
+
+    /// Changes the server turned down, for a toast.
+    func changeRefusals() -> AsyncStream<ItineraryChangeRefusal> {
+        changes?.refusals() ?? AsyncStream { $0.finish() }
+    }
+
+    /// Sign-out: drops the resync in flight, then wipes the queue and the cache.
     func signOut() async {
         generation += 1
+        await changes?.clear()
         if let running {
             running.cancel()
             _ = await running.value
@@ -63,6 +93,8 @@ final class ItinerarySynchronizer {
                     self.running = nil
                 }
             }
+            // Push before pull: a resync then already reflects what was just sent.
+            await self.changes?.send(ignoringBackoff: true)
             var summaries: [ItinerarySummary] = []
             var cursor: String?
             do throws(ItineraryError) {

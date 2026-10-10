@@ -11,6 +11,9 @@ final class FakeItineraryRepository: ItineraryRepository, @unchecked Sendable {
     private var _pageCalls: [String?] = []
     private var _details: [ItineraryID: Result<ItineraryDetail, ItineraryError>] = [:]
     private var _detailCalls: [ItineraryID] = []
+    private var _renameCalls: [(ItineraryID, String)] = []
+    private var _deleteCalls: [ItineraryID] = []
+    private var _changeResult: Result<Void, ItineraryError> = .failure(.offline)
     private var _saved: [ItineraryID: Result<SavedItinerary, ItineraryError>] = [:]
     private var _savedCalls: [ItineraryID] = []
     private var _updateResults: [Result<ItineraryDetail, ItineraryError>] = []
@@ -27,6 +30,14 @@ final class FakeItineraryRepository: ItineraryRepository, @unchecked Sendable {
     var creations: [ItineraryCreation] { lock.withLock { _creations } }
     var pageCalls: [String?] { lock.withLock { _pageCalls } }
     var detailCalls: [ItineraryID] { lock.withLock { _detailCalls } }
+    var renameCalls: [(ItineraryID, String)] { lock.withLock { _renameCalls } }
+    var deleteCalls: [ItineraryID] { lock.withLock { _deleteCalls } }
+
+    /// How `rename` and `delete` end (a rename answers the scripted detail renamed);
+    /// `offline` until scripted.
+    func setChangeResult(_ result: Result<Void, ItineraryError>) {
+        lock.withLock { _changeResult = result }
+    }
 
     /// Answers of the next `update` calls, in order; the last one repeats.
     var updateResults: [Result<ItineraryDetail, ItineraryError>] {
@@ -91,6 +102,25 @@ final class FakeItineraryRepository: ItineraryRepository, @unchecked Sendable {
             return _details[id]
         }
         return try (result ?? .failure(.offline)).get()
+    }
+
+    func rename(id: ItineraryID, to name: String) async throws(ItineraryError) -> ItineraryDetail {
+        let (result, detail) = lock.withLock {
+            _renameCalls.append((id, name))
+            return (_changeResult, _details[id])
+        }
+        try result.get()
+        var renamed = try (detail ?? .failure(.notFound)).get()
+        renamed.name = name
+        return renamed
+    }
+
+    func delete(id: ItineraryID) async throws(ItineraryError) {
+        let result = lock.withLock {
+            _deleteCalls.append(id)
+            return _changeResult
+        }
+        try result.get()
     }
 
     func savedItinerary(id: ItineraryID) async throws(ItineraryError) -> SavedItinerary {

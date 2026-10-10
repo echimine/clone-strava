@@ -12,6 +12,9 @@ enum APIError: Error, Equatable, Sendable {
     case transport(String)
 }
 
+/// Answer of a call whose success has no body (`204 No Content`, e.g. a `DELETE`).
+struct NoContent: Decodable, Equatable, Sendable {}
+
 /// REST client for the platform API, URLSession + async/await (ADR-006).
 struct APIClient: Sendable {
     let baseURL: URL
@@ -119,6 +122,9 @@ struct APIClient: Sendable {
         default: throw .http(status: http.statusCode, body: data)
         }
 
+        if Response.self == NoContent.self, let empty = NoContent() as? Response {
+            return (empty, http)
+        }
         do {
             return (try Self.decoder.decode(Response.self, from: data), http)
         } catch {
