@@ -170,6 +170,28 @@ struct APIItineraryRepositoryTests {
         await #expect(throws: ItineraryError.unauthorized) { try await repository.page(cursor: nil) }
     }
 
+    // MARK: Detail
+
+    @Test func readsTheDetailWithItsTrackAndAltitudes() async throws {
+        let repository = makeRepository()
+        let json = detailJSON()
+        ItineraryURLProtocolStub.handler.value = { _ in (200, json) }
+
+        let detail = try await repository.detail(id: .fixture(7))
+
+        let request = try #require(ItineraryURLProtocolStub.requests.value.first)
+        #expect(request.httpMethod == "GET")
+        #expect(request.url?.path == "/v1/itineraries/00000000-0000-4000-8000-000000000007")
+        #expect(detail == ItineraryDetail.fixture(7, name: "Tour du lac", sport: .hike, elevationSource: .mixed))
+    }
+
+    @Test func anUnknownDetailIsNotFound() async {
+        let repository = makeRepository()
+        ItineraryURLProtocolStub.handler.value = { _ in (404, Data(#"{"error":{"code":"not_found","message":"x"}}"#.utf8)) }
+
+        await #expect(throws: ItineraryError.notFound) { try await repository.detail(id: .fixture(7)) }
+    }
+
     // MARK: Resync
 
     @MainActor
@@ -187,7 +209,8 @@ struct APIItineraryRepositoryTests {
 
         try await synchronizer.refresh()
 
-        let cursors = ItineraryURLProtocolStub.requests.value.map { request in
+        // The list pages only: the details of the new rows are prefetched afterwards.
+        let cursors = ItineraryURLProtocolStub.requests.value.filter { $0.url?.path == "/v1/itineraries" }.map { request in
             URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "cursor" }?.value
         }
         #expect(cursors == [nil, "page2"])

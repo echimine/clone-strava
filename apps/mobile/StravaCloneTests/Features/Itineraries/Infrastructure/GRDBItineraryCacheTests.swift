@@ -80,4 +80,75 @@ struct GRDBItineraryCacheTests {
         #expect(try await cache.summaries(limit: 20).isEmpty)
         #expect(try await cache.detail(id: .fixture(1)) == nil)
     }
+
+    // MARK: Details (#35)
+
+    @Test func aDetailIsStaleWhenMissingOrOlderThanItsItinerary() async throws {
+        let cache = try makeCache()
+        try await cache.save(.fixture(1), mapPolyline: EncodedPolyline(value: "local"))
+        try await cache.save(.fixture(3), mapPolyline: EncodedPolyline(value: "local"))
+
+        try await cache.replaceSummaries(with: [
+            .fixture(1, updatedMinutes: 5),
+            .fixture(2),
+            .fixture(3),
+        ])
+
+        #expect(Set(try await cache.idsWithStaleDetail()) == [.fixture(1), .fixture(2)])
+    }
+
+    @Test func aFetchedDetailRefreshesItsItineraryAndKeepsTheThumbnail() async throws {
+        let cache = try makeCache()
+        try await cache.save(.fixture(1), mapPolyline: EncodedPolyline(value: "local"))
+        try await cache.replaceSummaries(with: [.fixture(1, mapPolyline: "server", updatedMinutes: 5)])
+        let fetched = ItineraryDetail.fixture(1, name: "Tour du lac", elevationSource: .openMeteo, updatedMinutes: 5)
+
+        try await cache.store(fetched)
+
+        #expect(try await cache.detail(id: .fixture(1)) == fetched)
+        let summary = try #require(try await cache.summaries(limit: 20).first)
+        #expect(summary.name == "Tour du lac")
+        #expect(summary.mapPolyline == EncodedPolyline(value: "server"))
+        #expect(try await cache.idsWithStaleDetail().isEmpty)
+    }
+
+    @Test func aFetchedDetailOfAnItineraryNoLongerListedIsDropped() async throws {
+        let cache = try makeCache()
+
+        try await cache.store(.fixture(4))
+
+        #expect(try await cache.detail(id: .fixture(4)) == nil)
+        #expect(try await cache.summaries(limit: 20).isEmpty)
+    }
+
+    @Test func deletingAnItineraryForgetsItsRowAndItsDetail() async throws {
+        let cache = try makeCache()
+        try await cache.save(.fixture(1), mapPolyline: EncodedPolyline(value: "local"))
+        try await cache.save(.fixture(2), mapPolyline: EncodedPolyline(value: "local"))
+
+        try await cache.delete(id: .fixture(1))
+
+        #expect(try await cache.summaries(limit: 20).map(\.id) == [.fixture(2)])
+        #expect(try await cache.detail(id: .fixture(1)) == nil)
+    }
+
+    @Test func oneItineraryIsObservedLiveUntilItIsDeleted() async throws {
+        let cache = try makeCache()
+        var updates = cache.observeItinerary(id: .fixture(1)).makeAsyncIterator()
+        #expect(await updates.next() == .some(nil))
+
+        try await cache.replaceSummaries(with: [.fixture(1)])
+        let listed = try #require(await updates.next() ?? nil)
+        #expect(listed.summary.id == .fixture(1))
+        #expect(listed.detail == nil)
+        #expect(listed.needsDetail)
+
+        try await cache.save(.fixture(1), mapPolyline: EncodedPolyline(value: "local"))
+        let detailed = try #require(await updates.next() ?? nil)
+        #expect(detailed.detail == .fixture(1))
+        #expect(!detailed.needsDetail)
+
+        try await cache.delete(id: .fixture(1))
+        #expect(await updates.next() == .some(nil))
+    }
 }

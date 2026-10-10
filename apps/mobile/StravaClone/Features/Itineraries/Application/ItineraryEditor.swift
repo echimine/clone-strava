@@ -86,6 +86,25 @@ final class ItineraryEditor {
         self.sleep = sleep
     }
 
+    /// "Modifier": the editor reopens on a saved Itinerary's draft as is, with nothing to route
+    /// (ADR-030 §5) and no undo history. Only its gain is measured again.
+    init(
+        restoring draft: ItineraryDraft,
+        router: any ItineraryRouter,
+        metricsPreviewer: (any ItineraryMetricsPreviewer)? = nil,
+        pauseDelay: Duration = .milliseconds(300),
+        backoff: RetryBackoff = RetryBackoff(),
+        sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
+    ) {
+        self.draft = draft
+        elevation = ItineraryElevationPreview(previewer: metricsPreviewer)
+        self.router = router
+        self.pauseDelay = pauseDelay
+        self.backoff = backoff
+        self.sleep = sleep
+        updateElevation()
+    }
+
     /// Waypoint under the finger, if any.
     var draggedWaypointID: WaypointID? {
         drag?.waypointID

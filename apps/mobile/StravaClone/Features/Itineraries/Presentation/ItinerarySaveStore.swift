@@ -3,7 +3,8 @@ import Observation
 
 /// "Enregistrer" in the editor (ADR-030 §6): the name, the save, and its retry. The id is
 /// generated once, when the editor opens, so every retry replays the same `POST` and never
-/// creates a duplicate. A failure leaves the editor's draft untouched.
+/// creates a duplicate. After "Modifier", the save replaces the same Itinerary (`PUT`).
+/// A failure leaves the editor's draft untouched.
 @Observable
 @MainActor
 final class ItinerarySaveStore {
@@ -18,11 +19,24 @@ final class ItinerarySaveStore {
     var name = ""
     private(set) var phase = Phase.editing
 
-    @ObservationIgnored private let saveItinerary: SaveItinerary
+    /// What "Enregistrer" does: create a new Itinerary, or replace an edited one.
+    private enum Target {
+        case create(SaveItinerary)
+        case update(UpdateItinerary)
+    }
+
+    @ObservationIgnored private let target: Target
 
     init(save: SaveItinerary, id: ItineraryID = ItineraryID()) {
-        saveItinerary = save
+        target = .create(save)
         self.id = id
+    }
+
+    /// "Modifier": saves on the edited Itinerary's id, under its current name until renamed.
+    init(update: UpdateItinerary, itinerary: SavedItinerary) {
+        target = .update(update)
+        id = itinerary.id
+        name = itinerary.name
     }
 
     var isNameValid: Bool {
@@ -52,7 +66,10 @@ final class ItinerarySaveStore {
         }
         phase = .saving
         do {
-            _ = try await saveItinerary(creation)
+            switch target {
+            case .create(let saveItinerary): _ = try await saveItinerary(creation)
+            case .update(let updateItinerary): _ = try await updateItinerary(creation)
+            }
             phase = .saved
         } catch {
             phase = .failed(message: ItineraryMessages.saveFailed(error), canRetry: error.isRetryable)

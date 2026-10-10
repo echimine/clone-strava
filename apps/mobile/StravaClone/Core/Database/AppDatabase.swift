@@ -34,7 +34,7 @@ final class AppDatabase: Sendable {
         migrator.eraseDatabaseOnSchemaChange = true
         #endif
         migrator.registerMigration("v1") { _ in
-            // Placeholder: activities, GPS points and sync_operation tables come with ADR-008.
+            // Placeholder: activities and GPS points tables come with ADR-008.
         }
         // ADR-030 §8: the athlete's Itineraries, without Waypoints or Legs. Dates are seconds since 2001
         // (REAL, `Date`'s own storage), so the API's milliseconds survive the round trip.
@@ -58,6 +58,22 @@ final class AppDatabase: Sendable {
                 table.column("created_at", .double).notNull()
                 table.column("updated_at", .double).notNull()
             }
+        }
+        // ADR-008 §3: the sync queue, one row per operation to send. `type` names the operation
+        // (`rename_itinerary`, `delete_itinerary`…), `entity_id` its target, `payload` its JSON
+        // arguments. Dates are seconds since 2001, like the Itinerary tables.
+        migrator.registerMigration("sync_operation_v1") { db in
+            try db.create(table: "sync_operation") { table in
+                table.autoIncrementedPrimaryKey("id")
+                table.column("type", .text).notNull()
+                table.column("entity_id", .text).notNull()
+                table.column("payload", .jsonText)
+                table.column("attempts", .integer).notNull().defaults(to: 0)
+                table.column("next_attempt_at", .double).notNull()
+                table.column("last_error", .text)
+                table.column("created_at", .double).notNull()
+            }
+            try db.create(index: "sync_operation_on_entity_id", on: "sync_operation", columns: ["entity_id", "type"])
         }
         return migrator
     }

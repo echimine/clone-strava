@@ -3,26 +3,18 @@ import GRDB
 
 /// GRDB adapter of `ItineraryCache` (ADR-030 §8), tables `itinerary` and `itinerary_detail`
 /// (migration `itineraries_v1` in `AppDatabase`). Rows follow the API: one per Itinerary,
-/// its detail deleted with it.
+/// its detail deleted with it. A pending change of `sync_operation` (#38) wins over them: a
+/// pending rename shows its name, an Itinerary pending deletion is hidden, and a resync keeps
+/// the rows a pending change targets.
 struct GRDBItineraryCache: ItineraryCache {
     let database: AppDatabase
 
     func observeSummaries(limit: Int) -> AsyncStream<[ItinerarySummary]> {
-        let observation = ValueObservation
-            .tracking { db in try Self.fetchSummaries(db, limit: limit) }
-            .removeDuplicates()
-        let writer = database.writer
-        return AsyncStream { continuation in
-            let task = Task {
-                do {
-                    for try await summaries in observation.values(in: writer) {
-                        continuation.yield(summaries)
-                    }
-                } catch {}
-                continuation.finish()
-            }
-            continuation.onTermination = { _ in task.cancel() }
-        }
+        observe { db in try Self.fetchSummaries(db, limit: limit) }
+    }
+
+    func observeItinerary(id: ItineraryID) -> AsyncStream<CachedItinerary?> {
+        observe { db in try Self.fetchItinerary(db, id: id) }
     }
 
     func summaries(limit: Int) async throws -> [ItinerarySummary] {
@@ -30,13 +22,7 @@ struct GRDBItineraryCache: ItineraryCache {
     }
 
     func detail(id: ItineraryID) async throws -> ItineraryDetail? {
-        try await database.writer.read { db in
-            guard
-                let row = try ItineraryRow.fetchOne(db, key: id.description),
-                let detail = try ItineraryDetailRow.fetchOne(db, key: id.description)
-            else { return nil }
-            return detail.model(row: row)
-        }
+        try await database.writer.read { db in try Self.fetchItinerary(db, id: id)?.detail }
     }
 
     func save(_ detail: ItineraryDetail, mapPolyline: EncodedPolyline) async throws {
@@ -46,11 +32,40 @@ struct GRDBItineraryCache: ItineraryCache {
         }
     }
 
+    func idsWithStaleDetail() async throws -> [ItineraryID] {
+        try await database.writer.read { db in
+            try String.fetchAll(db, sql: """
+                SELECT itinerary.id FROM itinerary
+                LEFT JOIN itinerary_detail ON itinerary_detail.itinerary_id = itinerary.id
+                WHERE (itinerary_detail.updated_at IS NULL OR itinerary_detail.updated_at <> itinerary.updated_at)
+                AND itinerary.id NOT IN (SELECT entity_id FROM sync_operation WHERE type = ?)
+                ORDER BY itinerary.updated_at DESC, itinerary.id
+                """, arguments: [ItinerarySyncOperation.delete.rawValue])
+            .compactMap { ItineraryID($0) }
+        }
+    }
+
+    func store(_ detail: ItineraryDetail) async throws {
+        try await database.writer.write { db in
+            guard let listed = try ItineraryRow.fetchOne(db, key: detail.id.description) else { return }
+            try ItineraryRow(detail: detail, mapPolyline: EncodedPolyline(value: listed.mapPolyline)).update(db)
+            try ItineraryDetailRow(detail).upsert(db)
+        }
+    }
+
+    func delete(id: ItineraryID) async throws {
+        try await database.writer.write { db in
+            _ = try ItinerarySyncOperation.rows(of: id).deleteAll(db)
+            _ = try ItineraryDetailRow.deleteOne(db, key: id.description)
+            _ = try ItineraryRow.deleteOne(db, key: id.description)
+        }
+    }
+
     func replaceSummaries(with summaries: [ItinerarySummary]) async throws {
         try await database.writer.write { db in
             let ids = summaries.map(\.id.description)
-            // #38: keep the rows a pending sync operation targets.
-            try ItineraryRow.filter(!ids.contains(Column("id"))).deleteAll(db)
+            let targeted = try ItinerarySyncOperation.targetedIDs.fetchAll(db)
+            try ItineraryRow.filter(!(ids + targeted).contains(Column("id"))).deleteAll(db)
             for summary in summaries {
                 try ItineraryRow(summary).upsert(db)
             }
@@ -64,12 +79,49 @@ struct GRDBItineraryCache: ItineraryCache {
         }
     }
 
+    /// Values of `fetch`, then again after each change of the tables it reads.
+    private func observe<Value: Equatable & Sendable>(
+        _ fetch: @escaping @Sendable (Database) throws -> Value
+    ) -> AsyncStream<Value> {
+        let observation = ValueObservation.tracking(fetch).removeDuplicates()
+        let writer = database.writer
+        return AsyncStream { continuation in
+            let task = Task {
+                do {
+                    for try await value in observation.values(in: writer) {
+                        continuation.yield(value)
+                    }
+                } catch {}
+                continuation.finish()
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
+    private static func fetchItinerary(_ db: Database, id: ItineraryID) throws -> CachedItinerary? {
+        guard try !ItinerarySyncOperation.pendingDeletionIDs.fetchSet(db).contains(id.description),
+              var row = try ItineraryRow.fetchOne(db, key: id.description) else {
+            return nil
+        }
+        row.name = try ItinerarySyncOperation.pendingNames(db)[row.id] ?? row.name
+        guard let summary = row.summary else { return nil }
+        let detail = try ItineraryDetailRow.fetchOne(db, key: id.description)?.model(row: row)
+        return CachedItinerary(summary: summary, detail: detail)
+    }
+
     private static func fetchSummaries(_ db: Database, limit: Int) throws -> [ItinerarySummary] {
-        try ItineraryRow
+        let hidden = try ItinerarySyncOperation.pendingDeletionIDs.fetchAll(db)
+        let names = try ItinerarySyncOperation.pendingNames(db)
+        return try ItineraryRow
+            .filter(!hidden.contains(Column("id")))
             .order(Column("updated_at").desc, Column("id"))
             .limit(limit)
             .fetchAll(db)
-            .compactMap(\.summary)
+            .compactMap { row in
+                var row = row
+                row.name = names[row.id] ?? row.name
+                return row.summary
+            }
     }
 }
 
