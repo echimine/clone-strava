@@ -84,6 +84,11 @@ final class ItineraryEditorStore {
         ActivityFormatters.distance(editor.displayedDraft.distance)
     }
 
+    /// Hundreds of metres in the distance: each step ticks a haptic as the figure runs.
+    var distanceStep: Int {
+        Int(editor.displayedDraft.distance.meters / 100)
+    }
+
     /// While the finger moves, the distance runs on straight placeholders: shown greyed out
     /// until the next pause or the release.
     var isDistanceStale: Bool {

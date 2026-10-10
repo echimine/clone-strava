@@ -1,18 +1,14 @@
 import SwiftUI
 
-/// A Waypoint on the editor map: green start, red finish, accent in between. The touch
-/// area is larger than the dot so it can be grabbed with a finger.
+/// A Waypoint on the editor map: the start and finish markers, an accent dot in between.
+/// The touch area is larger than the marker so it can be grabbed with a finger.
 struct WaypointMarkerView: View {
     let role: ItineraryEditorStore.Marker.Role
     let isSelected: Bool
 
     var body: some View {
-        Circle()
-            .fill(color)
-            .overlay(Circle().stroke(.white, lineWidth: 2))
-            .frame(width: diameter, height: diameter)
+        marker
             .scaleEffect(isSelected ? 1.3 : 1)
-            .shadow(radius: 1)
             .frame(width: 44, height: 44)
             .contentShape(Circle())
             .animation(.snappy, value: isSelected)
@@ -21,23 +17,24 @@ struct WaypointMarkerView: View {
             .accessibilityAddTraits(.isButton)
     }
 
-    private var diameter: CGFloat {
-        role == .waypoint ? 14 : 18
-    }
-
-    private var color: Color {
+    @ViewBuilder private var marker: some View {
         switch role {
-        case .start: Color(red: 0.18, green: 0.8, blue: 0.44)
-        case .waypoint: Theme.accent
-        case .finish: Color(red: 0.91, green: 0.3, blue: 0.24)
+        case .start: RouteEndpointMarker(endpoint: .start)
+        case .finish: RouteEndpointMarker(endpoint: .finish)
+        case .waypoint:
+            Circle()
+                .fill(Theme.accent)
+                .overlay(Circle().stroke(.white, lineWidth: 2))
+                .frame(width: 14, height: 14)
+                .shadow(radius: 1)
         }
     }
 
     private var label: String {
         switch role {
-        case .start: "Départ"
+        case .start: RouteEndpoint.start.label
         case .waypoint: "Point de passage"
-        case .finish: "Arrivée"
+        case .finish: RouteEndpoint.finish.label
         }
     }
 }

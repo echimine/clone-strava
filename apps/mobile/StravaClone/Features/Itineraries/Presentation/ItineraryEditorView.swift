@@ -5,8 +5,9 @@ import SwiftUI
 /// adds a Waypoint at the end. Waypoints are dragged, a Leg's middle handle is pulled to
 /// insert one, a tap opens a bubble (remove a Waypoint, switch a Leg's mode), and every
 /// gesture can be undone. The stats card shows the sport, which can be changed, the distance
-/// and the elevation gain measured by the API on release (ADR-030 §3). Routing failures leave
-/// Legs pending, requested again when the network comes back, while editing goes on.
+/// (a haptic tick every 100 m as it runs) and the elevation gain measured by the API on
+/// release (ADR-030 §3). Routing failures leave Legs pending, requested again when the
+/// network comes back, while editing goes on.
 struct ItineraryEditorView: View {
     @State var store: ItineraryEditorStore
     let onClose: () -> Void
@@ -84,6 +85,8 @@ struct ItineraryEditorView: View {
                     })
             }
             .allowOverlap(true)
+            // The path usually starts where the athlete stands: shown over the puck.
+            .allowOverlapWithPuck(true)
             .priority(0)
         }
 
@@ -96,6 +99,7 @@ struct ItineraryEditorView: View {
                     })
             }
             .allowOverlap(true)
+            .allowOverlapWithPuck(true)
             .priority(1)
         }
 
@@ -104,6 +108,7 @@ struct ItineraryEditorView: View {
                 bubble.content
             }
             .allowOverlap(true)
+            .allowOverlapWithPuck(true)
             .priority(2)
             .variableAnchors([ViewAnnotationAnchorConfig(anchor: .bottom, offsetY: 18)])
         }
@@ -242,6 +247,7 @@ struct ItineraryEditorView: View {
         .padding(.bottom, 8)
         .animation(.default, value: store.distanceText)
         .animation(.default, value: store.elevationText)
+        .sensoryFeedback(.selection, trigger: store.distanceStep)
     }
 
     /// The sport can change while editing: in another category, the Legs are recomputed.

@@ -1,7 +1,7 @@
 import MapboxMaps
 import SwiftUI
 
-/// The saved track on an Outdoors map, framed on it, with a green start and a red finish
+/// The saved track on an Outdoors map, framed on it, with its start and finish markers
 /// (ADR-030 §8). Offline, the map background comes from Mapbox's automatic cache with no
 /// guarantee: the track is drawn locally underneath (`PolylineSketch`) until the map has
 /// loaded, so it shows even when the background never does. Gestures are off: the map sits
@@ -45,10 +45,7 @@ struct ItineraryTrackMap: View {
                 .lineColor(UIColor(Theme.accent))
                 .lineWidth(4)
                 .lineJoin(.round)
-            if let start = line.first, let finish = line.last {
-                endpoint(start, color: UIColor(red: 0.18, green: 0.8, blue: 0.44, alpha: 1))
-                endpoint(finish, color: UIColor(red: 0.91, green: 0.3, blue: 0.24, alpha: 1))
-            }
+            RouteEndpointsContent(coordinates: line)
         }
         .mapStyle(.outdoors)
         .gestureOptions(GestureOptions(
@@ -64,13 +61,5 @@ struct ItineraryTrackMap: View {
             quickZoomEnabled: false
         ))
         .onMapLoaded { _ in isMapLoaded = true }
-    }
-
-    private func endpoint(_ coordinate: CLLocationCoordinate2D, color: UIColor) -> CircleAnnotation {
-        CircleAnnotation(centerCoordinate: coordinate)
-            .circleColor(color)
-            .circleRadius(7)
-            .circleStrokeColor(.white)
-            .circleStrokeWidth(2)
     }
 }
