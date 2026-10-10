@@ -86,6 +86,13 @@ struct ItineraryDraft: Equatable, Sendable {
         self.sport = sport
     }
 
+    /// A draft as given, e.g. a saved Itinerary reopened (`init(restoring:)`).
+    init(sport: ItinerarySport, waypoints: [Waypoint], legs: [Leg]) {
+        self.sport = sport
+        self.waypoints = waypoints
+        self.legs = legs
+    }
+
     /// The Waypoint cap is reached: no Waypoint can be added or inserted.
     var isFull: Bool {
         waypoints.count >= Self.maxWaypoints

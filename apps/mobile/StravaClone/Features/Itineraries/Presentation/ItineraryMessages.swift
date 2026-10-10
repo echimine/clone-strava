@@ -42,6 +42,18 @@ enum ItineraryMessages {
         }
     }
 
+    static let edit = "Modifier"
+
+    /// Why "Modifier" could not reopen the editor.
+    static func editUnavailable(_ error: ItineraryError) -> String {
+        switch error {
+        case .offline: connectionRequired
+        case .notFound: "Cet Itinéraire n'existe plus."
+        case .unauthorized: "Votre session a expiré, reconnectez-vous."
+        case .network, .server, .unavailable, .invalid, .conflict: "Chargement de l'Itinéraire impossible pour le moment."
+        }
+    }
+
     static func syncFailed(_ error: ItineraryError) -> String {
         error == .offline ? offline : syncFailed
     }

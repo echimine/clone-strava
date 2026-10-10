@@ -4,6 +4,7 @@ import Foundation
 /// openapi.json (ADR-026 §5).
 struct APIItineraryRepository: ItineraryRepository {
     private typealias CreateRequest = Components.Schemas.CreateItineraryRequestDto
+    private typealias UpdateRequest = Components.Schemas.UpdateItineraryRequestDto
     private typealias DetailResponse = Components.Schemas.ItineraryDto_Output
     private typealias ListResponse = Components.Schemas.ListItinerariesResponseDto_Output
 
@@ -34,6 +35,33 @@ struct APIItineraryRepository: ItineraryRepository {
         }
         guard let detail = response.model else { throw .server(code: nil) }
         return detail
+    }
+
+    func update(_ edit: ItineraryCreation) async throws(ItineraryError) -> ItineraryDetail {
+        let body = UpdateRequest(
+            waypoints: edit.waypoints.map { .init(lat: $0.latitude, lon: $0.longitude) },
+            legs: edit.legs.map { leg in
+                switch leg {
+                case .follow(let path): .case1(.init(mode: .follow, polyline6: path.value))
+                case .straight: .case2(.init(mode: .straight))
+                }
+            },
+            name: edit.name,
+            sportTypeCode: edit.sport.rawValue
+        )
+        let response: DetailResponse = try await call { () async throws(APIError) in
+            try await apiClient.send(method: "PUT", path: "/v1/itineraries/\(edit.id)", body: body)
+        }
+        guard let detail = response.model else { throw .server(code: nil) }
+        return detail
+    }
+
+    func savedItinerary(id: ItineraryID) async throws(ItineraryError) -> SavedItinerary {
+        let response: DetailResponse = try await call { () async throws(APIError) in
+            try await apiClient.get("/v1/itineraries/\(id)")
+        }
+        guard let saved = response.savedItinerary else { throw .server(code: nil) }
+        return saved
     }
 
     func page(cursor: String?) async throws(ItineraryError) -> ItineraryPage {
@@ -90,6 +118,24 @@ private extension Components.Schemas.ItineraryDto_Output {
             track: ItineraryTrack(polyline: EncodedPolyline(value: track.polyline6, precision: 6), altitudes: track.altitudesM),
             createdAt: createdAt,
             updatedAt: updatedAt
+        )
+    }
+
+    /// The Waypoints and Legs as stored. A `straight` Leg comes with the line the API drew,
+    /// which the editor draws itself.
+    var savedItinerary: SavedItinerary? {
+        guard let id = ItineraryID(id), let sport = ItinerarySport(rawValue: sportTypeCode) else { return nil }
+        return SavedItinerary(
+            id: id,
+            name: name,
+            sport: sport,
+            waypoints: waypoints.map { Coordinate(latitude: $0.lat, longitude: $0.lon) },
+            legs: legs.map { leg in
+                switch leg.mode {
+                case .follow: .follow(EncodedPolyline(value: leg.polyline6, precision: 6))
+                case .straight: .straight
+                }
+            }
         )
     }
 }
