@@ -41,7 +41,7 @@ struct ItineraryEditorRestoringTests {
         let editor = ItineraryEditor(restoring: draft, router: FakeItineraryRouter(), metricsPreviewer: previewer)
         await editor.settle()
 
-        #expect(await previewer.requests == [draft.metricsRequest])
+        #expect(await previewer.requests == [draft.geometry])
         #expect(editor.elevation.status == .measured)
     }
 

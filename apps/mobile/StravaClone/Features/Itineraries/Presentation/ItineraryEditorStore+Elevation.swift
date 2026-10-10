@@ -5,8 +5,7 @@ extension ItineraryEditorStore {
     /// Last gain measured, "≈" when Open-Meteo provided altitudes; "—" before any.
     var elevationText: String {
         guard let metrics = editor.elevation.metrics else { return "—" }
-        let gain = ActivityFormatters.elevation(metrics.elevationGain)
-        return metrics.elevationSource.isApproximate ? "≈ \(gain)" : gain
+        return ItineraryMessages.elevationGain(metrics.elevationGain, source: metrics.elevationSource)
     }
 
     /// While the track changes or its measure is on its way, the gain shown is the last one: greyed out.
@@ -22,11 +21,7 @@ extension ItineraryEditorStore {
     /// Credit of the altitudes behind the gain shown.
     var elevationSourceText: String? {
         guard !isElevationUnavailable, let source = editor.elevation.metrics?.elevationSource else { return nil }
-        return switch source {
-        case .ign: "Altitudes : IGN"
-        case .mixed: "Altitudes : IGN, Open-Meteo / Copernicus"
-        case .openMeteo: "Altitudes : Open-Meteo / Copernicus"
-        }
+        return ItineraryMessages.elevationSource(source)
     }
 
     func retryElevation() {

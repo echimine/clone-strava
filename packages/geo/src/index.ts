@@ -6,6 +6,7 @@
 export * from "./types.js";
 export { haversineDistanceM, trackDistanceM } from "./distance.js";
 export { elevationGainM } from "./elevation-gain.js";
+export { encodeWithinBudget, type EncodeBudget } from "./encode-within-budget.js";
 export { decodePolyline, encodePolyline, InvalidPolylineError } from "./polyline.js";
 export { resampleAlongTrack } from "./resample.js";
 export { simplifyTrack } from "./simplify.js";

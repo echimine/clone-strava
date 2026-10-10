@@ -100,8 +100,7 @@ final class ItineraryDetailStore {
     /// "≈" when Open-Meteo provided altitudes (ADR-030 §3).
     var elevationText: String {
         guard let summary else { return "—" }
-        let gain = ActivityFormatters.elevation(summary.elevationGain)
-        return detail?.elevationSource.isApproximate == true ? "≈ \(gain)" : gain
+        return ItineraryMessages.elevationGain(summary.elevationGain, source: detail?.elevationSource)
     }
 
     var elevationSourceText: String? {

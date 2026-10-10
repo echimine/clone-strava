@@ -43,7 +43,7 @@ struct EditItineraryTests {
         try await cache.save(.fixture(2, updatedMinutes: 5), mapPolyline: EncodedPolyline(value: "_p~iF~ps|U"))
         let edited = ItineraryDetail.fixture(1, name: "Tour du lac", updatedMinutes: 10)
         repository.updateResults = [.success(edited)]
-        let edit = ItineraryCreation(id: .fixture(1), name: "Tour du lac", sport: .hike, waypoints: saved.waypoints, legs: [.straight])
+        let edit = ItineraryCreation(id: .fixture(1), name: "Tour du lac", sport: .hike, waypoints: saved.geometry.waypoints, legs: [.straight])
 
         let detail = try await UpdateItinerary(repository: repository, cache: cache)(edit)
 
@@ -62,7 +62,7 @@ struct EditItineraryTests {
         let before = ItineraryDetail.fixture(1)
         try await cache.save(before, mapPolyline: EncodedPolyline(value: "_p~iF~ps|U"))
         repository.updateResults = [.failure(.unavailable)]
-        let edit = ItineraryCreation(id: .fixture(1), name: "Tour", sport: .hike, waypoints: saved.waypoints, legs: [.straight])
+        let edit = ItineraryCreation(id: .fixture(1), name: "Tour", sport: .hike, waypoints: saved.geometry.waypoints, legs: [.straight])
 
         await #expect(throws: ItineraryError.unavailable) {
             try await UpdateItinerary(repository: repository, cache: cache)(edit)

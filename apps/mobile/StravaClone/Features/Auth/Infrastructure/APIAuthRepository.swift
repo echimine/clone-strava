@@ -28,10 +28,6 @@ struct APIAuthRepository: AuthRepository {
         let user: RemoteUser
     }
 
-    private struct SessionResponse: Decodable {
-        let user: RemoteUser?
-    }
-
     private struct RemoteUser: Decodable {
         let id: String
         let email: String
@@ -76,16 +72,14 @@ struct APIAuthRepository: AuthRepository {
         authSession.clear()
         // Best-effort: let the server revoke the session too (ADR-022 "revokeSession").
         // Failure here must not block a local sign-out, so it is intentionally not awaited-and-thrown.
-        _ = try? await apiClient.send(method: "POST", path: "/api/auth/sign-out", body: Optional<String>.none) as EmptyResponse
+        _ = try? await apiClient.send(method: "POST", path: "/api/auth/sign-out", body: Optional<String>.none) as NoContent
     }
-
-    private struct EmptyResponse: Decodable {}
 
     func currentUser() async throws(AuthError) -> AuthUser {
         let result: Result<AuthUser, AuthError>
         do {
-            let response: SessionResponse = try await apiClient.get("/api/auth/get-session")
-            if let user = response.user {
+            let endpoint = SessionEndpoint(apiClient: apiClient, authSession: authSession)
+            if let user = try await endpoint.user(as: RemoteUser.self) {
                 result = .success(AuthUser(id: user.id, email: user.email, name: user.name))
             } else {
                 result = .failure(.invalidCredentials)

@@ -5,11 +5,12 @@ extension ItineraryDraft {
     /// `follow` Leg its path, so nothing needs routing. `nil` when the Legs do not join the
     /// Waypoints (Legs = Waypoints − 1).
     init?(restoring saved: SavedItinerary) {
-        guard saved.waypoints.count >= 2, saved.legs.count == saved.waypoints.count - 1 else { return nil }
+        let geometry = saved.geometry
+        guard geometry.waypoints.count >= 2, geometry.legs.count == geometry.waypoints.count - 1 else { return nil }
         self.init(
             sport: saved.sport,
-            waypoints: saved.waypoints.map { Waypoint(id: WaypointID(), coordinate: $0) },
-            legs: saved.legs.map { leg in
+            waypoints: geometry.waypoints.map { Waypoint(id: WaypointID(), coordinate: $0) },
+            legs: geometry.legs.map { leg in
                 switch leg {
                 case .follow(let path):
                     Leg(id: LegID(), mode: .follow, path: path.decode(), version: 0, state: .computed)

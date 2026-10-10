@@ -68,3 +68,29 @@ extension ItineraryDetail {
         )
     }
 }
+
+extension ItineraryCreation {
+    /// The geometry spelled out, for readable fixtures.
+    init(id: ItineraryID, name: String, sport: ItinerarySport, waypoints: [Coordinate], legs: [ItineraryGeometry.Leg]) {
+        self.init(id: id, name: name, sport: sport, geometry: ItineraryGeometry(waypoints: waypoints, legs: legs))
+    }
+}
+
+extension SavedItinerary {
+    /// The geometry spelled out, for readable fixtures.
+    init(id: ItineraryID, name: String, sport: ItinerarySport, waypoints: [Coordinate], legs: [ItineraryGeometry.Leg]) {
+        self.init(id: id, name: name, sport: sport, geometry: ItineraryGeometry(waypoints: waypoints, legs: legs))
+    }
+}
+
+extension CreatedItinerary {
+    /// `201`: the Itinerary did not exist yet.
+    static func new(_ detail: ItineraryDetail) -> CreatedItinerary {
+        CreatedItinerary(detail: detail, isReplay: false)
+    }
+
+    /// `200`: an earlier try was stored, its answer lost.
+    static func replay(_ detail: ItineraryDetail) -> CreatedItinerary {
+        CreatedItinerary(detail: detail, isReplay: true)
+    }
+}

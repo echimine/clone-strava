@@ -1,4 +1,4 @@
-import { encodePolyline, simplifyTrack, type LonLat } from "@repo/geo";
+import { encodeWithinBudget, type LonLat } from "@repo/geo";
 
 /**
  * Budget of the encoded route kept for the feed (ADR-029): once
@@ -7,7 +7,9 @@ import { encodePolyline, simplifyTrack, type LonLat } from "@repo/geo";
  */
 export const FEED_POLYLINE_MAX_CHARS = 2000;
 
-const TOLERANCES_M = [5, 10, 20, 40, 80, 160, 320, 640];
+/** Douglas-Peucker tolerances tried: 5, 10, 20, … 640 m, then the route is not drawn. */
+const FIRST_TOLERANCE_M = 5;
+const MAX_TOLERANCE_M = 640;
 
 /**
  * polyline5 of the (already privacy-zoned) route for the feed card map
@@ -18,11 +20,5 @@ export function feedPolyline(points: LonLat[], maxChars = FEED_POLYLINE_MAX_CHAR
   if (points.length < 2) {
     return null;
   }
-  for (const tolerance of TOLERANCES_M) {
-    const encoded = encodePolyline(simplifyTrack(points, tolerance));
-    if (encoded.length <= maxChars) {
-      return encoded;
-    }
-  }
-  return null;
+  return encodeWithinBudget(points, { maxChars, firstToleranceM: FIRST_TOLERANCE_M, maxToleranceM: MAX_TOLERANCE_M });
 }

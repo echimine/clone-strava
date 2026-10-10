@@ -1,30 +1,18 @@
 import Foundation
 
-/// `SessionRefreshing` over Better Auth (ADR-022): `GET /api/auth/get-session` validates the
-/// bearer and extends the session; when Better Auth issues a new token it comes back in the
-/// `set-auth-token` header and replaces the stored one. No session answers `null`.
+/// `SessionRefreshing` over Better Auth (ADR-022): `get-session` (`SessionEndpoint`)
+/// validates the bearer and extends the session, keeping any new token. No session, or any
+/// failure, means the athlete must sign in again.
 struct APISessionRefresher: SessionRefreshing {
     let apiClient: APIClient
     let authSession: AuthSession
 
-    private struct SessionResponse: Decodable {
-        struct User: Decodable { let id: String }
-        let user: User?
+    private struct User: Decodable {
+        let id: String
     }
 
     func refresh() async -> Bool {
-        do {
-            let (response, http): (SessionResponse?, HTTPURLResponse) = try await apiClient.sendWithHeaders(
-                method: "GET",
-                path: "/api/auth/get-session",
-                body: String?.none
-            )
-            if let token = http.value(forHTTPHeaderField: "set-auth-token"), !token.isEmpty {
-                authSession.store(token: token)
-            }
-            return response?.user != nil
-        } catch {
-            return false
-        }
+        let endpoint = SessionEndpoint(apiClient: apiClient, authSession: authSession)
+        return (try? await endpoint.user(as: User.self)) != nil
     }
 }

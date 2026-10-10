@@ -6,6 +6,12 @@ enum ItineraryMessages {
     static let trackUnavailable = "Tracé indisponible pour le moment."
     static let elevationProfile = "Profil d'altitude"
 
+    /// The elevation gain, "≈" when Open-Meteo provided altitudes (ADR-030 §3).
+    static func elevationGain(_ meters: Double, source: ElevationSource?) -> String {
+        let gain = ActivityFormatters.elevation(meters)
+        return source?.isApproximate == true ? "≈ \(gain)" : gain
+    }
+
     /// Credit of the altitudes (ADR-030 §3).
     static func elevationSource(_ source: ElevationSource) -> String {
         switch source {
@@ -33,13 +39,33 @@ enum ItineraryMessages {
         }
     }
 
+    static let sessionExpired = "Votre session a expiré, reconnectez-vous."
+    static let gone = "Cet Itinéraire n'existe plus."
+
+    /// A new Itinerary could not be created: nothing is saved yet.
     static func saveFailed(_ error: ItineraryError) -> String {
+        let refused = "L'Itinéraire a été refusé par le serveur."
+        return failed(error, notSaved: "votre Itinéraire n'est pas encore enregistré.", refused: refused, gone: refused)
+    }
+
+    /// An existing Itinerary could not be replaced: it is kept as it was.
+    static func updateFailed(_ error: ItineraryError) -> String {
+        failed(
+            error,
+            notSaved: "vos modifications ne sont pas encore enregistrées.",
+            refused: "Vos modifications ont été refusées par le serveur.",
+            gone: gone
+        )
+    }
+
+    private static func failed(_ error: ItineraryError, notSaved: String, refused: String, gone: String) -> String {
         switch error {
-        case .unavailable: "Altitudes momentanément indisponibles : votre Itinéraire n'est pas encore enregistré."
-        case .offline: "Vous êtes hors ligne : votre Itinéraire n'est pas encore enregistré."
-        case .network, .server: "Enregistrement impossible pour le moment : votre Itinéraire n'est pas encore enregistré."
-        case .unauthorized: "Votre session a expiré, reconnectez-vous."
-        case .invalid, .notFound, .conflict: "L'Itinéraire a été refusé par le serveur."
+        case .unavailable: "Altitudes momentanément indisponibles : \(notSaved)"
+        case .offline: "Vous êtes hors ligne : \(notSaved)"
+        case .network, .server: "Enregistrement impossible pour le moment : \(notSaved)"
+        case .unauthorized: sessionExpired
+        case .notFound: gone
+        case .invalid, .conflict: refused
         }
     }
 
@@ -75,8 +101,8 @@ enum ItineraryMessages {
     static func editUnavailable(_ error: ItineraryError) -> String {
         switch error {
         case .offline: connectionRequired
-        case .notFound: "Cet Itinéraire n'existe plus."
-        case .unauthorized: "Votre session a expiré, reconnectez-vous."
+        case .notFound: gone
+        case .unauthorized: sessionExpired
         case .network, .server, .unavailable, .invalid, .conflict: "Chargement de l'Itinéraire impossible pour le moment."
         }
     }

@@ -37,7 +37,7 @@ struct ItinerarySaveStoreEditingTests {
         #expect(repository.creations.isEmpty)
         #expect(repository.updates.map(\.id) == [.fixture(9)])
         #expect(repository.updates.map(\.name) == ["Tour du lac par le col"])
-        #expect(repository.updates.map(\.legs) == [[.straight]])
+        #expect(repository.updates.map(\.geometry.legs) == [[.straight]])
     }
 
     @Test func aFailedSaveOffersARetryOnTheSameItinerary() async throws {
@@ -48,12 +48,30 @@ struct ItinerarySaveStoreEditingTests {
 
         await store.save(draft)
         #expect(store.phase == .failed(
-            message: "Altitudes momentanément indisponibles : votre Itinéraire n'est pas encore enregistré.",
+            message: "Altitudes momentanément indisponibles : vos modifications ne sont pas encore enregistrées.",
             canRetry: true
         ))
 
         await store.save(draft)
         #expect(store.phase == .saved)
         #expect(repository.updates.map(\.id) == [.fixture(9), .fixture(9)])
+    }
+
+    /// The Itinerary exists: a failed edit says the changes, not the Itinerary, are unsaved.
+    @Test(arguments: [
+        (ItineraryError.offline, "Vous êtes hors ligne : vos modifications ne sont pas encore enregistrées."),
+        (.network, "Enregistrement impossible pour le moment : vos modifications ne sont pas encore enregistrées."),
+        (.invalid(code: "validation_error"), "Vos modifications ont été refusées par le serveur."),
+        (.notFound, "Cet Itinéraire n'existe plus."),
+        (.unauthorized, "Votre session a expiré, reconnectez-vous."),
+    ])
+    func aFailedEditSaysTheChangesAreNotSaved(error: ItineraryError, message: String) async throws {
+        let repository = FakeItineraryRepository()
+        repository.updateResults = [.failure(error)]
+        let store = try makeStore(repository)
+
+        await store.save(try #require(ItineraryDraft(restoring: saved)))
+
+        #expect(store.phase == .failed(message: message, canRetry: error.isRetryable))
     }
 }

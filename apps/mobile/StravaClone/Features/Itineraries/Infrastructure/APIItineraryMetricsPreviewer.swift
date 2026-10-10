@@ -8,10 +8,10 @@ struct APIItineraryMetricsPreviewer: ItineraryMetricsPreviewer {
 
     let apiClient: APIClient
 
-    func metrics(for request: ItineraryMetricsRequest) async throws(ItineraryMetricsError) -> ItineraryMetrics {
+    func metrics(for geometry: ItineraryGeometry) async throws(ItineraryMetricsError) -> ItineraryMetrics {
         let answer: Answer
         do {
-            answer = try await apiClient.send(method: "POST", path: "/v1/itineraries/metrics-preview", body: Self.body(of: request))
+            answer = try await apiClient.send(method: "POST", path: "/v1/itineraries/metrics-preview", body: Self.body(of: geometry))
         } catch .offline {
             throw .offline
         } catch {
@@ -24,10 +24,10 @@ struct APIItineraryMetricsPreviewer: ItineraryMetricsPreviewer {
         )
     }
 
-    private static func body(of request: ItineraryMetricsRequest) -> Body {
+    private static func body(of geometry: ItineraryGeometry) -> Body {
         Body(
-            waypoints: request.waypoints.map { .init(lat: $0.latitude, lon: $0.longitude) },
-            legs: request.legs.map { leg in
+            waypoints: geometry.waypoints.map { .init(lat: $0.latitude, lon: $0.longitude) },
+            legs: geometry.legs.map { leg in
                 switch leg {
                 case .follow(let polyline): .case1(.init(mode: .follow, polyline6: polyline.value))
                 case .straight: .case2(.init(mode: .straight))

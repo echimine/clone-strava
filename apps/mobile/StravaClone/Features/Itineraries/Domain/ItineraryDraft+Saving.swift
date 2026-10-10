@@ -32,17 +32,8 @@ extension ItineraryDraft {
         }
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard Self.nameLength.contains(trimmed.count) else { throw .invalidName }
-        return ItineraryCreation(
-            id: id,
-            name: trimmed,
-            sport: sport,
-            waypoints: waypoints.map(\.coordinate),
-            legs: legs.map { leg in
-                switch (leg.mode, leg.path) {
-                case (.follow, let path?): .follow(EncodedPolyline(encoding: path, precision: 6))
-                default: .straight
-                }
-            }
-        )
+        // No save issue: every `follow` Leg is computed, so the geometry exists.
+        guard let geometry else { throw .legsComputing }
+        return ItineraryCreation(id: id, name: trimmed, sport: sport, geometry: geometry)
     }
 }

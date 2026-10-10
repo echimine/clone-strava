@@ -1,21 +1,22 @@
 import Foundation
 
 extension ItineraryDraft {
-    /// What `metrics-preview` measures: the full track, once there is a start and a finish
-    /// and every `follow` Leg has its path. `nil` while a Leg is computing or pending.
-    var metricsRequest: ItineraryMetricsRequest? {
+    /// The `{ waypoints, legs }` sent to the API (`metrics-preview`, save), once there is a
+    /// start and a finish and every `follow` Leg has its path. `nil` while a Leg is
+    /// computing or pending.
+    var geometry: ItineraryGeometry? {
         guard waypoints.count >= 2 else { return nil }
-        var requestLegs: [ItineraryMetricsRequest.Leg] = []
+        var geometryLegs: [ItineraryGeometry.Leg] = []
         for leg in legs {
             switch (leg.mode, leg.state, leg.path) {
             case (.straight, _, _):
-                requestLegs.append(.straight)
+                geometryLegs.append(.straight)
             case (.follow, .computed, let path?):
-                requestLegs.append(.follow(EncodedPolyline(encoding: path, precision: 6)))
+                geometryLegs.append(.follow(EncodedPolyline(encoding: path, precision: 6)))
             case (.follow, _, _):
                 return nil
             }
         }
-        return ItineraryMetricsRequest(waypoints: waypoints.map(\.coordinate), legs: requestLegs)
+        return ItineraryGeometry(waypoints: waypoints.map(\.coordinate), legs: geometryLegs)
     }
 }

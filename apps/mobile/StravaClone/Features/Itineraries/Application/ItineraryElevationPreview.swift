@@ -25,7 +25,7 @@ final class ItineraryElevationPreview {
         /// A gesture is in progress, or a Leg is still being routed.
         case changing
         /// Ready to be measured as is.
-        case settled(ItineraryMetricsRequest)
+        case settled(ItineraryGeometry)
     }
 
     private(set) var status: Status = .idle
@@ -34,7 +34,7 @@ final class ItineraryElevationPreview {
 
     @ObservationIgnored private let previewer: (any ItineraryMetricsPreviewer)?
     /// The request `status` is about: in flight, measured or failed.
-    @ObservationIgnored private var target: ItineraryMetricsRequest?
+    @ObservationIgnored private var target: ItineraryGeometry?
     /// The request whose answer is awaited; any other answer is dropped.
     @ObservationIgnored private var awaited: UUID?
     /// Every request not answered yet, dropped ones included.
@@ -78,7 +78,7 @@ final class ItineraryElevationPreview {
 
     // MARK: Private
 
-    private func send(_ request: ItineraryMetricsRequest) {
+    private func send(_ request: ItineraryGeometry) {
         guard let previewer else { return }
         cancel()
         target = request

@@ -3,7 +3,6 @@ import { APP_FILTER, APP_INTERCEPTOR, APP_PIPE } from "@nestjs/core";
 import { EventEmitter2, EventEmitterModule } from "@nestjs/event-emitter";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { Test } from "@nestjs/testing";
-import express from "express";
 import { Redis } from "ioredis";
 import { ZodSerializerInterceptor, ZodValidationPipe } from "nestjs-zod";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
@@ -26,7 +25,7 @@ import {
 import { ensureTestDatabaseMigrated, TEST_DATABASE_URL, TEST_REDIS_URL } from "../auth/test-auth-app.js";
 import { SessionGuard } from "../auth/session.guard.js";
 import { GlobalExceptionFilter } from "../common/global-exception.filter.js";
-import { JSON_BODY_LIMIT } from "../common/json-body.js";
+import { jsonBodyParser } from "../common/json-body.js";
 import { ItinerariesController } from "./itineraries.controller.js";
 
 /** Climbs 100 m (500 → 600 m) from 45.90° N to 45.905° N, then flat. */
@@ -141,7 +140,7 @@ describe("/v1/itineraries lifecycle events (integration)", () => {
     }).compile();
 
     app = moduleRef.createNestApplication<NestExpressApplication>({ bodyParser: false });
-    app.use(express.json({ limit: JSON_BODY_LIMIT }));
+    app.use(jsonBodyParser());
     app.setGlobalPrefix("v1");
     await app.listen(0);
     const address = app.getHttpServer().address();

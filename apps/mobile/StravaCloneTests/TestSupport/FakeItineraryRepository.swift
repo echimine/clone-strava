@@ -5,7 +5,7 @@ import Foundation
 /// `hold()` suspends `page` calls until `release()`, to observe a resync in flight.
 final class FakeItineraryRepository: ItineraryRepository, @unchecked Sendable {
     private let lock = NSLock()
-    private var _createResults: [Result<ItineraryDetail, ItineraryError>] = []
+    private var _createResults: [Result<CreatedItinerary, ItineraryError>] = []
     private var _pages: [String?: Result<ItineraryPage, ItineraryError>] = [:]
     private var _creations: [ItineraryCreation] = []
     private var _pageCalls: [String?] = []
@@ -22,7 +22,7 @@ final class FakeItineraryRepository: ItineraryRepository, @unchecked Sendable {
     private var gateContinuation: AsyncStream<Void>.Continuation?
 
     /// Answers of the next `create` calls, in order; the last one repeats.
-    var createResults: [Result<ItineraryDetail, ItineraryError>] {
+    var createResults: [Result<CreatedItinerary, ItineraryError>] {
         get { lock.withLock { _createResults } }
         set { lock.withLock { _createResults = newValue } }
     }
@@ -75,7 +75,7 @@ final class FakeItineraryRepository: ItineraryRepository, @unchecked Sendable {
         lock.withLock { gateContinuation }?.finish()
     }
 
-    func create(_ creation: ItineraryCreation) async throws(ItineraryError) -> ItineraryDetail {
+    func create(_ creation: ItineraryCreation) async throws(ItineraryError) -> CreatedItinerary {
         let result = lock.withLock {
             _creations.append(creation)
             return _createResults.count > 1 ? _createResults.removeFirst() : _createResults.first

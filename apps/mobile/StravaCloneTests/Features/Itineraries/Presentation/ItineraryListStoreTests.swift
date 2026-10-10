@@ -55,7 +55,7 @@ struct ItineraryListStoreTests {
         let observing = Task { await context.store.observe() }
         defer { observing.cancel() }
         await waitUntil { context.store.isEmpty }
-        context.repository.createResults = [.success(.fixture(3, name: "Tour du lac"))]
+        context.repository.createResults = [.success(.new(.fixture(3, name: "Tour du lac")))]
 
         _ = try await SaveItinerary(repository: context.repository, cache: context.cache)(ItineraryCreation(
             id: .fixture(3), name: "Tour du lac", sport: .hike, waypoints: [], legs: []

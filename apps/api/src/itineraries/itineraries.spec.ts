@@ -3,7 +3,6 @@ import { APP_FILTER, APP_INTERCEPTOR, APP_PIPE } from "@nestjs/core";
 import { EventEmitterModule } from "@nestjs/event-emitter";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { Test } from "@nestjs/testing";
-import express from "express";
 import { ZodSerializerInterceptor, ZodValidationPipe } from "nestjs-zod";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Itinerary, ListItinerariesResponse } from "@repo/contracts";
@@ -16,7 +15,7 @@ import { decodePolyline, encodePolyline, type LonLat } from "@repo/geo";
 import { ensureTestDatabaseMigrated, TEST_DATABASE_URL, TEST_REDIS_URL } from "../auth/test-auth-app.js";
 import { SessionGuard } from "../auth/session.guard.js";
 import { GlobalExceptionFilter } from "../common/global-exception.filter.js";
-import { JSON_BODY_LIMIT } from "../common/json-body.js";
+import { jsonBodyParser } from "../common/json-body.js";
 import { ItinerariesController } from "./itineraries.controller.js";
 
 /** Meters per degree of latitude on the haversine sphere (R = 6,371,000 m). */
@@ -123,7 +122,7 @@ describe("/v1/itineraries lifecycle (integration)", () => {
     }).compile();
 
     app = moduleRef.createNestApplication<NestExpressApplication>({ bodyParser: false });
-    app.use(express.json({ limit: JSON_BODY_LIMIT }));
+    app.use(jsonBodyParser());
     app.setGlobalPrefix("v1");
     await app.listen(0);
     const address = app.getHttpServer().address();
@@ -245,6 +244,25 @@ describe("/v1/itineraries lifecycle (integration)", () => {
       const body = newItinerary({ sportTypeCode: "swim" });
       expect((await create(body)).status).toBe(422);
       expect((await call(`/${body.id}`, athlete)).status).toBe(404);
+    });
+
+    it("answers 422, not 413, to a body over express's 100 kB default (POST and PUT)", async () => {
+      // 60,000 decoded points (over the 50,000 limit): a ~120 kB polyline6.
+      const tooLong = encodePolyline([A, ...Array.from({ length: 59_998 }, () => A), B], 6);
+      const geometryOverLimit = { waypoints: [A, B], legs: [{ mode: "follow", polyline6: tooLong }] };
+      expect(JSON.stringify(geometryOverLimit).length).toBeGreaterThan(100 * 1024);
+
+      const posted = await create(newItinerary(geometryOverLimit));
+      expect(posted.status).toBe(422);
+      expect(((await posted.json()) as { error: { code: string } }).error.code).toBe("validation_error");
+
+      const created = await createOne();
+      const put = await call(`/${created.id}`, athlete, {
+        method: "PUT",
+        body: { name: created.name, sportTypeCode: "hike", ...geometryOverLimit },
+      });
+      expect(put.status).toBe(422);
+      expect(await (await call(`/${created.id}`, athlete)).json()).toEqual(created);
     });
   });
 

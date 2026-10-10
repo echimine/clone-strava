@@ -5,6 +5,9 @@ import Observation
 /// generated once, when the editor opens, so every retry replays the same `POST` and never
 /// creates a duplicate. After "Modifier", the save replaces the same Itinerary (`PUT`).
 /// A failure leaves the editor's draft untouched.
+///
+/// A replay (`200`) answers what the first stored try sent: when the draft changed between
+/// tries, the current draft follows as a `PUT`, and from then on the Itinerary is updated.
 @Observable
 @MainActor
 final class ItinerarySaveStore {
@@ -25,7 +28,9 @@ final class ItinerarySaveStore {
         case update(UpdateItinerary)
     }
 
-    @ObservationIgnored private let target: Target
+    @ObservationIgnored private var target: Target
+    /// What each `POST` sent so far: a replay answers one of them, maybe not the last.
+    @ObservationIgnored private var sentCreations: [ItineraryCreation] = []
 
     init(save: SaveItinerary, id: ItineraryID = ItineraryID()) {
         target = .create(save)
@@ -67,12 +72,28 @@ final class ItinerarySaveStore {
         phase = .saving
         do {
             switch target {
-            case .create(let saveItinerary): _ = try await saveItinerary(creation)
+            case .create(let saveItinerary): try await create(creation, with: saveItinerary)
             case .update(let updateItinerary): _ = try await updateItinerary(creation)
             }
             phase = .saved
         } catch {
-            phase = .failed(message: ItineraryMessages.saveFailed(error), canRetry: error.isRetryable)
+            let message = switch target {
+            case .create: ItineraryMessages.saveFailed(error)
+            case .update: ItineraryMessages.updateFailed(error)
+            }
+            phase = .failed(message: message, canRetry: error.isRetryable)
+        }
+    }
+
+    private func create(_ creation: ItineraryCreation, with saveItinerary: SaveItinerary) async throws(ItineraryError) {
+        sentCreations.append(creation)
+        let created = try await saveItinerary(creation)
+        guard created.isReplay else { return }
+        // The Itinerary exists: any further save replaces it.
+        let updateItinerary = saveItinerary.update
+        target = .update(updateItinerary)
+        if sentCreations.contains(where: { $0 != creation }) {
+            _ = try await updateItinerary(creation)
         }
     }
 }

@@ -332,7 +332,7 @@ final class ItineraryEditor {
     private func updateElevation() {
         if let drag, draft != drag.origin {
             elevation.update(.changing)
-        } else if let request = draft.metricsRequest {
+        } else if let request = draft.geometry {
             elevation.update(.settled(request))
         } else {
             elevation.update(draft.waypoints.count < 2 ? .empty : .changing)
