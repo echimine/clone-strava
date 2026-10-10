@@ -72,6 +72,11 @@ enum RoutingResolution: Equatable, Sendable {
 /// Gestures return the routing requests they need; router answers are applied back only
 /// while the Legs they cover are unchanged. Being a value, a past state can be kept for undo.
 struct ItineraryDraft: Equatable, Sendable {
+    /// Most Waypoints an Itinerary can have, the API's limit (ADR-030 §2).
+    static let maxWaypoints = 200
+    /// Most Legs in one routing request: Directions takes up to 25 points.
+    static let maxLegsPerRequest = 24
+
     private(set) var sport: ItinerarySport
     private(set) var waypoints: [Waypoint] = []
     /// Always `waypoints.count - 1` Legs once there is a start.
@@ -79,6 +84,16 @@ struct ItineraryDraft: Equatable, Sendable {
 
     init(sport: ItinerarySport) {
         self.sport = sport
+    }
+
+    /// The Waypoint cap is reached: no Waypoint can be added or inserted.
+    var isFull: Bool {
+        waypoints.count >= Self.maxWaypoints
+    }
+
+    /// A `follow` Leg waits for routing to be available again.
+    var hasPendingLegs: Bool {
+        legs.contains { $0.state == .pending }
     }
 
     /// Length of the Legs as currently drawn, measured locally.
@@ -97,8 +112,9 @@ struct ItineraryDraft: Equatable, Sendable {
     // MARK: Gestures
 
     /// Tap on the map: the first Waypoint is the start; each next one is appended as the
-    /// new finish, joined by a `follow` Leg to compute.
+    /// new finish, joined by a `follow` Leg to compute. Nothing happens once the draft is full.
     mutating func appendWaypoint(at coordinate: Coordinate) -> LegRoutingRequest? {
+        guard !isFull else { return nil }
         waypoints.append(Waypoint(id: WaypointID(), coordinate: coordinate))
         guard waypoints.count >= 2 else { return nil }
         legs.append(Leg(id: LegID(), mode: .follow, path: nil, version: 0, state: .computing))
@@ -139,9 +155,9 @@ struct ItineraryDraft: Equatable, Sendable {
     }
 
     /// Pulling a Leg: a Waypoint is inserted where it was pulled, splitting the Leg in two
-    /// Legs of the same mode, drawn straight until requested.
+    /// Legs of the same mode, drawn straight until requested. Nothing happens once the draft is full.
     mutating func insertWaypoint(intoLeg id: LegID, at coordinate: Coordinate) -> WaypointID? {
-        guard let index = legs.firstIndex(where: { $0.id == id }) else { return nil }
+        guard !isFull, let index = legs.firstIndex(where: { $0.id == id }) else { return nil }
         let waypoint = Waypoint(id: WaypointID(), coordinate: coordinate)
         waypoints.insert(waypoint, at: index + 1)
         legs.insert(Leg(id: LegID(), mode: legs[index].mode, path: nil, version: 0, state: .computed), at: index + 1)
@@ -181,6 +197,20 @@ struct ItineraryDraft: Equatable, Sendable {
         legs.indices
             .filter { legs[$0].mode == .follow && legs[$0].state == .computing }
             .map { request(forLegsIn: $0 ... $0) }
+    }
+
+    /// Pending Legs are requested again: each run of consecutive ones in one request, split
+    /// to fit the router's limit. They are computing until answered.
+    mutating func retryPendingLegs() -> [LegRoutingRequest] {
+        var runs: [ClosedRange<Int>] = []
+        for index in legs.indices where legs[index].state == .pending {
+            if let last = runs.last, last.upperBound == index - 1, last.count < Self.maxLegsPerRequest {
+                runs[runs.count - 1] = last.lowerBound ... index
+            } else {
+                runs.append(index ... index)
+            }
+        }
+        return runs.map { makeRequest(forLegsIn: $0) }
     }
 
     // MARK: Router answers

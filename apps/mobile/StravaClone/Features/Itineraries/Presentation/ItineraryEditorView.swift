@@ -5,7 +5,8 @@ import SwiftUI
 /// adds a Waypoint at the end. Waypoints are dragged, a Leg's middle handle is pulled to
 /// insert one, a tap opens a bubble (remove a Waypoint, switch a Leg's mode), and every
 /// gesture can be undone. The stats card shows the sport, the distance and the elevation
-/// gain measured by the API on release (ADR-030 §3).
+/// gain measured by the API on release (ADR-030 §3). Routing failures leave Legs pending,
+/// requested again when the network comes back, while editing goes on.
 struct ItineraryEditorView: View {
     @State var store: ItineraryEditorStore
     let onClose: () -> Void
@@ -24,6 +25,7 @@ struct ItineraryEditorView: View {
         .accessibilityIdentifier("itineraryEditor")
         .overlay(alignment: .top) { header }
         .safeAreaInset(edge: .bottom) { statsCard }
+        .task { await store.retryPendingLegsOnReconnection() }
     }
 
     // MARK: Map
@@ -156,6 +158,11 @@ struct ItineraryEditorView: View {
                     Text(message)
                         .font(.footnote)
                         .frame(maxWidth: .infinity, alignment: .leading)
+                    if store.canRetryPendingLegs {
+                        Button("Réessayer", action: store.retryPendingLegs)
+                            .font(.footnote.bold())
+                            .accessibilityIdentifier("retryPendingLegs")
+                    }
                     Button("OK", action: store.dismissMessage)
                         .font(.footnote.bold())
                 }
