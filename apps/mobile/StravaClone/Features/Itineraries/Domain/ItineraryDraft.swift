@@ -38,7 +38,8 @@ struct Leg: Identifiable, Equatable, Sendable {
     let id: LegID
     var mode: LegMode
     /// Geometry from the router. `nil` draws a straight line between the Leg's Waypoints:
-    /// a `straight` Leg, or a `follow` Leg not computed yet.
+    /// a `straight` Leg, or a `follow` Leg not computed yet. A `follow` Leg recomputed for a
+    /// sport of another category keeps its former path, drawn provisional, until answered.
     var path: [Coordinate]?
     /// Bumped whenever the Leg's endpoints or mode change: an answer for an older version is stale.
     var version: Int
@@ -56,6 +57,12 @@ struct LegRoutingRequest: Equatable, Sendable {
     /// The Legs' Waypoints, `targets.count + 1` of them.
     let waypoints: [Coordinate]
     let profile: RoutingProfile
+    /// A batch of a sport category change whose first Waypoint is the junction with the
+    /// previous batch: that batch snaps it.
+    var joinsPreviousBatch = false
+    /// A batch of a sport category change whose last Waypoint is the junction with the next
+    /// batch: this batch snaps it.
+    var joinsNextBatch = false
 
     var legIDs: Set<LegID> { Set(targets.map(\.legID)) }
 }
@@ -198,12 +205,27 @@ struct ItineraryDraft: Equatable, Sendable {
         currentRange(of: request) != nil
     }
 
-    /// One request per `follow` Leg still waiting for its path, e.g. in a state brought back
-    /// by undo or redo after its answer was dropped.
-    func requestsForComputingLegs() -> [LegRoutingRequest] {
-        legs.indices
-            .filter { legs[$0].mode == .follow && legs[$0].state == .computing }
-            .map { request(forLegsIn: $0 ... $0) }
+    /// Requests for the `follow` Legs waiting for their path that neither `awaited` nor
+    /// `excluded` covers: in a state brought back by undo or redo after their answer was
+    /// dropped, or once a gesture overtook their batch. Runs of consecutive ones are split
+    /// into batches like a sport change; a run next to an awaited batch shares its junction.
+    func requestsForStrandedLegs(awaited: [LegRoutingRequest], excluding excluded: Set<LegID>) -> [LegRoutingRequest] {
+        let covered = awaited.reduce(into: excluded) { $0.formUnion($1.legIDs) }
+        let stranded = runs { legs[$0].mode == .follow && legs[$0].state == .computing && !covered.contains(legs[$0].id) }
+        return stranded.flatMap { run in
+            var requests = batchRequests(forLegsIn: run)
+            if run.lowerBound > 0, awaited.contains(where: {
+                $0.joinsNextBatch && $0.targets.last?.legID == legs[run.lowerBound - 1].id
+            }) {
+                requests[0].joinsPreviousBatch = true
+            }
+            if run.upperBound < legs.count - 1, awaited.contains(where: {
+                $0.joinsPreviousBatch && $0.targets.first?.legID == legs[run.upperBound + 1].id
+            }) {
+                requests[requests.count - 1].joinsNextBatch = true
+            }
+            return requests
+        }
     }
 
     /// Pending Legs are requested again: each run of consecutive ones in one request, split
@@ -218,6 +240,23 @@ struct ItineraryDraft: Equatable, Sendable {
             }
         }
         return runs.map { makeRequest(forLegsIn: $0) }
+    }
+
+    /// The athlete picks another sport. Within the same category the paths stay as they are;
+    /// in another one, each run of consecutive `follow` Legs is requested again in batches of
+    /// at most 25 points, sharing their junction Waypoint. The Legs keep their former path
+    /// until answered, and `straight` Legs are not touched.
+    mutating func changeSport(to newSport: ItinerarySport) -> [LegRoutingRequest] {
+        let previousCategory = sport.category
+        sport = newSport
+        guard newSport.category != previousCategory else { return [] }
+        return runs { legs[$0].mode == .follow }.flatMap { run in
+            for index in run {
+                legs[index].version += 1
+                legs[index].state = .computing
+            }
+            return batchRequests(forLegsIn: run)
+        }
     }
 
     // MARK: Router answers
@@ -237,18 +276,30 @@ struct ItineraryDraft: Equatable, Sendable {
         var followUps: [LegRoutingRequest] = []
         let waypointRange = range.lowerBound ... range.upperBound + 1
         for (offset, index) in waypointRange.enumerated() where waypoints[index].coordinate != path.waypoints[offset] {
+            // A junction between batches of a sport change takes the position the first one snapped.
+            if offset == 0, request.joinsPreviousBatch {
+                continue
+            }
+            if index == waypointRange.upperBound, request.joinsNextBatch {
+                moveJunction(at: index, to: path.waypoints[offset])
+                continue
+            }
             let outsideLeg = index == range.lowerBound ? index - 1 : (index == waypointRange.upperBound ? index : nil)
             guard let outsideLeg, legs.indices.contains(outsideLeg) else {
                 waypoints[index].coordinate = path.waypoints[offset]
                 continue
             }
             // Already on the network for its other Leg: kept, within the API's 30 m tolerance.
-            guard legs[outsideLeg].path == nil else { continue }
+            // A Leg recomputed for a new sport keeps its former path but is not routed yet.
+            guard legs[outsideLeg].path == nil || legs[outsideLeg].state != .computed else { continue }
             waypoints[index].coordinate = path.waypoints[offset]
             legs[outsideLeg].version += 1
             if legs[outsideLeg].mode == .follow {
                 followUps.append(makeRequest(forLegsIn: outsideLeg ... outsideLeg))
             }
+        }
+        if request.joinsPreviousBatch {
+            connectStart(ofLegAt: range.lowerBound)
         }
         return .applied(followUps: followUps)
     }
@@ -268,7 +319,10 @@ struct ItineraryDraft: Equatable, Sendable {
         case .noPath:
             let followUps = range.map { index in
                 legs[index].version += 1
-                return makeRequest(forLegsIn: index ... index)
+                var followUp = makeRequest(forLegsIn: index ... index)
+                followUp.joinsPreviousBatch = request.joinsPreviousBatch && index == range.lowerBound
+                followUp.joinsNextBatch = request.joinsNextBatch && index == range.upperBound
+                return followUp
             }
             return .applied(followUps: followUps)
         case .temporary, .rateLimited:
@@ -280,6 +334,31 @@ struct ItineraryDraft: Equatable, Sendable {
     }
 
     // MARK: Private
+
+    /// Index ranges of the runs of consecutive Legs matching `isIncluded`.
+    private func runs(where isIncluded: (Int) -> Bool) -> [ClosedRange<Int>] {
+        var runs: [ClosedRange<Int>] = []
+        for index in legs.indices where isIncluded(index) {
+            if let last = runs.last, last.upperBound == index - 1 {
+                runs[runs.count - 1] = last.lowerBound ... index
+            } else {
+                runs.append(index ... index)
+            }
+        }
+        return runs
+    }
+
+    /// Requests for a run of Legs in batches of at most 25 points, sent in parallel:
+    /// neighboring batches share their junction Waypoint, snapped by the first one.
+    private func batchRequests(forLegsIn run: ClosedRange<Int>) -> [LegRoutingRequest] {
+        let starts = Array(stride(from: run.lowerBound, through: run.upperBound, by: Self.maxLegsPerRequest))
+        return starts.enumerated().map { offset, start in
+            var request = request(forLegsIn: start ... min(start + Self.maxLegsPerRequest - 1, run.upperBound))
+            request.joinsPreviousBatch = offset > 0
+            request.joinsNextBatch = offset < starts.count - 1
+            return request
+        }
+    }
 
     /// Indices of the Legs ending or starting at a Waypoint, in order.
     private func adjacentLegs(ofWaypointAt index: Int) -> [Int] {
@@ -321,7 +400,36 @@ struct ItineraryDraft: Equatable, Sendable {
             let leg = legs[index]
             guard leg.id == target.legID, leg.version == target.version, leg.mode == .follow else { return nil }
         }
-        guard waypoints[start ... range.upperBound + 1].map(\.coordinate) == request.waypoints else { return nil }
+        let endpoints = waypoints[start ... range.upperBound + 1].map(\.coordinate)
+        // The previous batch of a sport change may have snapped the junction since.
+        guard endpoints.dropFirst() == request.waypoints.dropFirst(),
+              request.joinsPreviousBatch || endpoints.first == request.waypoints.first
+        else { return nil }
         return range
+    }
+
+    /// The batch before a junction snapped it there: the next Leg, if it has a path, starts
+    /// at the new position.
+    private mutating func moveJunction(at index: Int, to coordinate: Coordinate) {
+        let former = waypoints[index].coordinate
+        waypoints[index].coordinate = coordinate
+        guard legs.indices.contains(index), var next = legs[index].path else { return }
+        if next.first == former {
+            next[0] = coordinate
+            if next.count > 2, next[1] == coordinate {
+                next.removeFirst()
+            }
+            legs[index].path = next
+        }
+        connectStart(ofLegAt: index)
+    }
+
+    /// A batch snapped its junction elsewhere than the previous batch: a connector joins the
+    /// junction to the start of its path, a few meters within the API's 30 m tolerance.
+    private mutating func connectStart(ofLegAt index: Int) {
+        let junction = waypoints[index].coordinate
+        guard var path = legs[index].path, let start = path.first, start != junction else { return }
+        path.insert(junction, at: 0)
+        legs[index].path = path
     }
 }

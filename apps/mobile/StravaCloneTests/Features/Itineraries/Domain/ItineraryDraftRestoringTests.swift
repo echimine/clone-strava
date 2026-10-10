@@ -35,7 +35,7 @@ struct ItineraryDraftRestoringTests {
         let draft = try #require(ItineraryDraft(restoring: saved))
 
         #expect(draft.legs.allSatisfy { $0.state == .computed })
-        #expect(draft.requestsForComputingLegs().isEmpty)
+        #expect(draft.requestsForStrandedLegs(awaited: [], excluding: []).isEmpty)
         #expect(draft.saveIssue == nil)
     }
 
