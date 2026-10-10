@@ -9,6 +9,8 @@ final class FakeItineraryRepository: ItineraryRepository, @unchecked Sendable {
     private var _pages: [String?: Result<ItineraryPage, ItineraryError>] = [:]
     private var _creations: [ItineraryCreation] = []
     private var _pageCalls: [String?] = []
+    private var _details: [ItineraryID: Result<ItineraryDetail, ItineraryError>] = [:]
+    private var _detailCalls: [ItineraryID] = []
     private var gate: AsyncStream<Void>?
     private var gateContinuation: AsyncStream<Void>.Continuation?
 
@@ -20,6 +22,12 @@ final class FakeItineraryRepository: ItineraryRepository, @unchecked Sendable {
 
     var creations: [ItineraryCreation] { lock.withLock { _creations } }
     var pageCalls: [String?] { lock.withLock { _pageCalls } }
+    var detailCalls: [ItineraryID] { lock.withLock { _detailCalls } }
+
+    /// The detail answered for `id`; an unscripted id answers `offline`.
+    func setDetail(_ result: Result<ItineraryDetail, ItineraryError>, for id: ItineraryID) {
+        lock.withLock { _details[id] = result }
+    }
 
     /// The page answered for `cursor`; an unscripted cursor answers an empty last page.
     func setPage(_ result: Result<ItineraryPage, ItineraryError>, for cursor: String? = nil) {
@@ -57,5 +65,13 @@ final class FakeItineraryRepository: ItineraryRepository, @unchecked Sendable {
         }
         let result = lock.withLock { _pages[cursor] } ?? .success(ItineraryPage(items: [], nextCursor: nil))
         return try result.get()
+    }
+
+    func detail(id: ItineraryID) async throws(ItineraryError) -> ItineraryDetail {
+        let result = lock.withLock {
+            _detailCalls.append(id)
+            return _details[id]
+        }
+        return try (result ?? .failure(.offline)).get()
     }
 }

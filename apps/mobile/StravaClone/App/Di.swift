@@ -130,6 +130,10 @@ final class Di {
         ItineraryListStore(cache: itineraryCache, synchronizer: itinerarySynchronizer)
     }
 
+    func makeItineraryDetailStore(id: ItineraryID) -> ItineraryDetailStore {
+        ItineraryDetailStore(id: id, cache: itineraryCache, synchronizer: itinerarySynchronizer)
+    }
+
     func makeItineraryCreationFlow() -> ItineraryCreationFlow {
         let connectivityMonitor = connectivityMonitor
         return ItineraryCreationFlow(isOnline: { connectivityMonitor.status.isConnected })

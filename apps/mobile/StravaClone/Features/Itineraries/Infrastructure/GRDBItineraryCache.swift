@@ -8,21 +8,11 @@ struct GRDBItineraryCache: ItineraryCache {
     let database: AppDatabase
 
     func observeSummaries(limit: Int) -> AsyncStream<[ItinerarySummary]> {
-        let observation = ValueObservation
-            .tracking { db in try Self.fetchSummaries(db, limit: limit) }
-            .removeDuplicates()
-        let writer = database.writer
-        return AsyncStream { continuation in
-            let task = Task {
-                do {
-                    for try await summaries in observation.values(in: writer) {
-                        continuation.yield(summaries)
-                    }
-                } catch {}
-                continuation.finish()
-            }
-            continuation.onTermination = { _ in task.cancel() }
-        }
+        observe { db in try Self.fetchSummaries(db, limit: limit) }
+    }
+
+    func observeItinerary(id: ItineraryID) -> AsyncStream<CachedItinerary?> {
+        observe { db in try Self.fetchItinerary(db, id: id) }
     }
 
     func summaries(limit: Int) async throws -> [ItinerarySummary] {
@@ -30,19 +20,40 @@ struct GRDBItineraryCache: ItineraryCache {
     }
 
     func detail(id: ItineraryID) async throws -> ItineraryDetail? {
-        try await database.writer.read { db in
-            guard
-                let row = try ItineraryRow.fetchOne(db, key: id.description),
-                let detail = try ItineraryDetailRow.fetchOne(db, key: id.description)
-            else { return nil }
-            return detail.model(row: row)
-        }
+        try await database.writer.read { db in try Self.fetchItinerary(db, id: id)?.detail }
     }
 
     func save(_ detail: ItineraryDetail, mapPolyline: EncodedPolyline) async throws {
         try await database.writer.write { db in
             try ItineraryRow(detail: detail, mapPolyline: mapPolyline).upsert(db)
             try ItineraryDetailRow(detail).upsert(db)
+        }
+    }
+
+    func idsWithStaleDetail() async throws -> [ItineraryID] {
+        try await database.writer.read { db in
+            try String.fetchAll(db, sql: """
+                SELECT itinerary.id FROM itinerary
+                LEFT JOIN itinerary_detail ON itinerary_detail.itinerary_id = itinerary.id
+                WHERE itinerary_detail.updated_at IS NULL OR itinerary_detail.updated_at <> itinerary.updated_at
+                ORDER BY itinerary.updated_at DESC, itinerary.id
+                """)
+            .compactMap { ItineraryID($0) }
+        }
+    }
+
+    func store(_ detail: ItineraryDetail) async throws {
+        try await database.writer.write { db in
+            guard let listed = try ItineraryRow.fetchOne(db, key: detail.id.description) else { return }
+            try ItineraryRow(detail: detail, mapPolyline: EncodedPolyline(value: listed.mapPolyline)).update(db)
+            try ItineraryDetailRow(detail).upsert(db)
+        }
+    }
+
+    func delete(id: ItineraryID) async throws {
+        try await database.writer.write { db in
+            _ = try ItineraryDetailRow.deleteOne(db, key: id.description)
+            _ = try ItineraryRow.deleteOne(db, key: id.description)
         }
     }
 
@@ -62,6 +73,33 @@ struct GRDBItineraryCache: ItineraryCache {
             _ = try ItineraryDetailRow.deleteAll(db)
             _ = try ItineraryRow.deleteAll(db)
         }
+    }
+
+    /// Values of `fetch`, then again after each change of the tables it reads.
+    private func observe<Value: Equatable & Sendable>(
+        _ fetch: @escaping @Sendable (Database) throws -> Value
+    ) -> AsyncStream<Value> {
+        let observation = ValueObservation.tracking(fetch).removeDuplicates()
+        let writer = database.writer
+        return AsyncStream { continuation in
+            let task = Task {
+                do {
+                    for try await value in observation.values(in: writer) {
+                        continuation.yield(value)
+                    }
+                } catch {}
+                continuation.finish()
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
+    private static func fetchItinerary(_ db: Database, id: ItineraryID) throws -> CachedItinerary? {
+        guard let row = try ItineraryRow.fetchOne(db, key: id.description), let summary = row.summary else {
+            return nil
+        }
+        let detail = try ItineraryDetailRow.fetchOne(db, key: id.description)?.model(row: row)
+        return CachedItinerary(summary: summary, detail: detail)
     }
 
     private static func fetchSummaries(_ db: Database, limit: Int) throws -> [ItinerarySummary] {
