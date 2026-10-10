@@ -27,7 +27,12 @@ struct StravaCloneApp: App {
                 importStore: di.makeImportStore(),
                 feedStore: di.makeFeedStore(),
                 realtimeService: di.realtimeService,
-                makeItineraryEditorStore: di.makeItineraryEditorStore
+                makeItineraryEditorStore: di.makeItineraryEditorStore,
+                makeItinerarySaveStore: di.makeItinerarySaveStore,
+                itineraryListStore: di.makeItineraryListStore(),
+                itineraryCreation: di.makeItineraryCreationFlow(),
+                itinerarySynchronizer: di.itinerarySynchronizer,
+                connectivityChanges: di.connectivityChanges
             )
                 .tint(Theme.accent)
                 .environment(\.imageLoader, di.imageLoader)
@@ -51,9 +56,13 @@ struct RootView: View {
     @State var feedStore: FeedStore
     let realtimeService: RealtimeService
     let makeItineraryEditorStore: @MainActor (ItinerarySport) -> ItineraryEditorStore
+    let makeItinerarySaveStore: @MainActor () -> ItinerarySaveStore
+    @State var itineraryListStore: ItineraryListStore
+    @State var itineraryCreation: ItineraryCreationFlow
+    let itinerarySynchronizer: ItinerarySynchronizer
+    let connectivityChanges: @MainActor () -> AsyncStream<Bool>
 
     @Environment(\.scenePhase) private var scenePhase
-    @State private var isCreatingItinerary = false
 
     /// Signed-in user id while the app is in the foreground: drives the realtime connection.
     private var realtimeUserId: String? {
@@ -68,7 +77,11 @@ struct RootView: View {
                 ProgressView()
             case .signedOut:
                 AuthFlowView(store: authStore)
-                    .onAppear { feedStore.reset() }
+                    .onAppear {
+                        feedStore.reset()
+                        // ADR-030 §8: the Itinerary cache does not outlive the session.
+                        Task { await itinerarySynchronizer.signOut() }
+                    }
             case .signedIn:
                 TabView {
                     FeedView(store: feedStore, onImportActivity: importStore.startImport) {
@@ -95,19 +108,23 @@ struct RootView: View {
                         )
                     }
                     .tabItem { Label("Accueil", systemImage: "house") }
-                    MapScreen(onCreateItinerary: { isCreatingItinerary = true })
-                        .fullScreenCover(isPresented: $isCreatingItinerary) {
-                            ItineraryCreationView(
-                                makeEditorStore: makeItineraryEditorStore,
-                                onClose: { isCreatingItinerary = false }
-                            )
-                        }
+                    MapScreen(onCreateItinerary: itineraryCreation.start)
                         .tabItem { Label("Map", systemImage: "map") }
                     RecordingView(store: recordingStore)
                         .tabItem { Label("Enregistrer", systemImage: "record.circle") }
-                    ProfileView(store: authStore)
-                        .tabItem { Label("Profil", systemImage: "person") }
+                    ProfileView(store: authStore) {
+                        MyItinerariesView(store: itineraryListStore, onCreate: itineraryCreation.start)
+                    }
+                    .tabItem { Label("Profil", systemImage: "person") }
                 }
+                .fullScreenCover(isPresented: $itineraryCreation.isPresented) {
+                    ItineraryCreationView(
+                        makeEditorStore: makeItineraryEditorStore,
+                        makeSaveStore: makeItinerarySaveStore,
+                        onClose: { itineraryCreation.isPresented = false }
+                    )
+                }
+                .toast($itineraryCreation.toast)
             }
         }
         .task { await authStore.restoreSession() }
@@ -118,6 +135,13 @@ struct RootView: View {
             } else {
                 await realtimeService.disconnect()
             }
+        }
+        // ADR-030 §8: full Itinerary resync on sign-in and each return to the foreground,
+        // then whenever the network comes back while the app is in use.
+        .task(id: realtimeUserId) {
+            guard realtimeUserId != nil else { return }
+            try? await itinerarySynchronizer.refresh()
+            await itinerarySynchronizer.resyncOnReconnection(connectivityChanges())
         }
     }
 }

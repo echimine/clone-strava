@@ -1,10 +1,41 @@
 import Foundation
 
 /// Route in Google's encoded polyline format (ADR-029): sent as is to the Mapbox Static
-/// Images API, decoded only to place the start and end pins.
+/// Images API, decoded only to place the start and end pins. Itinerary Legs travel as
+/// polyline6 (ADR-030 §6).
 struct EncodedPolyline: Hashable, Sendable {
     let value: String
     var precision: Int = 5
+
+    init(value: String, precision: Int = 5) {
+        self.value = value
+        self.precision = precision
+    }
+
+    /// Encodes coordinates, rounded to `precision` decimals.
+    init(encoding coordinates: [Coordinate], precision: Int = 5) {
+        let factor = pow(10, Double(precision))
+        var output: [UInt8] = []
+        var previous = (latitude: 0, longitude: 0)
+
+        func append(_ delta: Int) {
+            var value = delta < 0 ? ~(delta << 1) : delta << 1
+            while value >= 0x20 {
+                output.append(UInt8((0x20 | (value & 0x1F)) + 63))
+                value >>= 5
+            }
+            output.append(UInt8(value + 63))
+        }
+
+        for coordinate in coordinates {
+            let latitude = Int((coordinate.latitude * factor).rounded())
+            let longitude = Int((coordinate.longitude * factor).rounded())
+            append(latitude - previous.latitude)
+            append(longitude - previous.longitude)
+            previous = (latitude, longitude)
+        }
+        self.init(value: String(decoding: output, as: UTF8.self), precision: precision)
+    }
 
     /// Decoded coordinates; an empty array for a malformed string.
     func decode() -> [Coordinate] {
