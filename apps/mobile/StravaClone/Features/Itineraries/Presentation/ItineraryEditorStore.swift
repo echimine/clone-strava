@@ -23,7 +23,26 @@ final class ItineraryEditorStore {
         let isProvisional: Bool
     }
 
+    /// Handle in the middle of a Leg: pulling it inserts a Waypoint there.
+    struct InsertionHandle: Identifiable, Equatable {
+        let id: LegID
+        let coordinate: Coordinate
+    }
+
+    /// What a bubble is open on.
+    enum Selection: Equatable {
+        /// Offers "Supprimer".
+        case waypoint(WaypointID)
+        /// Offers the Leg's mode, anchored where the Leg was tapped.
+        case leg(LegID, at: Coordinate)
+    }
+
+    /// Finger moves shorter than this, in points, are ignored: the Waypoint is resting.
+    static let dragTolerance: CGFloat = 8
+
     let editor: ItineraryEditor
+    private(set) var selection: Selection?
+    @ObservationIgnored private var lastDragPoint: CGPoint?
 
     init(editor: ItineraryEditor) {
         self.editor = editor
@@ -40,9 +59,16 @@ final class ItineraryEditorStore {
     }
 
     var distanceText: String {
-        ActivityFormatters.distance(editor.draft.distance)
+        ActivityFormatters.distance(editor.displayedDraft.distance)
     }
 
+    /// While the finger moves, the distance runs on straight placeholders: shown greyed out
+    /// until the next pause or the release.
+    var isDistanceStale: Bool {
+        editor.draggedWaypointID != nil && lines.contains(where: \.isProvisional)
+    }
+
+    /// Waypoints where they are, a dragged one under the finger.
     var markers: [Marker] {
         let waypoints = editor.draft.waypoints
         return waypoints.enumerated().map { index, waypoint in
@@ -52,7 +78,7 @@ final class ItineraryEditorStore {
     }
 
     var lines: [Line] {
-        let draft = editor.draft
+        let draft = editor.displayedDraft
         return draft.legs.enumerated().map { index, leg in
             Line(
                 id: leg.id,
@@ -60,6 +86,43 @@ final class ItineraryEditorStore {
                 isProvisional: leg.mode == .follow && leg.state != .computed
             )
         }
+    }
+
+    /// During a pause in a drag, the routed path stops at the snapped position: a dashed
+    /// line joins it to the finger.
+    var snapConnector: [Coordinate]? {
+        guard let id = editor.draggedWaypointID,
+              let finger = editor.draft.waypoints.first(where: { $0.id == id })?.coordinate,
+              let snapped = editor.displayedDraft.waypoints.first(where: { $0.id == id })?.coordinate,
+              snapped != finger
+        else { return nil }
+        return [snapped, finger]
+    }
+
+    /// Handles stay in `insertionHandles` during a drag, so the pulled one keeps its gesture,
+    /// but are not shown.
+    var showsInsertionHandles: Bool {
+        editor.draggedWaypointID == nil
+    }
+
+    var insertionHandles: [InsertionHandle] {
+        let draft = editor.draft
+        return draft.legs.indices.map { index in
+            InsertionHandle(id: draft.legs[index].id, coordinate: Self.midpoint(of: draft.geometry(ofLegAt: index)))
+        }
+    }
+
+    var selectedLegMode: LegMode? {
+        guard case .leg(let id, _) = selection else { return nil }
+        return editor.draft.legs.first(where: { $0.id == id })?.mode
+    }
+
+    var canUndo: Bool {
+        editor.canUndo
+    }
+
+    var canRedo: Bool {
+        editor.canRedo
     }
 
     var hint: String? {
@@ -81,11 +144,96 @@ final class ItineraryEditorStore {
 
     // MARK: Intents
 
+    /// Tap on the map: closes an open bubble, or adds a Waypoint at the end.
     func tap(at coordinate: Coordinate) {
+        guard selection == nil else {
+            selection = nil
+            return
+        }
         editor.addWaypoint(at: coordinate)
+    }
+
+    func tapWaypoint(_ id: WaypointID) {
+        selection = selection == .waypoint(id) ? nil : .waypoint(id)
+    }
+
+    func tapLeg(_ id: LegID, at coordinate: Coordinate) {
+        selection = .leg(id, at: coordinate)
+    }
+
+    func dismissSelection() {
+        selection = nil
+    }
+
+    func removeSelectedWaypoint() {
+        guard case .waypoint(let id) = selection else { return }
+        selection = nil
+        editor.removeWaypoint(id)
+    }
+
+    func setSelectedLegMode(_ mode: LegMode) {
+        guard case .leg(let id, _) = selection else { return }
+        selection = nil
+        editor.setMode(mode, ofLeg: id)
+    }
+
+    func beginDrag(_ id: WaypointID, at point: CGPoint) {
+        selection = nil
+        lastDragPoint = point
+        editor.beginDrag(id)
+    }
+
+    func beginInsertion(intoLeg id: LegID, at coordinate: Coordinate, point: CGPoint) {
+        selection = nil
+        lastDragPoint = point
+        editor.beginInsertion(intoLeg: id, at: coordinate)
+    }
+
+    func drag(to coordinate: Coordinate, at point: CGPoint) {
+        if let lastDragPoint, hypot(point.x - lastDragPoint.x, point.y - lastDragPoint.y) < Self.dragTolerance {
+            return
+        }
+        lastDragPoint = point
+        editor.drag(to: coordinate)
+    }
+
+    func endDrag(at coordinate: Coordinate, point: CGPoint) {
+        drag(to: coordinate, at: point)
+        lastDragPoint = nil
+        editor.endDrag()
+    }
+
+    func undo() {
+        selection = nil
+        editor.undo()
+    }
+
+    func redo() {
+        selection = nil
+        editor.redo()
     }
 
     func dismissMessage() {
         editor.dismissNotice()
+    }
+
+    // MARK: Private
+
+    /// Point halfway along a line.
+    private static func midpoint(of line: [Coordinate]) -> Coordinate {
+        let segments = Array(zip(line, line.dropFirst()))
+        var remaining = segments.reduce(0) { $0 + $1.0.distance(to: $1.1).meters } / 2
+        for (start, end) in segments {
+            let length = start.distance(to: end).meters
+            if length > 0, remaining <= length {
+                let fraction = remaining / length
+                return Coordinate(
+                    latitude: start.latitude + (end.latitude - start.latitude) * fraction,
+                    longitude: start.longitude + (end.longitude - start.longitude) * fraction
+                )
+            }
+            remaining -= length
+        }
+        return line[0]
     }
 }
