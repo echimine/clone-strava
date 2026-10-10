@@ -21,6 +21,13 @@ struct GRDBItineraryCache: ItineraryCache {
         try await database.writer.read { db in try Self.fetchSummaries(db, limit: limit) }
     }
 
+    func count() async throws -> Int {
+        try await database.writer.read { db in
+            let hidden = try ItinerarySyncOperation.pendingDeletionIDs.fetchAll(db)
+            return try ItineraryRow.filter(!hidden.contains(Column("id"))).fetchCount(db)
+        }
+    }
+
     func detail(id: ItineraryID) async throws -> ItineraryDetail? {
         try await database.writer.read { db in try Self.fetchItinerary(db, id: id)?.detail }
     }

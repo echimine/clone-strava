@@ -18,11 +18,22 @@ final class ItineraryListStore {
     @ObservationIgnored private let cache: any ItineraryCache
     @ObservationIgnored private let synchronizer: ItinerarySynchronizer
     @ObservationIgnored private let pageSize: Int
+    @ObservationIgnored private let source: AnalyticsEvent.ListSource
+    @ObservationIgnored private let analytics: any AnalyticsClient
 
-    init(cache: any ItineraryCache, synchronizer: ItinerarySynchronizer, pageSize: Int = 20) {
+    /// - Parameter source: where the list is shown, for its journey event (issue #20).
+    init(
+        cache: any ItineraryCache,
+        synchronizer: ItinerarySynchronizer,
+        pageSize: Int = 20,
+        source: AnalyticsEvent.ListSource = .profile,
+        analytics: any AnalyticsClient = NoAnalyticsClient()
+    ) {
         self.cache = cache
         self.synchronizer = synchronizer
         self.pageSize = pageSize
+        self.source = source
+        self.analytics = analytics
         limit = pageSize
     }
 
@@ -46,6 +57,12 @@ final class ItineraryListStore {
         }
     }
 
+    /// Each time the list shows, once refreshed: how many Itineraries it holds, all pages.
+    func viewed() async {
+        guard let count = try? await cache.count() else { return }
+        analytics.capture(.itineraryListViewed(source: source, itineraryCount: count))
+    }
+
     /// Called when a card appears: the last one asks the cache for one more page.
     func loadMoreIfNeeded(current: ItinerarySummary) {
         guard current.id == itineraries.last?.id, itineraries.count >= limit else { return }
@@ -60,18 +77,24 @@ final class ItineraryListStore {
 final class ItineraryCreationFlow {
     var isPresented = false
     var toast: String?
+    /// Where the editor being presented was opened from.
+    private(set) var source = AnalyticsEvent.EditorSource.mapTab
 
     @ObservationIgnored private let isOnline: @MainActor () -> Bool
+    @ObservationIgnored private let analytics: any AnalyticsClient
 
-    init(isOnline: @escaping @MainActor () -> Bool) {
+    init(isOnline: @escaping @MainActor () -> Bool, analytics: any AnalyticsClient = NoAnalyticsClient()) {
         self.isOnline = isOnline
+        self.analytics = analytics
     }
 
-    func start() {
+    func start(from source: AnalyticsEvent.EditorSource) {
         if isOnline() {
+            self.source = source
             isPresented = true
         } else {
             toast = ItineraryMessages.connectionRequired
+            analytics.capture(.itineraryOfflineEditBlocked(action: .create))
         }
     }
 }

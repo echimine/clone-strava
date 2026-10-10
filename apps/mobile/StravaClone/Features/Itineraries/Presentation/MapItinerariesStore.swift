@@ -15,9 +15,10 @@ final class MapItinerariesStore {
         self.makeDetailStore = makeDetailStore
     }
 
-    /// ADR-030 §8: opening the sheet is a resync trigger.
+    /// ADR-030 §8: opening the sheet is a resync trigger. Once refreshed, the list counts as viewed.
     func sheetOpened() async {
         await list.refresh()
+        await list.viewed()
     }
 
     /// Detail of the touched Itinerary, until it is closed or leaves the cache (deleted

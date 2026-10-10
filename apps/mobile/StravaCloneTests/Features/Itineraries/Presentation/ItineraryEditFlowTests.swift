@@ -23,7 +23,8 @@ struct ItineraryEditFlowTests {
     private func makeFlow(
         _ repository: FakeItineraryRepository,
         router: FakeItineraryRouter = FakeItineraryRouter(),
-        isOnline: Bool = true
+        isOnline: Bool = true,
+        analytics: FakeAnalyticsClient = FakeAnalyticsClient()
     ) throws -> ItineraryEditFlow {
         let cache = GRDBItineraryCache(database: try AppDatabase.inMemory())
         return ItineraryEditFlow(
@@ -31,19 +32,22 @@ struct ItineraryEditFlowTests {
             isOnline: { isOnline },
             load: LoadSavedItinerary(repository: repository, cache: cache),
             makeEditorStore: { ItineraryEditorStore(editor: ItineraryEditor(restoring: $0, router: router)) },
-            makeSaveStore: { ItinerarySaveStore(update: UpdateItinerary(repository: repository, cache: cache), itinerary: $0) }
+            makeSaveStore: { ItinerarySaveStore(update: UpdateItinerary(repository: repository, cache: cache), itinerary: $0) },
+            analytics: analytics
         )
     }
 
     @Test func offlineModifierSaysAConnectionIsRequired() async throws {
         let repository = FakeItineraryRepository()
-        let flow = try makeFlow(repository, isOnline: false)
+        let analytics = FakeAnalyticsClient()
+        let flow = try makeFlow(repository, isOnline: false, analytics: analytics)
 
         await flow.start()
 
         #expect(flow.toast == "Connexion requise")
         #expect(flow.session == nil)
         #expect(repository.savedItineraryCalls.isEmpty)
+        #expect(analytics.events == [.itineraryOfflineEditBlocked(action: .edit)])
     }
 
     @Test func theEditorReopensOnTheStoredItineraryWithoutRouting() async throws {

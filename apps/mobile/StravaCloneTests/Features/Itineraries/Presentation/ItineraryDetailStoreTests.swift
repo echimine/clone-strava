@@ -8,12 +8,39 @@ import Testing
 @MainActor
 struct ItineraryDetailStoreTests {
     private func make(
-        _ id: ItineraryID = .fixture(1)
+        _ id: ItineraryID = .fixture(1),
+        analytics: FakeAnalyticsClient = FakeAnalyticsClient(),
+        isOnline: Bool = true
     ) throws -> (ItineraryDetailStore, FakeItineraryRepository, GRDBItineraryCache) {
         let repository = FakeItineraryRepository()
         let cache = GRDBItineraryCache(database: try AppDatabase.inMemory())
         let synchronizer = ItinerarySynchronizer(repository: repository, cache: cache)
-        return (ItineraryDetailStore(id: id, cache: cache, synchronizer: synchronizer), repository, cache)
+        let store = ItineraryDetailStore(
+            id: id,
+            cache: cache,
+            synchronizer: synchronizer,
+            source: .profile,
+            analytics: analytics,
+            isOnline: { isOnline }
+        )
+        return (store, repository, cache)
+    }
+
+    /// `itinerary_viewed` (issue #20): once per opening, even if the screen shows again
+    /// (back from the editor), with whether it was shown offline.
+    @Test func openingTheDetailIsSentOnceWithItsSourceAndWhetherOffline() async throws {
+        let analytics = FakeAnalyticsClient()
+        let (store, _, cache) = try make(analytics: analytics, isOnline: false)
+        try await cache.save(.fixture(1, name: "Tour du lac"), mapPolyline: EncodedPolyline(value: "local"))
+
+        for _ in 0 ..< 2 {
+            let observing = Task { await store.observe() }
+            await waitUntil { store.detail != nil }
+            observing.cancel()
+            await observing.value
+        }
+
+        #expect(analytics.events == [.itineraryViewed(itineraryId: ItineraryID.fixture(1).description, source: .profile, offline: true)])
     }
 
     /// Waits for the store to reach `condition`, failing after about two seconds.

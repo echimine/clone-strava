@@ -45,7 +45,10 @@ struct ItineraryEditingView: View {
     var body: some View {
         ItineraryEditorView(store: session.editorStore, onClose: onClose)
             .safeAreaInset(edge: .bottom) {
-                ItinerarySaveBar(store: session.saveStore, draft: session.editorStore.editor.draft, onSaved: onClose)
+                ItinerarySaveBar(store: session.saveStore, draft: session.editorStore.editor.draft) {
+                    session.editorStore.closed(.saved)
+                    onClose()
+                }
             }
     }
 }

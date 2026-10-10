@@ -27,7 +27,10 @@ struct MyItinerariesView: View {
                 ItineraryDetailPage(id: id, makeDetailStore: makeDetailStore, makeEditFlow: makeEditFlow)
             }
             .task(id: store.limit) { await store.observe() }
-            .task { await store.refresh() }
+            .task {
+                await store.refresh()
+                await store.viewed()
+            }
     }
 
     @ViewBuilder private var content: some View {

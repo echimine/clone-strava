@@ -24,16 +24,38 @@ final class ItineraryDetailStore {
     @ObservationIgnored private let cache: any ItineraryCache
     @ObservationIgnored private let synchronizer: ItinerarySynchronizer
     @ObservationIgnored private var hasRequestedDetail = false
+    @ObservationIgnored private let source: AnalyticsEvent.ListSource
+    @ObservationIgnored private let analytics: any AnalyticsClient
+    @ObservationIgnored private let isOnline: @MainActor () -> Bool
+    @ObservationIgnored private var hasBeenViewed = false
 
-    init(id: ItineraryID, cache: any ItineraryCache, synchronizer: ItinerarySynchronizer) {
+    /// - Parameters:
+    ///   - source: where the detail is shown, for its journey event (issue #20).
+    ///   - isOnline: whether a network route exists, sent with that event.
+    init(
+        id: ItineraryID,
+        cache: any ItineraryCache,
+        synchronizer: ItinerarySynchronizer,
+        source: AnalyticsEvent.ListSource = .profile,
+        analytics: any AnalyticsClient = NoAnalyticsClient(),
+        isOnline: @escaping @MainActor () -> Bool = { true }
+    ) {
         self.id = id
         self.cache = cache
         self.synchronizer = synchronizer
+        self.source = source
+        self.analytics = analytics
+        self.isOnline = isOnline
     }
 
     /// Runs for the lifetime of the screen (`.task`). The fetch runs beside the observation,
-    /// so a slow answer never holds back what the cache shows.
+    /// so a slow answer never holds back what the cache shows. The opening is sent once,
+    /// not each time the screen shows again (back from the editor).
     func observe() async {
+        if !hasBeenViewed {
+            hasBeenViewed = true
+            analytics.capture(.itineraryViewed(itineraryId: id.description, source: source, offline: !isOnline()))
+        }
         await withTaskGroup(of: Void.self) { group in
             for await cached in cache.observeItinerary(id: id) {
                 guard let cached else {

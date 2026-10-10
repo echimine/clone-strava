@@ -35,6 +35,8 @@ final class ItineraryEditor {
         let origin: ItineraryDraft
         /// Whether the gesture changed the draft so far: moved, or inserted the Waypoint.
         var hasChanged = false
+        /// The Waypoint was inserted by pulling a Leg, rather than an existing one moved.
+        var isInsertion = false
         /// Request sent at the last pause, kept while the finger has not moved since.
         var pause: (token: UUID, request: LegRoutingRequest)?
         /// Answer to that request: previewed during the drag, applied on release.
@@ -45,6 +47,10 @@ final class ItineraryEditor {
         didSet { updateElevation() }
     }
     private(set) var notice: Notice?
+    /// What the athlete did and what the router answered since the editor opened (issue #20).
+    @ObservationIgnored private(set) var counters = ItineraryEditorCounters()
+    /// Called on the first `429` of the session.
+    @ObservationIgnored var onFirstRateLimit: (@MainActor () -> Void)?
     private var drag: Drag? {
         didSet { updateElevation() }
     }
@@ -52,6 +58,8 @@ final class ItineraryEditor {
     let elevation: ItineraryElevationPreview
     /// Drafts before each gesture, most recent last. Being values, they are restored as is.
     private var undoStack: [ItineraryDraft] = []
+    /// The draft the editor opened on.
+    @ObservationIgnored private let initialDraft: ItineraryDraft
     private var redoStack: [ItineraryDraft] = []
 
     @ObservationIgnored private let router: any ItineraryRouter
@@ -79,6 +87,7 @@ final class ItineraryEditor {
         sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
     ) {
         draft = ItineraryDraft(sport: sport)
+        initialDraft = ItineraryDraft(sport: sport)
         elevation = ItineraryElevationPreview(previewer: metricsPreviewer)
         self.router = router
         self.pauseDelay = pauseDelay
@@ -97,6 +106,7 @@ final class ItineraryEditor {
         sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
     ) {
         self.draft = draft
+        initialDraft = draft
         elevation = ItineraryElevationPreview(previewer: metricsPreviewer)
         self.router = router
         self.pauseDelay = pauseDelay
@@ -117,6 +127,11 @@ final class ItineraryEditor {
         var preview = draft
         _ = preview.apply(path, to: pause.request)
         return preview
+    }
+
+    /// The draft differs from the one the editor opened on.
+    var hasChanges: Bool {
+        draft != initialDraft
     }
 
     var canUndo: Bool {
@@ -142,12 +157,16 @@ final class ItineraryEditor {
     /// Tap on the map: start, then each next Waypoint at the end, up to the cap.
     func addWaypoint(at coordinate: Coordinate) {
         guard !refuseIfFull() else { return }
-        perform { $0.appendWaypoint(at: coordinate) }
+        if perform({ $0.appendWaypoint(at: coordinate) }) {
+            counters.waypointsAdded += 1
+        }
     }
 
     /// Bubble on a Leg: straight line, or back to following roads and trails.
     func setMode(_ mode: LegMode, ofLeg id: LegID) {
-        perform { $0.setMode(mode, ofLeg: id) }
+        if perform({ $0.setMode(mode, ofLeg: id) }), mode == .straight {
+            counters.legsSwitchedToStraight += 1
+        }
     }
 
     /// "Supprimer" in a Waypoint's bubble: its neighbors are joined by a new Leg.
@@ -174,7 +193,7 @@ final class ItineraryEditor {
         var inserted = draft
         guard let waypointID = inserted.insertWaypoint(intoLeg: id, at: coordinate) else { return }
         // The drag starts before the draft changes: the new track is never measured mid-gesture.
-        drag = Drag(waypointID: waypointID, origin: draft, hasChanged: true)
+        drag = Drag(waypointID: waypointID, origin: draft, hasChanged: true, isInsertion: true)
         draft = inserted
         restartPauseTimer()
     }
@@ -203,6 +222,11 @@ final class ItineraryEditor {
         pauseTask?.cancel()
         drag = nil
         guard ended.hasChanged else { return }
+        if ended.isInsertion {
+            counters.waypointsInserted += 1
+        } else {
+            counters.waypointsMoved += 1
+        }
         record(ended.origin)
         if let pause = ended.pause {
             if let outcome = ended.pauseOutcome {
@@ -218,6 +242,7 @@ final class ItineraryEditor {
     /// unless their request is still in flight.
     func undo() {
         guard drag == nil, let previous = undoStack.popLast() else { return }
+        counters.undos += 1
         redoStack.append(draft)
         restore(previous)
     }
@@ -225,6 +250,7 @@ final class ItineraryEditor {
     /// Forward to the draft the last undo left.
     func redo() {
         guard drag == nil, let next = redoStack.popLast() else { return }
+        counters.redos += 1
         undoStack.append(draft)
         restore(next)
     }
@@ -272,18 +298,22 @@ final class ItineraryEditor {
     }
 
     /// Applies a one-shot gesture; it becomes an undo entry only if it changed the draft.
-    private func perform(_ gesture: (inout ItineraryDraft) -> LegRoutingRequest?) {
+    /// - Returns: whether it changed the draft.
+    @discardableResult
+    private func perform(_ gesture: (inout ItineraryDraft) -> LegRoutingRequest?) -> Bool {
         performAll { draft in gesture(&draft).map { [$0] } ?? [] }
     }
 
-    private func performAll(_ gesture: (inout ItineraryDraft) -> [LegRoutingRequest]) {
-        guard drag == nil else { return }
+    @discardableResult
+    private func performAll(_ gesture: (inout ItineraryDraft) -> [LegRoutingRequest]) -> Bool {
+        guard drag == nil else { return false }
         let before = draft
         let requests = gesture(&draft)
-        guard draft != before else { return }
+        guard draft != before else { return false }
         record(before)
         requests.forEach { send($0) }
         requestStrandedLegs()
+        return true
     }
 
     private func record(_ previous: ItineraryDraft) {
@@ -336,6 +366,7 @@ final class ItineraryEditor {
             inFlight[token] = nil
         }
         let token = UUID()
+        counters.directionsRequests += 1
         let router = router
         let task = Task {
             let outcome: Result<RoutedPath, RoutingError>?
@@ -354,6 +385,9 @@ final class ItineraryEditor {
 
     private func finish(_ token: UUID, request: LegRoutingRequest, outcome: Result<RoutedPath, RoutingError>?) {
         inFlight[token] = nil
+        if case .failure(let error)? = outcome {
+            count(error)
+        }
         guard let outcome, !Task.isCancelled else { return }
         if var current = drag, current.pause?.token == token {
             current.pauseOutcome = outcome
@@ -386,6 +420,18 @@ final class ItineraryEditor {
             }
         }
         followUps.forEach { send($0) }
+    }
+
+    private func count(_ error: RoutingError) {
+        switch error {
+        case .noPath: counters.noPathResponses += 1
+        case .temporary: counters.networkFailures += 1
+        case .rateLimited:
+            counters.rateLimitedResponses += 1
+            if counters.rateLimitedResponses == 1 {
+                onFirstRateLimit?()
+            }
+        }
     }
 
     /// Legs left computing with no request in flight, e.g. once a gesture overtook their

@@ -26,7 +26,10 @@ struct ItineraryEditorView: View {
         .overlay(alignment: .top) { header }
         .safeAreaInset(edge: .bottom) { statsCard }
         .task { await store.retryPendingLegsOnReconnection() }
-        .onAppear(perform: frameReopenedItinerary)
+        .onAppear {
+            store.opened()
+            frameReopenedItinerary()
+        }
     }
 
     /// "Modifier" reopens a saved Itinerary: the map frames it rather than the athlete.
@@ -160,7 +163,10 @@ struct ItineraryEditorView: View {
                 headerButton("arrow.uturn.forward", label: "Rétablir", identifier: "redoItineraryEdit", action: store.redo)
                     .disabled(!store.canRedo)
                 Spacer()
-                headerButton("xmark", label: "Fermer l'éditeur", identifier: "closeItineraryEditor", action: onClose)
+                headerButton("xmark", label: "Fermer l'éditeur", identifier: "closeItineraryEditor") {
+                    store.closed(.abandoned)
+                    onClose()
+                }
             }
 
             if let message = store.message {
