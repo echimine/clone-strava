@@ -30,6 +30,7 @@ struct StravaCloneApp: App {
                 makeItineraryEditorStore: di.makeItineraryEditorStore,
                 makeItinerarySaveStore: di.makeItinerarySaveStore,
                 itineraryListStore: di.makeItineraryListStore(),
+                mapItinerariesStore: di.makeMapItinerariesStore(),
                 makeItineraryDetailStore: di.makeItineraryDetailStore,
                 makeItineraryEditFlow: di.makeItineraryEditFlow,
                 itineraryCreation: di.makeItineraryCreationFlow(),
@@ -60,6 +61,7 @@ struct RootView: View {
     let makeItineraryEditorStore: @MainActor (ItinerarySport) -> ItineraryEditorStore
     let makeItinerarySaveStore: @MainActor () -> ItinerarySaveStore
     @State var itineraryListStore: ItineraryListStore
+    @State var mapItinerariesStore: MapItinerariesStore
     let makeItineraryDetailStore: @MainActor (ItineraryID) -> ItineraryDetailStore
     let makeItineraryEditFlow: @MainActor (ItineraryID) -> ItineraryEditFlow
     @State var itineraryCreation: ItineraryCreationFlow
@@ -114,8 +116,13 @@ struct RootView: View {
                         )
                     }
                     .tabItem { Label("Accueil", systemImage: "house") }
-                    MapScreen(onCreateItinerary: itineraryCreation.start)
-                        .tabItem { Label("Map", systemImage: "map") }
+                    MapScreen(
+                        onCreateItinerary: itineraryCreation.start,
+                        focusedPath: mapItinerariesStore.focusedPath
+                    ) {
+                        MapItinerariesSheet(store: mapItinerariesStore)
+                    }
+                    .tabItem { Label("Map", systemImage: "map") }
                     RecordingView(store: recordingStore)
                         .tabItem { Label("Enregistrer", systemImage: "record.circle") }
                     ProfileView(store: authStore, signOutWarning: {

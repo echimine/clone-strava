@@ -144,6 +144,11 @@ final class Di {
         ItineraryListStore(cache: itineraryCache, synchronizer: itinerarySynchronizer)
     }
 
+    /// The Map tab sheet has its own list (own page size), over the same cache.
+    func makeMapItinerariesStore() -> MapItinerariesStore {
+        MapItinerariesStore(list: makeItineraryListStore(), makeDetailStore: makeItineraryDetailStore)
+    }
+
     func makeItineraryDetailStore(id: ItineraryID) -> ItineraryDetailStore {
         ItineraryDetailStore(id: id, cache: itineraryCache, synchronizer: itinerarySynchronizer)
     }

@@ -37,13 +37,16 @@ extension ItineraryDetailView where Actions == EmptyView {
 
 /// What the detail shows, without its container: the page above, the Map tab sheet (#36).
 /// Track, name and sport, distance, elevation gain, elevation profile, then the credit of
-/// the altitudes.
+/// the altitudes. The Map tab sheet leaves the track out: the map behind it draws it.
 struct ItineraryDetailContent: View {
     let store: ItineraryDetailStore
+    var showsTrackMap = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.spacing) {
-            trackMap
+            if showsTrackMap {
+                trackMap
+            }
             if let summary = store.summary {
                 header(summary)
                 stats
