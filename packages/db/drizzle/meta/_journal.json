@@ -43,6 +43,13 @@
       "when": 1790973611466,
       "tag": "0005_activity_feed",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791627170955,
+      "tag": "0006_itineraries",
+      "breakpoints": true
     }
   ]
 }
