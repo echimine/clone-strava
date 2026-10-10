@@ -6,6 +6,9 @@ import type {
   ActivityImportFailedProperties,
   ActivityProcessedProperties,
   AnalyticsEventName,
+  ItineraryRefProperties,
+  ItinerarySavedProperties,
+  ItinerarySaveFailedProperties,
 } from "@repo/contracts";
 import { ANALYTICS_OPTIONS, type AnalyticsModuleOptions } from "./analytics.constants.js";
 
@@ -20,6 +23,11 @@ export interface AnalyticsEventPropertiesMap {
   activity_failed: ActivityFailedProperties;
   activity_imported: ActivityImportedProperties;
   activity_import_failed: ActivityImportFailedProperties;
+  itinerary_created: ItinerarySavedProperties;
+  itinerary_updated: ItinerarySavedProperties;
+  itinerary_renamed: ItineraryRefProperties;
+  itinerary_deleted: ItineraryRefProperties;
+  itinerary_save_failed: ItinerarySaveFailedProperties;
 }
 
 /**

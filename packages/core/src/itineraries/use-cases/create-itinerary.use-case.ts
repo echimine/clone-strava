@@ -4,6 +4,7 @@ import type { CreateItineraryRequest, Itinerary } from "@repo/contracts";
 import { DATABASE } from "../../infrastructure/index.js";
 import { ItineraryGeometryRepository } from "../repositories/itinerary-geometry.repository.js";
 import { ItineraryRepository } from "../repositories/itinerary.repository.js";
+import { ItineraryLifecycleEvents } from "../services/itinerary-lifecycle-events.service.js";
 import { ItinerarySaveService } from "../services/itinerary-save.service.js";
 import { GetItineraryUseCase } from "./get-itinerary.use-case.js";
 
@@ -18,7 +19,8 @@ export interface CreateItineraryResult {
  * id. A replay by the same athlete returns the stored Itinerary without
  * computing or writing anything; someone else's id is a `409`. Otherwise
  * the save computation runs, then `itinerary`, its Waypoints and its Legs
- * are written in one transaction.
+ * are written in one transaction. The lifecycle events follow the commit
+ * only; a replay emits nothing.
  */
 @Injectable()
 export class CreateItineraryUseCase {
@@ -28,6 +30,7 @@ export class CreateItineraryUseCase {
     private readonly geometries: ItineraryGeometryRepository,
     private readonly save: ItinerarySaveService,
     private readonly getItinerary: GetItineraryUseCase,
+    private readonly lifecycle: ItineraryLifecycleEvents,
   ) {}
 
   async execute(userId: string, request: CreateItineraryRequest): Promise<CreateItineraryResult> {
@@ -36,7 +39,7 @@ export class CreateItineraryUseCase {
       return this.replay(userId, ownerId, request.id);
     }
 
-    const prepared = await this.save.prepare(request);
+    const prepared = await this.lifecycle.trackSaveFailure(userId, () => this.save.prepare(request));
     const inserted = await this.db.transaction(async (tx) => {
       const isNew = await this.itineraries.insertIfAbsent({ id: request.id, userId, ...prepared.values }, tx);
       if (isNew) {
@@ -48,7 +51,9 @@ export class CreateItineraryUseCase {
       // Lost a race with a concurrent call carrying the same id.
       return this.replay(userId, (await this.itineraries.findOwnerId(request.id))!, request.id);
     }
-    return { itinerary: await this.getItinerary.execute(userId, request.id), created: true };
+    const itinerary = await this.getItinerary.execute(userId, request.id);
+    this.lifecycle.created(userId, itinerary, prepared.sportCategory);
+    return { itinerary, created: true };
   }
 
   private async replay(userId: string, ownerId: string, id: string): Promise<CreateItineraryResult> {

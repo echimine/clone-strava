@@ -11,6 +11,9 @@ export const ACTIVITY_SEGMENTS_MATCHED = "activity.segments_matched";
 /** File imports (ADR-028 §10). */
 export const ACTIVITY_IMPORT_COMPLETED = "activity_import.completed";
 export const ACTIVITY_IMPORT_FAILED = "activity_import.failed";
+/** Itineraries (ADR-030 §9). */
+export const ITINERARY_SAVED = "itinerary.saved";
+export const ITINERARY_DELETED = "itinerary.deleted";
 
 export const mobileEventTypeSchema = z.enum([
   ACTIVITY_PROCESSED,
@@ -18,6 +21,8 @@ export const mobileEventTypeSchema = z.enum([
   ACTIVITY_SEGMENTS_MATCHED,
   ACTIVITY_IMPORT_COMPLETED,
   ACTIVITY_IMPORT_FAILED,
+  ITINERARY_SAVED,
+  ITINERARY_DELETED,
 ]);
 export type MobileEventType = z.infer<typeof mobileEventTypeSchema>;
 
@@ -66,6 +71,22 @@ export const activityImportFailedDataSchema = z.object({
 });
 export type ActivityImportFailedData = z.infer<typeof activityImportFailedDataSchema>;
 
+/**
+ * Creation, full update or rename. The app ignores it when its local
+ * `updatedAt` is already greater or equal (the echo of its own write),
+ * otherwise it fetches the detail.
+ */
+export const itinerarySavedDataSchema = z.object({
+  itineraryId: z.string(),
+  updatedAt: z.iso.datetime(),
+});
+export type ItinerarySavedData = z.infer<typeof itinerarySavedDataSchema>;
+
+export const itineraryDeletedDataSchema = z.object({
+  itineraryId: z.string(),
+});
+export type ItineraryDeletedData = z.infer<typeof itineraryDeletedDataSchema>;
+
 /** Data schema for each mobile event type, keyed by its `t` value. */
 export const mobileEventDataSchemas = {
   [ACTIVITY_PROCESSED]: activityProcessedDataSchema,
@@ -73,6 +94,8 @@ export const mobileEventDataSchemas = {
   [ACTIVITY_SEGMENTS_MATCHED]: activitySegmentsMatchedDataSchema,
   [ACTIVITY_IMPORT_COMPLETED]: activityImportCompletedDataSchema,
   [ACTIVITY_IMPORT_FAILED]: activityImportFailedDataSchema,
+  [ITINERARY_SAVED]: itinerarySavedDataSchema,
+  [ITINERARY_DELETED]: itineraryDeletedDataSchema,
 } as const satisfies Record<MobileEventType, z.ZodType>;
 
 export type MobileEventData =
@@ -80,7 +103,9 @@ export type MobileEventData =
   | ActivityFailedData
   | ActivitySegmentsMatchedData
   | ActivityImportCompletedData
-  | ActivityImportFailedData;
+  | ActivityImportFailedData
+  | ItinerarySavedData
+  | ItineraryDeletedData;
 
 /** Data payload type for a given mobile event type, e.g. `MobileEventDataFor<typeof ACTIVITY_PROCESSED>`. */
 export type MobileEventDataFor<T extends MobileEventType> = z.infer<

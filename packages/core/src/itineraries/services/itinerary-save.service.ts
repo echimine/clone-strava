@@ -2,6 +2,7 @@ import { Injectable, UnprocessableEntityException } from "@nestjs/common";
 import type { LonLat } from "@repo/geo";
 import type { SaveItineraryRequest } from "@repo/contracts";
 import { SportsService } from "../../sports/index.js";
+import type { ItinerarySportCategory } from "../domain/itinerary-analytics.js";
 import type { AssembledLeg } from "../domain/assemble-itinerary-track.js";
 import { itineraryMapPolyline } from "../domain/itinerary-map-polyline.js";
 import type { ItineraryValues } from "../repositories/itinerary.repository.js";
@@ -12,6 +13,8 @@ export interface PreparedItinerary {
   values: ItineraryValues;
   waypoints: LonLat[];
   legs: AssembledLeg[];
+  /** For the analytics events (ADR-030 §10). */
+  sportCategory: ItinerarySportCategory;
 }
 
 /**
@@ -29,7 +32,7 @@ export class ItinerarySaveService {
   ) {}
 
   async prepare(request: SaveItineraryRequest): Promise<PreparedItinerary> {
-    await this.checkSport(request.sportTypeCode);
+    const sportCategory = await this.checkSport(request.sportTypeCode);
     const { metrics, waypoints, legs, track } = await this.measurement.measure(request);
     return {
       values: {
@@ -41,19 +44,21 @@ export class ItinerarySaveService {
       },
       waypoints,
       legs,
+      sportCategory,
     };
   }
 
-  /** ADR-030 §2, §4: an existing, active sport, not a `water` one (no route to follow). */
-  private async checkSport(code: string): Promise<void> {
+  /** ADR-030 §2, §4: an existing, active `foot` or `wheels` sport (a `water` one has no route to follow). */
+  private async checkSport(code: string): Promise<ItinerarySportCategory> {
     const sport = await this.sports.findByCode(code);
-    if (!sport || !sport.isActive || sport.category === "water") {
-      const message = "Unknown sport type, or a sport an Itinerary cannot be planned for";
-      throw new UnprocessableEntityException({
-        code: "validation_error",
-        message,
-        details: [{ field: "sportTypeCode", message }],
-      });
+    if (sport?.isActive && (sport.category === "foot" || sport.category === "wheels")) {
+      return sport.category;
     }
+    const message = "Unknown sport type, or a sport an Itinerary cannot be planned for";
+    throw new UnprocessableEntityException({
+      code: "validation_error",
+      message,
+      details: [{ field: "sportTypeCode", message }],
+    });
   }
 }
