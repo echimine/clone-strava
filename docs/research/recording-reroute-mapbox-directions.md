@@ -8,6 +8,8 @@
 
 > Ce document établit des faits. Il ne tranche pas : les choix sont listés au §6 et renvoyés à [Recalcul du chemin quand l'athlète quitte l'Itinéraire](https://github.com/echimine/clone-strava/issues/58).
 
+> **Note (2026-10-12, décision postérieure à la recherche)** : l'app ne sera jamais publiée, donc l'interdiction de stocker les résultats Directions (§2.10.1, §1.9 (v)) est **écartée**, comme ADR-030 l'a fait pour les Itinéraires. Le chemin recalculé et sa distance peuvent être enregistrés en base (GRDB, état persisté de la Recording) et réutilisés à la reprise sans nouvelle requête. Le risque reste celui d'ADR-030 : Mapbox peut révoquer le jeton, et il faut corriger avant toute publication. Les autres conditions, dont l'absence de sondage périodique (§1.9 (i) et (ii)), restent valables. Le reste du document décrit les conditions telles qu'elles sont écrites. Voir [la décision sur #58](https://github.com/echimine/clone-strava/issues/58#issuecomment-6131093588).
+
 ---
 
 ## TL;DR
@@ -195,7 +197,7 @@ Pour comparer plusieurs points P en une requête, l'API **Matrix** accepte 25 co
 
 - Le recalcul s'ajoute au mode hors ligne fixé par [Distance restante sur l'Itinéraire pendant une Recording](https://github.com/echimine/clone-strava/issues/49) : sans réseau, ou en attendant la réponse, on garde la valeur figée et « Hors Itinéraire ». C'est le comportement de komoot hors ligne.
 - Viser un point de retour en avant de la progression réutilise la recherche en avant de ce ticket ; une fois le tracé rejoint, la progression reprend normalement et le chemin recalculé est oublié.
-- Rien du recalcul ne peut entrer dans l'état persisté pour [Persistance et reprise d'une Recording](https://github.com/echimine/clone-strava/issues/52) : à la reprise, si l'athlète est toujours hors du tracé, il faut redemander.
+- Rien du recalcul ne peut entrer dans l'état persisté pour [Persistance et reprise d'une Recording](https://github.com/echimine/clone-strava/issues/52) : à la reprise, si l'athlète est toujours hors du tracé, il faut redemander. *(Écarté par la décision notée en tête : le chemin recalculé peut être persisté.)*
 - `MapboxDirectionsRouter` sait déjà construire la requête, décoder `polyline6` et classer les erreurs (`noPath`, `rateLimited`, `temporary`) ; il lui manque `bearings` et un rayon par point.
 
 ## 6. Décisions renvoyées à [Recalcul du chemin quand l'athlète quitte l'Itinéraire](https://github.com/echimine/clone-strava/issues/58)
