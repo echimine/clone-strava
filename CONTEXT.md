@@ -10,6 +10,14 @@ A fitness-tracking platform: athletes record and import their outings, share the
 A path an athlete actually travelled, recorded on the phone or imported from a file, with its official values (distance, time, elevation gain).
 _Avoid_: Workout, session, ride/run (as a generic term)
 
+**Recording**:
+The live capture of an Activity on the phone, from the moment the athlete starts it until they save it or delete it. A deleted Recording never becomes an Activity. Shown as "Enregistrement" in the app.
+_Avoid_: Session, track, live activity (iOS term for lock-screen widgets)
+
+**Pause**:
+A stretch of a Recording during which the timer is stopped, either by the athlete or automatically by the app. What happens during a Pause counts in the total time only, never in the distance or the moving time.
+_Avoid_: Stop, break
+
 **Segment**:
 A shared stretch of road or trail with a leaderboard, matched against Activities.
 _Avoid_: Section, lap
