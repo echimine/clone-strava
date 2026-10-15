@@ -64,6 +64,7 @@ apps/mobile/StravaClone.xcodeproj/project.xcworkspace/xcshareddata/*
 apps/mobile/StravaClone.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/*
 !apps/mobile/StravaClone.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
 apps/mobile/StravaClone/Info.plist
+apps/mobile/StravaCloneWidget/Info.plist
 # Secrets iOS (jeton Mapbox, clés RevenueCat / PostHog) : xcconfig non versionné (ADR-002)
 Secrets.xcconfig
 Secrets.xcconfig.bak

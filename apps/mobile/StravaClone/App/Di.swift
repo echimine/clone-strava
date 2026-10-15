@@ -57,6 +57,11 @@ final class Di {
     let defaultVisibility: DefaultVisibilityCache
 
     private let recordingService: RecordingService
+    /// Lock screen and Dynamic Island of the Recording (ADR-031 §9).
+    private let recordingLiveActivity = RecordingLiveActivityUpdater(
+        port: ActivityKitRecordingLiveActivity(),
+        ticks: RecordingLiveActivityUpdater.everyFiveSeconds
+    )
     /// Core Motion for the automatic Pause of a run (ADR-031 §4).
     private let motionProvider = CoreMotionActivityProvider()
     /// How this launch picks a stored Recording up, set by the `AppDelegate` (ADR-031 §10).
@@ -87,7 +92,8 @@ final class Di {
             locationProvider: locationProvider,
             repository: GRDBRecordingRepository(database: database),
             motionProvider: motionProvider,
-            autoPauseFeedback: HapticAutoPauseFeedback()
+            autoPauseFeedback: HapticAutoPauseFeedback(),
+            liveActivity: recordingLiveActivity
         )
         realtimeService = RealtimeService(
             client: webSocketClient,
@@ -162,10 +168,13 @@ final class Di {
         Task { await backgroundRefresh.observeQueue() }
     }
 
-    /// At launch (ADR-031 §3, §10): a stored Recording rejoins the background session and the
-    /// GPS loop at once, whether or not a screen ever shows it.
+    /// At launch (ADR-031 §3, §9, §10): Live Activities left by a previous run end, then a
+    /// stored Recording rejoins the background session and the GPS loop at once, whether or not
+    /// a screen ever shows it.
     func resumeRecording(after launch: RecordingLaunch) {
         recordingLaunch = launch
+        let liveActivity = recordingLiveActivity
+        Task { await liveActivity.run() }
         let service = recordingService
         Task { _ = try? await service.restore(launch) }
     }
