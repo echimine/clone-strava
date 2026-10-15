@@ -57,7 +57,7 @@ enum ItineraryStatus: String, Codable, CaseIterable, Identifiable {
 }
 
 enum ProtoVariant: String, Codable, CaseIterable, Identifiable {
-    case A, B, C
+    case A, B, C, D
     var id: Self { self }
 
     var name: String {
@@ -65,6 +65,25 @@ enum ProtoVariant: String, Codable, CaseIterable, Identifiable {
         case .A: "Façon Strava, sans bouton"
         case .B: "Miroir de l'écran + bouton Pause"
         case .C: "Itinéraire d'abord"
+        case .D: "Mélange : verrouillé A, compacte B, étendue C"
+        }
+    }
+
+    enum Presentation { case lock, compact, expanded }
+    enum Base { case A, B, C }
+
+    /// D borrows each presentation from the variant the athlete picked after trying A, B and C.
+    func source(_ presentation: Presentation) -> Base {
+        switch self {
+        case .A: .A
+        case .B: .B
+        case .C: .C
+        case .D:
+            switch presentation {
+            case .lock: .A
+            case .compact: .B
+            case .expanded: .C
+            }
         }
     }
 }

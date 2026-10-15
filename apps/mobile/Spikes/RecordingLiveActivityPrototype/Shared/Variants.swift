@@ -12,7 +12,7 @@ typealias LAState = RecordingActivityAttributes.ContentState
 /// Every presentation of every variant, picked by `variant`.
 enum Parts {
     @ViewBuilder static func lock(_ v: ProtoVariant, _ sport: ProtoSport, _ s: LAState) -> some View {
-        switch v {
+        switch v.source(.lock) {
         case .A: VariantA.Lock(sport: sport, s: s)
         case .B: VariantB.Lock(sport: sport, s: s)
         case .C: VariantC.Lock(sport: sport, s: s)
@@ -20,7 +20,7 @@ enum Parts {
     }
 
     @ViewBuilder static func compactLeading(_ v: ProtoVariant, _ sport: ProtoSport, _ s: LAState) -> some View {
-        switch v {
+        switch v.source(.compact) {
         case .A:
             Image(systemName: s.isPaused ? "pause.fill" : sport.symbol)
                 .foregroundStyle(s.isPaused ? Fmt.pause : Fmt.accent)
@@ -37,7 +37,7 @@ enum Parts {
     }
 
     @ViewBuilder static func compactTrailing(_ v: ProtoVariant, _ sport: ProtoSport, _ s: LAState) -> some View {
-        switch v {
+        switch v.source(.compact) {
         case .A, .B:
             Chrono(s: s).frame(maxWidth: 56).multilineTextAlignment(.trailing)
                 .foregroundStyle(s.isPaused ? Fmt.pause : .white)
@@ -57,7 +57,7 @@ enum Parts {
     }
 
     @ViewBuilder static func minimal(_ v: ProtoVariant, _ sport: ProtoSport, _ s: LAState) -> some View {
-        switch v {
+        switch v.source(.compact) {
         case .A:
             Image(systemName: s.isPaused ? "pause.fill" : sport.symbol)
                 .foregroundStyle(s.isPaused ? Fmt.pause : Fmt.accent)
@@ -74,7 +74,7 @@ enum Parts {
     }
 
     @ViewBuilder static func expandedLeading(_ v: ProtoVariant, _ sport: ProtoSport, _ s: LAState) -> some View {
-        switch v {
+        switch v.source(.expanded) {
         case .A:
             VStack(alignment: .leading) {
                 Text("Temps").font(.caption2).foregroundStyle(.secondary)
@@ -89,7 +89,7 @@ enum Parts {
     }
 
     @ViewBuilder static func expandedTrailing(_ v: ProtoVariant, _ sport: ProtoSport, _ s: LAState) -> some View {
-        switch v {
+        switch v.source(.expanded) {
         case .A:
             VStack(alignment: .trailing) {
                 Text("Distance").font(.caption2).foregroundStyle(.secondary)
@@ -103,7 +103,7 @@ enum Parts {
     }
 
     @ViewBuilder static func expandedCenter(_ v: ProtoVariant, _ sport: ProtoSport, _ s: LAState) -> some View {
-        switch v {
+        switch v.source(.expanded) {
         case .A, .B:
             EmptyView()
         case .C:
@@ -116,6 +116,7 @@ enum Parts {
                     }
                     VariantC.Track(fraction: it.fraction, symbol: sport.symbol, dimmed: it.status == .offTrack)
                 }
+                .padding(.horizontal, 12)
             } else {
                 Text("\(Fmt.km(s.distanceMeters)) km").font(.title.bold().monospacedDigit())
             }
@@ -124,7 +125,7 @@ enum Parts {
 
     @ViewBuilder static func expandedBottom(_ v: ProtoVariant, _ sport: ProtoSport, _ s: LAState) -> some View {
         let stat = SportStat(sport: sport, s: s)
-        switch v {
+        switch v.source(.expanded) {
         case .A:
             HStack {
                 Text("\(stat.label) \(stat.value) \(stat.unit)").font(.caption.monospacedDigit())
@@ -154,6 +155,8 @@ enum Parts {
                 if s.isPaused { PausePill() }
             }
             .font(.callout.monospacedDigit())
+            // Keeps the chrono and the unit clear of the island's rounded corners.
+            .padding(.horizontal, 12)
         }
     }
 
