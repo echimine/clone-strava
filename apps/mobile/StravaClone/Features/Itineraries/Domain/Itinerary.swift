@@ -23,19 +23,7 @@ extension ItineraryTrack {
     /// The track as a list thumbnail: polyline5 of at most `maxCharacters`, thinned by keeping
     /// one point in 2, 4, 8… and always the last one, like the API's `map_polyline`.
     func mapPolyline(maxCharacters: Int = 2_000) -> EncodedPolyline {
-        let points = polyline.decode()
-        var step = 1
-        while true {
-            var kept = Swift.stride(from: 0, to: points.count, by: step).map { points[$0] }
-            if let last = points.last, (points.count - 1) % step != 0 {
-                kept.append(last)
-            }
-            let encoded = EncodedPolyline(encoding: kept)
-            if encoded.value.count <= maxCharacters || kept.count <= 2 {
-                return encoded
-            }
-            step *= 2
-        }
+        EncodedPolyline.thumbnail(of: polyline.decode(), maxCharacters: maxCharacters)
     }
 }
 

@@ -7,6 +7,9 @@ enum ActivityOperationStep: String, CaseIterable, Sendable {
     case create = "create_activity"
     case upload = "upload_trace"
     case complete = "complete_activity"
+    /// `DELETE /v1/activities/:id` of an Activity deleted on the phone after its creation
+    /// (ADR-031 §14): the local Activity is already gone.
+    case delete = "delete_activity"
 }
 
 /// A pre-signed `PUT` of the trace (ADR-019 §1-2): valid 15 minutes.
@@ -22,6 +25,8 @@ struct PendingActivityOperation: Equatable, Sendable {
     let step: ActivityOperationStep
     let attempts: Int
     let nextAttemptAt: Date
+    /// The last temporary failure (`offline`, `unavailable`…), nil before the first attempt.
+    var lastError: String?
     /// `upload_trace` only: the URL received from `POST /v1/activities` or `upload-url`.
     let uploadTarget: TraceUploadTarget?
 }

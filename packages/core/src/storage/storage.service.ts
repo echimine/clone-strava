@@ -1,5 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import {
+  DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
   NotFound,
@@ -128,6 +129,11 @@ export class StorageService {
         ContentEncoding: options.contentEncoding,
       }),
     );
+  }
+
+  /** Deletes an object; deleting a missing key succeeds (S3 semantics). */
+  async deleteObject(key: string): Promise<void> {
+    await this.client.send(new DeleteObjectCommand({ Bucket: this.options.bucket, Key: key }));
   }
 }
 

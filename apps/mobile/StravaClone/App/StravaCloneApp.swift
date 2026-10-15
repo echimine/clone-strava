@@ -148,15 +148,15 @@ struct RootView: View {
                     .tabItem { Label("Enregistrer", systemImage: "record.circle") }
                     .tag(AppTab.record)
                     ProfileView(store: authStore, signOutWarning: {
-                        // ADR-031 §10: a Recording in progress is deleted on sign-out, after confirmation.
-                        let recording = await recordingStore.signOutWarning()
-                        let itineraries = ItineraryMessages.signOutWarning(
-                            pendingChanges: await itinerarySynchronizer.pendingChangeCount()
+                        // ADR-031 §10, §14: one confirmation for all that a sign-out loses.
+                        SignOutWarning.message(
+                            recordingInProgress: await recordingStore.signOutWarning() != nil,
+                            unsentActivities: await syncCoordinator.unsentActivityCount(),
+                            pendingItineraryChanges: await itinerarySynchronizer.pendingChangeCount()
                         )
-                        let warnings = [recording, itineraries].compactMap { $0 }
-                        return warnings.isEmpty ? nil : warnings.joined(separator: "\n\n")
                     }, beforeSignOut: {
                         await recordingStore.delete()
+                        await syncCoordinator.signOut()
                     }) {
                         MyItinerariesView(
                             store: itineraryListStore,

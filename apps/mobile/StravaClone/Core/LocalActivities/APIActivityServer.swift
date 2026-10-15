@@ -96,6 +96,16 @@ struct APIActivityServer: ActivityServer {
         }
     }
 
+    func delete(_ id: ActivityID) async throws(ActivityServerError) {
+        do {
+            let _: NoContent = try await call { () async throws(APIError) in
+                try await apiClient.send(method: "DELETE", path: "/v1/activities/\(id)")
+            }
+        } catch .refused(let code) where code == "not_found" || code == "http_404" {
+            return
+        }
+    }
+
     private static func target(url: String, expiresAt: Date) throws(ActivityServerError) -> TraceUploadTarget {
         guard let url = URL(string: url) else { throw .unavailable }
         return TraceUploadTarget(url: url, expiresAt: expiresAt)

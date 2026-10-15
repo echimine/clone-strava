@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -86,6 +87,20 @@ export class ActivitiesController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<ActivityDetail> {
     return this.activitiesService.getOwn(user.userId, activityId);
+  }
+
+  /**
+   * Hard delete of the author's activity while `pending` or `failed` (ADR-031 §13), with its
+   * trace: `204`. `409 not_deletable` in any other state; `404` if unknown or someone else's.
+   */
+  @Delete(":id")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiResponse({ status: 204, description: "Deleted" })
+  async remove(
+    @Param("id", ParseUUIDPipe) activityId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<void> {
+    await this.activitiesService.delete(user.userId, activityId);
   }
 
   /** New upload URL while the activity is `pending` (expired URL, ADR-008), `409 not_pending` otherwise. */
