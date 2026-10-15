@@ -57,6 +57,8 @@ final class Di {
     let defaultVisibility: DefaultVisibilityCache
 
     private let recordingService: RecordingService
+    /// Core Motion for the automatic Pause of a run (ADR-031 §4).
+    private let motionProvider = CoreMotionActivityProvider()
     /// How this launch picks a stored Recording up, set by the `AppDelegate` (ADR-031 §10).
     private var recordingLaunch = RecordingLaunch.openedByAthlete
     private let authService: AuthService
@@ -83,7 +85,9 @@ final class Di {
 
         recordingService = RecordingService(
             locationProvider: locationProvider,
-            repository: GRDBRecordingRepository(database: database)
+            repository: GRDBRecordingRepository(database: database),
+            motionProvider: motionProvider,
+            autoPauseFeedback: HapticAutoPauseFeedback()
         )
         realtimeService = RealtimeService(
             client: webSocketClient,
@@ -153,13 +157,17 @@ final class Di {
     func makeRecordingStore() -> RecordingStore {
         let permission = locationPermission
         let defaultVisibility = defaultVisibility
+        let motion = motionProvider
         return RecordingStore(
             service: recordingService,
             preferences: UserDefaultsRecordingPreferences(),
+            itineraries: itineraryCache,
             launch: recordingLaunch,
             ensureFullAccuracy: { await permission.ensureFullAccuracy(purposeKey: "Recording") },
             saveRecording: SaveRecording(service: recordingService, activities: localActivities),
-            defaultVisibility: { defaultVisibility.cachedDefaultVisibility }
+            defaultVisibility: { defaultVisibility.cachedDefaultVisibility },
+            autoPausePreferences: UserDefaultsRecordingPreferences(),
+            requestMotionAuthorization: { await motion.requestAuthorization() }
         )
     }
 

@@ -23,6 +23,7 @@ struct RecordingStoreTests {
         RecordingStore(
             service: service,
             preferences: InMemoryRecordingPreferences(lastSavedSport: lastSavedSport),
+            itineraries: FakeItineraryCacheReader(),
             ensureFullAccuracy: { fullAccuracy },
             saveRecording: SaveRecording(service: service, activities: activities),
             defaultVisibility: { .public }

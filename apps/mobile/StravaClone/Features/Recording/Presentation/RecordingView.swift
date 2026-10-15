@@ -6,6 +6,8 @@ struct RecordingView: View {
     @State var store: RecordingStore
     /// After Save (ADR-031 §11): the app shell shows the top of the feed.
     var onSaved: () -> Void = {}
+    /// "Créer un Itinéraire" from the empty Itinerary chip.
+    var onCreateItinerary: () -> Void = {}
 
     var body: some View {
         NavigationStack {
@@ -14,6 +16,7 @@ struct RecordingView: View {
                 .toolbar(.hidden, for: .navigationBar)
         }
         .task { await store.observe() }
+        .toast($store.toast)
         .fullScreenCover(isPresented: .constant(store.screen == .finishing)) {
             if let snapshot = store.snapshot {
                 RecordingFinishView(store: store, snapshot: snapshot, onSaved: onSaved)
@@ -27,7 +30,7 @@ struct RecordingView: View {
         case .loading:
             ProgressView()
         case .preStart:
-            RecordingPreStartView(store: store)
+            RecordingPreStartView(store: store, onCreateItinerary: onCreateItinerary)
         case .recording, .finishing:
             if let snapshot = store.snapshot {
                 RecordingLiveView(store: store, snapshot: snapshot)

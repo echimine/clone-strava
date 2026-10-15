@@ -20,14 +20,26 @@ actor RecordingService {
     /// How long points may fail to reach the disk before the athlete is warned (ADR-031 §10).
     static let writeFailureWarningDelay: TimeInterval = 30
 
+    // Automatic Pause (ADR-031 §4)
+    private let motionProvider: (any MotionActivityProvider)?
+    private let autoPauseFeedback: (any AutoPauseFeedback)?
+    private var autoPause: AutoPauseDetector?
+    /// Points received during an automatic Pause, written once its end is known.
+    private var heldPoints: [LocationSample] = []
+    private var motionConsumer: Task<Void, Never>?
+
     init(
         locationProvider: any LocationProvider,
         repository: any RecordingRepository,
-        now: @escaping @Sendable () -> Date = Date.init
+        now: @escaping @Sendable () -> Date = Date.init,
+        motionProvider: (any MotionActivityProvider)? = nil,
+        autoPauseFeedback: (any AutoPauseFeedback)? = nil
     ) {
         self.locationProvider = locationProvider
         self.repository = repository
         self.now = now
+        self.motionProvider = motionProvider
+        self.autoPauseFeedback = autoPauseFeedback
     }
 
     /// The Recording in progress (`nil` when there is none), now and on every change.
@@ -62,12 +74,25 @@ actor RecordingService {
         return snapshot
     }
 
-    func start(sport: RecordingSport) async throws -> RecordingSnapshot {
-        let recording = Recording(sport: sport, startedAt: now())
+    /// - Parameters:
+    ///   - itinerary: the copy of the chosen Itinerary loaded from the cache, kept until the end
+    ///     even if it is deleted elsewhere (ADR-031 §2).
+    ///   - autoPause: the auto-pause switch, ignored for a sport without one.
+    func start(
+        sport: RecordingSport,
+        itinerary: FollowedItinerary? = nil,
+        autoPause: Bool = false
+    ) async throws -> RecordingSnapshot {
+        let enabled = autoPause && sport.autoPauseRule != nil
+        let recording = Recording(sport: sport, startedAt: now(), autoPauseEnabled: enabled)
         try await repository.create(recording)
-        let snapshot = RecordingSnapshot(recording: recording)
+        if let itinerary {
+            try await repository.saveItinerary(itinerary, of: recording.id)
+        }
+        let snapshot = RecordingSnapshot(recording: recording, itinerary: itinerary)
         begin(snapshot, points: [])
         await startGPS()
+        await armAutoPause()
         return snapshot
     }
 
@@ -80,6 +105,9 @@ actor RecordingService {
         if let resumed {
             distance?.notePause()
             snapshot?.currentSpeed.reset(movingSince: resumed.recording.movingSince)
+            // After a manual Resume, the rules keep watching (ADR-031 §4).
+            heldPoints = []
+            autoPause?.monitor(since: resumed.recording.movingSince)
             publish()
         }
         return snapshot
@@ -105,11 +133,21 @@ actor RecordingService {
         guard self.snapshot?.recording.id == snapshot.recording.id else { return }
         consumer?.cancel()
         consumer = nil
+        disarmAutoPause()
         await locationProvider.endBackgroundTracking()
         self.snapshot = nil
         distance = nil
         unwrittenPoints = []
         publish()
+    }
+
+    /// "Retirer l'Itinéraire" (ADR-031 §2, §8): stops following it; it can never be replaced.
+    func removeItinerary() async throws -> RecordingSnapshot? {
+        guard let id = snapshot?.recording.id, snapshot?.itinerary != nil else { return snapshot }
+        try await repository.saveItinerary(nil, of: id)
+        snapshot?.itinerary = nil
+        publish()
+        return snapshot
     }
 
     /// Wipes the Recording, its points and its Pauses, and releases the GPS.
@@ -118,6 +156,7 @@ actor RecordingService {
         try await repository.delete(id)
         consumer?.cancel()
         consumer = nil
+        disarmAutoPause()
         await locationProvider.endBackgroundTracking()
         snapshot = nil
         distance = nil
@@ -133,8 +172,12 @@ actor RecordingService {
         if recording != stored.recording {
             try await repository.save(recording)
         }
-        begin(RecordingSnapshot(recording: recording, points: stored.points), points: stored.points)
+        begin(
+            RecordingSnapshot(recording: recording, points: stored.points, itinerary: stored.itinerary),
+            points: stored.points
+        )
         await startGPS()
+        await armAutoPause()
     }
 
     private func begin(_ snapshot: RecordingSnapshot, points: [LocationSample]) {
@@ -166,10 +209,24 @@ actor RecordingService {
     }
 
     private func handle(_ update: LocationUpdate) async {
-        guard var current = snapshot, let sample = update.sample else { return }
-        current.position = sample
-        snapshot = current
-        let recording = current.recording
+        guard snapshot != nil else { return }
+        if let sample = update.sample {
+            snapshot?.position = sample
+            await followItinerary(sample)
+            if snapshot?.recording.isAutomaticallyPaused == true, autoPause != nil {
+                heldPoints.append(sample)
+            }
+            await record(sample)
+            await observe(.location(sample))
+        }
+        if update.isStationary {
+            await observe(.stationary(update.sample?.timestamp ?? now()))
+        }
+    }
+
+    /// Writes a point of the Recording in progress and adds it to the stats.
+    private func record(_ sample: LocationSample) async {
+        guard let recording = snapshot?.recording else { return }
         // A Pause writes nothing; a fix older than Start or Resume is a stale one.
         guard recording.phase == .active, sample.timestamp >= recording.movingSince else {
             publish()
@@ -189,6 +246,18 @@ actor RecordingService {
         publish()
     }
 
+    /// Itinerary progress follows the real position, during a Pause too, and is saved on each
+    /// change (ADR-031 §6, §10). A failed save is caught up by the next one.
+    private func followItinerary(_ sample: LocationSample) async {
+        guard let id = snapshot?.recording.id, var progress = snapshot?.itinerary?.progress else { return }
+        let before = progress.saved
+        progress.update(with: sample)
+        snapshot?.itinerary?.progress = progress
+        if progress.saved != before {
+            try? await repository.saveItineraryProgress(progress.saved, of: id)
+        }
+    }
+
     private func write(_ sample: LocationSample, to id: ActivityID) async {
         unwrittenPoints.append(sample)
         do {
@@ -198,6 +267,75 @@ actor RecordingService {
             }
         } catch {
             // Kept in memory and retried with the next point (ADR-031 §10).
+        }
+    }
+
+    // MARK: - Automatic Pause
+
+    func setAutoPause(_ enabled: Bool) async throws -> RecordingSnapshot? {
+        guard snapshot?.recording.sport.autoPauseRule != nil else { return snapshot }
+        let updated = try await change { $0.autoPauseEnabled = enabled }
+        await armAutoPause()
+        return updated
+    }
+
+    /// Starts the rules for the Recording in progress if its switch is on, Core Motion included
+    /// for a run; an automatic Pause read back from storage stays automatic.
+    private func armAutoPause() async {
+        disarmAutoPause()
+        guard let recording = snapshot?.recording, recording.autoPauseEnabled,
+              let rule = recording.sport.autoPauseRule
+        else { return }
+        if recording.isAutomaticallyPaused, let start = recording.currentPauseStartedAt {
+            autoPause = AutoPauseDetector(rule: rule, pausedAt: start, position: recording.currentPausePosition)
+        } else {
+            autoPause = AutoPauseDetector(rule: rule, monitoringSince: max(now(), recording.movingSince))
+        }
+        if rule == .motion, let motionProvider {
+            let readings = await motionProvider.readings()
+            motionConsumer = Task {
+                for await reading in readings {
+                    await self.observe(.motion(reading))
+                }
+            }
+        }
+    }
+
+    private func disarmAutoPause() {
+        motionConsumer?.cancel()
+        motionConsumer = nil
+        autoPause = nil
+        heldPoints = []
+    }
+
+    /// Feeds the rules while moving or in an automatic Pause; a manual Pause only ends manually.
+    private func observe(_ signal: AutoPauseSignal) async {
+        guard let recording = snapshot?.recording,
+              recording.phase == .active || recording.isAutomaticallyPaused,
+              let decision = autoPause?.observe(signal)
+        else { return }
+        switch decision {
+        case let .pause(date, position):
+            guard recording.phase == .active else { return }
+            heldPoints = []
+            guard (try? await change({ $0.pause(at: date, kind: .automatic, position: position) })) != nil else {
+                return await armAutoPause()
+            }
+            await autoPauseFeedback?.autoPauseStarted()
+        case let .resume(departure):
+            guard recording.isAutomaticallyPaused else { return }
+            let held = heldPoints.filter { $0.timestamp >= departure }
+            heldPoints = []
+            guard let resumed = try? await change({ $0.resume(at: departure) }) else {
+                return await armAutoPause()
+            }
+            distance?.notePause()
+            snapshot?.currentSpeed.reset(movingSince: resumed.recording.movingSince)
+            for point in held {
+                await record(point)
+            }
+            publish()
+            await autoPauseFeedback?.autoPauseEnded()
         }
     }
 

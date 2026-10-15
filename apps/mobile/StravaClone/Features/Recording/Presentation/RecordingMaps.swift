@@ -1,15 +1,17 @@
 import MapboxMaps
 import SwiftUI
 
-/// Map view of the Recording (ADR-031 §8): the recorded trace, solid, and the position puck
-/// following the athlete.
+/// Map view of the Recording (ADR-031 §8): the Itinerary track wide and translucent, the
+/// recorded trace solid, and the position puck following the athlete.
 struct RecordingLiveMap: View {
     let trace: [Coordinate]
+    var itineraryTrack: [Coordinate] = []
 
     @State private var viewport = Viewport.followUser
 
     var body: some View {
         AppMap(viewport: $viewport, bottomInset: 110) {
+            ItineraryTrackLine(track: itineraryTrack)
             if trace.count >= 2 {
                 PolylineAnnotation(lineCoordinates: trace.map(\.locationCoordinate))
                     .lineColor(UIColor(Theme.accent))
@@ -68,5 +70,19 @@ struct RecordingTraceMap: View {
             quickZoomEnabled: false
         ))
         .onMapLoaded { _ in isMapLoaded = true }
+    }
+}
+
+/// The followed Itinerary's track (ADR-031 §8): wide and translucent, under the recorded trace.
+struct ItineraryTrackLine: MapContent {
+    let track: [Coordinate]
+
+    var body: some MapContent {
+        if track.count >= 2 {
+            PolylineAnnotation(lineCoordinates: track.map(\.locationCoordinate))
+                .lineColor(UIColor(Theme.accent).withAlphaComponent(0.35))
+                .lineWidth(10)
+                .lineJoin(.round)
+        }
     }
 }
