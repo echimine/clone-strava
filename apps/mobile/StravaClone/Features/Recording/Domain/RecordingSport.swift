@@ -22,6 +22,20 @@ enum RecordingSport: String, CaseIterable, Codable, Sendable {
         }
     }
 
+    /// Automatic Pause (ADR-031 §4): GPS on a bike, Core Motion on a run, none on foot otherwise.
+    var autoPauseRule: AutoPauseRule? {
+        switch self {
+        case .ride: .gps
+        case .run: .motion
+        case .walk, .hike: nil
+        }
+    }
+
+    /// On by default for a ride only.
+    var autoPauseByDefault: Bool {
+        self == .ride
+    }
+
     /// `sports.min_duration_s` (ADR-031 §11): shorter, the Activity cannot be saved.
     var minimumDuration: Duration {
         self == .hike ? .seconds(300) : .seconds(60)
