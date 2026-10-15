@@ -1,4 +1,5 @@
-import { Body, Controller, HttpCode, HttpStatus, Param, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, HttpCode, HttpStatus, Param, Post, Res, UseGuards } from "@nestjs/common";
+import type { Response } from "express";
 import { createZodDto, ZodSerializerDto } from "nestjs-zod";
 import {
   completeActivityResponseSchema,
@@ -41,15 +42,18 @@ export class ActivitiesController {
   async create(
     @Body() body: CreateActivityRequestDto,
     @CurrentUser() user: AuthenticatedUser,
+    @Res({ passthrough: true }) response: Response,
   ): Promise<CreateActivityResponse> {
     // ADR-019 §1: 201 for a new id, 200 for a replayed call on the same
     // `pending` activity, 409 if the id belongs to another user, 422 on
     // invalid data -- all handled inside `CreateActivityUseCase`.
     const result = await this.activitiesService.create(user.userId, body);
+    response.status(result.created ? HttpStatus.CREATED : HttpStatus.OK);
     return { activity: toActivitySummary(result.activity), upload: result.uploadUrl };
   }
 
   @Post(":id/upload-url")
+  @HttpCode(HttpStatus.OK)
   @ZodSerializerDto(RenewUploadUrlResponseDto)
   renewUploadUrl(
     @Param("id") activityId: string,

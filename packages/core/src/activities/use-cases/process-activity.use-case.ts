@@ -4,6 +4,7 @@ import { EventEmitter2 } from "@nestjs/event-emitter";
 import {
   ACTIVITY_FAILED_EVENT,
   ACTIVITY_PROCESSED_EVENT,
+  ACTIVITY_TRACE_MAX_BYTES,
   ANALYTICS_EVENTS,
   activityTraceKey,
   traceSchema,
@@ -30,8 +31,6 @@ import { computeHeartRate } from "../domain/heart-rate.js";
 import { PermanentProcessingError } from "../domain/processing-error.js";
 import { toLineStringEwkt, toPointEwkt } from "../domain/ewkt.js";
 
-/** Compressed traces above this size are refused (several hours at 1 Hz stay far below). */
-const MAX_TRACE_BYTES = 50 * 1024 * 1024;
 /** Douglas-Peucker tolerance of the stored route (ADR-019 §5 step 5). */
 const ROUTE_TOLERANCE_M = 5;
 
@@ -144,7 +143,7 @@ export class ProcessActivityUseCase {
     try {
       compressed = await this.storage.getObject(
         activityTraceKey(activity.userId, activity.id),
-        MAX_TRACE_BYTES,
+        ACTIVITY_TRACE_MAX_BYTES,
       );
     } catch (error) {
       if (error instanceof ObjectTooLargeError) {

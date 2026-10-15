@@ -97,14 +97,30 @@ export class ActivityRepository {
       );
   }
 
-  /** Idempotent insert (ADR-028 §1: a replayed import job inserts nothing). */
+  /**
+   * Idempotent insert (ADR-019 §1, ADR-028 §1: a replayed `POST` or import
+   * job inserts nothing); `false` when the id already exists.
+   */
   async insertIfAbsent(
     values: typeof schema.activity.$inferInsert,
     executor: DbExecutor = this.db,
-  ): Promise<void> {
-    await executor.insert(schema.activity).values(values).onConflictDoNothing({
-      target: schema.activity.id,
-    });
+  ): Promise<boolean> {
+    const inserted = await executor
+      .insert(schema.activity)
+      .values(values)
+      .onConflictDoNothing({ target: schema.activity.id })
+      .returning({ id: schema.activity.id });
+    return inserted.length > 0;
+  }
+
+  /** `pending` -> `processing` (ADR-019 §4 `complete`); `false` if it was not `pending`. */
+  async markProcessingIfPending(id: string): Promise<boolean> {
+    const updated = await this.db
+      .update(schema.activity)
+      .set({ processingStatus: "processing" })
+      .where(and(eq(schema.activity.id, id), eq(schema.activity.processingStatus, "pending")))
+      .returning({ id: schema.activity.id });
+    return updated.length > 0;
   }
 
   async incrementAttempts(id: string): Promise<void> {
