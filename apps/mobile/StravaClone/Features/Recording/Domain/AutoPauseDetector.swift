@@ -48,7 +48,7 @@ struct AutoPauseDetector: Sendable {
     static let resumeSpeedMs = 1.5
     /// …or this far whatever the speed.
     static let resumeAnySpeedDistanceM = 40.0
-    /// Fixes less accurate than this are ignored, as for the live stats.
+    /// Fixes less accurate than this are ignored, as for the provisional values.
     static let maxAccuracyM = ProvisionalDistance.maxAccuracyM
     /// Running: pause after this long without `running`…
     static let motionWindow: TimeInterval = 5

@@ -90,7 +90,7 @@ struct RecordingSaveTests {
         #expect(activity.endedAt == start.addingTimeInterval(720))
         #expect(activity.elapsedTimeS == 720)
         #expect(activity.movingTimeS == 600)
-        // The leg across the Pause does not count.
+        // The hop across the Pause does not count.
         #expect(abs(activity.distance.meters - 1_000) < 1)
         #expect(try await activities.operation(for: recording.id)?.step == .create)
     }

@@ -1,8 +1,8 @@
 import Foundation
 
-/// The live distance of a Recording (ADR-031 §5), with the server's cleanup rules
+/// The provisional distance of a Recording (ADR-031 §5), with the server's cleanup rules
 /// (`cleanTrace` then `computeMetrics`): fixes less accurate than 50 m are dropped, as are
-/// out-of-order timestamps and jumps faster than the sport's plausible top speed; the leg
+/// out-of-order timestamps and jumps faster than the sport's plausible top speed; the hop
 /// across a Pause counts for nothing and is never a jump. Not shared with TypeScript: the
 /// shared JSON test traces keep both within 1 %.
 struct ProvisionalDistance: Sendable {
@@ -18,12 +18,12 @@ struct ProvisionalDistance: Sendable {
         maxSpeedMs = sport.maxPlausibleSpeedMs
     }
 
-    /// A Pause ended since the last fix: the next leg straddles it.
+    /// A Pause ended since the last fix: the next hop (from one fix to the next) straddles it.
     mutating func notePause() {
         crossesPause = true
     }
 
-    /// Adds a fix and returns the length of the leg it counted, `nil` when it counted none.
+    /// Adds a fix and returns the length of the hop it counted, `nil` when it counted none.
     @discardableResult
     mutating func append(_ sample: LocationSample) -> Distance? {
         guard sample.horizontalAccuracy >= 0, sample.horizontalAccuracy <= Self.maxAccuracyM else { return nil }
@@ -33,15 +33,15 @@ struct ProvisionalDistance: Sendable {
         }
         let elapsed = sample.timestamp.timeIntervalSince(previous.timestamp)
         guard elapsed > 0 else { return nil }
-        let leg = previous.coordinate.distance(to: sample.coordinate)
+        let hop = previous.coordinate.distance(to: sample.coordinate)
         if crossesPause {
             keep(sample)
             return nil
         }
-        guard leg.meters / elapsed <= maxSpeedMs else { return nil }
+        guard hop.meters / elapsed <= maxSpeedMs else { return nil }
         keep(sample)
-        total = total + leg
-        return leg
+        total = total + hop
+        return hop
     }
 
     private mutating func keep(_ sample: LocationSample) {

@@ -8,7 +8,7 @@ struct RecordingStatItem: Equatable, Identifiable {
     var id: String { label }
 }
 
-/// French display formats of a Recording's live stats (ADR-031 §5): "0,00 km", "h:mm:ss",
+/// French display formats of a Recording's provisional values (ADR-031 §5): "0,00 km", "h:mm:ss",
 /// "5:12 /km", "24,3 km/h". Values without their unit.
 enum RecordingFormatters {
     static let dash = "–"

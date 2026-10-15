@@ -268,8 +268,8 @@ actor RecordingService {
         if RecordingSnapshot.isAccurate(sample) {
             snapshot?.trace.append(sample.coordinate)
         }
-        if let leg = distance?.append(sample) {
-            snapshot?.currentSpeed.record(leg, at: sample.timestamp)
+        if let hop = distance?.append(sample) {
+            snapshot?.currentSpeed.record(hop, at: sample.timestamp)
         }
         snapshot?.distance = distance?.total ?? .zero
         publish()
