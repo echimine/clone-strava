@@ -6,7 +6,8 @@ import SwiftUI
 struct ProfileView<Itineraries: View>: View {
     @State var store: AuthStore
     var signOutWarning: @MainActor () async -> String? = { nil }
-    /// Run once the warning is confirmed, before signing out (a Recording is deleted, ADR-031 §10).
+    /// Run before signing out, once the warning is confirmed or when there is none: the local
+    /// data is wiped (Recording, local Activities, ADR-031 §10, §14).
     var beforeSignOut: @MainActor () async -> Void = {}
     @ViewBuilder var itineraries: () -> Itineraries
 
@@ -35,6 +36,7 @@ struct ProfileView<Itineraries: View>: View {
                             if let warning = await signOutWarning() {
                                 pendingSignOutWarning = warning
                             } else {
+                                await beforeSignOut()
                                 await store.signOut()
                             }
                         }

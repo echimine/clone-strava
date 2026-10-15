@@ -46,4 +46,6 @@ protocol ActivityServer: Sendable {
     func uploadTrace(_ data: Data, to target: TraceUploadTarget) async throws(ActivityServerError)
     func complete(_ id: ActivityID) async throws(ActivityServerError)
     func status(of id: ActivityID) async throws(ActivityServerError) -> RemoteActivityStatus
+    /// `DELETE /v1/activities/:id` (ADR-031 §13): an Activity already gone (`404`) counts as deleted.
+    func delete(_ id: ActivityID) async throws(ActivityServerError)
 }

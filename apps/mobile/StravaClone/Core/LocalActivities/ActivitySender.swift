@@ -79,6 +79,31 @@ final class ActivitySender {
         return processed
     }
 
+    /// Delete (ADR-031 §14): gone from the phone at once; the server copy, if any, is deleted
+    /// by a `delete_activity` sent right away. Refused once `processing`.
+    func delete(_ id: ActivityID) async throws {
+        guard try await store.delete(id) else { return }
+        await send()
+    }
+
+    /// Retry after an API refusal: resumes at the refused step. Refused otherwise.
+    func retry(_ id: ActivityID) async throws {
+        try await store.retry(id)
+        await send()
+    }
+
+    /// The Activities a sign-out would lose (`recorded`, `created`, `trace_uploaded`, `failed`).
+    func unsentCount() async -> Int {
+        (try? await store.unsentCount()) ?? 0
+    }
+
+    /// Sign-out: every local Activity is wiped, nothing more is sent.
+    func clear() async {
+        wakeUp?.cancel()
+        wakeUp = nil
+        try? await store.clear()
+    }
+
     /// Processed Activities, once the feed shows them: row, points and Pauses go.
     func wipe(_ ids: [ActivityID]) async {
         try? await store.wipe(ids)
@@ -118,7 +143,19 @@ final class ActivitySender {
         case .create: await create(operation)
         case .upload: await upload(operation)
         case .complete: await complete(operation)
+        case .delete: await deleteOnServer(operation)
         }
+    }
+
+    private func deleteOnServer(_ operation: PendingActivityOperation) async -> PendingActivityOperation? {
+        switch await attempt({ () async throws(ActivityServerError) in try await self.server.delete(operation.activityID) }) {
+        case .success, .failure(.refused):
+            // Deleted, or no longer deletable (`409`: already handed to the worker).
+            try? await store.drop(operation)
+        case .failure(let error):
+            await handle(error, of: operation)
+        }
+        return nil
     }
 
     private func create(_ operation: PendingActivityOperation) async -> PendingActivityOperation? {
