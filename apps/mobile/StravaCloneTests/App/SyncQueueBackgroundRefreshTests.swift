@@ -118,7 +118,9 @@ extension ActivitySenderTests {
                 repository: itineraries,
                 cache: cache,
                 queue: GRDBItineraryChangeQueue(database: harness.database),
-                sessionRefresher: FakeSessionRefresher()
+                sessionRefresher: FakeSessionRefresher(),
+                // The retry after the backoff never fires on its own: only the test's triggers send.
+                sleep: ManualSleeper().sleep
             )
             let coordinator = SyncQueueCoordinator(
                 activitySender: harness.makeSender(),

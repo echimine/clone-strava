@@ -26,6 +26,7 @@ final class ActivitySender {
     private let sessionRefresher: any SessionRefreshing
     private let backoff: RetryBackoff
     private let now: @Sendable () -> Date
+    private let sleep: @Sendable (Duration) async throws -> Void
 
     private var sending: Task<Void, Never>?
     private var rerun = false
@@ -37,13 +38,15 @@ final class ActivitySender {
         store: GRDBLocalActivityStore,
         sessionRefresher: any SessionRefreshing,
         backoff: RetryBackoff = RetryBackoff(initialDelay: .seconds(2), maxDelay: .seconds(300)),
-        now: @escaping @Sendable () -> Date = Date.init
+        now: @escaping @Sendable () -> Date = Date.init,
+        sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
     ) {
         self.server = server
         self.store = store
         self.sessionRefresher = sessionRefresher
         self.backoff = backoff
         self.now = now
+        self.sleep = sleep
     }
 
     /// Sends the steps that are due, or every pending one when `ignoringBackoff` (network back,
@@ -62,8 +65,10 @@ final class ActivitySender {
 
     /// iOS takes the background time back (ADR-031 §14): the pass in flight stops. Its request
     /// fails like a lost network and nothing is written past it, so each operation stays at
-    /// its step for the next trigger.
+    /// its step for the next trigger. The scheduled retry is cancelled too and none is scheduled.
     func cancelPass() {
+        wakeUp?.cancel()
+        wakeUp = nil
         sending?.cancel()
     }
 
@@ -127,13 +132,14 @@ final class ActivitySender {
             rerunIgnoringBackoff = false
         } while rerun
         sending = nil
+        guard !Task.isCancelled else { return }
         await scheduleWakeUp()
     }
 
     private func sendPending(ignoringBackoff: Bool) async {
         guard let pending = try? await store.pendingOperations() else { return }
         let date = now()
-        for operation in pending where ignoringBackoff || operation.nextAttemptAt <= date {
+        for operation in pending where ignoringBackoff || SyncQueueSchedule.isDue(operation.nextAttemptAt, at: date) {
             guard !Task.isCancelled else { return }
             var current: PendingActivityOperation? = operation
             var steps = 0
@@ -257,9 +263,9 @@ final class ActivitySender {
         wakeUp = nil
         guard let next = try? await store.pendingOperations().map(\.nextAttemptAt).min() else { return }
         let delay = max(0, next.timeIntervalSince(now()))
+        let sleep = sleep
         wakeUp = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(delay))
-            guard !Task.isCancelled else { return }
+            guard (try? await sleep(.seconds(delay))) != nil, !Task.isCancelled else { return }
             await self?.send()
         }
     }

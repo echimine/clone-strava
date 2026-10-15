@@ -146,6 +146,40 @@ struct ActivitySenderTests {
         #expect(try await state(harness) == .processing)
     }
 
+    // MARK: - Background time taken back
+
+    @Test func cancellingThePassAlsoCancelsTheScheduledRetry() async throws {
+        let harness = try ActivitySenderHarness()
+        try await harness.saveRecordedActivity()
+        ActivitySenderHarness.route { _ in .offline }
+        let sleeper = ManualSleeper()
+        let sender = harness.makeSender(sleep: sleeper.sleep)
+        await sender.send()
+        #expect(await eventually { sleeper.waiting == 1 })
+
+        sender.cancelPass()
+
+        #expect(sleeper.waiting == 0)
+    }
+
+    @Test func aCancelledPassSchedulesNoRetry() async throws {
+        let harness = try ActivitySenderHarness()
+        try await harness.saveRecordedActivity()
+        ActivitySenderHarness.route { step in step == "create" ? harness.created() : .hang }
+        let sleeper = ManualSleeper()
+        let sender = harness.makeSender(sleep: sleeper.sleep)
+        let sending = Task { await sender.send() }
+        #expect(await eventually { harness.requestLines.contains("PUT bucket") })
+
+        sender.cancelPass()
+        await sending.value
+        // A wake-up Task would be asking for its delay by now.
+        try await Task.sleep(for: .milliseconds(300))
+
+        #expect(sleeper.requested.isEmpty)
+        #expect(try await pendingStep(harness) == .upload)
+    }
+
     // MARK: - The response table
 
     @Test func anExpiredUploadURLIsRenewedThenTheTraceIsSentAgain() async throws {
