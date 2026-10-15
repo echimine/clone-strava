@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import {
   activityProcessingErrorCodeSchema,
   type ActivityDetail,
@@ -20,10 +20,7 @@ export class GetOwnActivityUseCase {
   ) {}
 
   async execute(userId: string, activityId: string): Promise<ActivityDetail> {
-    const row = await this.activities.findById(activityId);
-    if (!row || row.userId !== userId) {
-      throw new NotFoundException({ code: "not_found", message: "Activity not found" });
-    }
+    const row = await this.activities.findOwnOrThrow(userId, activityId);
     // Official values only once processed (ADR-019 §5 step 7).
     const [stats] =
       row.processingStatus === "processed" ? await this.activityStats.findByActivityIds([row.id]) : [];

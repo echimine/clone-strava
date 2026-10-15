@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { ConflictException, Injectable, Logger } from "@nestjs/common";
 import { activityTraceKey } from "@repo/contracts";
 import { StorageService } from "../../storage/index.js";
 import { ActivityRepository } from "../repositories/activity.repository.js";
@@ -18,10 +18,7 @@ export class DeleteActivityUseCase {
   ) {}
 
   async execute(userId: string, activityId: string): Promise<void> {
-    const row = await this.activities.findById(activityId);
-    if (!row || row.userId !== userId) {
-      throw new NotFoundException({ code: "not_found", message: "Activity not found" });
-    }
+    const row = await this.activities.findOwnOrThrow(userId, activityId);
     if (!(await this.activities.deleteIfPendingOrFailed(row.id))) {
       throw new ConflictException({
         code: "not_deletable",

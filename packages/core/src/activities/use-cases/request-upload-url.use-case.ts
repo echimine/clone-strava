@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { ConflictException, Injectable } from "@nestjs/common";
 import type { UploadUrlResponse } from "@repo/contracts";
 import { StorageService } from "../../storage/index.js";
 import { ActivityRepository } from "../repositories/activity.repository.js";
@@ -13,10 +13,7 @@ export class RequestUploadUrlUseCase {
   ) {}
 
   async execute(userId: string, activityId: string): Promise<UploadUrlResponse> {
-    const row = await this.activities.findById(activityId);
-    if (!row || row.userId !== userId) {
-      throw new NotFoundException({ code: "not_found", message: "Activity not found" });
-    }
+    const row = await this.activities.findOwnOrThrow(userId, activityId);
     if (row.processingStatus !== "pending") {
       throw new ConflictException({ code: "not_pending", message: "The trace was already uploaded" });
     }

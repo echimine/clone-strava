@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { ConflictException, Injectable } from "@nestjs/common";
 import { InjectQueue } from "@nestjs/bullmq";
 import type { Queue } from "bullmq";
 import {
@@ -31,10 +31,7 @@ export class CompleteActivityUseCase {
   ) {}
 
   async execute(userId: string, activityId: string, requestId?: string): Promise<ActivityRecord> {
-    const row = await this.activities.findById(activityId);
-    if (!row || row.userId !== userId) {
-      throw new NotFoundException({ code: "not_found", message: "Activity not found" });
-    }
+    const row = await this.activities.findOwnOrThrow(userId, activityId);
     if (row.processingStatus === "failed") {
       // Reprocessing is triggered from the backoffice (ADR-019 §4, §6).
       throw new ConflictException({ code: "activity_failed", message: "This activity has failed" });

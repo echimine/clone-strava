@@ -1,4 +1,4 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { and, desc, eq, gt, inArray, lt, ne, or, sql } from "drizzle-orm";
 import { schema, type Database } from "@repo/db";
 import { DATABASE, type DbExecutor } from "../../infrastructure/index.js";
@@ -12,6 +12,18 @@ export class ActivityRepository {
 
   findById(id: string) {
     return this.db.query.activity.findFirst({ where: eq(schema.activity.id, id) });
+  }
+
+  /**
+   * The author's own activity, whatever its state (ADR-031 §13). Anyone else gets the same
+   * `404` as for an unknown id, without learning that it exists.
+   */
+  async findOwnOrThrow(userId: string, id: string) {
+    const row = await this.findById(id);
+    if (!row || row.userId !== userId) {
+      throw new NotFoundException({ code: "not_found", message: "Activity not found" });
+    }
+    return row;
   }
 
   findByIds(ids: string[]) {
