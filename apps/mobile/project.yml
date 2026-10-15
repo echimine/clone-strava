@@ -69,6 +69,8 @@ targets:
       - path: StravaClone
         excludes:
           - "**/.gitkeep"
+      # The Live Activity type, compiled into the app and the widget extension (ADR-031 §15).
+      - path: Shared
     info:
       path: StravaClone/Info.plist
       properties:
@@ -85,6 +87,8 @@ targets:
           Recording: "La position précise est nécessaire pour mesurer la distance de votre activité."
         # Core Motion for the automatic Pause of a run, asked when the switch is turned on (ADR-031 §4).
         NSMotionUsageDescription: "StravaClone détecte quand vous vous arrêtez de courir pour mettre l'enregistrement en pause automatiquement."
+        # Live Activity of the Recording on the lock screen and in the Dynamic Island (ADR-031 §9).
+        NSSupportsLiveActivities: true
         # Debug on a physical iPhone reaches the dev API on the Mac (http://<mac>.local, Secrets.xcconfig):
         # plain HTTP is allowed on the local network only, and iOS asks for local network access.
         NSAppTransportSecurity:
@@ -133,6 +137,7 @@ targets:
         CURRENT_PROJECT_VERSION: "1"
         GENERATE_INFOPLIST_FILE: NO
     dependencies:
+      - target: StravaCloneWidget
       - package: GRDB
       - package: RevenueCat
       - package: PostHog
@@ -149,6 +154,31 @@ targets:
         - StravaCloneTests
         - StravaCloneUITests
       gatherCoverageData: true
+
+  # Widget extension drawing the Live Activity of a Recording (ADR-031 §9, §15). Sees only
+  # Shared/: no feature code, no package.
+  StravaCloneWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: StravaCloneWidget
+        excludes:
+          - Info.plist
+      - path: Shared
+    info:
+      path: StravaCloneWidget/Info.plist
+      properties:
+        CFBundleDisplayName: StravaClone
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: fr.echimine.stravaclone.widget
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        GENERATE_INFOPLIST_FILE: NO
 
   StravaCloneTests:
     type: bundle.unit-test

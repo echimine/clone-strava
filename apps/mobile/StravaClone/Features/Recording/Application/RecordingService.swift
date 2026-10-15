@@ -28,18 +28,23 @@ actor RecordingService {
     private var heldPoints: [LocationSample] = []
     private var motionConsumer: Task<Void, Never>?
 
+    /// Lock screen and Dynamic Island (ADR-031 §9): told of every change, never waited for.
+    private let liveActivity: RecordingLiveActivityUpdater?
+
     init(
         locationProvider: any LocationProvider,
         repository: any RecordingRepository,
         now: @escaping @Sendable () -> Date = Date.init,
         motionProvider: (any MotionActivityProvider)? = nil,
-        autoPauseFeedback: (any AutoPauseFeedback)? = nil
+        autoPauseFeedback: (any AutoPauseFeedback)? = nil,
+        liveActivity: RecordingLiveActivityUpdater? = nil
     ) {
         self.locationProvider = locationProvider
         self.repository = repository
         self.now = now
         self.motionProvider = motionProvider
         self.autoPauseFeedback = autoPauseFeedback
+        self.liveActivity = liveActivity
     }
 
     /// The Recording in progress (`nil` when there is none), now and on every change.
@@ -135,6 +140,7 @@ actor RecordingService {
         consumer = nil
         disarmAutoPause()
         await locationProvider.endBackgroundTracking()
+        liveActivity?.send(.saved(snapshot))
         self.snapshot = nil
         distance = nil
         unwrittenPoints = []
@@ -158,6 +164,7 @@ actor RecordingService {
         consumer = nil
         disarmAutoPause()
         await locationProvider.endBackgroundTracking()
+        liveActivity?.send(.deleted(id))
         snapshot = nil
         distance = nil
         unwrittenPoints = []
@@ -348,6 +355,9 @@ actor RecordingService {
     private func publish() {
         for continuation in observers.values {
             continuation.yield(snapshot)
+        }
+        if let snapshot {
+            liveActivity?.send(.changed(snapshot))
         }
     }
 
