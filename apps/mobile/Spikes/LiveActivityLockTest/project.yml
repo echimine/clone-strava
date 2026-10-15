@@ -1,0 +1,59 @@
+# Throwaway spike for "Tester les boutons d'une Live Activity sur iPhone verrouillé" (#54).
+# Never merged. Setup: xcodegen generate && open LiveActivityLockTest.xcodeproj
+# Signing: DEVELOPMENT_TEAM comes from ../../Config/Secrets.xcconfig (gitignored).
+
+name: LiveActivityLockTest
+
+options:
+  bundleIdPrefix: fr.echimine
+  deploymentTarget:
+    iOS: "17.0"
+
+configFiles:
+  Debug: Spike.xcconfig
+  Release: Spike.xcconfig
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    TARGETED_DEVICE_FAMILY: "1"
+    CODE_SIGN_STYLE: Automatic
+
+targets:
+  LiveActivityLockTest:
+    type: application
+    platform: iOS
+    sources:
+      - App
+      - Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: fr.echimine.LiveActivityLockTest
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) APP
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: LA Lock Test
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UIBackgroundModes: [location]
+        NSSupportsLiveActivities: true
+        NSLocationWhenInUseUsageDescription: "Garde l'app vivante en arrière-plan, comme une Recording."
+    dependencies:
+      - target: LockTestWidget
+
+  LockTestWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - Widget
+      - Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: fr.echimine.LiveActivityLockTest.Widget
+    info:
+      path: Widget/Info.plist
+      properties:
+        CFBundleDisplayName: LockTestWidget
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
