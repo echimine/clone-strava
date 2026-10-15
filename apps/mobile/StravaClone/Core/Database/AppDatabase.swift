@@ -75,6 +75,39 @@ final class AppDatabase: Sendable {
             }
             try db.create(index: "sync_operation_on_entity_id", on: "sync_operation", columns: ["entity_id", "type"])
         }
+        // ADR-031 §10: the Recording in progress (one row at most, `id` = 1), and the raw points and
+        // finished Pauses of an Activity keyed by its UUID. Points and Pauses outlive the Recording
+        // row: on Save they stay attached to the local Activity (ADR-031 §11, Core/LocalActivities).
+        // Times are UTC epoch milliseconds, the trace v2 unit, so a point sitting exactly on a Pause
+        // boundary stays exactly on it (ADR-031 §12).
+        migrator.registerMigration("recording_v1") { db in
+            try db.create(table: "recording") { table in
+                table.primaryKey("id", .integer).check { $0 == 1 }
+                table.column("activity_id", .text).notNull()
+                table.column("sport_type_code", .text).notNull()
+                table.column("started_at_ms", .integer).notNull()
+                table.column("phase", .text).notNull()
+                table.column("pause_started_at_ms", .integer)
+            }
+            try db.create(table: "activity_point") { table in
+                table.autoIncrementedPrimaryKey("id")
+                table.column("activity_id", .text).notNull()
+                table.column("timestamp_ms", .integer).notNull()
+                table.column("latitude", .double).notNull()
+                table.column("longitude", .double).notNull()
+                table.column("altitude_m", .double)
+                table.column("horizontal_accuracy_m", .double).notNull()
+                table.column("speed_ms", .double)
+            }
+            try db.create(index: "activity_point_on_activity_id", on: "activity_point", columns: ["activity_id", "timestamp_ms"])
+            try db.create(table: "activity_pause") { table in
+                table.autoIncrementedPrimaryKey("id")
+                table.column("activity_id", .text).notNull()
+                table.column("start_ms", .integer).notNull()
+                table.column("end_ms", .integer).notNull()
+            }
+            try db.create(index: "activity_pause_on_activity_id", on: "activity_pause", columns: ["activity_id", "start_ms"])
+        }
         return migrator
     }
 }

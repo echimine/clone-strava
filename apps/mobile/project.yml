@@ -80,6 +80,9 @@ targets:
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         UIBackgroundModes: [location]
         NSLocationWhenInUseUsageDescription: "StravaClone utilise votre position pour l'afficher sur la carte et enregistrer le tracé de vos activités, y compris écran verrouillé."
+        # Temporary full accuracy asked at Start when only the approximate location is allowed (ADR-031 §2).
+        NSLocationTemporaryUsageDescriptionDictionary:
+          Recording: "La position précise est nécessaire pour mesurer la distance de votre activité."
         # Debug on a physical iPhone reaches the dev API on the Mac (http://<mac>.local, Secrets.xcconfig):
         # plain HTTP is allowed on the local network only, and iOS asks for local network access.
         NSAppTransportSecurity:
@@ -150,6 +153,10 @@ targets:
     platform: iOS
     sources:
       - path: StravaCloneTests
+      # Shared JSON test traces (ADR-031 §5), also replayed by the TypeScript tests.
+      - path: ../../packages/contracts/fixtures/traces
+        type: folder
+        buildPhase: resources
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
