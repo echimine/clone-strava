@@ -51,6 +51,11 @@ struct ProvisionalDistance: Sendable {
 
     /// Replays stored points and finished Pauses (resume, finish screen, shared test traces).
     static func measure(_ samples: [LocationSample], pauses: [RecordingPause], sport: RecordingSport) -> Distance {
+        replaying(samples, pauses: pauses, sport: sport).total
+    }
+
+    /// The distance after the stored points, ready for the next live fix.
+    static func replaying(_ samples: [LocationSample], pauses: [RecordingPause], sport: RecordingSport) -> ProvisionalDistance {
         var distance = ProvisionalDistance(sport: sport)
         var remainingPauses = pauses.sorted { $0.start < $1.start }[...]
         for sample in samples {
@@ -60,6 +65,9 @@ struct ProvisionalDistance: Sendable {
             }
             distance.append(sample)
         }
-        return distance.total
+        if !remainingPauses.isEmpty {
+            distance.notePause()
+        }
+        return distance
     }
 }

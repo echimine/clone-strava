@@ -113,7 +113,12 @@ final class Di {
     }
 
     func makeRecordingStore() -> RecordingStore {
-        RecordingStore(service: recordingService)
+        let permission = locationPermission
+        return RecordingStore(
+            service: recordingService,
+            preferences: UserDefaultsRecordingPreferences(),
+            ensureFullAccuracy: { await permission.ensureFullAccuracy(purposeKey: "Recording") }
+        )
     }
 
     func makeAuthStore() -> AuthStore {

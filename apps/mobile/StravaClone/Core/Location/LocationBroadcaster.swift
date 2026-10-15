@@ -15,10 +15,17 @@ final class LocationBroadcaster<Value: Sendable> {
 
     var subscriberCount: Int { continuations.count }
 
-    func subscribe() -> AsyncStream<Value> {
+    /// - Parameters:
+    ///   - replaysLatest: hands the last value to the new subscriber at once (the map puck);
+    ///     the Recording never wants a stale position (ADR-031 §3).
+    ///   - bufferingPolicy: `.unbounded` for a subscriber that must not lose a sample.
+    func subscribe(
+        replaysLatest: Bool = true,
+        bufferingPolicy: AsyncStream<Value>.Continuation.BufferingPolicy = .bufferingNewest(16)
+    ) -> AsyncStream<Value> {
         let id = UUID()
-        let (stream, continuation) = AsyncStream<Value>.makeStream(bufferingPolicy: .bufferingNewest(16))
-        if let latest {
+        let (stream, continuation) = AsyncStream<Value>.makeStream(bufferingPolicy: bufferingPolicy)
+        if replaysLatest, let latest {
             continuation.yield(latest)
         }
         continuation.onTermination = { @Sendable [weak self] _ in

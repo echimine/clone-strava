@@ -13,13 +13,19 @@ final class CoreLocationProvider: NSObject, LocationProvider {
     private var backgroundSession: CLBackgroundActivitySession?
     private var updates: Task<Void, Never>?
     private var sampleBroadcaster: LocationBroadcaster<LocationSample>!
+    private var updateBroadcaster: LocationBroadcaster<LocationUpdate>!
     private var headingBroadcaster: LocationBroadcaster<Double>!
+    private var activeStreams = Set<String>()
 
     override init() {
         super.init()
         manager.delegate = self
+        // One `liveUpdates` loop feeds both the map's samples and the Recording's updates.
         sampleBroadcaster = LocationBroadcaster { [weak self] active in
-            active ? self?.startUpdates() : self?.stopUpdates()
+            self?.setStream("samples", active: active)
+        }
+        updateBroadcaster = LocationBroadcaster { [weak self] active in
+            self?.setStream("updates", active: active)
         }
         headingBroadcaster = LocationBroadcaster { [weak self] active in
             active ? self?.manager.startUpdatingHeading() : self?.manager.stopUpdatingHeading()
@@ -28,6 +34,10 @@ final class CoreLocationProvider: NSObject, LocationProvider {
 
     func samples() async -> AsyncStream<LocationSample> {
         sampleBroadcaster.subscribe()
+    }
+
+    func updates() async -> AsyncStream<LocationUpdate> {
+        updateBroadcaster.subscribe(replaysLatest: false, bufferingPolicy: .unbounded)
     }
 
     func headings() async -> AsyncStream<Double> {
@@ -44,18 +54,52 @@ final class CoreLocationProvider: NSObject, LocationProvider {
         backgroundSession = nil
     }
 
+    private func setStream(_ name: String, active: Bool) {
+        let wasRunning = !activeStreams.isEmpty
+        if active {
+            activeStreams.insert(name)
+        } else {
+            activeStreams.remove(name)
+        }
+        switch (wasRunning, activeStreams.isEmpty) {
+        case (false, false): startUpdates()
+        case (true, true): stopUpdates()
+        default: break
+        }
+    }
+
     private func startUpdates() {
         updates?.cancel()
         updates = Task { [weak self] in
             do {
                 for try await update in CLLocationUpdate.liveUpdates(.fitness) {
-                    guard let location = update.location else { continue }
-                    self?.sampleBroadcaster.send(LocationSample(location))
+                    self?.publish(update)
                 }
+            } catch is CancellationError {
+                return
             } catch {
-                // TODO: expose Core Location errors to subscribers.
+                self?.updateBroadcaster.send(LocationUpdate(issue: .failed(error.localizedDescription)))
             }
         }
+    }
+
+    private func publish(_ update: CLLocationUpdate) {
+        let sample = update.location.map(LocationSample.init)
+        if let sample {
+            sampleBroadcaster.send(sample)
+        }
+        updateBroadcaster.send(LocationUpdate(sample: sample, isStationary: update.isStationary, issue: Self.issue(of: update)))
+    }
+
+    /// iOS 18 diagnostics; on iOS 17 an update simply has no position.
+    private static func issue(of update: CLLocationUpdate) -> LocationIssue? {
+        guard #available(iOS 18, *) else { return nil }
+        if update.authorizationDenied || update.authorizationDeniedGlobally || update.authorizationRestricted {
+            return .denied
+        }
+        if update.accuracyLimited { return .accuracyLimited }
+        if update.locationUnavailable { return .unavailable }
+        return nil
     }
 
     private func stopUpdates() {
@@ -82,6 +126,7 @@ private extension LocationSample {
             altitude: location.verticalAccuracy >= 0 ? location.altitude : nil,
             horizontalAccuracy: location.horizontalAccuracy,
             course: location.course >= 0 ? location.course : nil,
+            speed: location.speed >= 0 ? location.speed : nil,
             timestamp: location.timestamp
         )
     }

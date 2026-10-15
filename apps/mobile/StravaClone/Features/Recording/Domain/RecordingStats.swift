@@ -32,18 +32,23 @@ struct RecordingStats: Equatable, Sendable {
 
 /// Current speed (ADR-031 §5): GPS distance over the last ~5 s divided by that time, never
 /// `CLLocation.speed`. The window restarts on Resume.
-struct CurrentSpeed: Sendable {
+struct CurrentSpeed: Equatable, Sendable {
     static let window: TimeInterval = 5
 
+    private struct Leg: Equatable, Sendable {
+        let end: Date
+        let distance: Distance
+    }
+
     private var movingSince: Date
-    private var legs: [(end: Date, distance: Distance)] = []
+    private var legs: [Leg] = []
 
     init(movingSince: Date) {
         self.movingSince = movingSince
     }
 
     mutating func record(_ leg: Distance, at date: Date) {
-        legs.append((date, leg))
+        legs.append(Leg(end: date, distance: leg))
         legs.removeAll { $0.end <= date.addingTimeInterval(-Self.window) }
     }
 
