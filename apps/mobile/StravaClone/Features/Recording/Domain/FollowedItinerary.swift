@@ -119,6 +119,15 @@ struct FollowedItinerary: Equatable, Sendable {
         return requestIfDue(from: lastPosition, at: time)
     }
 
+    /// When a wanted Return path request may leave without a new fix (retry after 30 s).
+    var returnPathRetryDate: Date? { rules.nextRequestDate }
+
+    /// The retry is due: the request leaves from the last position.
+    mutating func retryReturnPath(from lastPosition: LocationSample?, at time: Date) -> ReturnPathCommand? {
+        guard let lastPosition else { return nil }
+        return requestIfDue(from: lastPosition, at: time)
+    }
+
     private mutating func requestIfDue(from sample: LocationSample, at time: Date) -> ReturnPathCommand? {
         guard rules.isRequestDue(at: time), let returnPoint = progress.returnPoint(for: sample.coordinate) else {
             return nil

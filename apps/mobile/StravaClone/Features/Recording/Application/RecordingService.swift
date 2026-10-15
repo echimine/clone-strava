@@ -8,6 +8,7 @@ actor RecordingService {
     private let locationProvider: any LocationProvider
     private let repository: any RecordingRepository
     private let now: @Sendable () -> Date
+    private let sleep: @Sendable (Duration) async throws -> Void
 
     private var snapshot: RecordingSnapshot?
     private var distance: ProvisionalDistance?
@@ -36,6 +37,8 @@ actor RecordingService {
     /// `true` while a network route exists (`NWPathMonitor`), current state first.
     private let connectivity: (@Sendable () async -> AsyncStream<Bool>)?
     private var returnPathRequest: Task<Void, Never>?
+    /// Sends a wanted request once its delay is over, even if no fix comes (ADR-031 §7).
+    private var returnPathRetry: (date: Date, task: Task<Void, Never>)?
     private var connectivityConsumer: Task<Void, Never>?
 
     init(
@@ -46,7 +49,8 @@ actor RecordingService {
         autoPauseFeedback: (any AutoPauseFeedback)? = nil,
         liveActivity: RecordingLiveActivityUpdater? = nil,
         returnPathRouter: (any ReturnPathRouter)? = nil,
-        connectivity: (@Sendable () async -> AsyncStream<Bool>)? = nil
+        connectivity: (@Sendable () async -> AsyncStream<Bool>)? = nil,
+        sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
     ) {
         self.locationProvider = locationProvider
         self.repository = repository
@@ -56,6 +60,7 @@ actor RecordingService {
         self.liveActivity = liveActivity
         self.returnPathRouter = returnPathRouter
         self.connectivity = connectivity
+        self.sleep = sleep
     }
 
     /// The Recording in progress (`nil` when there is none), now and on every change.
@@ -166,6 +171,7 @@ actor RecordingService {
         snapshot?.itinerary = nil
         returnPathRequest?.cancel()
         returnPathRequest = nil
+        scheduleReturnPathRetry()
         publish()
         return snapshot
     }
@@ -288,6 +294,7 @@ actor RecordingService {
     // MARK: - Return path (ADR-031 §7)
 
     private func run(_ command: ReturnPathCommand?) {
+        defer { scheduleReturnPathRetry() }
         switch command {
         case nil:
             return
@@ -332,10 +339,36 @@ actor RecordingService {
         let hadPath = snapshot?.itinerary?.returnPath != nil
         snapshot?.itinerary = itinerary
         returnPathRequest = nil
+        scheduleReturnPathRetry()
         if hadPath, itinerary.returnPath == nil {
             try? await repository.saveReturnPath(nil, of: id)
         }
         publish()
+    }
+
+    /// Follows the date at which a wanted request may leave: one timer, replaced when the date
+    /// changes, cancelled when nothing waits (re-snapping, Itinerary removed, Save, Delete).
+    private func scheduleReturnPathRetry() {
+        let date = snapshot?.itinerary?.returnPathRetryDate
+        guard date != returnPathRetry?.date else { return }
+        returnPathRetry?.task.cancel()
+        returnPathRetry = nil
+        guard let date else { return }
+        let delay = max(0, date.timeIntervalSince(now()))
+        let sleep = sleep
+        let task = Task {
+            guard (try? await sleep(.seconds(delay))) != nil, !Task.isCancelled else { return }
+            await self.returnPathRetryDue()
+        }
+        returnPathRetry = (date, task)
+    }
+
+    private func returnPathRetryDue() {
+        returnPathRetry = nil
+        guard var itinerary = snapshot?.itinerary else { return }
+        let command = itinerary.retryReturnPath(from: snapshot?.position, at: now())
+        snapshot?.itinerary = itinerary
+        run(command)
     }
 
     private func observeConnectivity() async {
@@ -359,6 +392,8 @@ actor RecordingService {
     private func stopReturnPaths() {
         returnPathRequest?.cancel()
         returnPathRequest = nil
+        returnPathRetry?.task.cancel()
+        returnPathRetry = nil
         connectivityConsumer?.cancel()
         connectivityConsumer = nil
     }
