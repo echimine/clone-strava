@@ -95,17 +95,17 @@ struct ActivitySenderHarness: Sendable {
     }
 
     /// A 10-minute run with a Pause, finished and saved: 3 points, one finished Pause.
-    func saveRecordedActivity() async throws {
+    func saveRecordedActivity(startingAt start: Date = Self.start) async throws {
         let recordings = GRDBRecordingRepository(database: database)
-        var recording = Recording(id: id, sport: .run, startedAt: Self.start)
+        var recording = Recording(id: id, sport: .run, startedAt: start)
         try await recordings.create(recording)
-        try await recordings.append(sample(0, north: 0), to: id)
-        try await recordings.append(sample(60, north: 150), to: id)
-        recording.pause(at: Self.start.addingTimeInterval(60))
-        recording.resume(at: Self.start.addingTimeInterval(120))
+        try await recordings.append(sample(start, 0, north: 0), to: id)
+        try await recordings.append(sample(start, 60, north: 150), to: id)
+        recording.pause(at: start.addingTimeInterval(60))
+        recording.resume(at: start.addingTimeInterval(120))
         try await recordings.save(recording)
-        try await recordings.append(sample(600, north: 1_500), to: id)
-        recording.pause(at: Self.start.addingTimeInterval(600))
+        try await recordings.append(sample(start, 600, north: 1_500), to: id)
+        recording.pause(at: start.addingTimeInterval(600))
         recording.finish()
         try await recordings.save(recording)
         try await store.saveRecorded(LocalActivity(
@@ -113,21 +113,21 @@ struct ActivitySenderHarness: Sendable {
             sport: .run,
             title: "Course à pied le matin",
             visibility: .followers,
-            startedAt: Self.start,
-            endedAt: Self.start.addingTimeInterval(600),
+            startedAt: start,
+            endedAt: start.addingTimeInterval(600),
             distance: Distance(meters: 1_500),
             movingTimeS: 540,
             elapsedTimeS: 600
         ))
     }
 
-    private func sample(_ seconds: TimeInterval, north: Double) -> LocationSample {
+    private func sample(_ start: Date, _ seconds: TimeInterval, north: Double) -> LocationSample {
         LocationSample(
             coordinate: Coordinate(latitude: 45.764, longitude: 4.8357).offset(northMeters: north),
             altitude: 170,
             horizontalAccuracy: 5,
             speed: 2.5,
-            timestamp: Self.start.addingTimeInterval(seconds)
+            timestamp: start.addingTimeInterval(seconds)
         )
     }
 
@@ -163,11 +163,12 @@ struct ActivitySenderHarness: Sendable {
         .status(status, #"{"error":{"code":"\#(code)","message":"Refused"}}"#)
     }
 
-    /// Routes each request to `answer(step)`: "create", "upload-url", "upload", "complete", "detail".
+    /// Routes each request to `answer(step)`: "create", "upload-url", "upload", "complete", "detail", "delete".
     static func route(_ answer: @escaping @Sendable (String) -> ActivityURLProtocolStub.Answer) {
         ActivityURLProtocolStub.handler.value = { request in
             let url = request.url!
             if url.host == "bucket.test" { return answer("upload") }
+            if request.httpMethod == "DELETE" { return answer("delete") }
             if url.path.hasSuffix("/upload-url") { return answer("upload-url") }
             if url.path.hasSuffix("/complete") { return answer("complete") }
             if request.httpMethod == "GET" { return answer("detail") }

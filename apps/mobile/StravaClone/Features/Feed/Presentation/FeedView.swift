@@ -17,6 +17,7 @@ struct FeedView<TopContent: View>: View {
                 .homeHeader(HomeHeaderActions(onImportActivity: onImportActivity))
                 .task { await store.loadIfNeeded() }
                 .task { await store.observeActivityChanges() }
+                .task { await store.observeLocalActivities() }
                 .alert(
                     store.notice ?? "",
                     isPresented: Binding(get: { store.notice != nil }, set: { if !$0 { store.notice = nil } })
@@ -28,9 +29,9 @@ struct FeedView<TopContent: View>: View {
 
     @ViewBuilder private var content: some View {
         switch store.phase {
-        case .idle, .loading where store.posts.isEmpty:
+        case .idle, .loading where store.posts.isEmpty && store.localCards.isEmpty:
             ProgressView()
-        case .failed(let message) where store.posts.isEmpty:
+        case .failed(let message) where store.posts.isEmpty && store.localCards.isEmpty:
             ContentUnavailableView {
                 Label(FeedMessages.errorTitle, systemImage: "wifi.exclamationmark")
             } description: {
@@ -61,6 +62,20 @@ struct FeedView<TopContent: View>: View {
             ScrollView {
                 LazyVStack(spacing: Theme.spacing) {
                     Color.clear.frame(height: 0).id(Self.topID)
+                    // ADR-031 §14: the Activities not yet on the server, always on top.
+                    ForEach(store.localCards) { card in
+                        LocalActivityCardView(
+                            card: card,
+                            onDelete: { Task { await store.deleteLocalActivity(card.id) } },
+                            onRetry: { Task { await store.retryLocalActivity(card.id) } }
+                        )
+                    }
+                    if case .failed(let message) = store.phase, store.posts.isEmpty {
+                        Label(message, systemImage: "wifi.exclamationmark")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .padding()
+                    }
                     ForEach(store.posts) { post in
                         ActivityCard(
                             post: post,

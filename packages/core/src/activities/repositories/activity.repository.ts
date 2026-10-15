@@ -123,6 +123,21 @@ export class ActivityRepository {
     return updated.length > 0;
   }
 
+  /**
+   * Hard delete (ADR-017, ADR-031 §13) of an activity still `pending` or `failed`, in one
+   * statement so a concurrent `complete` cannot slip in between; `false` otherwise. Its
+   * dependent rows cascade.
+   */
+  async deleteIfPendingOrFailed(id: string): Promise<boolean> {
+    const deleted = await this.db
+      .delete(schema.activity)
+      .where(
+        and(eq(schema.activity.id, id), inArray(schema.activity.processingStatus, ["pending", "failed"])),
+      )
+      .returning({ id: schema.activity.id });
+    return deleted.length > 0;
+  }
+
   async incrementAttempts(id: string): Promise<void> {
     await this.db
       .update(schema.activity)

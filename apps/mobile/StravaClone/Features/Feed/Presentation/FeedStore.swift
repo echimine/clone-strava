@@ -14,6 +14,8 @@ final class FeedStore {
     }
 
     private(set) var posts: [ActivityPost] = []
+    /// Local Activities not yet processed (ADR-031 §14), newest first.
+    private var allLocalCards: [LocalActivityCard] = []
     private(set) var phase: Phase = .idle
     private(set) var isLoadingMore = false
     /// Short-lived error shown over the list (e.g. a kudos that could not be sent).
@@ -30,6 +32,7 @@ final class FeedStore {
     /// Run on pull-to-refresh beside the reload: the app shell sends the queued operations
     /// (ADR-031 §14).
     @ObservationIgnored private let onPullToRefresh: @MainActor () async -> Void
+    @ObservationIgnored private let localActivities: (any LocalActivityFeedSource)?
     /// Bumped to bring the list back to its top (after Save, ADR-031 §11).
     private(set) var scrollToTopRequest = 0
 
@@ -37,15 +40,23 @@ final class FeedStore {
         loadFeed: LoadFeed,
         toggleKudos: ToggleKudos,
         events: any FeedEventSource,
+        localActivities: (any LocalActivityFeedSource)? = nil,
         onPullToRefresh: @escaping @MainActor () async -> Void = {}
     ) {
         self.loadFeed = loadFeed
         self.toggleKudos = toggleKudos
         self.events = events
+        self.localActivities = localActivities
         self.onPullToRefresh = onPullToRefresh
     }
 
-    var isEmpty: Bool { phase == .loaded && posts.isEmpty }
+    /// Always on top (ADR-031 §14); a local card whose UUID the server already returned is dropped.
+    var localCards: [LocalActivityCard] {
+        let served = Set(posts.map(\.id))
+        return allLocalCards.filter { !served.contains($0.id) }
+    }
+
+    var isEmpty: Bool { phase == .loaded && posts.isEmpty && localCards.isEmpty }
 
     /// Sign-out: forgets the previous account's feed.
     func reset() {
@@ -154,6 +165,33 @@ final class FeedStore {
     func observeActivityChanges() async {
         for await _ in await events.activityChanges() {
             await refresh()
+        }
+    }
+
+    /// Runs for the lifetime of the view (`.task`): follows the local Activities.
+    func observeLocalActivities() async {
+        guard let localActivities else { return }
+        for await cards in localActivities.cards() {
+            allLocalCards = cards
+        }
+    }
+
+    /// Delete, once confirmed (ADR-031 §14): the card goes as soon as the phone forgets it.
+    func deleteLocalActivity(_ id: ActivityID) async {
+        await performLocal { try await $0.delete(id) }
+    }
+
+    /// Retry after an API refusal: the Activity resumes at the refused step.
+    func retryLocalActivity(_ id: ActivityID) async {
+        await performLocal { try await $0.retry(id) }
+    }
+
+    private func performLocal(_ action: @MainActor (any LocalActivityFeedSource) async throws -> Void) async {
+        guard let localActivities else { return }
+        do {
+            try await action(localActivities)
+        } catch {
+            notice = FeedMessages.localActionRefused
         }
     }
 

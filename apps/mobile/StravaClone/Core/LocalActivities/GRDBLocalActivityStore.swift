@@ -98,7 +98,15 @@ struct GRDBLocalActivityStore: LocalActivitySaving {
         at date: Date
     ) async throws -> PendingActivityOperation? {
         try await database.writer.write { db in
-            _ = try SyncOperationRecord.deleteOne(db, key: operation.id)
+            guard try SyncOperationRecord.deleteOne(db, key: operation.id) else {
+                // Deleted on the phone while the step was on its way (ADR-031 §14): a creation
+                // that just succeeded leaves a server copy to delete.
+                guard operation.step == .create,
+                      try LocalActivityRow.fetchOne(db, key: operation.activityID.description) == nil,
+                      try Self.operation(for: operation.activityID, db) == nil
+                else { return nil }
+                return try Self.queueDelete(of: operation.activityID, at: date, db)
+            }
             try Self.setState(state, failure: nil, of: operation.activityID, db)
             guard let next else { return nil }
             var record = SyncOperationRecord(
@@ -153,29 +161,109 @@ struct GRDBLocalActivityStore: LocalActivitySaving {
 
     /// Processed by the server: the local Activity, its points, Pauses and operations go.
     func wipe(_ ids: [ActivityID]) async throws {
-        let keys = ids.map(\.description)
         try await database.writer.write { db in
-            _ = try LocalActivityRow.filter(keys: keys).deleteAll(db)
-            _ = try Self.operations.filter(keys.contains(SyncOperationRecord.Columns.entityID)).deleteAll(db)
-            for key in keys {
-                try db.execute(sql: "DELETE FROM activity_point WHERE activity_id = ?", arguments: [key])
-                try db.execute(sql: "DELETE FROM activity_pause WHERE activity_id = ?", arguments: [key])
+            try Self.wipe(ids.map(\.description), db)
+        }
+    }
+
+    // MARK: - Delete, Retry, sign-out (ADR-031 §14)
+
+    /// Delete: the Activity, its points, Pauses and queued steps go at once. If the server
+    /// already has it (or may have it: a creation was attempted), `delete_activity` is queued
+    /// in the same transaction; returns `true` then.
+    @discardableResult
+    func delete(_ id: ActivityID) async throws -> Bool {
+        let now = now()
+        return try await database.writer.write { db in
+            guard let activity = try LocalActivityRow.fetchOne(db, key: id.description)?.activity else { return false }
+            guard activity.canBeDeleted else { throw LocalActivityActionError.notAllowed }
+            let pending = try Self.operation(for: id, db)
+            let creationAttempted = pending.map { $0.step == .create && $0.attempts > 0 } ?? false
+            try Self.wipe([id.description], db)
+            guard activity.isKnownToServer || creationAttempted else { return false }
+            try Self.queueDelete(of: id, at: now, db)
+            return true
+        }
+    }
+
+    /// Retry after an API refusal: back to the state before the failure, the refused step
+    /// queued again, due now.
+    func retry(_ id: ActivityID) async throws {
+        let now = now()
+        try await database.writer.write { db in
+            guard let activity = try LocalActivityRow.fetchOne(db, key: id.description)?.activity,
+                  activity.canBeRetried, let resume = activity.failure?.resumeState
+            else { throw LocalActivityActionError.notAllowed }
+            let step: ActivityOperationStep
+            switch resume {
+            case .recorded: step = .create
+            case .created: step = .upload
+            case .traceUploaded: step = .complete
+            case .processing, .failed: throw LocalActivityActionError.notAllowed
             }
+            try Self.setState(resume, failure: nil, of: id, db)
+            var record = SyncOperationRecord(type: step.rawValue, entityId: id.description, nextAttemptAt: now, createdAt: now)
+            try record.insert(db)
+        }
+    }
+
+    /// A `delete_activity` done (or pointless: `409`): its row goes.
+    func drop(_ operation: PendingActivityOperation) async throws {
+        _ = try await database.writer.write { db in
+            try SyncOperationRecord.deleteOne(db, key: operation.id)
+        }
+    }
+
+    /// The Activities a sign-out would lose: `recorded`, `created`, `trace_uploaded`, `failed`.
+    /// One in `processing` is safe on the server.
+    func unsentCount() async throws -> Int {
+        try await database.writer.read { db in
+            try LocalActivityRow.filter(Column("state") != LocalActivityState.processing.rawValue).fetchCount(db)
+        }
+    }
+
+    /// Sign-out: every local Activity, its points, Pauses and queued steps go.
+    func clear() async throws {
+        try await database.writer.write { db in
+            let keys = try String.fetchAll(db, sql: "SELECT id FROM local_activity")
+            try Self.wipe(keys, db)
+            _ = try Self.operations.deleteAll(db)
         }
     }
 
     // MARK: - Internals
 
-    private static var operations: QueryInterfaceRequest<SyncOperationRecord> {
+    static var operations: QueryInterfaceRequest<SyncOperationRecord> {
         SyncOperationRecord.filter(ActivityOperationStep.allCases.map(\.rawValue).contains(SyncOperationRecord.Columns.type))
     }
 
-    private static func operation(for id: ActivityID, _ db: Database) throws -> PendingActivityOperation? {
+    static func operation(for id: ActivityID, _ db: Database) throws -> PendingActivityOperation? {
         try operations
             .filter(SyncOperationRecord.Columns.entityID == id.description)
             .order(SyncOperationRecord.Columns.id)
             .fetchOne(db)
             .flatMap(PendingActivityOperation.init)
+    }
+
+    private static func wipe(_ keys: [String], _ db: Database) throws {
+        _ = try LocalActivityRow.filter(keys: keys).deleteAll(db)
+        _ = try operations.filter(keys.contains(SyncOperationRecord.Columns.entityID)).deleteAll(db)
+        for key in keys {
+            try db.execute(sql: "DELETE FROM activity_point WHERE activity_id = ?", arguments: [key])
+            try db.execute(sql: "DELETE FROM activity_pause WHERE activity_id = ?", arguments: [key])
+        }
+    }
+
+    @discardableResult
+    private static func queueDelete(of id: ActivityID, at date: Date, _ db: Database) throws -> PendingActivityOperation? {
+        var record = SyncOperationRecord(
+            type: ActivityOperationStep.delete.rawValue,
+            entityId: id.description,
+            nextAttemptAt: date,
+            createdAt: date
+        )
+        try record.insert(db)
+        return PendingActivityOperation(record)
     }
 
     private static func setState(_ state: LocalActivityState, failure: LocalActivityFailure?, of id: ActivityID, _ db: Database) throws {
@@ -196,9 +284,9 @@ struct TracePauseInterval: Equatable, Sendable {
     let endMs: Int64
 }
 
-// MARK: - Rows
+// MARK: - Rows (shared with GRDBLocalActivityStore+Cards.swift)
 
-private struct LocalActivityRow: Codable, FetchableRecord, PersistableRecord {
+struct LocalActivityRow: Codable, FetchableRecord, PersistableRecord {
     static let databaseTableName = "local_activity"
     static var databaseColumnDecodingStrategy: DatabaseColumnDecodingStrategy { .convertFromSnakeCase }
     static var databaseColumnEncodingStrategy: DatabaseColumnEncodingStrategy { .convertToSnakeCase }
@@ -256,7 +344,7 @@ private struct LocalActivityRow: Codable, FetchableRecord, PersistableRecord {
     }
 }
 
-private extension PendingActivityOperation {
+extension PendingActivityOperation {
     init?(_ record: SyncOperationRecord) {
         guard let id = record.id,
               let uuid = UUID(uuidString: record.entityId),
@@ -269,6 +357,7 @@ private extension PendingActivityOperation {
             step: step,
             attempts: record.attempts,
             nextAttemptAt: record.nextAttemptAt,
+            lastError: record.lastError,
             uploadTarget: target
         )
     }

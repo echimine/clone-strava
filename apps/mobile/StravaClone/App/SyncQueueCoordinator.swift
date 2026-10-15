@@ -87,6 +87,16 @@ final class SyncQueueCoordinator {
         await activitySender.wipe(processed)
     }
 
+    /// For the sign-out confirmation: the Activities that would be lost.
+    func unsentActivityCount() async -> Int {
+        await activitySender.unsentCount()
+    }
+
+    /// Sign-out, once confirmed: the local Activities and their queued steps are wiped.
+    func signOut() async {
+        await activitySender.clear()
+    }
+
     /// While signed in and in the foreground: sends when the network comes back, tracks on each
     /// realtime (re)connection and Activity event. Runs until cancelled.
     func observe(

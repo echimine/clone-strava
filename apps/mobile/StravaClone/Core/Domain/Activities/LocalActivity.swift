@@ -48,6 +48,32 @@ struct LocalActivity: Equatable, Sendable {
     var failure: LocalActivityFailure?
 }
 
+/// Why Delete or Retry was turned down (ADR-031 §14): Delete only before `processing` (or once
+/// `failed`), Retry only after an API refusal.
+enum LocalActivityActionError: Error, Equatable, Sendable {
+    case notAllowed
+}
+
+extension LocalActivity {
+    /// Delete is offered before `processing`, and on `failed` (ADR-031 §14).
+    var canBeDeleted: Bool { state != .processing }
+
+    /// Retry is offered after an API refusal only: a worker failure (`failed` from
+    /// `processing`) is retried from the backoffice.
+    var canBeRetried: Bool {
+        state == .failed && failure.map { $0.resumeState != .processing } ?? false
+    }
+
+    /// The server knows this Activity: `create_activity` succeeded.
+    var isKnownToServer: Bool {
+        switch state {
+        case .recorded: false
+        case .created, .traceUploaded, .processing: true
+        case .failed: failure?.resumeState != .recorded
+        }
+    }
+}
+
 /// The Save transaction (ADR-031 §11), implemented by `Core/LocalActivities`: the local
 /// Activity in `recorded`, `create_activity` in `sync_operation`, and the `recording` row
 /// deleted, all at once. The points and finished Pauses stay attached to the Activity.

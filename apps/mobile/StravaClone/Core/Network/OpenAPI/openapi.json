@@ -302,6 +302,27 @@
         "tags": [
           "Activities"
         ]
+      },
+      "delete": {
+        "operationId": "ActivitiesController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          }
+        },
+        "tags": [
+          "Activities"
+        ]
       }
     },
     "/v1/activities/{id}/upload-url": {

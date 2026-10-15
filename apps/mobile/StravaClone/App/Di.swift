@@ -133,6 +133,7 @@ final class Di {
         loadFeed: LoadFeed(repository: feedRepository),
         toggleKudos: ToggleKudos(repository: feedRepository),
         events: RealtimeFeedEventSource(client: webSocketClient),
+        localActivities: LocalActivityFeed(store: localActivities, sender: activitySender),
         onPullToRefresh: { [weak self] in await self?.syncCoordinator.pullToRefresh() }
     )
 

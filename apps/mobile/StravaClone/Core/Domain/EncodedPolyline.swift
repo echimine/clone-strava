@@ -37,6 +37,24 @@ struct EncodedPolyline: Hashable, Sendable {
         self.init(value: String(decoding: output, as: UTF8.self), precision: precision)
     }
 
+    /// A list thumbnail of a path (ADR-030 §6, ADR-031 §14): polyline5 of at most
+    /// `maxCharacters`, thinned by keeping one point in 2, 4, 8… and always the last one, like
+    /// the API's `map_polyline`.
+    static func thumbnail(of points: [Coordinate], maxCharacters: Int = 2_000) -> EncodedPolyline {
+        var step = 1
+        while true {
+            var kept = Swift.stride(from: 0, to: points.count, by: step).map { points[$0] }
+            if let last = points.last, (points.count - 1) % step != 0 {
+                kept.append(last)
+            }
+            let encoded = EncodedPolyline(encoding: kept)
+            if encoded.value.count <= maxCharacters || kept.count <= 2 {
+                return encoded
+            }
+            step *= 2
+        }
+    }
+
     /// Decoded coordinates; an empty array for a malformed string.
     func decode() -> [Coordinate] {
         let factor = pow(10, Double(precision))
