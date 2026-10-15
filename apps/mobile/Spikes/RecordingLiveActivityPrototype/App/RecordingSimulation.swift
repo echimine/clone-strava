@@ -51,6 +51,8 @@ final class RecordingSimulation {
     /// Stops every update while the app keeps running: what the lock screen shows once the app is killed.
     var updatesFrozen = false { didSet { log(updatesFrozen ? "mises à jour gelées" : "mises à jour reprises"); if !updatesFrozen { push(reason: "dégel") } } }
     var dismissal: Dismissal = .systemDefault
+    /// Off: tests whether the Live Activity alone keeps GPS alive, and whether the blue location pill goes away.
+    var useBackgroundSession = true
 
     // Recording
     private(set) var isRecording = false
@@ -68,6 +70,7 @@ final class RecordingSimulation {
     private(set) var lastPayloadBytes = 0
     private(set) var lastPush: Date?
     private(set) var gpsFixes = 0
+    private(set) var lastFix: Date?
     private(set) var lines: [String] = []
     private(set) var orphanCount = 0
 
@@ -254,11 +257,13 @@ final class RecordingSimulation {
     }
 
     private func startGPS() {
-        backgroundSession = CLBackgroundActivitySession()
+        backgroundSession = useBackgroundSession ? CLBackgroundActivitySession() : nil
+        log(useBackgroundSession ? "GPS avec CLBackgroundActivitySession" : "GPS sans CLBackgroundActivitySession")
         gpsTask = Task { [weak self] in
             do {
                 for try await _ in CLLocationUpdate.liveUpdates(.fitness) {
                     self?.gpsFixes += 1
+                    self?.lastFix = Date()
                 }
             } catch {
                 self?.log("GPS : \(error.localizedDescription)")

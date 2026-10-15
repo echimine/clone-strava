@@ -39,6 +39,8 @@ struct ContentView: View {
                     .disabled(sim.isRecording)
                     Toggle("Avec l'Itinéraire « \(sim.itineraryName) » (8 km)", isOn: $sim.withItinerary)
                         .disabled(sim.isRecording)
+                    Toggle("Session d'arrière-plan (CLBackgroundActivitySession)", isOn: $sim.useBackgroundSession)
+                        .disabled(sim.isRecording)
                     if !sim.isRecording {
                         Button("Démarrer", action: sim.start).bold()
                     } else {
@@ -69,6 +71,7 @@ struct ContentView: View {
                     LabeledContent("Dernière", value: sim.lastPush?.formatted(.dateTime.hour().minute().second()) ?? "—")
                     LabeledContent("Taille de l'état", value: "\(sim.lastPayloadBytes) o / 4096")
                     LabeledContent("Positions GPS reçues", value: "\(sim.gpsFixes)")
+                    LabeledContent("Dernière position", value: sim.lastFix?.formatted(.dateTime.hour().minute().second()) ?? "—")
                 } header: {
                     Text("Mises à jour locales")
                 } footer: {

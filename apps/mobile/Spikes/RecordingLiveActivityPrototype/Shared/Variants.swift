@@ -57,7 +57,7 @@ enum Parts {
     }
 
     @ViewBuilder static func minimal(_ v: ProtoVariant, _ sport: ProtoSport, _ s: LAState) -> some View {
-        switch v.source(.compact) {
+        switch v.source(.minimal) {
         case .A:
             Image(systemName: s.isPaused ? "pause.fill" : sport.symbol)
                 .foregroundStyle(s.isPaused ? Fmt.pause : Fmt.accent)

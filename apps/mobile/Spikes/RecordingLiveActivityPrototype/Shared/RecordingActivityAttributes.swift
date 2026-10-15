@@ -65,11 +65,11 @@ enum ProtoVariant: String, Codable, CaseIterable, Identifiable {
         case .A: "Façon Strava, sans bouton"
         case .B: "Miroir de l'écran + bouton Pause"
         case .C: "Itinéraire d'abord"
-        case .D: "Mélange : verrouillé A, compacte B, étendue C"
+        case .D: "Mélange : verrouillé A, compacte B, minimale A, étendue C"
         }
     }
 
-    enum Presentation { case lock, compact, expanded }
+    enum Presentation { case lock, compact, minimal, expanded }
     enum Base { case A, B, C }
 
     /// D borrows each presentation from the variant the athlete picked after trying A, B and C.
@@ -80,7 +80,7 @@ enum ProtoVariant: String, Codable, CaseIterable, Identifiable {
         case .C: .C
         case .D:
             switch presentation {
-            case .lock: .A
+            case .lock, .minimal: .A
             case .compact: .B
             case .expanded: .C
             }
