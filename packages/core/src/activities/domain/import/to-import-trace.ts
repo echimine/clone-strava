@@ -46,7 +46,7 @@ export function toImportTrace(parsed: ParsedTrackFile): ImportTraceResult {
 
   return {
     ok: true,
-    trace: { schemaVersion: TRACE_SCHEMA_VERSION, points },
+    trace: { schemaVersion: TRACE_SCHEMA_VERSION, points, pauses: [] },
     startedAt: new Date(startedAtMs),
     endedAt: new Date(endedAtMs),
   };
