@@ -14,6 +14,7 @@ actor RecordingService {
     /// Points whose write failed, retried with the next one: the Recording never stops by itself.
     private var unwrittenPoints: [LocationSample] = []
     private var consumer: Task<Void, Never>?
+    private var restoring: Task<Void, any Error>?
     private var observers: [UUID: AsyncStream<RecordingSnapshot?>.Continuation] = [:]
 
     init(
@@ -38,12 +39,23 @@ actor RecordingService {
         return stream
     }
 
-    /// Picks up a stored Recording in its saved phase, GPS and background session included.
-    func restore() async throws -> RecordingSnapshot? {
+    /// Picks up a stored Recording once per launch, GPS and background session included
+    /// (ADR-031 §3, §10): in its saved phase after a background relaunch, in a Pause from the
+    /// last written point when the athlete opens an `active` one. Later calls wait for the first.
+    func restore(_ launch: RecordingLaunch = .openedByAthlete) async throws -> RecordingSnapshot? {
         if let snapshot { return snapshot }
-        guard let stored = try await repository.load() else { return nil }
-        begin(RecordingSnapshot(recording: stored.recording, points: stored.points), points: stored.points)
-        await startGPS()
+        if let restoring {
+            try await restoring.value
+            return snapshot
+        }
+        let task = Task { try await self.load(after: launch) }
+        restoring = task
+        do {
+            try await task.value
+        } catch {
+            restoring = nil
+            throw error
+        }
         return snapshot
     }
 
@@ -94,6 +106,16 @@ actor RecordingService {
     }
 
     // MARK: - Internals
+
+    private func load(after launch: RecordingLaunch) async throws {
+        guard let stored = try await repository.load() else { return }
+        let recording = stored.resumed(after: launch)
+        if recording != stored.recording {
+            try await repository.save(recording)
+        }
+        begin(RecordingSnapshot(recording: recording, points: stored.points), points: stored.points)
+        await startGPS()
+    }
 
     private func begin(_ snapshot: RecordingSnapshot, points: [LocationSample]) {
         let recording = snapshot.recording
