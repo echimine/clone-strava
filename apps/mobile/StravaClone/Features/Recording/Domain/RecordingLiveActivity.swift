@@ -34,9 +34,9 @@ struct RecordingLiveActivityContent: Equatable, Sendable {
         /// Share of the track done, 0 to 1.
         let fraction: Double
         let state: ItineraryState
-        /// Where the Return path shown meets the track: tells a new Return path from the
-        /// previous one. Not sent to the widget.
-        var returnPoint: Coordinate? = nil
+        /// The Return path shown: tells a new Return path from the previous one, even to the
+        /// same return point. Not sent to the widget.
+        var returnPath: ReturnPath? = nil
     }
 
     let sport: RecordingSport
@@ -72,19 +72,19 @@ struct RecordingLiveActivityContent: Equatable, Sendable {
                 remaining: followed.remaining,
                 fraction: followed.progress.fraction,
                 state: ItineraryState(followed.state),
-                returnPoint: followed.returnPath?.returnPoint.coordinate
+                returnPath: followed.returnPath
             )
         }
     }
 
     var isPaused: Bool { pausedAt != nil }
 
-    /// A Pause, a Resume, an Itinerary state change, a Return path arriving or disappearing, or
-    /// the Itinerary's removal shows at once (ADR-031 §9); anything else waits for the next 5 s
+    /// A Pause, a Resume, an Itinerary state change, a Return path arriving, replacing another
+    /// or disappearing, or the Itinerary's removal shows at once (ADR-031 §9); anything else waits for the next 5 s
     /// update.
     func needsImmediateUpdate(after previous: Self) -> Bool {
         isPaused != previous.isPaused || itinerary?.state != previous.itinerary?.state
-            || itinerary?.returnPoint != previous.itinerary?.returnPoint
+            || itinerary?.returnPath != previous.itinerary?.returnPath
     }
 }
 
