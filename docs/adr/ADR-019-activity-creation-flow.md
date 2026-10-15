@@ -95,8 +95,8 @@ Body (Zod schema in `packages/contracts`): `id`, `sportTypeCode`, `title`, `desc
 
 ### 3. Trace upload
 
-- The app sends `trace.json.gz` **directly to the bucket** (ADR-001), via a background `URLSession` (ADR-008).
-- Format: compressed JSON, versioned schema in `packages/contracts` (timestamped points: latitude, longitude, altitude, accuracy, speed, heart rate if available).
+- The app sends `trace.json.gz` **directly to the bucket** (ADR-001), via a ~~background~~ `URLSession` (ADR-008). *Amended by [ADR-031](ADR-031-live-recording-on-ios.md)*: a regular session, started right after Save; the trace is built from the local points just before the upload.
+- Format: compressed JSON, versioned schema in `packages/contracts` (timestamped points: latitude, longitude, altitude, accuracy, speed, heart rate if available). *Amended by [ADR-031](ADR-031-live-recording-on-ios.md)*: `schemaVersion: 2` adds `pauses: [{ startMs, endMs }]`, each strictly between two points, with no point written during a Pause; v1 is removed, with no reader kept.
 
 ### 4. Upload completion: `POST /v1/activities/:id/complete`
 
@@ -112,7 +112,7 @@ If enqueueing fails after the move to `processing`, the **reconciliation job** (
 1. Read the activity, the profile (privacy zone) and the sport type.
 2. Download and **validate** the trace (Zod schema). Unreadable or empty trace: permanent failure.
 3. **Cleanup**: remove points that are too inaccurate, speed jumps that are impossible for the sport, duplicate timestamps.
-4. **Metrics**: distance, moving time and total time, elevation gain (smoothed altitude), average and maximum speeds, heart rate, calories. *Amended by [ADR-030](ADR-030-itineraries-on-ios.md)*: distance and elevation gain come from `@repo/geo`; the gain is computed on the cleaned trace resampled every ~20 m with a 2 m hysteresis (parameters passed as arguments), which is what "smoothed altitude" now means. Activities processed earlier keep their figures.
+4. **Metrics**: distance, moving time and total time (*amended by [ADR-031](ADR-031-live-recording-on-ios.md)*: point pairs that straddle a Pause are skipped for distance and moving time; total time runs from first to last point, Pauses included), elevation gain (smoothed altitude), average and maximum speeds, heart rate, calories. *Amended by [ADR-030](ADR-030-itineraries-on-ios.md)*: distance and elevation gain come from `@repo/geo`; the gain is computed on the cleaned trace resampled every ~20 m with a 2 m hysteresis (parameters passed as arguments), which is what "smoothed altitude" now means. Activities processed earlier keep their figures.
 5. **Route**: simplified `LineString` and start point, in SRID 4326 (ADR-017).
 6. **Privacy zone**: the first and last meters of the route (radius `privacy_zone_radius_m` from the profile) are removed from the route stored in `activity_track`, which is the version shown to others. The full raw trace stays private in the bucket.
 7. **Transaction**: upsert of `activity_stats`, upsert of `activity_track`, move to `processed` (`processed_at`).
@@ -159,6 +159,8 @@ Activities that stay `pending` (trace never uploaded, app offline for a long tim
 | `trace_uploaded` → `processing` | `202` response from `complete` |
 | `processing` → `processed` | `activity.processed` event or resync, then `GET /v1/activities/:id` |
 | `processing` → `failed` | `activity.failed` event or resync |
+
+*Amended by [ADR-031](ADR-031-live-recording-on-ios.md)* (§13): `GET /v1/activities/:id` is **author only**, whatever the state, and returns `processingStatus` and `processingError`. `DELETE /v1/activities/:id` (author only, `pending` and `failed` only, hard delete, `204`; `409` otherwise) lets the app delete an Activity it has not finished sending. `recorded` is now the first local state: a Recording is not an Activity.
 
 ### 10. Data model changes (amends ADR-017)
 
@@ -211,4 +213,5 @@ Additions to the `activity` table:
 - **Extended by**: [ADR-028](ADR-028-activity-import-from-file.md) (activities imported from a file are created by the worker directly in `processing`, then follow §5-8)
 - **Amended by**: [ADR-028](ADR-028-activity-import-from-file.md) (job id separator `-`)
 - **Amended by**: [ADR-030](ADR-030-itineraries-on-ios.md) (§5 elevation-gain algorithm shared with Itineraries in `@repo/geo`)
+- **Amended by**: [ADR-031](ADR-031-live-recording-on-ios.md) (§3 trace v2 with Pauses and regular `URLSession`, §5 metrics across Pauses, §9 `GET` and `DELETE /v1/activities/:id`)
 - **Related**: [ADR-001](ADR-001-global-architecture.md), [ADR-008](ADR-008-mobile-offline-sync.md), [ADR-009](ADR-009-backend-api.md), [ADR-010](ADR-010-backend-realtime.md), [ADR-018](ADR-018-docker-vps-deployment.md)
