@@ -108,6 +108,19 @@ final class AppDatabase: Sendable {
             }
             try db.create(index: "activity_pause_on_activity_id", on: "activity_pause", columns: ["activity_id", "start_ms"])
         }
+        // ADR-031 §6, §10: the Itinerary followed by the Recording (all NULL without one, cleared when
+        // removed): its copy loaded at Start (track as polyline6, total distance from the API), and the
+        // progress in meters along that track with the first-snap flag.
+        migrator.registerMigration("recording_itinerary_v1") { db in
+            try db.alter(table: "recording") { table in
+                table.add(column: "itinerary_id", .text)
+                table.add(column: "itinerary_name", .text)
+                table.add(column: "itinerary_track_polyline6", .text)
+                table.add(column: "itinerary_distance_m", .double)
+                table.add(column: "itinerary_progress_m", .double)
+                table.add(column: "itinerary_snapped", .boolean)
+            }
+        }
         return migrator
     }
 }

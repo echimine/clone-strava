@@ -20,7 +20,7 @@ struct GRDBRecordingRepository: RecordingRepository {
                 .order(Column("timestamp_ms"), Column("id"))
                 .fetchAll(db)
             guard let recording = row.recording(pauses: pauses.map(\.pause)) else { return nil }
-            return StoredRecording(recording: recording, points: points.map(\.sample))
+            return StoredRecording(recording: recording, points: points.map(\.sample), itinerary: try Self.fetchItinerary(db))
         }
     }
 

@@ -6,6 +6,8 @@ struct StoredRecording: Equatable, Sendable {
     let recording: Recording
     /// Raw points in time order, as written (no accuracy filter).
     let points: [LocationSample]
+    /// The Itinerary followed, with its saved progress (ADR-031 §10).
+    var itinerary: FollowedItinerary? = nil
 }
 
 enum RecordingRepositoryError: Error, Equatable {
@@ -28,4 +30,8 @@ protocol RecordingRepository: Sendable {
     func append(_ point: LocationSample, to id: ActivityID) async throws -> Bool
     /// Wipes the Recording, its points and its Pauses in one transaction.
     func delete(_ id: ActivityID) async throws
+    /// Sets the Itinerary followed by the Recording `id`, its track and progress; `nil` clears it.
+    func saveItinerary(_ itinerary: FollowedItinerary?, of id: ActivityID) async throws
+    /// Saves the progress along the followed Itinerary of the Recording `id`.
+    func saveItineraryProgress(_ progress: ItineraryProgress.Saved, of id: ActivityID) async throws
 }

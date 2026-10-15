@@ -20,6 +20,7 @@ struct RecordingStoreTests {
         RecordingStore(
             service: service,
             preferences: InMemoryRecordingPreferences(lastSavedSport: lastSavedSport),
+            itineraries: FakeItineraryCacheReader(),
             ensureFullAccuracy: { fullAccuracy }
         )
     }

@@ -12,9 +12,17 @@ struct RecordingSnapshot: Equatable, Sendable {
     /// Last fix, during a Pause too (map position, GPS indicator).
     var position: LocationSample?
     var currentSpeed: CurrentSpeed
+    /// The Itinerary followed and the progress along it (ADR-031 §6).
+    var itinerary: FollowedItinerary?
 
-    init(recording: Recording, points: [LocationSample] = [], position: LocationSample? = nil) {
+    init(
+        recording: Recording,
+        points: [LocationSample] = [],
+        position: LocationSample? = nil,
+        itinerary: FollowedItinerary? = nil
+    ) {
         self.recording = recording
+        self.itinerary = itinerary
         distance = ProvisionalDistance.measure(points, pauses: recording.pauses, sport: recording.sport)
         trace = points.filter(Self.isAccurate).map(\.coordinate)
         pointCount = points.count
