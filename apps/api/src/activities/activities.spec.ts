@@ -159,7 +159,13 @@ describe("/v1/activities (integration)", () => {
             getSession: async (headers: Headers) => {
               const userId = headers.get("x-test-user");
               return userId
-                ? { userId, email: `${userId}@test.local`, name: "Test", role: "user", twoFactorEnabled: false }
+                ? {
+                    userId,
+                    email: `${userId}@test.local`,
+                    name: "Test",
+                    role: "user",
+                    twoFactorEnabled: false,
+                  }
                 : null;
             },
           },
@@ -254,6 +260,64 @@ describe("/v1/activities (integration)", () => {
     });
   });
 
+  describe("GET /v1/activities/:id", () => {
+    type Detail = {
+      id: string;
+      title: string;
+      visibility: string;
+      processingStatus: string;
+      processingError?: string;
+      stats: { distanceM: number; movingTimeS: number; elapsedTimeS: number } | null;
+    };
+    const get = async (id: string, user = userA) => {
+      const response = await call(`/${id}`, user, { method: "GET" });
+      return { status: response.status, detail: (await response.json()) as Detail };
+    };
+
+    it("shows the author a pending activity, without official values yet", async () => {
+      const id = randomUUID();
+      await call("", userA, { body: body(id) });
+      const { status, detail } = await get(id);
+      expect(status).toBe(200);
+      expect(detail).toMatchObject({
+        id,
+        title: "Course du matin",
+        visibility: "followers",
+        processingStatus: "pending",
+        stats: null,
+      });
+      expect(detail.processingError).toBeUndefined();
+    });
+
+    it("gives the official values once processed, not the provisional ones", async () => {
+      const id = await processedActivity();
+      const { status, detail } = await get(id);
+      expect(status).toBe(200);
+      expect(detail.processingStatus).toBe("processed");
+      // 10 legs of 0.001° of latitude (~111.2 m each), one minute apart.
+      expect(detail.stats?.distanceM).toBeCloseTo(1112, -1);
+      expect(detail.stats?.elapsedTimeS).toBe(600);
+      expect(detail.stats?.movingTimeS).toBe(600);
+    });
+
+    it("returns processingError after the worker failed the activity", async () => {
+      const id = await failedActivity();
+      const { status, detail } = await get(id);
+      expect(status).toBe(200);
+      expect(detail).toMatchObject({
+        processingStatus: "failed",
+        processingError: "invalid_trace",
+        stats: null,
+      });
+    });
+
+    it("answers 404 to another athlete, even for a processed activity", async () => {
+      const id = await processedActivity();
+      expect((await get(id, userB)).status).toBe(404);
+      expect((await get(randomUUID())).status).toBe(404);
+    });
+  });
+
   describe("POST /v1/activities/:id/upload-url", () => {
     it("renews the upload URL of a pending activity (200)", async () => {
       const id = randomUUID();
@@ -297,7 +361,9 @@ describe("/v1/activities (integration)", () => {
       objects.delete(activityTraceKey(userA, id));
       expect(response.status).toBe(409);
       expect((await json(response)).error.code).toBe("trace_too_large");
-      expect((await json(await call("", userA, { body: body(id) }))).activity.processingStatus).toBe("pending");
+      expect((await json(await call("", userA, { body: body(id) }))).activity.processingStatus).toBe(
+        "pending",
+      );
     });
 
     it("accepts an uploaded trace (202): processing, one process-activity job, replays change nothing", async () => {

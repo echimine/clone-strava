@@ -58,7 +58,11 @@ export class CreateActivityUseCase {
       // Lost a race with a concurrent replay of the same `POST`.
       return this.replay(userId, row);
     }
-    return { activity: toActivityRecord(row), uploadUrl: await presignTraceUpload(this.storage, row), created: true };
+    return {
+      activity: toActivityRecord(row),
+      uploadUrl: await presignTraceUpload(this.storage, row),
+      created: true,
+    };
   }
 
   /** ADR-019 §1 `422`: active sport, duration at least the sport's minimum (`endedAt > startedAt` is in the contract). */
@@ -78,13 +82,18 @@ export class CreateActivityUseCase {
     if (row.userId !== userId) {
       throw new ConflictException({ code: "id_conflict", message: "This id is already used" });
     }
-    const uploadUrl = row.processingStatus === "pending" ? await presignTraceUpload(this.storage, row) : undefined;
+    const uploadUrl =
+      row.processingStatus === "pending" ? await presignTraceUpload(this.storage, row) : undefined;
     return { activity: toActivityRecord(row), uploadUrl, created: false };
   }
 }
 
 function invalid(field: string, message: string): UnprocessableEntityException {
-  return new UnprocessableEntityException({ code: "validation_error", message, details: [{ field, message }] });
+  return new UnprocessableEntityException({
+    code: "validation_error",
+    message,
+    details: [{ field, message }],
+  });
 }
 
 /** Pre-signed `PUT` of the trace (ADR-019 §1-2): 15 minutes, enforced content type. */

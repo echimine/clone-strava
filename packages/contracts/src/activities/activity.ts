@@ -69,3 +69,40 @@ export const completeActivityResponseSchema = z.object({
   activity: activitySummarySchema,
 });
 export type CompleteActivityResponse = z.infer<typeof completeActivityResponseSchema>;
+
+/** `activity.processing_error` codes (ADR-019 §6): why the worker failed the activity. */
+export const activityProcessingErrorCodeSchema = z.enum(["invalid_trace", "empty_trace", "processing_error"]);
+export type ActivityProcessingErrorCode = z.infer<typeof activityProcessingErrorCodeSchema>;
+
+/** Official values computed by the worker (ADR-019 §5); null when not computed or not tracked by the sport. */
+export const activityStatsSchema = z.object({
+  distanceM: z.number().nullable(),
+  movingTimeS: z.number().int().nullable(),
+  elapsedTimeS: z.number().int().nullable(),
+  elevationGainM: z.number().nullable(),
+  avgSpeedMs: z.number().nullable(),
+  maxSpeedMs: z.number().nullable(),
+  avgHeartRate: z.number().int().nullable(),
+  maxHeartRate: z.number().int().nullable(),
+});
+export type ActivityStats = z.infer<typeof activityStatsSchema>;
+
+/**
+ * `GET /v1/activities/:id` response (ADR-031 §13): author only, whatever
+ * the state. `stats` holds the official values once `processed`, null
+ * before; `processingError` is present only once `failed`.
+ */
+export const activityDetailSchema = z.object({
+  id: z.uuid(),
+  sportTypeCode: sportTypeCodeSchema,
+  title: z.string(),
+  // Optional rather than nullable: @nestjs/swagger reads a top-level `type: ["string", "null"]` as an array.
+  description: z.string().optional(),
+  startedAt: z.iso.datetime(),
+  endedAt: z.iso.datetime(),
+  visibility: visibilitySchema,
+  processingStatus: processingStatusSchema,
+  processingError: activityProcessingErrorCodeSchema.optional(),
+  stats: activityStatsSchema.nullable(),
+});
+export type ActivityDetail = z.infer<typeof activityDetailSchema>;
