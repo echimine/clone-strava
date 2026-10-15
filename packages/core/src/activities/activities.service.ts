@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import type {
+  ActivityDetail,
   ActivityImport,
   CreateActivityImportRequest,
   CreateActivityRequest,
@@ -29,6 +30,7 @@ import {
 import { ReprocessActivityImportUseCase } from "./use-cases/reprocess-activity-import.use-case.js";
 import { GetFeedPageUseCase } from "./use-cases/get-feed-page.use-case.js";
 import { GetVisibleActivityUseCase } from "./use-cases/get-visible-activity.use-case.js";
+import { GetOwnActivityUseCase } from "./use-cases/get-own-activity.use-case.js";
 import type { ActivityRecord } from "./domain/activity-record.js";
 import type { FeedActivityPage } from "./domain/feed-activity.js";
 
@@ -54,6 +56,7 @@ export class ActivitiesService {
     private readonly reprocessActivityImportUseCase: ReprocessActivityImportUseCase,
     private readonly getFeedPageUseCase: GetFeedPageUseCase,
     private readonly getVisibleActivityUseCase: GetVisibleActivityUseCase,
+    private readonly getOwnActivityUseCase: GetOwnActivityUseCase,
   ) {}
 
   create(userId: string, request: CreateActivityRequest): Promise<CreateActivityResult> {
@@ -96,6 +99,11 @@ export class ActivitiesService {
   /** The activity if `viewerId` may see it, `null` otherwise (ADR-029). */
   getVisible(viewerId: string, activityId: string): Promise<ActivityRecord | null> {
     return this.getVisibleActivityUseCase.execute(viewerId, activityId);
+  }
+
+  /** The author's own activity, whatever its state; `404` for anyone else (ADR-031 §13). */
+  getOwn(userId: string, activityId: string): Promise<ActivityDetail> {
+    return this.getOwnActivityUseCase.execute(userId, activityId);
   }
 
   // --- File import (ADR-028) ---

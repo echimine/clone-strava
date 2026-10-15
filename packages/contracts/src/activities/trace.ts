@@ -83,3 +83,13 @@ function pauseIssue(pause: TracePause, points: TracePoint[]): string | null {
 export function activityTraceKey(userId: string, activityId: string): string {
   return `activities/${userId}/${activityId}/trace.json.gz`;
 }
+
+/** Content type enforced by the pre-signed `PUT` of a recorded trace (ADR-019 §1). */
+export const ACTIVITY_TRACE_CONTENT_TYPE = "application/gzip";
+
+/**
+ * Largest compressed trace accepted (ADR-019 §4): checked by `HEAD` at
+ * `complete`, since a pre-signed `PUT` cannot limit the size. Several hours
+ * at 1 Hz stay far below.
+ */
+export const ACTIVITY_TRACE_MAX_BYTES = 50 * 1024 * 1024;
