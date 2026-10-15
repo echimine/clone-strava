@@ -54,11 +54,12 @@ describe("defaultActivityTitle", () => {
 });
 
 describe("toImportTrace", () => {
-  it("builds a v1 trace with rounded heart rate and the file bounds", () => {
+  it("builds a v2 trace without Pauses, with rounded heart rate and the file bounds", () => {
     const result = toImportTrace(parsed({ startedAtMs: 0, endedAtMs: 70_000 }));
     expect(result).toMatchObject({ ok: true });
     if (!result.ok) return;
-    expect(result.trace.schemaVersion).toBe(1);
+    expect(result.trace.schemaVersion).toBe(2);
+    expect(result.trace.pauses).toEqual([]);
     expect(result.trace.points[0]).toMatchObject({ heartRateBpm: 120 });
     expect(result.startedAt.getTime()).toBe(0);
     expect(result.endedAt.getTime()).toBe(70_000);
