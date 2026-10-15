@@ -27,11 +27,22 @@ final class FeedStore {
     @ObservationIgnored private var nextCursor: String?
     @ObservationIgnored private var refreshGeneration = 0
     @ObservationIgnored private var kudosInFlight: Set<ActivityID> = []
+    /// Run on pull-to-refresh beside the reload: the app shell sends the queued operations
+    /// (ADR-031 §14).
+    @ObservationIgnored private let onPullToRefresh: @MainActor () async -> Void
+    /// Bumped to bring the list back to its top (after Save, ADR-031 §11).
+    private(set) var scrollToTopRequest = 0
 
-    init(loadFeed: LoadFeed, toggleKudos: ToggleKudos, events: any FeedEventSource) {
+    init(
+        loadFeed: LoadFeed,
+        toggleKudos: ToggleKudos,
+        events: any FeedEventSource,
+        onPullToRefresh: @escaping @MainActor () async -> Void = {}
+    ) {
         self.loadFeed = loadFeed
         self.toggleKudos = toggleKudos
         self.events = events
+        self.onPullToRefresh = onPullToRefresh
     }
 
     var isEmpty: Bool { phase == .loaded && posts.isEmpty }
@@ -51,8 +62,23 @@ final class FeedStore {
         await refresh()
     }
 
-    /// Replaces the list with the first page. A newer refresh wins over an older one.
-    func refresh() async {
+    /// Pull-to-refresh: the first page, and the queued operations sent meanwhile.
+    func pullToRefresh() async {
+        async let sending: Void = onPullToRefresh()
+        await refresh()
+        await sending
+    }
+
+    /// Back to the top of the list, then the first page again.
+    func showTop() async {
+        scrollToTopRequest += 1
+        await refresh()
+    }
+
+    /// Replaces the list with the first page. A newer refresh wins over an older one. `true`
+    /// once the first page is shown.
+    @discardableResult
+    func refresh() async -> Bool {
         refreshGeneration += 1
         let generation = refreshGeneration
         if posts.isEmpty {
@@ -60,17 +86,19 @@ final class FeedStore {
         }
         do {
             let page = try await loadFeed()
-            guard generation == refreshGeneration else { return }
+            guard generation == refreshGeneration else { return false }
             posts = page.posts
             nextCursor = page.nextCursor
             phase = .loaded
+            return true
         } catch {
-            guard generation == refreshGeneration else { return }
+            guard generation == refreshGeneration else { return false }
             if posts.isEmpty {
                 phase = .failed(message: FeedMessages.message(for: error))
             } else {
                 notice = FeedMessages.message(for: error)
             }
+            return false
         }
     }
 

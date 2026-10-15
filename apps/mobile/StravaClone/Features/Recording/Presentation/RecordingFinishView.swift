@@ -1,15 +1,24 @@
 import SwiftUI
 
 /// Finish screen (ADR-031 §11): full screen, left only through Save, Resume or Delete.
-/// Mini-map and the sport's final stats, without a "provisional" label. Save is disabled
-/// below the sport's minimum duration or with fewer than 2 points, with the explanation.
+/// Title prefilled with the server's formula (back to it when emptied), visibility preselected
+/// on `defaultVisibility`; neither is saved with the Recording. Mini-map and the sport's final
+/// stats, without a "provisional" label. Save is disabled below the sport's minimum duration or
+/// with fewer than 2 points, with the explanation.
 struct RecordingFinishView: View {
     let store: RecordingStore
     let snapshot: RecordingSnapshot
-    /// Save, wired by the upload issue (#66); disabled while `nil`.
-    var onSave: (() -> Void)?
+    /// After Save: the app shell switches to the top of the feed.
+    var onSaved: () -> Void = {}
 
     @State private var confirmsDelete = false
+    @State private var title = ""
+    @State private var visibility = ActivityVisibility.public
+    @FocusState private var editsTitle: Bool
+
+    private var canSave: Bool {
+        snapshot.saveBlocker == nil && !store.isBusy
+    }
 
     private var finalStats: RecordingStats {
         snapshot.stats(at: snapshot.recording.endedAt ?? .now)
@@ -24,8 +33,29 @@ struct RecordingFinishView: View {
             .font(.title3.weight(.bold))
             .padding(.top, 8)
 
+            TextField(store.defaultTitle, text: $title)
+                .font(.headline)
+                .padding(12)
+                .background(Color(.secondarySystemFill), in: RoundedRectangle(cornerRadius: 12))
+                .focused($editsTitle)
+                .submitLabel(.done)
+                .accessibilityIdentifier("recordingTitleField")
+                .onChange(of: editsTitle) { _, editing in
+                    if !editing, title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        title = store.defaultTitle
+                    }
+                }
+
+            Picker("Visibilité", selection: $visibility) {
+                ForEach(ActivityVisibility.allCases, id: \.self) { visibility in
+                    Text(Self.label(visibility)).tag(visibility)
+                }
+            }
+            .pickerStyle(.segmented)
+            .accessibilityIdentifier("recordingVisibilityPicker")
+
             RecordingTraceMap(trace: snapshot.trace)
-                .frame(height: 240)
+                .frame(height: 200)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
 
             HStack(alignment: .top) {
@@ -53,7 +83,12 @@ struct RecordingFinishView: View {
                     .accessibilityIdentifier("recordingSaveBlocker")
             }
             Button {
-                onSave?()
+                editsTitle = false
+                Task {
+                    if await store.save(title: title, visibility: visibility) {
+                        onSaved()
+                    }
+                }
             } label: {
                 Text("Enregistrer")
                     .font(.title3.weight(.bold))
@@ -62,8 +97,8 @@ struct RecordingFinishView: View {
                     .background(Theme.accent, in: Capsule())
             }
             .buttonStyle(.plain)
-            .disabled(onSave == nil || snapshot.saveBlocker != nil)
-            .opacity(onSave == nil || snapshot.saveBlocker != nil ? 0.4 : 1)
+            .disabled(!canSave)
+            .opacity(canSave ? 1 : 0.4)
             .accessibilityIdentifier("recordingSaveButton")
 
             HStack(spacing: 12) {
@@ -81,10 +116,22 @@ struct RecordingFinishView: View {
         }
         .padding(Theme.spacing)
         .interactiveDismissDisabled()
+        .onAppear {
+            title = store.defaultTitle
+            visibility = store.defaultVisibility
+        }
         .confirmationDialog(RecordingMessages.deleteTitle, isPresented: $confirmsDelete, titleVisibility: .visible) {
             Button("Supprimer", role: .destructive) { Task { await store.delete() } }
         } message: {
             Text(RecordingMessages.deleteMessage)
+        }
+    }
+
+    static func label(_ visibility: ActivityVisibility) -> String {
+        switch visibility {
+        case .public: "Tout le monde"
+        case .followers: "Abonnés"
+        case .private: "Moi uniquement"
         }
     }
 }

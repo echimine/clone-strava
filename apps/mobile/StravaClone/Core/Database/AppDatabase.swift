@@ -108,6 +108,26 @@ final class AppDatabase: Sendable {
             }
             try db.create(index: "activity_pause_on_activity_id", on: "activity_pause", columns: ["activity_id", "start_ms"])
         }
+        // ADR-031 §14, §15 (Core/LocalActivities): a saved Activity until the server has processed
+        // it, with its provisional values (no elevation gain). Its points and Pauses are the
+        // `activity_point` / `activity_pause` rows of the same UUID; its operations
+        // (`create_activity`, `upload_trace`, `complete_activity`) are rows of `sync_operation`.
+        migrator.registerMigration("local_activities_v1") { db in
+            try db.create(table: "local_activity") { table in
+                table.primaryKey("id", .text)
+                table.column("sport_type_code", .text).notNull()
+                table.column("title", .text).notNull()
+                table.column("visibility", .text).notNull()
+                table.column("started_at_ms", .integer).notNull()
+                table.column("ended_at_ms", .integer).notNull()
+                table.column("distance_m", .double).notNull()
+                table.column("moving_time_s", .integer).notNull()
+                table.column("elapsed_time_s", .integer).notNull()
+                table.column("state", .text).notNull()
+                table.column("failure_reason", .text)
+                table.column("failure_resume_state", .text)
+            }
+        }
         return migrator
     }
 }

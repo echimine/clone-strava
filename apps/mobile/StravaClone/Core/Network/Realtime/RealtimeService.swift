@@ -31,4 +31,9 @@ final class RealtimeService {
     func events() async -> AsyncStream<RealtimeEvent> {
         await client.events()
     }
+
+    /// Each (re)connection of the realtime connection.
+    func connections() async -> AsyncStream<Void> {
+        await client.connections()
+    }
 }

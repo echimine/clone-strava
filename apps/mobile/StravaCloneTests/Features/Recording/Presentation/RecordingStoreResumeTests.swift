@@ -10,8 +10,12 @@ struct RecordingStoreResumeTests {
     private let repository: GRDBRecordingRepository
     private let service: RecordingService
 
+    private let activities: GRDBLocalActivityStore
+
     init() throws {
-        repository = GRDBRecordingRepository(database: try AppDatabase.inMemory())
+        let database = try AppDatabase.inMemory()
+        repository = GRDBRecordingRepository(database: database)
+        activities = GRDBLocalActivityStore(database: database)
         service = RecordingService(locationProvider: provider, repository: repository, now: { [start] in start.addingTimeInterval(900) })
     }
 
@@ -20,7 +24,9 @@ struct RecordingStoreResumeTests {
             service: service,
             preferences: InMemoryRecordingPreferences(),
             launch: launch,
-            ensureFullAccuracy: { true }
+            ensureFullAccuracy: { true },
+            saveRecording: SaveRecording(service: service, activities: activities),
+            defaultVisibility: { .public }
         )
     }
 

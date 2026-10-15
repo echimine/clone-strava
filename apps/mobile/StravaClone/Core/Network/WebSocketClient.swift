@@ -20,6 +20,7 @@ actor WebSocketClient {
     private var runTask: Task<Void, Never>?
     private var socket: URLSessionWebSocketTask?
     private var subscribers: [UUID: AsyncStream<RealtimeEvent>.Continuation] = [:]
+    private var connectionSubscribers: [UUID: AsyncStream<Void>.Continuation] = [:]
     private var deduplicator = RealtimeEventDeduplicator()
 
     init(url: URL, session: URLSession = .shared) {
@@ -52,8 +53,24 @@ actor WebSocketClient {
         return stream
     }
 
+    /// One value per (re)connection, once its topics are subscribed: events missed while
+    /// disconnected are caught up through the API (ADR-001, ADR-031 §14).
+    func connections() -> AsyncStream<Void> {
+        let id = UUID()
+        let (stream, continuation) = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
+        continuation.onTermination = { @Sendable [weak self] _ in
+            Task { await self?.removeConnectionSubscriber(id) }
+        }
+        connectionSubscribers[id] = continuation
+        return stream
+    }
+
     private func removeSubscriber(_ id: UUID) {
         subscribers[id] = nil
+    }
+
+    private func removeConnectionSubscriber(_ id: UUID) {
+        connectionSubscribers[id] = nil
     }
 
     private func run(topics: [String], token: TokenSource) async {
@@ -67,6 +84,9 @@ actor WebSocketClient {
                     try await socket.send(.string(RealtimeControlMessage.subscribe(topic: topic)))
                 }
                 failures = 0
+                for continuation in connectionSubscribers.values {
+                    continuation.yield()
+                }
                 let pinger = Task {
                     while !Task.isCancelled {
                         try? await Task.sleep(for: Self.pingInterval)
