@@ -1,0 +1,2 @@
+// Picks DEVELOPMENT_TEAM from the main app's gitignored secrets.
+#include? "../../Config/Secrets.xcconfig"

@@ -1,0 +1,41 @@
+# Throwaway spike for "Mesurer pause automatique et batterie sur iPhone" (#56).
+# Never merged. Setup: xcodegen generate && open AutoPauseProbe.xcodeproj
+# Signing: DEVELOPMENT_TEAM comes from ../../Config/Secrets.xcconfig (gitignored).
+
+name: AutoPauseProbe
+
+options:
+  bundleIdPrefix: fr.echimine
+  deploymentTarget:
+    iOS: "17.0"
+
+configFiles:
+  Debug: Spike.xcconfig
+  Release: Spike.xcconfig
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    TARGETED_DEVICE_FAMILY: "1"
+    CODE_SIGN_STYLE: Automatic
+
+targets:
+  AutoPauseProbe:
+    type: application
+    platform: iOS
+    sources:
+      - App
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: fr.echimine.AutoPauseProbe
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: Pause Probe
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UIBackgroundModes: [location]
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
+        NSLocationWhenInUseUsageDescription: "Mesure le GPS comme pendant une Recording."
+        NSMotionUsageDescription: "Mesure la détection d'arrêt et de reprise par Core Motion."
