@@ -30,12 +30,18 @@ final class RecordingStore {
     @ObservationIgnored private let ensureFullAccuracy: @MainActor () async -> Bool
     @ObservationIgnored private let saveRecording: SaveRecording
     @ObservationIgnored private let cachedDefaultVisibility: @MainActor () -> ActivityVisibility
+    @ObservationIgnored private let autoPausePreferences: (any AutoPausePreferences)?
+    @ObservationIgnored private let requestMotionAuthorization: @MainActor () async -> Bool
+    /// The auto-pause switch per sport on the pre-start screen (ADR-031 §4).
+    private var autoPauseChoices: [RecordingSport: Bool] = [:]
 
     /// - Parameters:
     ///   - launch: how this launch of the app picks a stored Recording up (ADR-031 §10).
     ///   - ensureFullAccuracy: asks for temporary full accuracy when only the approximate
     ///     location is allowed; `false` when refused (ADR-031 §2).
     ///   - defaultVisibility: the athlete's cached `defaultVisibility` (ADR-031 §11, §13).
+    ///   - requestMotionAuthorization: asks for "Motion & Fitness" access when the switch is
+    ///     turned on for a run; `false` when refused (ADR-031 §4).
     init(
         service: RecordingService,
         preferences: any RecordingPreferences,
@@ -43,7 +49,9 @@ final class RecordingStore {
         launch: RecordingLaunch = .openedByAthlete,
         ensureFullAccuracy: @escaping @MainActor () async -> Bool,
         saveRecording: SaveRecording,
-        defaultVisibility: @escaping @MainActor () -> ActivityVisibility
+        defaultVisibility: @escaping @MainActor () -> ActivityVisibility,
+        autoPausePreferences: (any AutoPausePreferences)? = nil,
+        requestMotionAuthorization: @escaping @MainActor () async -> Bool = { true }
     ) {
         self.service = service
         self.preferences = preferences
@@ -52,7 +60,39 @@ final class RecordingStore {
         self.ensureFullAccuracy = ensureFullAccuracy
         self.saveRecording = saveRecording
         cachedDefaultVisibility = defaultVisibility
+        self.autoPausePreferences = autoPausePreferences
+        self.requestMotionAuthorization = requestMotionAuthorization
         sport = preferences.lastSavedSport ?? .run
+        for sport in RecordingSport.allCases {
+            autoPauseChoices[sport] = autoPausePreferences?.autoPause(for: sport) ?? sport.autoPauseByDefault
+        }
+    }
+
+    /// The sport of the pre-start screen, or of the Recording in progress, has an automatic Pause.
+    var offersAutoPause: Bool {
+        (snapshot?.recording.sport ?? sport).autoPauseRule != nil
+    }
+
+    /// The auto-pause switch: the Recording's during a Recording, else the sport's.
+    var autoPause: Bool {
+        if let recording = snapshot?.recording { return recording.autoPauseEnabled }
+        return offersAutoPause && autoPauseChoices[sport] == true
+    }
+
+    /// Remembered per sport; turned on for a run, it asks for Motion access first and goes
+    /// back off when refused. During a Recording it also changes the Recording's switch.
+    func setAutoPause(_ enabled: Bool) async {
+        let sport = snapshot?.recording.sport ?? sport
+        guard sport.autoPauseRule != nil else { return }
+        if enabled, sport.autoPauseRule == .motion, !(await requestMotionAuthorization()) {
+            autoPauseChoices[sport] = false
+            return
+        }
+        autoPauseChoices[sport] = enabled
+        autoPausePreferences?.rememberAutoPause(enabled, for: sport)
+        if snapshot != nil {
+            await perform { try await $0.setAutoPause(enabled) }
+        }
     }
 
     var screen: Screen {
@@ -91,7 +131,7 @@ final class RecordingStore {
             let itinerary = try await loadChosenItinerary()
             // Deleted elsewhere: the chip is reset, the athlete decides again.
             guard itinerary != nil || !wantsItinerary else { return }
-            snapshot = try await service.start(sport: sport, itinerary: itinerary)
+            snapshot = try await service.start(sport: sport, itinerary: itinerary, autoPause: autoPause)
         } catch {
             errorMessage = RecordingMessages.startFailed
         }

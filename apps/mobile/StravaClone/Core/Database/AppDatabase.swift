@@ -141,6 +141,16 @@ final class AppDatabase: Sendable {
                 table.add(column: "itinerary_snapped", .boolean)
             }
         }
+        // ADR-031 §4, §10: kind (manual / automatic) and position of the Pause in progress, and the
+        // auto-pause switch of the Recording.
+        migrator.registerMigration("recording_auto_pause_v1") { db in
+            try db.alter(table: "recording") { table in
+                table.add(column: "pause_kind", .text)
+                table.add(column: "pause_latitude", .double)
+                table.add(column: "pause_longitude", .double)
+                table.add(column: "auto_pause_enabled", .boolean).notNull().defaults(to: false)
+            }
+        }
         return migrator
     }
 }

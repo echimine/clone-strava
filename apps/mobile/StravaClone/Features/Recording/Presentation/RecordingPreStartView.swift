@@ -54,6 +54,9 @@ struct RecordingPreStartView: View {
                 sportPicker
                 itineraryPicker
             }
+            if store.offersAutoPause {
+                RecordingAutoPauseToggle(store: store)
+            }
             if let message = store.errorMessage {
                 Text(message)
                     .font(.footnote)
