@@ -51,9 +51,7 @@ extension GRDBLocalActivityStore {
             .fetchAll(db)
             .compactMap(\.activity)
             .map { activity in
-            let coordinates = try Row.fetchAll(db, sql: """
-                SELECT latitude, longitude FROM activity_point WHERE activity_id = ? ORDER BY timestamp_ms, id
-                """, arguments: [activity.id.description]).map { Coordinate(latitude: $0["latitude"], longitude: $0["longitude"]) }
+            let coordinates = try ActivityTraceRecords.coordinates(of: activity.id, db)
             return LocalActivityCard(
                 activity: activity,
                 status: status(of: activity, operation: try operation(for: activity.id, db)),

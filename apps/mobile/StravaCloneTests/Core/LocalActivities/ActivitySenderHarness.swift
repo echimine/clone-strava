@@ -115,7 +115,7 @@ struct ActivitySenderHarness: Sendable {
         recording.pause(at: start.addingTimeInterval(600))
         recording.finish()
         try await recordings.save(recording)
-        try await store.saveRecorded(LocalActivity(
+        try await GRDBRecordingSaver(activities: store).saveRecorded(LocalActivity(
             id: id,
             sport: .run,
             title: "Course à pied le matin",

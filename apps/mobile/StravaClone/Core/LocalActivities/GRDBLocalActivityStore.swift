@@ -2,19 +2,19 @@ import Foundation
 import GRDB
 
 /// Local Activities in GRDB (ADR-031 §14, §15, migration `local_activities_v1`): the
-/// `local_activity` rows, their `activity_point` / `activity_pause` rows (written by the
+/// `local_activity` rows, their points and Pauses (`ActivityTraceRecords`, written by the
 /// Recording under the same UUID) and their `sync_operation` rows. Every state change and its
 /// operation are written in one transaction, so the order of the steps holds by construction.
-struct GRDBLocalActivityStore: LocalActivitySaving {
+struct GRDBLocalActivityStore {
     let database: AppDatabase
     var now: @Sendable () -> Date = Date.init
 
     // MARK: - Save (ADR-031 §11)
 
-    /// One transaction: the local Activity in `recorded`, `create_activity` queued, the
-    /// `recording` row deleted (its open final Pause with it). Killed before the commit, the
-    /// finish screen comes back.
-    func saveRecorded(_ activity: LocalActivity) async throws {
+    /// One transaction: the local Activity in `recorded`, `create_activity` queued, and
+    /// `closing` run by the Recording (its row deleted, its open final Pause with it). Killed
+    /// before the commit, the finish screen comes back.
+    func saveRecorded(_ activity: LocalActivity, closing: @escaping @Sendable (Database) throws -> Void) async throws {
         let now = now()
         try await database.writer.write { db in
             try LocalActivityRow(activity, state: .recorded).insert(db)
@@ -25,7 +25,7 @@ struct GRDBLocalActivityStore: LocalActivitySaving {
                 createdAt: now
             )
             try operation.insert(db)
-            try db.execute(sql: "DELETE FROM recording WHERE activity_id = ?", arguments: [activity.id.description])
+            try closing(db)
         }
     }
 
@@ -66,22 +66,7 @@ struct GRDBLocalActivityStore: LocalActivitySaving {
     /// The raw points (time order) and finished Pauses of an Activity, for its trace.
     func trace(of id: ActivityID) async throws -> (points: [LocationSample], pauses: [TracePauseInterval]) {
         try await database.writer.read { db in
-            let points = try Row.fetchAll(db, sql: """
-                SELECT timestamp_ms, latitude, longitude, altitude_m, horizontal_accuracy_m, speed_ms
-                FROM activity_point WHERE activity_id = ? ORDER BY timestamp_ms, id
-                """, arguments: [id.description]).map { row in
-                LocationSample(
-                    coordinate: Coordinate(latitude: row["latitude"], longitude: row["longitude"]),
-                    altitude: row["altitude_m"],
-                    horizontalAccuracy: row["horizontal_accuracy_m"],
-                    speed: row["speed_ms"],
-                    timestamp: Date(epochMilliseconds: row["timestamp_ms"])
-                )
-            }
-            let pauses = try Row.fetchAll(db, sql: """
-                SELECT start_ms, end_ms FROM activity_pause WHERE activity_id = ? ORDER BY start_ms
-                """, arguments: [id.description]).map { TracePauseInterval(startMs: $0["start_ms"], endMs: $0["end_ms"]) }
-            return (points, pauses)
+            (try ActivityTraceRecords.points(of: id, db), try ActivityTraceRecords.pauses(of: id, db))
         }
     }
 
@@ -272,10 +257,7 @@ struct GRDBLocalActivityStore: LocalActivitySaving {
     private static func wipe(_ keys: [String], _ db: Database) throws {
         _ = try LocalActivityRow.filter(keys: keys).deleteAll(db)
         _ = try operations.filter(keys.contains(SyncOperationRecord.Columns.entityID)).deleteAll(db)
-        for key in keys {
-            try db.execute(sql: "DELETE FROM activity_point WHERE activity_id = ?", arguments: [key])
-            try db.execute(sql: "DELETE FROM activity_pause WHERE activity_id = ?", arguments: [key])
-        }
+        try ActivityTraceRecords.delete(of: keys, db)
     }
 
     @discardableResult
@@ -300,12 +282,6 @@ struct GRDBLocalActivityStore: LocalActivitySaving {
     private static func payload(_ target: TraceUploadTarget) throws -> String {
         String(decoding: try JSONEncoder().encode(target), as: UTF8.self)
     }
-}
-
-/// A finished Pause of an Activity, in trace v2 units (UTC epoch milliseconds).
-struct TracePauseInterval: Equatable, Sendable {
-    let startMs: Int64
-    let endMs: Int64
 }
 
 // MARK: - Rows (shared with GRDBLocalActivityStore+Cards.swift)

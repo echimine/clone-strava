@@ -193,7 +193,7 @@ final class Di {
             itineraries: itineraryCache,
             launch: recordingLaunch,
             ensureFullAccuracy: { await permission.ensureFullAccuracy(purposeKey: "Recording") },
-            saveRecording: SaveRecording(service: recordingService, activities: localActivities),
+            saveRecording: SaveRecording(service: recordingService, activities: GRDBRecordingSaver(activities: localActivities)),
             defaultVisibility: { defaultVisibility.cachedDefaultVisibility },
             autoPausePreferences: UserDefaultsRecordingPreferences(),
             requestMotionAuthorization: { await motion.requestAuthorization() }

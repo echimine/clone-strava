@@ -28,7 +28,7 @@ struct RecordingSaveTests {
             preferences: preferences,
             itineraries: FakeItineraryCacheReader(),
             ensureFullAccuracy: { true },
-            saveRecording: SaveRecording(service: service, activities: activities, timeZone: paris),
+            saveRecording: SaveRecording(service: service, activities: GRDBRecordingSaver(activities: activities), timeZone: paris),
             defaultVisibility: { defaultVisibility }
         )
     }
