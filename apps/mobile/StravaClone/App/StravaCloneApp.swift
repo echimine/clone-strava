@@ -133,8 +133,16 @@ struct RootView: View {
                         }
                     }
                     .tabItem { Label("Map", systemImage: "map") }
+                    #if DEBUG
+                    // PROTOTYPE (ticket #50): throwaway, branch prototype/recording-screen only.
+                    NavigationStack {
+                        RecordingPrototypeScreen().toolbar(.hidden, for: .navigationBar)
+                    }
+                    .tabItem { Label("Enregistrer", systemImage: "record.circle") }
+                    #else
                     RecordingView(store: recordingStore)
                         .tabItem { Label("Enregistrer", systemImage: "record.circle") }
+                    #endif
                     ProfileView(store: authStore, signOutWarning: {
                         ItineraryMessages.signOutWarning(pendingChanges: await itinerarySynchronizer.pendingChangeCount())
                     }) {
