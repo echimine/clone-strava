@@ -150,6 +150,10 @@ targets:
     platform: iOS
     sources:
       - path: StravaCloneTests
+      # Shared JSON test traces (ADR-031 §5), also replayed by the TypeScript tests.
+      - path: ../../packages/contracts/fixtures/traces
+        type: folder
+        buildPhase: resources
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
