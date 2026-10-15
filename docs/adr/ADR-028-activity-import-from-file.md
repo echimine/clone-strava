@@ -155,7 +155,7 @@ Use case steps:
 2. **Download** the source file as a stream, cut off at the size limit.
 3. **SHA-256** of the content.
 4. **Exact duplicate** (§6, step 1): an `imported` import of the same user with the same hash: status `duplicate`, `activity_id` = that import's activity. End.
-5. **Parse** according to the format (§5) into the **normalized trace** of ADR-019 §3 (versioned schema in `packages/contracts`) plus the file metadata (start, end, sport, name).
+5. **Parse** according to the format (§5) into the **normalized trace** of ADR-019 §3 (versioned schema in `packages/contracts`) plus the file metadata (start, end, sport, name). *Amended by [ADR-031](ADR-031-live-recording-on-ios.md)*: the importer writes trace v2, with an empty `pauses`; `trkseg` breaks and FIT timer stops are not turned into Pauses.
 6. **Validate** (Zod on the normalized trace, then rules): at least 2 timestamped points with coordinates, `endedAt` > `startedAt`, duration above the sport minimum. Otherwise permanent failure (§7).
 7. **Overlap duplicate** (§6, step 2): an existing activity of the same user overlapping in time: status `duplicate`. End.
 8. **Resolve** sport, title and visibility (§5 "Metadata").
@@ -285,5 +285,6 @@ As for every mobile event, the payload is minimal and the app reloads through `G
 ## Links
 
 - **Depends on**: [ADR-019](ADR-019-activity-creation-flow.md), [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md)
+- **Amended by**: [ADR-031](ADR-031-live-recording-on-ios.md) (trace v2)
 - **Amends**: [ADR-017](ADR-017-data-model.md) (`activity_import` table, `activity.source`), [ADR-011](ADR-011-backend-worker.md) (`imports` queue, `import-activity` job), [ADR-010](ADR-010-backend-realtime.md) (`activity_import.*` mobile events), [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md) (bridge forwarding table, `activities` owns `activity_import`)
 - **Related**: [ADR-001](ADR-001-global-architecture.md), [ADR-008](ADR-008-mobile-offline-sync.md), [ADR-009](ADR-009-backend-api.md), [ADR-018](ADR-018-docker-vps-deployment.md), [ADR-024](ADR-024-backend-testing-strategy.md)
