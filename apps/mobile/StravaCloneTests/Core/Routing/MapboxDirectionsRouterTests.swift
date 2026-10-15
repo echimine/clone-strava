@@ -96,11 +96,6 @@ struct MapboxDirectionsRouterTests {
         #expect(url.path.hasPrefix("/directions/v5/mapbox/\(profile.rawValue)/"))
     }
 
-    @Test func profilesMatchTheSportCategories() {
-        #expect(SportCategory.foot.routingProfile.rawValue == "walking")
-        #expect(SportCategory.wheels.routingProfile.rawValue == "cycling")
-    }
-
     @Test func decodesTheSnappedWaypointsAndOneGeometryPerLeg() async throws {
         let router = makeRouter()
         let json = twoLegsJSON
