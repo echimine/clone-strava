@@ -107,12 +107,12 @@ struct GRDBLocalActivityStore {
     }
 
     /// Temporary failure: tried again at `date`.
-    func postpone(_ operation: PendingActivityOperation, until date: Date, error: String) async throws {
+    func postpone(_ operation: PendingActivityOperation, until date: Date, error: ActivityServerError) async throws {
         try await database.writer.write { db in
             guard var record = try SyncOperationRecord.fetchOne(db, key: operation.id) else { return }
             record.attempts += 1
             record.nextAttemptAt = date
-            record.lastError = error
+            record.lastError = error.storedCode
             try record.update(db)
         }
     }
@@ -357,7 +357,7 @@ extension PendingActivityOperation {
             step: step,
             attempts: record.attempts,
             nextAttemptAt: record.nextAttemptAt,
-            lastError: record.lastError,
+            lastError: record.lastError.flatMap(ActivityServerError.init(storedCode:)),
             uploadTarget: target
         )
     }

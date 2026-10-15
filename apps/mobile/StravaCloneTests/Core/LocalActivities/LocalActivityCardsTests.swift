@@ -51,7 +51,7 @@ extension ActivitySenderTests {
 
         // Processed: the feed reloads and the card is wiped.
         ActivitySenderHarness.route { _ in harness.detail("processed") }
-        await sender.wipe(await sender.trackProcessing())
+        try await harness.store.wipe(await sender.trackProcessing())
         #expect(try await harness.store.cards().isEmpty)
     }
 

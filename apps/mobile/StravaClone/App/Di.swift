@@ -144,6 +144,7 @@ final class Di {
     /// Wakes the senders of the `sync_operation` queue on the shared triggers (ADR-031 §14).
     private(set) lazy var syncCoordinator: SyncQueueCoordinator = SyncQueueCoordinator(
         activitySender: activitySender,
+        localActivities: localActivities,
         sendItineraryChanges: { [itinerarySynchronizer] in await itinerarySynchronizer.sendPendingChanges() },
         stopItineraryChanges: { [itinerarySynchronizer] in itinerarySynchronizer.stopSendingChanges() },
         reloadFeed: { [weak self] in await self?.feedStore.refresh() ?? false }

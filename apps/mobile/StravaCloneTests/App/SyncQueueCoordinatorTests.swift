@@ -34,6 +34,7 @@ extension ActivitySenderTests {
             let feedReloads = feedReloads
             return SyncQueueCoordinator(
                 activitySender: harness.makeSender(),
+                localActivities: harness.store,
                 sendItineraryChanges: { itineraryWakeUps.value += 1 },
                 reloadFeed: {
                     feedReloads.value += 1

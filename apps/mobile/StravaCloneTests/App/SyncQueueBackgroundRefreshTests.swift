@@ -114,6 +114,7 @@ extension ActivitySenderTests {
             )
             let coordinator = SyncQueueCoordinator(
                 activitySender: harness.makeSender(),
+                localActivities: harness.store,
                 sendItineraryChanges: { await changes.send(ignoringBackoff: true) },
                 stopItineraryChanges: { changes.cancelPass() },
                 reloadFeed: { true },

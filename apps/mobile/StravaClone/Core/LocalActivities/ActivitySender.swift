@@ -75,7 +75,7 @@ final class ActivitySender {
 
     /// Follows the Activities in `processing` with `GET /v1/activities/:id` (ADR-031 §14): a
     /// worker failure turns the local Activity `failed` (points kept). Returns the processed
-    /// ones: the caller reloads the feed, then `wipe`s them.
+    /// ones: the caller reloads the feed, then wipes them from the store.
     func trackProcessing() async -> [ActivityID] {
         guard let ids = try? await store.activityIDs(in: .processing) else { return [] }
         var processed: [ActivityID] = []
@@ -117,21 +117,11 @@ final class ActivitySender {
         return stream
     }
 
-    /// The Activities a sign-out would lose (`recorded`, `created`, `trace_uploaded`, `failed`).
-    func unsentCount() async -> Int {
-        (try? await store.unsentCount()) ?? 0
-    }
-
     /// Sign-out: every local Activity is wiped, nothing more is sent.
     func clear() async {
         wakeUp?.cancel()
         wakeUp = nil
         try? await store.clear()
-    }
-
-    /// Processed Activities, once the feed shows them: row, points and Pauses go.
-    func wipe(_ ids: [ActivityID]) async {
-        try? await store.wipe(ids)
     }
 
     // MARK: - Passes
@@ -255,7 +245,7 @@ final class ActivitySender {
             try? await store.fail(operation, reason: "\(error)")
         case .offline, .unavailable, .unauthorized, .uploadURLExpired:
             let delay = backoff.delay(beforeRetry: operation.attempts)
-            try? await store.postpone(operation, until: now().addingTimeInterval(delay.timeInterval), error: "\(error)")
+            try? await store.postpone(operation, until: now().addingTimeInterval(delay.timeInterval), error: error)
         }
     }
 

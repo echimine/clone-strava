@@ -8,8 +8,37 @@ enum ActivityOperationStep: String, CaseIterable, Sendable {
     case upload = "upload_trace"
     case complete = "complete_activity"
     /// `DELETE /v1/activities/:id` of an Activity deleted on the phone after its creation
-    /// (ADR-031 §14): the local Activity is already gone.
+    /// (ADR-031 §14): the local copy stays, hidden, until the server answers.
     case delete = "delete_activity"
+}
+
+extension ActivityServerError {
+    /// How `sync_operation.last_error` keeps a temporary failure.
+    var storedCode: String {
+        switch self {
+        case .offline: "offline"
+        case .unavailable: "unavailable"
+        case .unauthorized: "unauthorized"
+        case .uploadURLExpired: "uploadURLExpired"
+        case .notPending: "notPending"
+        case .traceMissing: "traceMissing"
+        case .refused(let code): "refused:\(code)"
+        }
+    }
+
+    init?(storedCode: String) {
+        switch storedCode {
+        case "offline": self = .offline
+        case "unavailable": self = .unavailable
+        case "unauthorized": self = .unauthorized
+        case "uploadURLExpired": self = .uploadURLExpired
+        case "notPending": self = .notPending
+        case "traceMissing": self = .traceMissing
+        default:
+            guard storedCode.hasPrefix("refused:") else { return nil }
+            self = .refused(code: String(storedCode.dropFirst("refused:".count)))
+        }
+    }
 }
 
 /// A pre-signed `PUT` of the trace (ADR-019 §1-2): valid 15 minutes.
@@ -26,7 +55,7 @@ struct PendingActivityOperation: Equatable, Sendable {
     let attempts: Int
     let nextAttemptAt: Date
     /// The last temporary failure (`offline`, `unavailable`…), nil before the first attempt.
-    var lastError: String?
+    var lastError: ActivityServerError?
     /// `upload_trace` only: the URL received from `POST /v1/activities` or `upload-url`.
     let uploadTarget: TraceUploadTarget?
 }

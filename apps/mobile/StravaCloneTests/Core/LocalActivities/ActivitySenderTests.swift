@@ -359,7 +359,7 @@ struct ActivitySenderTests {
         #expect(processed == [harness.id])
         #expect(harness.requestLines == ["GET /v1/activities/\(harness.id)"])
 
-        await sender.wipe(processed)
+        try await harness.store.wipe(processed)
         #expect(try await harness.store.activity(harness.id) == nil)
         #expect(try await harness.store.trace(of: harness.id).points.isEmpty)
     }

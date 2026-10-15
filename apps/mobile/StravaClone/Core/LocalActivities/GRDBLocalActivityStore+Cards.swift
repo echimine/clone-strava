@@ -39,7 +39,7 @@ extension GRDBLocalActivityStore {
             return .failed(reason: activity.failure?.reason ?? "processing_error")
         case .recorded, .created, .traceUploaded:
             guard let operation, operation.attempts > 0 else { return .sending }
-            return operation.lastError == "\(ActivityServerError.offline)" ? .waitingForNetwork : .retryingSoon
+            return operation.lastError == .offline ? .waitingForNetwork : .retryingSoon
         }
     }
 
