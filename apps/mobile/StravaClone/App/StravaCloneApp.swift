@@ -3,21 +3,10 @@ import SwiftUI
 
 @main
 struct StravaCloneApp: App {
-    private let di: Di
+    /// Owns the composition root, built before `didFinishLaunchingWithOptions` (ADR-031 §3).
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
-    init() {
-        // UI tests launch with `-uiTestResetAuth` to start from a clean, signed-out
-        // state regardless of what a previous run left in the Keychain.
-        if ProcessInfo.processInfo.arguments.contains("-uiTestResetAuth") {
-            AuthSession().clear()
-        }
-        do {
-            di = try Di.live()
-        } catch {
-            fatalError("Unable to open the local database: \(error)")
-        }
-        di.start()
-    }
+    private var di: Di { appDelegate.di }
 
     var body: some Scene {
         WindowGroup {
@@ -136,7 +125,15 @@ struct RootView: View {
                     RecordingView(store: recordingStore)
                         .tabItem { Label("Enregistrer", systemImage: "record.circle") }
                     ProfileView(store: authStore, signOutWarning: {
-                        ItineraryMessages.signOutWarning(pendingChanges: await itinerarySynchronizer.pendingChangeCount())
+                        // ADR-031 §10: a Recording in progress is deleted on sign-out, after confirmation.
+                        let recording = await recordingStore.signOutWarning()
+                        let itineraries = ItineraryMessages.signOutWarning(
+                            pendingChanges: await itinerarySynchronizer.pendingChangeCount()
+                        )
+                        let warnings = [recording, itineraries].compactMap { $0 }
+                        return warnings.isEmpty ? nil : warnings.joined(separator: "\n\n")
+                    }, beforeSignOut: {
+                        await recordingStore.delete()
                     }) {
                         MyItinerariesView(
                             store: itineraryListStore,

@@ -113,7 +113,7 @@ struct RecordingAutoPauseServiceTests {
         try await repository.save(recording)
         let snapshots = await SnapshotWatcher(service)
 
-        let restored = try #require(try await service.restore())
+        let restored = try #require(try await service.restore(.relaunchedInBackground))
         #expect(restored.recording.isAutomaticallyPaused)
 
         clock.value = at(600)

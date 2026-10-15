@@ -54,6 +54,8 @@ final class Di {
     private let recordingService: RecordingService
     /// Core Motion for the automatic Pause of a run (ADR-031 §4).
     private let motionProvider = CoreMotionActivityProvider()
+    /// How this launch picks a stored Recording up, set by the `AppDelegate` (ADR-031 §10).
+    private var recordingLaunch = RecordingLaunch.openedByAthlete
     private let authService: AuthService
     private let importRepository: APIActivityImportRepository
     private let feedRepository: APIFeedRepository
@@ -116,12 +118,21 @@ final class Di {
         connectivityMonitor.start()
     }
 
+    /// At launch (ADR-031 §3, §10): a stored Recording rejoins the background session and the
+    /// GPS loop at once, whether or not a screen ever shows it.
+    func resumeRecording(after launch: RecordingLaunch) {
+        recordingLaunch = launch
+        let service = recordingService
+        Task { _ = try? await service.restore(launch) }
+    }
+
     func makeRecordingStore() -> RecordingStore {
         let permission = locationPermission
         let motion = motionProvider
         return RecordingStore(
             service: recordingService,
             preferences: UserDefaultsRecordingPreferences(),
+            launch: recordingLaunch,
             ensureFullAccuracy: { await permission.ensureFullAccuracy(purposeKey: "Recording") },
             autoPausePreferences: UserDefaultsRecordingPreferences(),
             requestMotionAuthorization: { await motion.requestAuthorization() }
