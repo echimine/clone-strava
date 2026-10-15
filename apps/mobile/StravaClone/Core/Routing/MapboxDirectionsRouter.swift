@@ -10,10 +10,10 @@ struct MapboxDirectionsRouter: ItineraryRouter {
     var session: URLSession = .shared
     var baseURL = URL(string: "https://api.mapbox.com")!
 
-    func path(through waypoints: [Coordinate], profile: RoutingProfile) async throws -> RoutedPath {
+    func path(through waypoints: [Coordinate], profile: RoutingProfile, startBearing: Bearing?) async throws -> RoutedPath {
         let (data, response): (Data, URLResponse)
         do {
-            (data, response) = try await session.data(for: request(through: waypoints, profile: profile))
+            (data, response) = try await session.data(for: request(through: waypoints, profile: profile, startBearing: startBearing))
         } catch let error as URLError where error.code == .cancelled {
             throw CancellationError()
         } catch {
@@ -36,7 +36,7 @@ struct MapboxDirectionsRouter: ItineraryRouter {
         }
     }
 
-    private func request(through waypoints: [Coordinate], profile: RoutingProfile) -> URLRequest {
+    private func request(through waypoints: [Coordinate], profile: RoutingProfile, startBearing: Bearing?) -> URLRequest {
         let coordinates = waypoints
             .map { String(format: "%.6f,%.6f", $0.longitude, $0.latitude) }
             .joined(separator: ";")
@@ -50,6 +50,12 @@ struct MapboxDirectionsRouter: ItineraryRouter {
             URLQueryItem(name: "annotations", value: "distance"),
             URLQueryItem(name: "access_token", value: accessToken),
         ]
+        if let startBearing {
+            // One `angle,range` per Waypoint, empty for the ones left free.
+            let first = "\(Int(startBearing.degrees.rounded())),\(Int(startBearing.tolerance.rounded()))"
+            let bearings = [first] + Array(repeating: "", count: waypoints.count - 1)
+            components.queryItems?.append(URLQueryItem(name: "bearings", value: bearings.joined(separator: ";")))
+        }
         var request = URLRequest(url: components.url!)
         request.timeoutInterval = 15
         return request

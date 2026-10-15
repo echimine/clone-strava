@@ -120,19 +120,46 @@ struct GRDBItineraryCache: ItineraryCache {
         return CachedItinerary(summary: summary, detail: detail)
     }
 
-    private static func fetchSummaries(_ db: Database, limit: Int) throws -> [ItinerarySummary] {
+    private static func fetchSummaries(_ db: Database, limit: Int?) throws -> [ItinerarySummary] {
         let hidden = try ItinerarySyncOperation.pendingDeletionIDs.fetchAll(db)
         let names = try ItinerarySyncOperation.pendingNames(db)
-        return try ItineraryRow
+        var request = ItineraryRow
             .filter(!hidden.contains(Column("id")))
             .order(Column("updated_at").desc, Column("id"))
-            .limit(limit)
+        if let limit {
+            request = request.limit(limit)
+        }
+        return try request
             .fetchAll(db)
             .compactMap { row in
                 var row = row
                 row.name = names[row.id] ?? row.name
                 return row.summary
             }
+    }
+}
+
+// MARK: Read side (ADR-031 §15)
+
+extension GRDBItineraryCache: ItineraryCacheReader {
+    func cachedItineraries() async throws -> [CachedItineraryListing] {
+        try await database.writer.read { db in
+            let tracked = try String.fetchSet(db, sql: "SELECT itinerary_id FROM itinerary_detail")
+            return try Self.fetchSummaries(db, limit: nil).map { summary in
+                CachedItineraryListing(
+                    id: summary.id,
+                    name: summary.name,
+                    sport: summary.sport,
+                    distance: summary.distance,
+                    hasTrack: tracked.contains(summary.id.description)
+                )
+            }
+        }
+    }
+
+    func track(of id: ItineraryID) async throws -> CachedItineraryTrack? {
+        guard let detail = try await detail(id: id) else { return nil }
+        return CachedItineraryTrack(id: id, points: detail.track.polyline.decode(), distance: detail.distance)
     }
 }
 

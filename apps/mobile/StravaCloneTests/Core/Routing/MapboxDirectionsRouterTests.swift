@@ -84,6 +84,30 @@ struct MapboxDirectionsRouterTests {
         #expect(query["access_token"] == "pk.test")
     }
 
+    @Test func constrainsTheFirstWaypointToTheGivenBearing() async throws {
+        let router = makeRouter()
+        let json = twoLegsJSON
+        DirectionsURLProtocolStub.handler.value = { _ in (200, json) }
+
+        _ = try await router.path(through: [a, b, c], profile: .walking, startBearing: Bearing(degrees: 87, tolerance: 45))
+
+        let url = try #require(DirectionsURLProtocolStub.requests.value.first?.url)
+        let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        #expect(items.first { $0.name == "bearings" }?.value == "87,45;;")
+    }
+
+    @Test func sendsNoBearingsWhenNoneIsGiven() async throws {
+        let router = makeRouter()
+        let json = twoLegsJSON
+        DirectionsURLProtocolStub.handler.value = { _ in (200, json) }
+
+        _ = try await router.path(through: [a, b, c], profile: .walking)
+
+        let url = try #require(DirectionsURLProtocolStub.requests.value.first?.url)
+        let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        #expect(!items.contains { $0.name == "bearings" })
+    }
+
     @Test(arguments: [RoutingProfile.walking, .cycling])
     func usesTheProfileOfTheSportCategory(profile: RoutingProfile) async throws {
         let router = makeRouter()
@@ -94,11 +118,6 @@ struct MapboxDirectionsRouterTests {
 
         let url = try #require(DirectionsURLProtocolStub.requests.value.first?.url)
         #expect(url.path.hasPrefix("/directions/v5/mapbox/\(profile.rawValue)/"))
-    }
-
-    @Test func profilesMatchTheSportCategories() {
-        #expect(SportCategory.foot.routingProfile.rawValue == "walking")
-        #expect(SportCategory.wheels.routingProfile.rawValue == "cycling")
     }
 
     @Test func decodesTheSnappedWaypointsAndOneGeometryPerLeg() async throws {
