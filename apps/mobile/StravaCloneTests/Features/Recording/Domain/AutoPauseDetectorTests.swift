@@ -26,6 +26,38 @@ struct AutoPauseDetectorTests {
         #expect(resumedAt == departure)
     }
 
+    /// The GPS trembles at the stop, even jumping more than 20 m away (without the speed to
+    /// resume), then is lost for 3 s as the athlete leaves: the departure is the last point
+    /// within 20 m of the Pause position before the points that move away, not a jump.
+    @Test func aGPSTremblingAtTheStopDatesTheDepartureAtTheLastPointWithin20Metres() {
+        var trace = SyntheticTrace(start: start)
+        trace.move(seconds: 30, speed: 8)
+        trace.stand(seconds: 20)
+        trace.tremble([3, -5, 2])
+        let departure = trace.now
+        trace.tremble([30, 22], reportedSpeed: nil)
+        trace.gap(seconds: 3, speed: 8)
+        trace.move(seconds: 5, speed: 8)
+
+        let decisions = AutoPauseReplay.run(trace.signals, rule: .gps, since: start)
+
+        #expect(decisions.count == 2)
+        #expect(decisions.last == .resume(at: departure))
+    }
+
+    @Test func aGPSTremblingAtTheStopDoesNotDateTheDepartureBeforeTheLastPointThere() {
+        var trace = SyntheticTrace(start: start)
+        trace.move(seconds: 30, speed: 8)
+        trace.stand(seconds: 20)
+        trace.tremble([1, 4, 8, 3])
+        let departure = trace.now
+        trace.move(seconds: 5, speed: 7)
+
+        let decisions = AutoPauseReplay.run(trace.signals, rule: .gps, since: start)
+
+        #expect(decisions.last == .resume(at: departure))
+    }
+
     @Test func aTunnelNeverPauses() {
         var trace = SyntheticTrace(start: start)
         trace.move(seconds: 30, speed: 8)
