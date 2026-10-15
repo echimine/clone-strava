@@ -133,7 +133,8 @@ describe("ImportActivityFromFileUseCase", () => {
     const [key, body] = ctx.storage.putObject.mock.calls[0]!;
     expect(key).toBe(activityTraceKey(USER, IMPORT_ID));
     const trace = JSON.parse(gunzipSync(body as Uint8Array).toString("utf8"));
-    expect(trace.schemaVersion).toBe(1);
+    expect(trace.schemaVersion).toBe(2);
+    expect(trace.pauses).toEqual([]);
     expect(trace.points).toHaveLength(11);
 
     expect(ctx.events.emit).toHaveBeenCalledWith(ACTIVITY_IMPORT_COMPLETED_EVENT, {
