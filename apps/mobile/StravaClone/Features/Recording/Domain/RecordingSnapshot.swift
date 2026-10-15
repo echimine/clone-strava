@@ -14,6 +14,9 @@ struct RecordingSnapshot: Equatable, Sendable {
     var currentSpeed: CurrentSpeed
     /// The Itinerary followed and the progress along it (ADR-031 §6).
     var itinerary: FollowedItinerary?
+    /// Points have failed to reach the disk for 30 s (ADR-031 §10): they are kept in memory and
+    /// retried, the Recording goes on, a banner warns the athlete.
+    var isTraceWriteFailing = false
 
     init(
         recording: Recording,
