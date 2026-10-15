@@ -32,6 +32,7 @@ final class ActivitySender {
     private var rerun = false
     private var rerunIgnoringBackoff = false
     private var wakeUp: Task<Void, Never>?
+    private var refusalContinuations: [UUID: AsyncStream<ActivityID>.Continuation] = [:]
 
     init(
         server: any ActivityServer,
@@ -91,8 +92,9 @@ final class ActivitySender {
         return processed
     }
 
-    /// Delete (ADR-031 §14): gone from the phone at once; the server copy, if any, is deleted
-    /// by a `delete_activity` sent right away. Refused once `processing`.
+    /// Delete (ADR-031 §14): the card goes at once; the server copy, if any, is deleted by a
+    /// `delete_activity` sent right away, and the local copy goes once the server confirms.
+    /// Refused once `processing`.
     func delete(_ id: ActivityID) async throws {
         guard try await store.delete(id) else { return }
         await send()
@@ -102,6 +104,17 @@ final class ActivitySender {
     func retry(_ id: ActivityID) async throws {
         try await store.retry(id)
         await send()
+    }
+
+    /// Deletes the server turned down (`409`), as they happen.
+    func deletionRefusals() -> AsyncStream<ActivityID> {
+        let (stream, continuation) = AsyncStream.makeStream(of: ActivityID.self)
+        let key = UUID()
+        refusalContinuations[key] = continuation
+        continuation.onTermination = { [weak self] _ in
+            Task { @MainActor in self?.refusalContinuations[key] = nil }
+        }
+        return stream
     }
 
     /// The Activities a sign-out would lose (`recorded`, `created`, `trace_uploaded`, `failed`).
@@ -162,9 +175,14 @@ final class ActivitySender {
 
     private func deleteOnServer(_ operation: PendingActivityOperation) async -> PendingActivityOperation? {
         switch await attempt({ () async throws(ActivityServerError) in try await self.server.delete(operation.activityID) }) {
-        case .success, .failure(.refused):
-            // Deleted, or no longer deletable (`409`: already handed to the worker).
-            try? await store.drop(operation)
+        case .success:
+            try? await store.deleted(operation)
+        case .failure(.refused):
+            // `409`: already handed to the worker; it comes back in `processing`.
+            try? await store.deletionRefused(operation)
+            for continuation in refusalContinuations.values {
+                continuation.yield(operation.activityID)
+            }
         case .failure(let error):
             await handle(error, of: operation)
         }

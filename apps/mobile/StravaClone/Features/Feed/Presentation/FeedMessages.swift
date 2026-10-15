@@ -23,6 +23,8 @@ enum FeedMessages {
     static let deleteConfirmationTitle = "Supprimer cette activité ?"
     static let deleteConfirmationMessage = "Elle sera supprimée définitivement, sur le téléphone comme sur le serveur."
     static let localActionRefused = "Action impossible : l'activité a changé d'état."
+    /// The server answered `409` to a Delete: the Activity was already handed to the worker.
+    static let localDeletionRefused = "Suppression impossible : l'activité est déjà en traitement."
 
     static func status(_ status: LocalActivityStatus) -> String {
         switch status {

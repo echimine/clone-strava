@@ -168,15 +168,23 @@ final class FeedStore {
         }
     }
 
-    /// Runs for the lifetime of the view (`.task`): follows the local Activities.
+    /// Runs for the lifetime of the view (`.task`): follows the local Activities, and reports a
+    /// Delete the server turned down.
     func observeLocalActivities() async {
         guard let localActivities else { return }
+        let refusals = localActivities.deletionRefusals()
+        let reporting = Task { [weak self] in
+            for await _ in refusals {
+                self?.notice = FeedMessages.localDeletionRefused
+            }
+        }
+        defer { reporting.cancel() }
         for await cards in localActivities.cards() {
             allLocalCards = cards
         }
     }
 
-    /// Delete, once confirmed (ADR-031 §14): the card goes as soon as the phone forgets it.
+    /// Delete, once confirmed (ADR-031 §14): the card goes at once.
     func deleteLocalActivity(_ id: ActivityID) async {
         await performLocal { try await $0.delete(id) }
     }

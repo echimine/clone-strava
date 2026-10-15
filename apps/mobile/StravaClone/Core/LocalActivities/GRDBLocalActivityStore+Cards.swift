@@ -2,7 +2,8 @@ import Foundation
 import GRDB
 
 /// The feed side of the local Activities (ADR-031 §14): one card per local Activity, newest
-/// first, with its status line and a route drawn from its points.
+/// first, with its status line and a route drawn from its points. An Activity waiting for the
+/// server to confirm its Delete has no card.
 extension GRDBLocalActivityStore {
     func cards() async throws -> [LocalActivityCard] {
         try await database.writer.read(Self.fetchCards)
@@ -44,7 +45,12 @@ extension GRDBLocalActivityStore {
 
     @Sendable
     private static func fetchCards(_ db: Database) throws -> [LocalActivityCard] {
-        try LocalActivityRow.order(Column("started_at_ms").desc).fetchAll(db).compactMap(\.activity).map { activity in
+        try LocalActivityRow
+            .filter(!beingDeleted.contains(Column("id")))
+            .order(Column("started_at_ms").desc)
+            .fetchAll(db)
+            .compactMap(\.activity)
+            .map { activity in
             let coordinates = try Row.fetchAll(db, sql: """
                 SELECT latitude, longitude FROM activity_point WHERE activity_id = ? ORDER BY timestamp_ms, id
                 """, arguments: [activity.id.description]).map { Coordinate(latitude: $0["latitude"], longitude: $0["longitude"]) }

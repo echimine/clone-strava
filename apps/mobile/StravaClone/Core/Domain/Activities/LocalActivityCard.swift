@@ -36,4 +36,7 @@ protocol LocalActivityFeedSource {
     func delete(_ id: ActivityID) async throws
     /// Throws `LocalActivityActionError.notAllowed` unless refused by the API.
     func retry(_ id: ActivityID) async throws
+    /// Deletes the server turned down (`409`: already handed to the worker), as they happen:
+    /// the Activity is back in `processing`.
+    func deletionRefusals() -> AsyncStream<ActivityID>
 }

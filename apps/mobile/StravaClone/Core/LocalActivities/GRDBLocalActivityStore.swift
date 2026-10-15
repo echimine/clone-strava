@@ -168,9 +168,10 @@ struct GRDBLocalActivityStore: LocalActivitySaving {
 
     // MARK: - Delete, Retry, sign-out (ADR-031 §14)
 
-    /// Delete: the Activity, its points, Pauses and queued steps go at once. If the server
-    /// already has it (or may have it: a creation was attempted), `delete_activity` is queued
-    /// in the same transaction; returns `true` then.
+    /// Delete: unknown to the server, the Activity, its points, Pauses and queued steps go at
+    /// once. If the server already has it (or may have it: a creation was attempted), its queued
+    /// steps give way to `delete_activity` in the same transaction and the local copy stays,
+    /// hidden from the feed, until the server answers; returns `true` then.
     @discardableResult
     func delete(_ id: ActivityID) async throws -> Bool {
         let now = now()
@@ -178,9 +179,13 @@ struct GRDBLocalActivityStore: LocalActivitySaving {
             guard let activity = try LocalActivityRow.fetchOne(db, key: id.description)?.activity else { return false }
             guard activity.canBeDeleted else { throw LocalActivityActionError.notAllowed }
             let pending = try Self.operation(for: id, db)
+            if pending?.step == .delete { return true }
             let creationAttempted = pending.map { $0.step == .create && $0.attempts > 0 } ?? false
-            try Self.wipe([id.description], db)
-            guard activity.isKnownToServer || creationAttempted else { return false }
+            guard activity.isKnownToServer || creationAttempted else {
+                try Self.wipe([id.description], db)
+                return false
+            }
+            _ = try Self.operations.filter(SyncOperationRecord.Columns.entityID == id.description).deleteAll(db)
             try Self.queueDelete(of: id, at: now, db)
             return true
         }
@@ -207,18 +212,30 @@ struct GRDBLocalActivityStore: LocalActivitySaving {
         }
     }
 
-    /// A `delete_activity` done (or pointless: `409`): its row goes.
-    func drop(_ operation: PendingActivityOperation) async throws {
-        _ = try await database.writer.write { db in
-            try SyncOperationRecord.deleteOne(db, key: operation.id)
+    /// The server deleted it (`204`) or no longer has it (`404`): the local copy goes.
+    func deleted(_ operation: PendingActivityOperation) async throws {
+        try await database.writer.write { db in
+            try Self.wipe([operation.activityID.description], db)
+        }
+    }
+
+    /// `409`: the server already handed it to the worker. The Activity is shown again in
+    /// `processing` and followed like any other.
+    func deletionRefused(_ operation: PendingActivityOperation) async throws {
+        try await database.writer.write { db in
+            _ = try SyncOperationRecord.deleteOne(db, key: operation.id)
+            try Self.setState(.processing, failure: nil, of: operation.activityID, db)
         }
     }
 
     /// The Activities a sign-out would lose: `recorded`, `created`, `trace_uploaded`, `failed`.
-    /// One in `processing` is safe on the server.
+    /// One in `processing` is safe on the server; one being deleted is already given up.
     func unsentCount() async throws -> Int {
         try await database.writer.read { db in
-            try LocalActivityRow.filter(Column("state") != LocalActivityState.processing.rawValue).fetchCount(db)
+            try LocalActivityRow
+                .filter(Column("state") != LocalActivityState.processing.rawValue)
+                .filter(!Self.beingDeleted.contains(Column("id")))
+                .fetchCount(db)
         }
     }
 
@@ -235,6 +252,13 @@ struct GRDBLocalActivityStore: LocalActivitySaving {
 
     static var operations: QueryInterfaceRequest<SyncOperationRecord> {
         SyncOperationRecord.filter(ActivityOperationStep.allCases.map(\.rawValue).contains(SyncOperationRecord.Columns.type))
+    }
+
+    /// Ids of the Activities waiting for the server to confirm their Delete.
+    static var beingDeleted: QueryInterfaceRequest<SyncOperationRecord> {
+        SyncOperationRecord
+            .filter(SyncOperationRecord.Columns.type == ActivityOperationStep.delete.rawValue)
+            .select(SyncOperationRecord.Columns.entityID)
     }
 
     static func operation(for id: ActivityID, _ db: Database) throws -> PendingActivityOperation? {
