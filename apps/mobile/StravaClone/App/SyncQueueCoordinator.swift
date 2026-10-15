@@ -46,17 +46,20 @@ final class SyncQueueCoordinator {
 
     private let activitySender: ActivitySender
     private let sendItineraryChanges: @MainActor () async -> Void
+    private let stopItineraryChanges: @MainActor @Sendable () -> Void
     private let reloadFeed: @MainActor () async -> Bool
     private let backgroundTasks: any BackgroundTaskRunning
 
     init(
         activitySender: ActivitySender,
         sendItineraryChanges: @escaping @MainActor () async -> Void,
+        stopItineraryChanges: @escaping @MainActor @Sendable () -> Void = {},
         reloadFeed: @escaping @MainActor () async -> Bool,
         backgroundTasks: any BackgroundTaskRunning = UIKitBackgroundTasks()
     ) {
         self.activitySender = activitySender
         self.sendItineraryChanges = sendItineraryChanges
+        self.stopItineraryChanges = stopItineraryChanges
         self.reloadFeed = reloadFeed
         self.backgroundTasks = backgroundTasks
     }
@@ -112,6 +115,25 @@ final class SyncQueueCoordinator {
                 for await event in events where Self.activityEvents.contains(event.type) {
                     await self.trackProcessing()
                 }
+            }
+        }
+    }
+
+    /// The `BGAppRefreshTask` (ADR-031 §14): everything pending is sent, Activities then
+    /// Itinerary changes, already within iOS's background time. Cancelling the caller (the
+    /// task's expiration) stops the passes in flight; each operation stays at its step.
+    func backgroundRefresh() async {
+        let activitySender = activitySender
+        let stopItineraryChanges = stopItineraryChanges
+        await withTaskCancellationHandler {
+            guard !Task.isCancelled else { return }
+            await activitySender.send(ignoringBackoff: true)
+            guard !Task.isCancelled else { return }
+            await sendItineraryChanges()
+        } onCancel: {
+            Task { @MainActor in
+                activitySender.cancelPass()
+                stopItineraryChanges()
             }
         }
     }

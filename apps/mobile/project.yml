@@ -78,7 +78,9 @@ targets:
         UILaunchScreen: {}
         UIApplicationSupportsIndirectInputEvents: true
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
-        UIBackgroundModes: [location]
+        # `fetch` + the permitted identifier: the BGAppRefreshTask that empties the sync queue (ADR-031 §14).
+        UIBackgroundModes: [location, fetch]
+        BGTaskSchedulerPermittedIdentifiers: [fr.echimine.stravaclone.sync-queue]
         NSLocationWhenInUseUsageDescription: "StravaClone utilise votre position pour l'afficher sur la carte et enregistrer le tracé de vos activités, y compris écran verrouillé."
         # Temporary full accuracy asked at Start when only the approximate location is allowed (ADR-031 §2).
         NSLocationTemporaryUsageDescriptionDictionary:
