@@ -26,6 +26,7 @@ struct RecordingSaveTests {
         RecordingStore(
             service: service,
             preferences: preferences,
+            itineraries: FakeItineraryCacheReader(),
             ensureFullAccuracy: { true },
             saveRecording: SaveRecording(service: service, activities: activities, timeZone: paris),
             defaultVisibility: { defaultVisibility }

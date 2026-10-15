@@ -13,7 +13,7 @@ enum AnalyticsEvent: Equatable, Sendable {
 
     /// Where the editor was opened from.
     enum EditorSource: String, Sendable {
-        case mapTab = "map_tab", profile, detail
+        case mapTab = "map_tab", profile, detail, recording
     }
 
     /// Where a list or a detail is shown.

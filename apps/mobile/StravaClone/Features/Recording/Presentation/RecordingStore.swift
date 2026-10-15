@@ -17,9 +17,15 @@ final class RecordingStore {
     var sport: RecordingSport
     private(set) var isBusy = false
     var errorMessage: String?
+    var toast: String?
+    /// Itinerary chip of the pre-start screen (ADR-031 §2): the cached Itineraries, newest first.
+    private(set) var itineraries: [CachedItineraryListing] = []
+    /// "Aucun" by default, not remembered.
+    private(set) var chosenItinerary: CachedItineraryListing?
 
     @ObservationIgnored private let service: RecordingService
     @ObservationIgnored private let preferences: any RecordingPreferences
+    @ObservationIgnored private let itineraryCache: any ItineraryCacheReader
     @ObservationIgnored private let launch: RecordingLaunch
     @ObservationIgnored private let ensureFullAccuracy: @MainActor () async -> Bool
     @ObservationIgnored private let saveRecording: SaveRecording
@@ -33,6 +39,7 @@ final class RecordingStore {
     init(
         service: RecordingService,
         preferences: any RecordingPreferences,
+        itineraries: any ItineraryCacheReader,
         launch: RecordingLaunch = .openedByAthlete,
         ensureFullAccuracy: @escaping @MainActor () async -> Bool,
         saveRecording: SaveRecording,
@@ -40,6 +47,7 @@ final class RecordingStore {
     ) {
         self.service = service
         self.preferences = preferences
+        itineraryCache = itineraries
         self.launch = launch
         self.ensureFullAccuracy = ensureFullAccuracy
         self.saveRecording = saveRecording
@@ -79,7 +87,11 @@ final class RecordingStore {
             return
         }
         do {
-            snapshot = try await service.start(sport: sport)
+            let wantsItinerary = chosenItinerary != nil
+            let itinerary = try await loadChosenItinerary()
+            // Deleted elsewhere: the chip is reset, the athlete decides again.
+            guard itinerary != nil || !wantsItinerary else { return }
+            snapshot = try await service.start(sport: sport, itinerary: itinerary)
         } catch {
             errorMessage = RecordingMessages.startFailed
         }
@@ -149,6 +161,11 @@ final class RecordingStore {
         }
     }
 
+    /// "Retirer l'Itinéraire", after the confirmation.
+    func removeItinerary() async {
+        await perform { try await $0.removeItinerary() }
+    }
+
     private func perform(_ action: (RecordingService) async throws -> RecordingSnapshot?) async {
         errorMessage = nil
         do {
@@ -156,5 +173,62 @@ final class RecordingStore {
         } catch {
             errorMessage = RecordingMessages.actionFailed
         }
+    }
+
+    // MARK: - Itinerary (ADR-031 §2)
+
+    /// Reads the cached Itineraries; a chosen one gone meanwhile resets the chip with a toast.
+    func loadItineraries() async {
+        guard let listed = try? await itineraryCache.cachedItineraries() else { return }
+        itineraries = listed
+        if let chosen = chosenItinerary, !listed.contains(where: { $0.id == chosen.id && $0.hasTrack }) {
+            itineraryWasDeleted()
+        }
+    }
+
+    /// `nil` for "Aucun". An Itinerary whose track is not on the phone cannot be chosen.
+    /// Choosing one switches the sport to its sport; the athlete can change it back.
+    func choose(_ listing: CachedItineraryListing?) {
+        guard let listing else {
+            chosenItinerary = nil
+            return
+        }
+        guard listing.hasTrack else { return }
+        chosenItinerary = listing
+        if let sport = RecordingSport(rawValue: listing.sport.code) {
+            self.sport = sport
+        }
+    }
+
+    /// "Démarrer avec cet Itinéraire": the pre-start screen with the Itinerary chosen, never a
+    /// Start by itself. Nothing changes while a Recording exists.
+    func prepare(itineraryID: ItineraryID) async {
+        guard snapshot == nil else { return }
+        await loadItineraries()
+        if let listing = itineraries.first(where: { $0.id == itineraryID }) {
+            choose(listing)
+        }
+    }
+
+    /// The chosen Itinerary's track, drawn on the pre-start map.
+    func chosenItineraryTrack() async -> [Coordinate] {
+        guard let id = chosenItinerary?.id else { return [] }
+        return (try? await itineraryCache.track(of: id))?.points ?? []
+    }
+
+    /// The copy of the chosen Itinerary to follow; `nil` without one, or when it was deleted
+    /// elsewhere (the chip is then reset with a toast).
+    private func loadChosenItinerary() async throws -> FollowedItinerary? {
+        guard let chosen = chosenItinerary else { return nil }
+        guard let track = try await itineraryCache.track(of: chosen.id) else {
+            itineraryWasDeleted()
+            return nil
+        }
+        return FollowedItinerary(track, name: chosen.name)
+    }
+
+    private func itineraryWasDeleted() {
+        chosenItinerary = nil
+        toast = RecordingMessages.itineraryDeleted
     }
 }

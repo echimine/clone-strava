@@ -155,6 +155,7 @@ final class Di {
         return RecordingStore(
             service: recordingService,
             preferences: UserDefaultsRecordingPreferences(),
+            itineraries: itineraryCache,
             launch: recordingLaunch,
             ensureFullAccuracy: { await permission.ensureFullAccuracy(purposeKey: "Recording") },
             saveRecording: SaveRecording(service: recordingService, activities: localActivities),

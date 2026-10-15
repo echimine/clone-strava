@@ -62,10 +62,15 @@ actor RecordingService {
         return snapshot
     }
 
-    func start(sport: RecordingSport) async throws -> RecordingSnapshot {
+    /// - Parameter itinerary: the copy of the chosen Itinerary loaded from the cache, kept until
+    ///   the end even if it is deleted elsewhere (ADR-031 §2).
+    func start(sport: RecordingSport, itinerary: FollowedItinerary? = nil) async throws -> RecordingSnapshot {
         let recording = Recording(sport: sport, startedAt: now())
         try await repository.create(recording)
-        let snapshot = RecordingSnapshot(recording: recording)
+        if let itinerary {
+            try await repository.saveItinerary(itinerary, of: recording.id)
+        }
+        let snapshot = RecordingSnapshot(recording: recording, itinerary: itinerary)
         begin(snapshot, points: [])
         await startGPS()
         return snapshot
@@ -112,6 +117,15 @@ actor RecordingService {
         publish()
     }
 
+    /// "Retirer l'Itinéraire" (ADR-031 §2, §8): stops following it; it can never be replaced.
+    func removeItinerary() async throws -> RecordingSnapshot? {
+        guard let id = snapshot?.recording.id, snapshot?.itinerary != nil else { return snapshot }
+        try await repository.saveItinerary(nil, of: id)
+        snapshot?.itinerary = nil
+        publish()
+        return snapshot
+    }
+
     /// Wipes the Recording, its points and its Pauses, and releases the GPS.
     func delete() async throws {
         guard let id = snapshot?.recording.id else { return }
@@ -133,7 +147,10 @@ actor RecordingService {
         if recording != stored.recording {
             try await repository.save(recording)
         }
-        begin(RecordingSnapshot(recording: recording, points: stored.points), points: stored.points)
+        begin(
+            RecordingSnapshot(recording: recording, points: stored.points, itinerary: stored.itinerary),
+            points: stored.points
+        )
         await startGPS()
     }
 
@@ -169,6 +186,7 @@ actor RecordingService {
         guard var current = snapshot, let sample = update.sample else { return }
         current.position = sample
         snapshot = current
+        await followItinerary(sample)
         let recording = current.recording
         // A Pause writes nothing; a fix older than Start or Resume is a stale one.
         guard recording.phase == .active, sample.timestamp >= recording.movingSince else {
@@ -187,6 +205,18 @@ actor RecordingService {
         }
         snapshot?.distance = distance?.total ?? .zero
         publish()
+    }
+
+    /// Itinerary progress follows the real position, during a Pause too, and is saved on each
+    /// change (ADR-031 §6, §10). A failed save is caught up by the next one.
+    private func followItinerary(_ sample: LocationSample) async {
+        guard let id = snapshot?.recording.id, var progress = snapshot?.itinerary?.progress else { return }
+        let before = progress.saved
+        progress.update(with: sample)
+        snapshot?.itinerary?.progress = progress
+        if progress.saved != before {
+            try? await repository.saveItineraryProgress(progress.saved, of: id)
+        }
     }
 
     private func write(_ sample: LocationSample, to id: ActivityID) async {

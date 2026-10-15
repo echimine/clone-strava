@@ -63,13 +63,8 @@ struct RootView: View {
     let syncCoordinator: SyncQueueCoordinator
     let defaultVisibility: DefaultVisibilityCache
 
-    /// The tabs, so Save can bring the athlete to the feed (ADR-031 §11).
-    enum Tab: Hashable {
-        case home, map, record, profile
-    }
-
     @Environment(\.scenePhase) private var scenePhase
-    @State private var selectedTab = Tab.home
+    @State private var selectedTab = AppTab.feed
     /// A queued Itinerary change the server turned down (ADR-030 §8).
     @State private var itineraryChangeToast: String?
 
@@ -77,6 +72,15 @@ struct RootView: View {
     private var realtimeUserId: String? {
         guard scenePhase == .active, case .signedIn(let user) = authStore.state else { return nil }
         return user.id
+    }
+
+    /// "Démarrer avec cet Itinéraire" on an Itinerary's detail (ADR-031 §2): the Record tab,
+    /// with the Itinerary chosen on the pre-start screen, or the Recording in progress.
+    private var startRecordingWithItinerary: StartRecordingWithItinerary {
+        StartRecordingWithItinerary(isRecording: recordingStore.snapshot != nil) { [recordingStore] id in
+            selectedTab = .record
+            Task { await recordingStore.prepare(itineraryID: id) }
+        }
     }
 
     var body: some View {
@@ -118,7 +122,7 @@ struct RootView: View {
                         )
                     }
                     .tabItem { Label("Accueil", systemImage: "house") }
-                    .tag(Tab.home)
+                    .tag(AppTab.feed)
                     NavigationStack {
                         MapScreen(
                             onCreateItinerary: { itineraryCreation.start(from: .mapTab) },
@@ -135,10 +139,14 @@ struct RootView: View {
                         }
                     }
                     .tabItem { Label("Map", systemImage: "map") }
-                    .tag(Tab.map)
-                    RecordingView(store: recordingStore, onSaved: activitySaved)
-                        .tabItem { Label("Enregistrer", systemImage: "record.circle") }
-                        .tag(Tab.record)
+                    .tag(AppTab.map)
+                    RecordingView(
+                        store: recordingStore,
+                        onSaved: activitySaved,
+                        onCreateItinerary: { itineraryCreation.start(from: .recording) }
+                    )
+                    .tabItem { Label("Enregistrer", systemImage: "record.circle") }
+                    .tag(AppTab.record)
                     ProfileView(store: authStore, signOutWarning: {
                         // ADR-031 §10: a Recording in progress is deleted on sign-out, after confirmation.
                         let recording = await recordingStore.signOutWarning()
@@ -158,8 +166,9 @@ struct RootView: View {
                         )
                     }
                     .tabItem { Label("Profil", systemImage: "person") }
-                    .tag(Tab.profile)
+                    .tag(AppTab.profile)
                 }
+                .environment(\.startRecordingWithItinerary, startRecordingWithItinerary)
                 .fullScreenCover(isPresented: $itineraryCreation.isPresented) {
                     ItineraryCreationView(
                         makeEditorStore: { [itineraryCreation] sport, id in
@@ -218,8 +227,13 @@ struct RootView: View {
     /// After Save (ADR-031 §11): the Home tab at the top of the feed, and the Activity leaves
     /// at once.
     private func activitySaved() {
-        selectedTab = .home
+        selectedTab = .feed
         Task { await feedStore.showTop() }
         Task { await syncCoordinator.activitySaved() }
     }
+}
+
+/// Tabs of the signed-in app; Save brings the athlete back to the feed (ADR-031 §11).
+enum AppTab: Hashable {
+    case feed, map, record, profile
 }
