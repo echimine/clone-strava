@@ -1,0 +1,60 @@
+# PROTOTYPE — throwaway (wayfinder #43, ticket #53 « Live Activity d'une Recording : contenu, boutons et fin de vie »).
+# Lives only on the `prototype/recording-live-activity` branch, never merged.
+# Setup: xcodegen generate && open RecordingLiveActivityPrototype.xcodeproj
+# Signing (device only): DEVELOPMENT_TEAM comes from ../../Config/Secrets.xcconfig (gitignored).
+
+name: RecordingLiveActivityPrototype
+
+options:
+  bundleIdPrefix: fr.echimine
+  deploymentTarget:
+    iOS: "17.0"
+
+configFiles:
+  Debug: Spike.xcconfig
+  Release: Spike.xcconfig
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    TARGETED_DEVICE_FAMILY: "1"
+    CODE_SIGN_STYLE: Automatic
+
+targets:
+  RecordingLiveActivityPrototype:
+    type: application
+    platform: iOS
+    sources:
+      - App
+      - Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: fr.echimine.RecordingLiveActivityPrototype
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) APP
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: LA Recording
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UIBackgroundModes: [location]
+        NSSupportsLiveActivities: true
+        NSLocationWhenInUseUsageDescription: "Garde l'app vivante en arrière-plan, comme une Recording."
+    dependencies:
+      - target: RecordingLiveActivityWidget
+
+  RecordingLiveActivityWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - Widget
+      - Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: fr.echimine.RecordingLiveActivityPrototype.Widget
+    info:
+      path: Widget/Info.plist
+      properties:
+        CFBundleDisplayName: RecordingLiveActivityWidget
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
