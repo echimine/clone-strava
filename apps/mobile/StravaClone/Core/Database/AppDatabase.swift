@@ -151,6 +151,17 @@ final class AppDatabase: Sendable {
                 table.add(column: "auto_pause_enabled", .boolean).notNull().defaults(to: false)
             }
         }
+        // ADR-031 §7, §10: the last Return path and its return point, shown again on resume
+        // without a new request (a deviation from Mapbox Product Terms accepted, ADR-030 §1).
+        migrator.registerMigration("recording_return_path_v1") { db in
+            try db.alter(table: "recording") { table in
+                table.add(column: "return_path_polyline6", .text)
+                table.add(column: "return_path_distance_m", .double)
+                table.add(column: "return_point_latitude", .double)
+                table.add(column: "return_point_longitude", .double)
+                table.add(column: "return_point_progress_m", .double)
+            }
+        }
         return migrator
     }
 }

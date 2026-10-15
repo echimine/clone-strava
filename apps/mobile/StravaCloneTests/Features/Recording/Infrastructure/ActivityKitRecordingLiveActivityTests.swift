@@ -54,4 +54,41 @@ struct ActivityKitRecordingLiveActivityTests {
             state: .notSnapped
         ))
     }
+
+    /// The same run, 200 m along the Itinerary, with or without a Return path of 250 m that
+    /// meets the track 300 m from its start.
+    private func content(withReturnPath: Bool) -> RecordingLiveActivityContent {
+        let track = SyntheticTrack.through([(5_000, 0), (5_000, 1_000)])
+        let returnPath = ReturnPath(
+            path: [SyntheticTrack.point(east: 4_800, north: 300), SyntheticTrack.point(east: 5_000, north: 300)],
+            distance: Distance(meters: 250),
+            returnPoint: ItineraryProgress.ReturnPoint(coordinate: SyntheticTrack.point(east: 5_000, north: 300), alongM: 300)
+        )
+        let itinerary = FollowedItinerary(
+            id: .fixture(1),
+            name: "Les quais",
+            track: track,
+            total: Distance(meters: 1_000),
+            saved: ItineraryProgress.Saved(alongM: 200, hasSnapped: true),
+            returnPath: withReturnPath ? returnPath : nil
+        )
+        let snapshot = RecordingSnapshot(recording: Recording(sport: .run, startedAt: start), itinerary: itinerary)
+        return RecordingLiveActivityContent(snapshot, at: start.addingTimeInterval(200))
+    }
+
+    @Test func aReturnPathShowsAsCheminRecalculeWithTheDistanceLeftThroughIt() throws {
+        let state = try #require(RecordingActivityAttributes.ContentState(content(withReturnPath: true)).itinerary)
+
+        #expect(state.state == .returnPath)
+        #expect(abs(state.remainingM! - 950) < 2)
+        #expect(abs(state.fraction - 0.2) < 0.01)
+    }
+
+    @Test func aReturnPathArrivingOrDisappearingShowsAtOnce() {
+        let with = content(withReturnPath: true)
+        let without = content(withReturnPath: false)
+
+        #expect(with.needsImmediateUpdate(after: without))
+        #expect(without.needsImmediateUpdate(after: with))
+    }
 }

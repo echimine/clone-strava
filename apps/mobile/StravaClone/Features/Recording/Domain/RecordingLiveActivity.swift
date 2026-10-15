@@ -16,13 +16,14 @@ protocol RecordingLiveActivity: Sendable {
 
 /// What the Live Activity shows of a Recording at one instant (ADR-031 §9): plain values.
 struct RecordingLiveActivityContent: Equatable, Sendable {
-    /// State of the followed Itinerary, shown next to the distance left. #72 adds the
-    /// Return path here.
+    /// State of the followed Itinerary, shown next to the distance left.
     enum ItineraryState: Equatable, Sendable {
         /// No position within 50 m of the track yet: distance left shows "—".
         case notSnapped
         case onTrack
         case offTrack
+        /// "Chemin recalculé" (ADR-031 §7).
+        case returnPath
         case finished
     }
 
@@ -33,6 +34,9 @@ struct RecordingLiveActivityContent: Equatable, Sendable {
         /// Share of the track done, 0 to 1.
         let fraction: Double
         let state: ItineraryState
+        /// Where the Return path shown meets the track: tells a new Return path from the
+        /// previous one. Not sent to the widget.
+        var returnPoint: Coordinate? = nil
     }
 
     let sport: RecordingSport
@@ -63,31 +67,34 @@ struct RecordingLiveActivityContent: Equatable, Sendable {
         currentSpeedMs = stats.currentSpeedMs
         averageSpeedMs = stats.averageSpeedMs
         itinerary = snapshot.itinerary.map { followed in
-            let progress = followed.progress
-            return Itinerary(
+            Itinerary(
                 name: followed.name,
-                remaining: progress.remaining,
-                fraction: progress.fraction,
-                state: ItineraryState(progress.status)
+                remaining: followed.remaining,
+                fraction: followed.progress.fraction,
+                state: ItineraryState(followed.state),
+                returnPoint: followed.returnPath?.returnPoint.coordinate
             )
         }
     }
 
     var isPaused: Bool { pausedAt != nil }
 
-    /// A Pause, a Resume, an Itinerary state change or its removal shows at once (ADR-031 §9);
-    /// anything else waits for the next 5 s update.
+    /// A Pause, a Resume, an Itinerary state change, a Return path arriving or disappearing, or
+    /// the Itinerary's removal shows at once (ADR-031 §9); anything else waits for the next 5 s
+    /// update.
     func needsImmediateUpdate(after previous: Self) -> Bool {
         isPaused != previous.isPaused || itinerary?.state != previous.itinerary?.state
+            || itinerary?.returnPoint != previous.itinerary?.returnPoint
     }
 }
 
 private extension RecordingLiveActivityContent.ItineraryState {
-    init(_ status: ItineraryProgress.Status) {
-        switch status {
+    init(_ state: FollowedItinerary.State) {
+        switch state {
         case .notSnapped: self = .notSnapped
         case .onTrack: self = .onTrack
         case .offTrack: self = .offTrack
+        case .returnPath: self = .returnPath
         case .finished: self = .finished
         }
     }

@@ -88,12 +88,16 @@ final class Di {
         // TODO(ADR-022): Apple Sign-In — blocked on a paid Apple Developer Program membership.
         // TODO(ADR-022 §5): admin 2FA — credential-only, backoffice web, not applicable to mobile.
 
+        let monitor = connectivityMonitor
         recordingService = RecordingService(
             locationProvider: locationProvider,
             repository: GRDBRecordingRepository(database: database),
             motionProvider: motionProvider,
             autoPauseFeedback: HapticAutoPauseFeedback(),
-            liveActivity: recordingLiveActivity
+            liveActivity: recordingLiveActivity,
+            // Return path (ADR-031 §7): the Itineraries' router and token.
+            returnPathRouter: MapboxDirectionsRouter(accessToken: configuration.mapboxItinerariesToken),
+            connectivity: { await Di.connectivityChanges(of: monitor) }
         )
         realtimeService = RealtimeService(
             client: webSocketClient,
@@ -282,7 +286,11 @@ final class Di {
 
     /// `true` while a network route exists, current state first (`ConnectivityMonitor`).
     func connectivityChanges() -> AsyncStream<Bool> {
-        let updates = connectivityMonitor.updates()
+        Self.connectivityChanges(of: connectivityMonitor)
+    }
+
+    private static func connectivityChanges(of monitor: ConnectivityMonitor) -> AsyncStream<Bool> {
+        let updates = monitor.updates()
         return AsyncStream { continuation in
             let task = Task {
                 for await status in updates {

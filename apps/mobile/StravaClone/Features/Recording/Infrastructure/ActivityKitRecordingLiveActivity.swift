@@ -101,6 +101,7 @@ extension RecordingActivityAttributes.ItineraryState {
         case .notSnapped: self = .notSnapped
         case .onTrack: self = .onTrack
         case .offTrack: self = .offTrack
+        case .returnPath: self = .returnPath
         case .finished: self = .finished
         }
     }

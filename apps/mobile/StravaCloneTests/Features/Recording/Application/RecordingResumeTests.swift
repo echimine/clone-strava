@@ -227,6 +227,9 @@ final class FlakyRecordingRepository: RecordingRepository {
     func saveItineraryProgress(_ progress: ItineraryProgress.Saved, of id: ActivityID) async throws {
         try await base.saveItineraryProgress(progress, of: id)
     }
+    func saveReturnPath(_ returnPath: ReturnPath?, of id: ActivityID) async throws {
+        try await base.saveReturnPath(returnPath, of: id)
+    }
 
     func append(_ point: LocationSample, to id: ActivityID) async throws -> Bool {
         if failsWrites.value { throw DiskFull() }

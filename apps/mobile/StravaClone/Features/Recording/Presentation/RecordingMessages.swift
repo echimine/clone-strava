@@ -24,6 +24,7 @@ enum RecordingMessages {
     static let removeItineraryMessage = "La distance restante ne sera plus affichée. Tu ne pourras pas en choisir un autre."
     static let remainingOnItinerary = "Restant sur l'Itinéraire"
     static let offItinerary = "Hors Itinéraire"
+    static let returnPath = "Chemin recalculé"
     static let itineraryFinished = "Itinéraire terminé"
 
     static func saveBlocker(_ blocker: RecordingSaveBlocker, sport: RecordingSport) -> String {

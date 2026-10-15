@@ -132,6 +132,8 @@ struct RecordingLiveActivityTests {
 
         provider.send(fix(20, east: 50, north: 0)) // still on the track: waits for the 5 s update
         provider.send(fix(40, east: 200, north: 200)) // middle of the square
+        provider.send(fix(45, east: 200, north: 205))
+        provider.send(fix(50, east: 200, north: 210)) // off for 3 points and 10 s: "Hors Itinéraire"
         await port.until { $0.count >= 4 }
         #expect(port.contents.last?.itinerary?.state == .offTrack)
 

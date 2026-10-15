@@ -20,15 +20,3 @@ enum ItinerarySport: String, CaseIterable, Hashable, Sendable {
         category.routingProfile
     }
 }
-
-/// How the athlete moves; decides which paths the router may take.
-enum SportCategory: Hashable, Sendable {
-    case foot, wheels
-
-    var routingProfile: RoutingProfile {
-        switch self {
-        case .foot: .walking
-        case .wheels: .cycling
-        }
-    }
-}

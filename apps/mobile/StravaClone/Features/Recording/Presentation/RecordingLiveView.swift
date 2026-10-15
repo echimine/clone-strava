@@ -16,7 +16,11 @@ struct RecordingLiveView: View {
             let stats = snapshot.stats(at: context.date)
             ZStack {
                 if showsMap {
-                    RecordingLiveMap(trace: snapshot.trace, itineraryTrack: snapshot.itinerary?.track ?? [])
+                    RecordingLiveMap(
+                        trace: snapshot.trace,
+                        itineraryTrack: snapshot.itinerary?.track ?? [],
+                        returnPath: snapshot.itinerary?.returnPath?.path ?? []
+                    )
                         .overlay(alignment: .top) {
                             VStack(spacing: 8) {
                                 traceWriteWarning
@@ -68,7 +72,7 @@ struct RecordingLiveView: View {
             }
             if let itinerary = snapshot.itinerary {
                 Divider().padding(.horizontal, 40).padding(.vertical, 18)
-                RecordingItineraryPanel(progress: itinerary.progress)
+                RecordingItineraryPanel(itinerary: itinerary)
             }
             Spacer()
         }
@@ -150,7 +154,7 @@ struct RecordingLiveView: View {
     private func compactItems(_ stats: RecordingStats) -> [RecordingStatItem] {
         let items = RecordingFormatters.items(stats)
         guard let itinerary = snapshot.itinerary else { return Array(items.prefix(3)) }
-        return Array(items.prefix(2)) + [RecordingFormatters.itinerary(itinerary.progress)]
+        return Array(items.prefix(2)) + [RecordingFormatters.itinerary(itinerary)]
     }
 
     // MARK: Controls
