@@ -6,7 +6,6 @@ struct RecordingLiveView: View {
     let store: RecordingStore
     let snapshot: RecordingSnapshot
 
-    @Environment(LocationPermissionService.self) private var permission
     @State private var showsMap = false
     @State private var confirmsFinish = false
 
@@ -31,10 +30,6 @@ struct RecordingLiveView: View {
         } message: {
             Text(RecordingMessages.finishMessage)
         }
-    }
-
-    private var gpsIndicator: GPSIndicator {
-        GPSIndicator(position: snapshot.position, isAccuracyReduced: permission.isAccuracyReduced)
     }
 
     // MARK: Stats view
@@ -78,7 +73,7 @@ struct RecordingLiveView: View {
             )
             .font(.subheadline.weight(.semibold))
             Spacer()
-            RecordingGPSChip(indicator: gpsIndicator)
+            RecordingGPSStatus()
         }
         .padding(.horizontal)
         .padding(.top, 8)

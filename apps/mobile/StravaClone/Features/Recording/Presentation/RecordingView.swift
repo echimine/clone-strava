@@ -39,6 +39,24 @@ extension Color {
     static let recordingPause = Color(red: 1, green: 0.78, blue: 0.2)
 }
 
+/// The GPS indicator fed by the shared GPS source (with replay of the last fix): a stationary
+/// device sends no new fix, which must not read "Recherche du GPS…".
+struct RecordingGPSStatus: View {
+    @Environment(LocationPermissionService.self) private var permission
+    @Environment(\.locationProvider) private var locationProvider
+    @State private var position: LocationSample?
+
+    var body: some View {
+        RecordingGPSChip(indicator: GPSIndicator(position: position, isAccuracyReduced: permission.isAccuracyReduced))
+            .task(id: permission.isAuthorized) {
+                guard permission.isAuthorized, let locationProvider else { return }
+                for await sample in await locationProvider.samples() {
+                    position = sample
+                }
+            }
+    }
+}
+
 /// "Recherche du GPS…", "GPS prêt" or "Position approximative" (ADR-031 §2).
 struct RecordingGPSChip: View {
     let indicator: GPSIndicator

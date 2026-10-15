@@ -8,9 +8,7 @@ struct RecordingPreStartView: View {
     @Bindable var store: RecordingStore
 
     @Environment(LocationPermissionService.self) private var permission
-    @Environment(\.locationProvider) private var locationProvider
     @State private var viewport = Viewport.followUser
-    @State private var position: LocationSample?
 
     private var isDenied: Bool {
         permission.authorization == .denied || permission.authorization == .restricted
@@ -20,7 +18,7 @@ struct RecordingPreStartView: View {
         AppMap(viewport: $viewport, bottomInset: 190) {}
             .overlay(alignment: .top) {
                 HStack {
-                    RecordingGPSChip(indicator: GPSIndicator(position: position, isAccuracyReduced: permission.isAccuracyReduced))
+                    RecordingGPSStatus()
                     Spacer()
                 }
                 .padding(.horizontal, Theme.spacing)
@@ -28,12 +26,6 @@ struct RecordingPreStartView: View {
             }
             .safeAreaInset(edge: .bottom) { panel }
             .task { permission.requestWhenInUseIfNeeded() }
-            .task(id: permission.isAuthorized) {
-                guard permission.isAuthorized, let locationProvider else { return }
-                for await sample in await locationProvider.samples() {
-                    position = sample
-                }
-            }
     }
 
     private var panel: some View {
