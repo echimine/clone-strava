@@ -11,6 +11,8 @@ enum RecordingMessages {
     static let finishMessage = "Tu pourras encore reprendre depuis l'écran de fin."
     static let deleteTitle = "Supprimer cet enregistrement ?"
     static let saveFailed = "Impossible d'enregistrer l'activité. Réessaie."
+    static let traceWriteFailing = "Impossible d'enregistrer la trace : espace insuffisant"
+    static let signOutWarning = "L'enregistrement en cours sera supprimé."
     static let deleteMessage = "La trace et les stats seront effacées. Cette action est définitive."
 
     static func saveBlocker(_ blocker: RecordingSaveBlocker, sport: RecordingSport) -> String {

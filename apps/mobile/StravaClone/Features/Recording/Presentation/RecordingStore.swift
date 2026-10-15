@@ -20,23 +20,27 @@ final class RecordingStore {
 
     @ObservationIgnored private let service: RecordingService
     @ObservationIgnored private let preferences: any RecordingPreferences
+    @ObservationIgnored private let launch: RecordingLaunch
     @ObservationIgnored private let ensureFullAccuracy: @MainActor () async -> Bool
     @ObservationIgnored private let saveRecording: SaveRecording
     @ObservationIgnored private let cachedDefaultVisibility: @MainActor () -> ActivityVisibility
 
     /// - Parameters:
+    ///   - launch: how this launch of the app picks a stored Recording up (ADR-031 §10).
     ///   - ensureFullAccuracy: asks for temporary full accuracy when only the approximate
     ///     location is allowed; `false` when refused (ADR-031 §2).
     ///   - defaultVisibility: the athlete's cached `defaultVisibility` (ADR-031 §11, §13).
     init(
         service: RecordingService,
         preferences: any RecordingPreferences,
+        launch: RecordingLaunch = .openedByAthlete,
         ensureFullAccuracy: @escaping @MainActor () async -> Bool,
         saveRecording: SaveRecording,
         defaultVisibility: @escaping @MainActor () -> ActivityVisibility
     ) {
         self.service = service
         self.preferences = preferences
+        self.launch = launch
         self.ensureFullAccuracy = ensureFullAccuracy
         self.saveRecording = saveRecording
         cachedDefaultVisibility = defaultVisibility
@@ -55,7 +59,7 @@ final class RecordingStore {
     /// Picks up a stored Recording, then follows the service until cancelled (SwiftUI `.task`).
     func observe() async {
         do {
-            _ = try await service.restore()
+            _ = try await service.restore(launch)
         } catch {
             errorMessage = RecordingMessages.startFailed
         }
@@ -128,6 +132,13 @@ final class RecordingStore {
         sport = recording.sport
         snapshot = nil
         return true
+    }
+
+    /// The sign-out confirmation while a Recording exists, even if the Record tab was never
+    /// opened (ADR-031 §10); `nil` when there is none. Confirmed, `delete()` wipes it first.
+    func signOutWarning() async -> String? {
+        let current = try? await service.restore(launch)
+        return current == nil ? nil : RecordingMessages.signOutWarning
     }
 
     /// After the confirmation: everything is wiped, back to the pre-start screen.

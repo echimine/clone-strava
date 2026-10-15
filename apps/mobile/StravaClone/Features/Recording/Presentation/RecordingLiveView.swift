@@ -17,7 +17,13 @@ struct RecordingLiveView: View {
             ZStack {
                 if showsMap {
                     RecordingLiveMap(trace: snapshot.trace)
-                        .overlay(alignment: .top) { compactBanner(stats).padding(.top, 8) }
+                        .overlay(alignment: .top) {
+                            VStack(spacing: 8) {
+                                traceWriteWarning
+                                compactBanner(stats)
+                            }
+                            .padding(.top, 8)
+                        }
                 } else {
                     statsPage(stats)
                 }
@@ -48,6 +54,7 @@ struct RecordingLiveView: View {
                     .padding(.top, 12)
                     .accessibilityIdentifier("recordingPausedBanner")
             }
+            traceWriteWarning.padding(.top, 8)
             if let message = store.errorMessage {
                 Text(message).font(.footnote).foregroundStyle(.red).padding(.top, 8)
             }
@@ -63,6 +70,20 @@ struct RecordingLiveView: View {
         }
         .frame(maxWidth: .infinity)
         .background(isPaused ? Color.recordingPause.opacity(0.12) : Color(.systemBackground))
+    }
+
+    /// ADR-031 §10: points have not reached the disk for 30 s; the Recording goes on.
+    @ViewBuilder
+    private var traceWriteWarning: some View {
+        if snapshot.isTraceWriteFailing {
+            Label(RecordingMessages.traceWriteFailing, systemImage: "exclamationmark.triangle.fill")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(.red, in: Capsule())
+                .accessibilityIdentifier("recordingTraceWriteWarning")
+        }
     }
 
     private var header: some View {

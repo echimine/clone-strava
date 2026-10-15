@@ -14,7 +14,11 @@ actor RecordingService {
     /// Points whose write failed, retried with the next one: the Recording never stops by itself.
     private var unwrittenPoints: [LocationSample] = []
     private var consumer: Task<Void, Never>?
+    private var restoring: Task<Void, any Error>?
     private var observers: [UUID: AsyncStream<RecordingSnapshot?>.Continuation] = [:]
+
+    /// How long points may fail to reach the disk before the athlete is warned (ADR-031 §10).
+    static let writeFailureWarningDelay: TimeInterval = 30
 
     init(
         locationProvider: any LocationProvider,
@@ -38,12 +42,23 @@ actor RecordingService {
         return stream
     }
 
-    /// Picks up a stored Recording in its saved phase, GPS and background session included.
-    func restore() async throws -> RecordingSnapshot? {
+    /// Picks up a stored Recording once per launch, GPS and background session included
+    /// (ADR-031 §3, §10): in its saved phase after a background relaunch, in a Pause from the
+    /// last written point when the athlete opens an `active` one. Later calls wait for the first.
+    func restore(_ launch: RecordingLaunch = .openedByAthlete) async throws -> RecordingSnapshot? {
         if let snapshot { return snapshot }
-        guard let stored = try await repository.load() else { return nil }
-        begin(RecordingSnapshot(recording: stored.recording, points: stored.points), points: stored.points)
-        await startGPS()
+        if let restoring {
+            try await restoring.value
+            return snapshot
+        }
+        let task = Task { try await self.load(after: launch) }
+        restoring = task
+        do {
+            try await task.value
+        } catch {
+            restoring = nil
+            throw error
+        }
         return snapshot
     }
 
@@ -112,6 +127,16 @@ actor RecordingService {
 
     // MARK: - Internals
 
+    private func load(after launch: RecordingLaunch) async throws {
+        guard let stored = try await repository.load() else { return }
+        let recording = stored.resumed(after: launch)
+        if recording != stored.recording {
+            try await repository.save(recording)
+        }
+        begin(RecordingSnapshot(recording: recording, points: stored.points), points: stored.points)
+        await startGPS()
+    }
+
     private func begin(_ snapshot: RecordingSnapshot, points: [LocationSample]) {
         let recording = snapshot.recording
         distance = ProvisionalDistance.replaying(points, pauses: recording.pauses, sport: recording.sport)
@@ -153,6 +178,7 @@ actor RecordingService {
         await write(sample, to: recording.id)
         guard snapshot?.recording.id == recording.id else { return }
         snapshot?.pointCount += 1
+        snapshot?.isTraceWriteFailing = isWriteFailing
         if RecordingSnapshot.isAccurate(sample) {
             snapshot?.trace.append(sample.coordinate)
         }
@@ -173,6 +199,12 @@ actor RecordingService {
         } catch {
             // Kept in memory and retried with the next point (ADR-031 §10).
         }
+    }
+
+    /// Points have failed to reach the disk for the warning delay, measured on their own times.
+    private var isWriteFailing: Bool {
+        guard let first = unwrittenPoints.first, let last = unwrittenPoints.last else { return false }
+        return last.timestamp.timeIntervalSince(first.timestamp) >= Self.writeFailureWarningDelay
     }
 
     private func publish() {

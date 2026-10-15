@@ -57,6 +57,8 @@ final class Di {
     let defaultVisibility: DefaultVisibilityCache
 
     private let recordingService: RecordingService
+    /// How this launch picks a stored Recording up, set by the `AppDelegate` (ADR-031 §10).
+    private var recordingLaunch = RecordingLaunch.openedByAthlete
     private let authService: AuthService
     private let importRepository: APIActivityImportRepository
     private let feedRepository: APIFeedRepository
@@ -139,12 +141,21 @@ final class Di {
         connectivityMonitor.start()
     }
 
+    /// At launch (ADR-031 §3, §10): a stored Recording rejoins the background session and the
+    /// GPS loop at once, whether or not a screen ever shows it.
+    func resumeRecording(after launch: RecordingLaunch) {
+        recordingLaunch = launch
+        let service = recordingService
+        Task { _ = try? await service.restore(launch) }
+    }
+
     func makeRecordingStore() -> RecordingStore {
         let permission = locationPermission
         let defaultVisibility = defaultVisibility
         return RecordingStore(
             service: recordingService,
             preferences: UserDefaultsRecordingPreferences(),
+            launch: recordingLaunch,
             ensureFullAccuracy: { await permission.ensureFullAccuracy(purposeKey: "Recording") },
             saveRecording: SaveRecording(service: recordingService, activities: localActivities),
             defaultVisibility: { defaultVisibility.cachedDefaultVisibility }
