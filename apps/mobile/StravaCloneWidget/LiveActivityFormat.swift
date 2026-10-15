@@ -5,13 +5,12 @@ import SwiftUI
 enum LiveActivityFormat {
     static let accent = Color(red: 0.99, green: 0.32, blue: 0.0)
     static let pause = Color.yellow
-    static let dash = "–"
-    private static let locale = Locale(identifier: "fr_FR")
+    static let dash = RecordingNumberFormat.dash
+    private static let locale = RecordingNumberFormat.locale
 
     /// "12,34", truncated: never more than was covered.
     static func kilometers(_ meters: Double) -> String {
-        let hundredths = Double(Int(max(0, meters) / 10)) / 100
-        return hundredths.formatted(.number.precision(.fractionLength(2)).locale(locale))
+        RecordingNumberFormat.kilometers(meters)
     }
 
     /// "12,3", truncated, for the compact island.
@@ -20,19 +19,12 @@ enum LiveActivityFormat {
         return tenths.formatted(.number.precision(.fractionLength(1)).locale(locale))
     }
 
-    /// "0,75", rounded: a distance left is not a distance covered.
-    static func remaining(_ meters: Double) -> String {
-        (max(0, meters) / 1_000).formatted(.number.precision(.fractionLength(2)).locale(locale))
-    }
-
     static func pace(_ seconds: Int?) -> String {
-        guard let seconds else { return dash }
-        return String(format: "%d:%02d", seconds / 60, seconds % 60)
+        RecordingNumberFormat.pace(seconds: seconds)
     }
 
     static func speed(_ kmh: Double?) -> String {
-        guard let kmh else { return dash }
-        return kmh.formatted(.number.precision(.fractionLength(1)).locale(locale))
+        RecordingNumberFormat.speed(kmh: kmh)
     }
 
     /// "1:05:12" or "5:12".
@@ -41,18 +33,8 @@ enum LiveActivityFormat {
         return h > 0 ? String(format: "%d:%02d:%02d", h, m, s) : String(format: "%d:%02d", m, s)
     }
 
-    /// The state that replaces "Restant sur l'Itinéraire" off the track and at the end.
-    static func itineraryCaption(_ state: RecordingActivityAttributes.ItineraryState) -> String {
-        switch state {
-        case .notSnapped, .onTrack: "Restant sur l'Itinéraire"
-        case .offTrack: "Hors Itinéraire"
-        case .returnPath: "Chemin recalculé"
-        case .finished: "Itinéraire terminé"
-        }
-    }
-
     static func remainingText(_ itinerary: RecordingActivityAttributes.Itinerary) -> String {
-        itinerary.remainingM.map { "\(remaining($0)) km" } ?? "—"
+        itinerary.remainingM.map { "\(RecordingNumberFormat.remainingKilometers($0)) km" } ?? "—"
     }
 }
 

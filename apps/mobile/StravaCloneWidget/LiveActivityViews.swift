@@ -45,7 +45,7 @@ private struct RunningLockScreen: View {
             }
             if let itinerary = state.itinerary {
                 HStack(spacing: 8) {
-                    Text(LiveActivityFormat.itineraryCaption(itinerary.state))
+                    Text(itinerary.state.caption)
                         .font(.caption2)
                         .foregroundStyle(itinerary.state == .offTrack ? LiveActivityFormat.pause : .white.opacity(0.7))
                     Text(LiveActivityFormat.remainingText(itinerary)).font(.caption.bold().monospacedDigit())
@@ -75,7 +75,7 @@ struct ExpandedIslandCenter: View {
             VStack(spacing: 4) {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Text(LiveActivityFormat.remainingText(itinerary)).font(.title.bold().monospacedDigit())
-                    Text(itinerary.state == .onTrack ? "restants" : LiveActivityFormat.itineraryCaption(itinerary.state))
+                    Text(itinerary.state == .onTrack ? "restants" : itinerary.state.caption)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

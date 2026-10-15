@@ -5,17 +5,7 @@ import Foundation
 /// and its Return path. It can be removed, never replaced.
 struct FollowedItinerary: Equatable, Sendable {
     /// What the Recording screen and the Live Activity show next to the distance left.
-    enum State: Equatable, Sendable {
-        /// No position within 50 m of the track yet, no Return path: "—".
-        case notSnapped
-        case onTrack
-        /// "Hors Itinéraire": off it for 3 points and 10 s, no Return path to show.
-        case offTrack
-        /// "Chemin recalculé".
-        case returnPath
-        /// "Itinéraire terminé".
-        case finished
-    }
+    typealias State = ItineraryFollowState
 
     let id: ItineraryID
     let name: String

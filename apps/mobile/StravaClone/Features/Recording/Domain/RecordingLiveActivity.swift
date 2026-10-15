@@ -16,24 +16,14 @@ protocol RecordingLiveActivity: Sendable {
 
 /// What the Live Activity shows of a Recording at one instant (ADR-031 §9): plain values.
 struct RecordingLiveActivityContent: Equatable, Sendable {
-    /// State of the followed Itinerary, shown next to the distance left.
-    enum ItineraryState: Equatable, Sendable {
-        /// No position within 50 m of the track yet: distance left shows "—".
-        case notSnapped
-        case onTrack
-        case offTrack
-        /// "Chemin recalculé" (ADR-031 §7).
-        case returnPath
-        case finished
-    }
-
     struct Itinerary: Equatable, Sendable {
         let name: String
         /// `nil` before the first snap.
         let remaining: Distance?
         /// Share of the track done, 0 to 1.
         let fraction: Double
-        let state: ItineraryState
+        /// Shown next to the distance left.
+        let state: ItineraryFollowState
         /// The Return path shown: tells a new Return path from the previous one, even to the
         /// same return point. Not sent to the widget.
         var returnPath: ReturnPath? = nil
@@ -71,7 +61,7 @@ struct RecordingLiveActivityContent: Equatable, Sendable {
                 name: followed.name,
                 remaining: followed.remaining,
                 fraction: followed.progress.fraction,
-                state: ItineraryState(followed.state),
+                state: followed.state,
                 returnPath: followed.returnPath
             )
         }
@@ -85,17 +75,5 @@ struct RecordingLiveActivityContent: Equatable, Sendable {
     func needsImmediateUpdate(after previous: Self) -> Bool {
         isPaused != previous.isPaused || itinerary?.state != previous.itinerary?.state
             || itinerary?.returnPath != previous.itinerary?.returnPath
-    }
-}
-
-private extension RecordingLiveActivityContent.ItineraryState {
-    init(_ state: FollowedItinerary.State) {
-        switch state {
-        case .notSnapped: self = .notSnapped
-        case .onTrack: self = .onTrack
-        case .offTrack: self = .offTrack
-        case .returnPath: self = .returnPath
-        case .finished: self = .finished
-        }
     }
 }

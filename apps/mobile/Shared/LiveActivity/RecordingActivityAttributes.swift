@@ -36,11 +36,6 @@ struct RecordingActivityAttributes: ActivityAttributes {
         var remainingM: Double?
         /// Share of the track done, 0 to 1.
         var fraction: Double
-        var state: ItineraryState
-    }
-
-    /// State label of the Itinerary line; `returnPath` is "Chemin recalculé".
-    enum ItineraryState: String, Codable, Hashable {
-        case notSnapped, onTrack, offTrack, returnPath, finished
+        var state: ItineraryFollowState
     }
 }
