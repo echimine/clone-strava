@@ -33,6 +33,22 @@ describe("cleanTrace", () => {
     expect(cleaned.map((p) => p.timestampMs)).toEqual([0, 30_000]);
   });
 
+  it("does not treat a move during a Pause as a speed jump", () => {
+    // ~55 km by train in ~1 h (~15 m/s) during the Pause: too fast for a run.
+    const points = [
+      { lat: 48, lon: 2, timestampMs: 0 },
+      { lat: 48.001, lon: 2, timestampMs: 30_000 },
+      { lat: 48.5, lon: 2, timestampMs: 3_610_000 },
+      { lat: 48.501, lon: 2, timestampMs: 3_640_000 },
+    ];
+    const cleaned = cleanTrace(points, {
+      maxAccuracyM: 50,
+      maxSpeedMs: maxPlausibleSpeedMs("run"),
+      pauses: [{ startMs: 40_000, endMs: 3_600_000 }],
+    });
+    expect(cleaned.map((p) => p.timestampMs)).toEqual([0, 30_000, 3_610_000, 3_640_000]);
+  });
+
   it("uses a generic limit for unknown sports", () => {
     expect(maxPlausibleSpeedMs("ride")).toBeGreaterThan(maxPlausibleSpeedMs("run"));
     expect(maxPlausibleSpeedMs("kitesurf")).toBe(50);

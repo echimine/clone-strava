@@ -24,7 +24,7 @@ import { ActivityStatsRepository } from "../repositories/activity-stats.reposito
 import { ActivityTrackRepository } from "../repositories/activity-track.repository.js";
 import { computeMetrics } from "../domain/compute-metrics.js";
 import { applyPrivacyZone } from "../domain/apply-privacy-zone.js";
-import { cleanTrace, maxPlausibleSpeedMs } from "../domain/clean-trace.js";
+import { cleanTrace, MAX_TRACE_ACCURACY_M, maxPlausibleSpeedMs } from "../domain/clean-trace.js";
 import { feedPolyline } from "../domain/feed-polyline.js";
 import { computeHeartRate } from "../domain/heart-rate.js";
 import { PermanentProcessingError } from "../domain/processing-error.js";
@@ -32,8 +32,6 @@ import { toLineStringEwkt, toPointEwkt } from "../domain/ewkt.js";
 
 /** Compressed traces above this size are refused (several hours at 1 Hz stay far below). */
 const MAX_TRACE_BYTES = 50 * 1024 * 1024;
-/** ADR-019 §5 step 3: GPS fixes less accurate than this are dropped. */
-const MAX_ACCURACY_M = 50;
 /** Douglas-Peucker tolerance of the stored route (ADR-019 §5 step 5). */
 const ROUTE_TOLERANCE_M = 5;
 
@@ -70,14 +68,15 @@ export class ProcessActivityUseCase {
 
     const trace = await this.readTrace(activity, job);
     const points = cleanTrace(trace.points, {
-      maxAccuracyM: MAX_ACCURACY_M,
+      maxAccuracyM: MAX_TRACE_ACCURACY_M,
       maxSpeedMs: maxPlausibleSpeedMs(activity.sportTypeCode),
+      pauses: trace.pauses,
     });
     if (points.length < 2) {
       return this.fail(activity, "empty_trace", job);
     }
 
-    const metrics = computeMetrics(points);
+    const metrics = computeMetrics(points, { pauses: trace.pauses });
     const heartRate = computeHeartRate(points);
     const { privacyZoneRadiusM } = await this.users.getActivityDefaults(activity.userId);
     const shown = simplifyTrack(applyPrivacyZone(points, { radiusM: privacyZoneRadiusM }), ROUTE_TOLERANCE_M);
