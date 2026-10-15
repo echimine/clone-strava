@@ -34,6 +34,16 @@ struct SyntheticTrace {
         }
     }
 
+    /// One fix per second off the athlete's place by each offset (meters north, negative
+    /// south) while the athlete stays put: a GPS that trembles.
+    mutating func tremble(_ offsets: [Double], reportedSpeed: Double? = 0) {
+        for offset in offsets {
+            north += offset
+            fix(speed: reportedSpeed)
+            north -= offset
+        }
+    }
+
     /// No fix for `seconds` while still moving at `speed` (a tunnel).
     mutating func gap(seconds: Int, speed: Double) {
         north += speed * Double(seconds)

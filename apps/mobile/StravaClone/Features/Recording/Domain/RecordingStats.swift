@@ -1,6 +1,6 @@
 import Foundation
 
-/// The live stats of a Recording at one instant (ADR-031 §5). No elevation gain live.
+/// The provisional values of a Recording at one instant (ADR-031 §5). No elevation gain live.
 struct RecordingStats: Equatable, Sendable {
     /// Under this timer, the average pace is not meaningful yet.
     static let paceWarmUp = Duration.seconds(30)
@@ -35,26 +35,26 @@ struct RecordingStats: Equatable, Sendable {
 struct CurrentSpeed: Equatable, Sendable {
     static let window: TimeInterval = 5
 
-    private struct Leg: Equatable, Sendable {
+    private struct Hop: Equatable, Sendable {
         let end: Date
         let distance: Distance
     }
 
     private var movingSince: Date
-    private var legs: [Leg] = []
+    private var hops: [Hop] = []
 
     init(movingSince: Date) {
         self.movingSince = movingSince
     }
 
-    mutating func record(_ leg: Distance, at date: Date) {
-        legs.append(Leg(end: date, distance: leg))
-        legs.removeAll { $0.end <= date.addingTimeInterval(-Self.window) }
+    mutating func record(_ hop: Distance, at date: Date) {
+        hops.append(Hop(end: date, distance: hop))
+        hops.removeAll { $0.end <= date.addingTimeInterval(-Self.window) }
     }
 
     mutating func reset(movingSince date: Date) {
         movingSince = date
-        legs.removeAll()
+        hops.removeAll()
     }
 
     /// `nil` until some time has passed since Start or Resume.
@@ -62,7 +62,7 @@ struct CurrentSpeed: Equatable, Sendable {
         let span = min(Self.window, now.timeIntervalSince(movingSince))
         guard span > 0 else { return nil }
         let windowStart = now.addingTimeInterval(-Self.window)
-        let meters = legs.filter { $0.end > windowStart && $0.end <= now }.reduce(0) { $0 + $1.distance.meters }
+        let meters = hops.filter { $0.end > windowStart && $0.end <= now }.reduce(0) { $0 + $1.distance.meters }
         return meters / span
     }
 }

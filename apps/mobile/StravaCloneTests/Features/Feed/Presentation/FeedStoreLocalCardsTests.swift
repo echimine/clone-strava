@@ -66,6 +66,21 @@ struct FeedStoreLocalCardsTests {
         #expect(local.retried == [card.id])
     }
 
+    @Test func aDeletionRefusedByTheServerIsReported() async {
+        let local = FakeLocalActivityFeedSource()
+        let store = makeStore(FakeFeedRepository(), local: local)
+        let observation = Task { await store.observeLocalActivities() }
+
+        local.refuseDeletion(of: ActivityID())
+
+        for _ in 0 ..< 1_000 where store.notice == nil {
+            await Task.yield()
+        }
+        #expect(store.notice == FeedMessages.localDeletionRefused)
+        #expect(FeedMessages.localDeletionRefused == "Suppression impossible : l'activité est déjà en traitement.")
+        observation.cancel()
+    }
+
     @Test func aRefusedActionIsReported() async {
         let local = FakeLocalActivityFeedSource()
         local.actionError = LocalActivityActionError.notAllowed

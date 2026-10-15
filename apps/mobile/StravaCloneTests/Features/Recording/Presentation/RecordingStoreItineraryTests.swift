@@ -33,7 +33,7 @@ struct RecordingStoreItineraryTests {
             preferences: InMemoryRecordingPreferences(),
             itineraries: cache,
             ensureFullAccuracy: { true },
-            saveRecording: SaveRecording(service: service, activities: activities),
+            saveRecording: SaveRecording(service: service, activities: GRDBRecordingSaver(activities: activities)),
             defaultVisibility: { .public }
         )
     }

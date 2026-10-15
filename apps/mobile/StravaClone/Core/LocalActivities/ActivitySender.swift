@@ -26,24 +26,28 @@ final class ActivitySender {
     private let sessionRefresher: any SessionRefreshing
     private let backoff: RetryBackoff
     private let now: @Sendable () -> Date
+    private let sleep: @Sendable (Duration) async throws -> Void
 
     private var sending: Task<Void, Never>?
     private var rerun = false
     private var rerunIgnoringBackoff = false
     private var wakeUp: Task<Void, Never>?
+    private var refusalContinuations: [UUID: AsyncStream<ActivityID>.Continuation] = [:]
 
     init(
         server: any ActivityServer,
         store: GRDBLocalActivityStore,
         sessionRefresher: any SessionRefreshing,
         backoff: RetryBackoff = RetryBackoff(initialDelay: .seconds(2), maxDelay: .seconds(300)),
-        now: @escaping @Sendable () -> Date = Date.init
+        now: @escaping @Sendable () -> Date = Date.init,
+        sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
     ) {
         self.server = server
         self.store = store
         self.sessionRefresher = sessionRefresher
         self.backoff = backoff
         self.now = now
+        self.sleep = sleep
     }
 
     /// Sends the steps that are due, or every pending one when `ignoringBackoff` (network back,
@@ -62,14 +66,16 @@ final class ActivitySender {
 
     /// iOS takes the background time back (ADR-031 §14): the pass in flight stops. Its request
     /// fails like a lost network and nothing is written past it, so each operation stays at
-    /// its step for the next trigger.
+    /// its step for the next trigger. The scheduled retry is cancelled too and none is scheduled.
     func cancelPass() {
+        wakeUp?.cancel()
+        wakeUp = nil
         sending?.cancel()
     }
 
     /// Follows the Activities in `processing` with `GET /v1/activities/:id` (ADR-031 §14): a
     /// worker failure turns the local Activity `failed` (points kept). Returns the processed
-    /// ones: the caller reloads the feed, then `wipe`s them.
+    /// ones: the caller reloads the feed, then wipes them from the store.
     func trackProcessing() async -> [ActivityID] {
         guard let ids = try? await store.activityIDs(in: .processing) else { return [] }
         var processed: [ActivityID] = []
@@ -86,8 +92,9 @@ final class ActivitySender {
         return processed
     }
 
-    /// Delete (ADR-031 §14): gone from the phone at once; the server copy, if any, is deleted
-    /// by a `delete_activity` sent right away. Refused once `processing`.
+    /// Delete (ADR-031 §14): the card goes at once; the server copy, if any, is deleted by a
+    /// `delete_activity` sent right away, and the local copy goes once the server confirms.
+    /// Refused once `processing`.
     func delete(_ id: ActivityID) async throws {
         guard try await store.delete(id) else { return }
         await send()
@@ -99,9 +106,15 @@ final class ActivitySender {
         await send()
     }
 
-    /// The Activities a sign-out would lose (`recorded`, `created`, `trace_uploaded`, `failed`).
-    func unsentCount() async -> Int {
-        (try? await store.unsentCount()) ?? 0
+    /// Deletes the server turned down (`409`), as they happen.
+    func deletionRefusals() -> AsyncStream<ActivityID> {
+        let (stream, continuation) = AsyncStream.makeStream(of: ActivityID.self)
+        let key = UUID()
+        refusalContinuations[key] = continuation
+        continuation.onTermination = { [weak self] _ in
+            Task { @MainActor in self?.refusalContinuations[key] = nil }
+        }
+        return stream
     }
 
     /// Sign-out: every local Activity is wiped, nothing more is sent.
@@ -109,11 +122,6 @@ final class ActivitySender {
         wakeUp?.cancel()
         wakeUp = nil
         try? await store.clear()
-    }
-
-    /// Processed Activities, once the feed shows them: row, points and Pauses go.
-    func wipe(_ ids: [ActivityID]) async {
-        try? await store.wipe(ids)
     }
 
     // MARK: - Passes
@@ -127,13 +135,14 @@ final class ActivitySender {
             rerunIgnoringBackoff = false
         } while rerun
         sending = nil
+        guard !Task.isCancelled else { return }
         await scheduleWakeUp()
     }
 
     private func sendPending(ignoringBackoff: Bool) async {
         guard let pending = try? await store.pendingOperations() else { return }
         let date = now()
-        for operation in pending where ignoringBackoff || operation.nextAttemptAt <= date {
+        for operation in pending where ignoringBackoff || SyncQueueSchedule.isDue(operation.nextAttemptAt, at: date) {
             guard !Task.isCancelled else { return }
             var current: PendingActivityOperation? = operation
             var steps = 0
@@ -156,9 +165,14 @@ final class ActivitySender {
 
     private func deleteOnServer(_ operation: PendingActivityOperation) async -> PendingActivityOperation? {
         switch await attempt({ () async throws(ActivityServerError) in try await self.server.delete(operation.activityID) }) {
-        case .success, .failure(.refused):
-            // Deleted, or no longer deletable (`409`: already handed to the worker).
-            try? await store.drop(operation)
+        case .success:
+            try? await store.deleted(operation)
+        case .failure(.refused):
+            // `409`: already handed to the worker; it comes back in `processing`.
+            try? await store.deletionRefused(operation)
+            for continuation in refusalContinuations.values {
+                continuation.yield(operation.activityID)
+            }
         case .failure(let error):
             await handle(error, of: operation)
         }
@@ -231,7 +245,7 @@ final class ActivitySender {
             try? await store.fail(operation, reason: "\(error)")
         case .offline, .unavailable, .unauthorized, .uploadURLExpired:
             let delay = backoff.delay(beforeRetry: operation.attempts)
-            try? await store.postpone(operation, until: now().addingTimeInterval(delay.timeInterval), error: "\(error)")
+            try? await store.postpone(operation, until: now().addingTimeInterval(delay.timeInterval), error: error)
         }
     }
 
@@ -257,9 +271,9 @@ final class ActivitySender {
         wakeUp = nil
         guard let next = try? await store.pendingOperations().map(\.nextAttemptAt).min() else { return }
         let delay = max(0, next.timeIntervalSince(now()))
+        let sleep = sleep
         wakeUp = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(delay))
-            guard !Task.isCancelled else { return }
+            guard (try? await sleep(.seconds(delay))) != nil, !Task.isCancelled else { return }
             await self?.send()
         }
     }

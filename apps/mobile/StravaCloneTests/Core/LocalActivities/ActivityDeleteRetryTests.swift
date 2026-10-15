@@ -42,10 +42,13 @@ extension ActivitySenderTests {
         #expect(try await harness.store.operation(for: harness.id)?.step == .upload)
         ActivityURLProtocolStub.requests.value = []
 
-        // Offline: the card goes at once, the server delete waits for the network.
+        // Offline: the card goes at once, the server delete waits for the network; the local
+        // copy stays until the server confirms, and no longer counts as unsent.
         try await sender.delete(harness.id)
-        #expect(try await harness.store.activity(harness.id) == nil)
+        #expect(try await harness.store.cards().isEmpty)
+        #expect(try await harness.store.activity(harness.id) != nil)
         #expect(try await harness.store.operation(for: harness.id)?.step == .delete)
+        #expect(try await harness.store.unsentCount() == 0)
 
         online.value = true
         await sender.send(ignoringBackoff: true)
@@ -74,6 +77,38 @@ extension ActivitySenderTests {
         try await sender.delete(harness.id)
 
         try await nothingLeft(harness)
+    }
+
+    /// `409`: the server already handed it to the worker. The card comes back in `processing`,
+    /// followed like any other, and the athlete is told why.
+    @Test func aDeleteRefusedByTheServerBringsTheActivityBackInProcessing() async throws {
+        let harness = try ActivitySenderHarness()
+        try await harness.saveRecordedActivity()
+        ActivitySenderHarness.route { step in
+            switch step {
+            case "create": harness.created()
+            case "delete": ActivitySenderHarness.refused(409, "not_deletable")
+            default: .offline
+            }
+        }
+        let sender = harness.makeSender()
+        await sender.send()
+        let refusals = Locked<[ActivityID]>([])
+        let stream = sender.deletionRefusals()
+        let listening = Task { for await id in stream { refusals.value.append(id) } }
+        defer { listening.cancel() }
+
+        try await sender.delete(harness.id)
+
+        #expect(try await harness.store.activity(harness.id)?.state == .processing)
+        #expect(try await harness.store.operation(for: harness.id) == nil)
+        #expect(try await harness.store.cards().map(\.status) == [.processing])
+        #expect(try await harness.store.trace(of: harness.id).points.count == 3)
+        #expect(await eventually { refusals.value == [harness.id] })
+
+        // Followed until processed, then wiped once the feed shows the server's card.
+        ActivitySenderHarness.route { _ in harness.detail("processed") }
+        #expect(await sender.trackProcessing() == [harness.id])
     }
 
     @Test func deletedWhileItsCreationIsInFlightTheServerCopyIsDeletedToo() async throws {

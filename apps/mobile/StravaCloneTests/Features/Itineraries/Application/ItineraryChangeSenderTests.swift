@@ -63,7 +63,8 @@ struct ItineraryChangeSenderTests {
     private func make(
         refreshSucceeds: Bool = true,
         backoff: RetryBackoff = RetryBackoff(initialDelay: .seconds(2), maxDelay: .seconds(8)),
-        now: @escaping @Sendable () -> Date = { .fixture() }
+        now: @escaping @Sendable () -> Date = { .fixture() },
+        sleep: @escaping @Sendable (Duration) async throws -> Void = ManualSleeper().sleep
     ) throws -> Harness {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [ChangeURLProtocolStub.self]
@@ -86,7 +87,8 @@ struct ItineraryChangeSenderTests {
             queue: queue,
             sessionRefresher: refresher,
             backoff: backoff,
-            now: now
+            now: now,
+            sleep: sleep
         )
         return Harness(sender: sender, cache: cache, queue: queue, refresher: refresher)
     }
@@ -156,6 +158,19 @@ struct ItineraryChangeSenderTests {
         #expect(try await harness.cache.summaries(limit: 20).map(\.id) == [.fixture(2)])
     }
 
+    /// `sync_operation` keeps its dates to the millisecond: a change made at 0.6 ms past is
+    /// read back due at the next millisecond, and must still leave at once.
+    @Test func aChangeLeavesAtOnceWhateverTheSubMillisecondOfTheClock() async throws {
+        let harness = try make(now: { Date(timeIntervalSinceReferenceDate: 813_766_111.2236) })
+        try await harness.cache.replaceSummaries(with: [.fixture(1)])
+        answer { _ in .status(204) }
+
+        await harness.sender.delete(id: .fixture(1))
+
+        #expect(harness.requests.map(\.httpMethod) == ["DELETE"])
+        #expect(try await harness.queue.pending().isEmpty)
+    }
+
     @Test func aNameWithoutCharactersIsRefusedBeforeAnything() async throws {
         let harness = try make()
 
@@ -216,7 +231,11 @@ struct ItineraryChangeSenderTests {
     }
 
     @Test func aPostponedChangeIsSentAgainOnItsOwnOnceDue() async throws {
-        let harness = try make(backoff: RetryBackoff(initialDelay: .milliseconds(20), maxDelay: .milliseconds(20)), now: Date.init)
+        let harness = try make(
+            backoff: RetryBackoff(initialDelay: .milliseconds(20), maxDelay: .milliseconds(20)),
+            now: Date.init,
+            sleep: { try await Task.sleep(for: $0) }
+        )
         try await harness.cache.replaceSummaries(with: [.fixture(1)])
         let attempts = Locked(0)
         answer { _ in
@@ -232,6 +251,20 @@ struct ItineraryChangeSenderTests {
 
         #expect(try await harness.queue.pending().isEmpty)
         #expect(harness.requests.count == 2)
+    }
+
+    @Test func cancellingThePassAlsoCancelsTheScheduledRetry() async throws {
+        let sleeper = ManualSleeper()
+        let harness = try make(sleep: sleeper.sleep)
+        try await harness.cache.replaceSummaries(with: [.fixture(1)])
+        answer { _ in .offline }
+        await harness.sender.delete(id: .fixture(1))
+        #expect(await eventually { sleeper.waiting == 1 })
+
+        harness.sender.cancelPass()
+
+        #expect(sleeper.waiting == 0)
+        #expect(try await harness.queue.pending().count == 1)
     }
 
     // MARK: Session

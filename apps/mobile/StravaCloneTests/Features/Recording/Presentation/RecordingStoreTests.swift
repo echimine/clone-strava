@@ -25,7 +25,7 @@ struct RecordingStoreTests {
             preferences: InMemoryRecordingPreferences(lastSavedSport: lastSavedSport),
             itineraries: FakeItineraryCacheReader(),
             ensureFullAccuracy: { fullAccuracy },
-            saveRecording: SaveRecording(service: service, activities: activities),
+            saveRecording: SaveRecording(service: service, activities: GRDBRecordingSaver(activities: activities)),
             defaultVisibility: { .public }
         )
     }

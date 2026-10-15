@@ -26,7 +26,7 @@ struct RecordingStoreResumeTests {
             itineraries: FakeItineraryCacheReader(),
             launch: launch,
             ensureFullAccuracy: { true },
-            saveRecording: SaveRecording(service: service, activities: activities),
+            saveRecording: SaveRecording(service: service, activities: GRDBRecordingSaver(activities: activities)),
             defaultVisibility: { .public }
         )
     }

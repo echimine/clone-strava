@@ -7,13 +7,23 @@ import Foundation
 final class FakeLocalActivityFeedSource: LocalActivityFeedSource {
     private let stream: AsyncStream<[LocalActivityCard]>
     private let continuation: AsyncStream<[LocalActivityCard]>.Continuation
+    private let refusals: AsyncStream<ActivityID>
+    private let refusalContinuation: AsyncStream<ActivityID>.Continuation
     private(set) var deleted: [ActivityID] = []
     private(set) var retried: [ActivityID] = []
     var actionError: (any Error)?
 
     init() {
         (stream, continuation) = AsyncStream.makeStream()
+        (refusals, refusalContinuation) = AsyncStream.makeStream()
     }
+
+    /// The server answered `409` to the delete of `id`.
+    func refuseDeletion(of id: ActivityID) {
+        refusalContinuation.yield(id)
+    }
+
+    func deletionRefusals() -> AsyncStream<ActivityID> { refusals }
 
     func send(_ cards: [LocalActivityCard]) {
         continuation.yield(cards)

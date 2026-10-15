@@ -169,4 +169,21 @@ struct RecordingAutoPauseServiceTests {
         let resumed = try #require(await snapshots.until { $0?.recording.phase == .active })
         #expect(resumed.recording.pauses.last?.end == at(31))
     }
+
+    /// Once saved, the rules no longer watch: Core Motion is released and the Recording gone.
+    @Test func saveDisarmsTheAutomaticPause() async throws {
+        _ = try await service.start(sport: .run, autoPause: true)
+        while motion.subscriberCount == 0 {
+            await Task.yield()
+        }
+        _ = try await service.pause()
+        _ = try await service.finish()
+
+        try await service.save { _ in }
+
+        for _ in 0 ..< 200 where motion.subscriberCount > 0 {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(motion.subscriberCount == 0)
+    }
 }

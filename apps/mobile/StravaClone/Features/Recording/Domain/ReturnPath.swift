@@ -140,6 +140,15 @@ struct ReturnPathRules: Equatable, Sendable {
         self.nextID = nextID
     }
 
+    /// When a request still wanted may leave on time alone (30 s after the previous one, or
+    /// after a temporary failure), so it leaves even if no fix comes; `nil` when none waits.
+    var nextRequestDate: Date? {
+        guard wantsPath, !gaveUp, inFlight == nil, isOnline, requestCount < Self.maxRequestsPerDeparture else {
+            return nil
+        }
+        return [retryAt, lastRequestAt?.addingTimeInterval(Self.minimumInterval)].compactMap(\.self).max()
+    }
+
     /// Something to cancel or to clear on re-snapping.
     var isIdle: Bool {
         !isDeparted && inFlight == nil && streak == nil

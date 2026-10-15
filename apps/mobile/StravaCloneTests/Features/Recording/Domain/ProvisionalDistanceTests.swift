@@ -29,7 +29,7 @@ struct ProvisionalDistanceTests {
         let withoutPause = ProvisionalDistance.measure(trace.samples, pauses: [], sport: .run)
 
         #expect(abs(distance.meters - 1_950) < 19.5)
-        // Without the Pause, the 60 km leg is a speed jump and its end point is dropped:
+        // Without the Pause, the 60 km hop is a speed jump and its end point is dropped:
         // everything after it is lost as well, so the Pause is what keeps the trace whole.
         #expect(withoutPause.meters < distance.meters)
     }
@@ -57,10 +57,10 @@ struct ProvisionalDistanceTests {
 
         distance.append(sample(origin, at: start))
         distance.notePause()
-        let leg = distance.append(sample(origin.offset(northMeters: 5_000), at: start.addingTimeInterval(60)))
+        let hop = distance.append(sample(origin.offset(northMeters: 5_000), at: start.addingTimeInterval(60)))
         distance.append(sample(origin.offset(northMeters: 5_003), at: start.addingTimeInterval(61)))
 
-        #expect(leg == nil)
+        #expect(hop == nil)
         #expect(abs(distance.total.meters - 3) < 0.01)
     }
 

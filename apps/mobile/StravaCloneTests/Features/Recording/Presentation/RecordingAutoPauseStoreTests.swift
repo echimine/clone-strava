@@ -26,7 +26,7 @@ struct RecordingAutoPauseStoreTests {
             preferences: InMemoryRecordingPreferences(lastSavedSport: sport),
             itineraries: FakeItineraryCacheReader(),
             ensureFullAccuracy: { true },
-            saveRecording: SaveRecording(service: service, activities: activities),
+            saveRecording: SaveRecording(service: service, activities: GRDBRecordingSaver(activities: activities)),
             defaultVisibility: { .public },
             autoPausePreferences: preferences,
             requestMotionAuthorization: { await motion.requestAuthorization() }

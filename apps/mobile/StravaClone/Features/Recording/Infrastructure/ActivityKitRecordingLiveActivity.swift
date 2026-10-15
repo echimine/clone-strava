@@ -90,19 +90,7 @@ extension RecordingActivityAttributes.Itinerary {
             name: itinerary.name,
             remainingM: itinerary.remaining?.meters,
             fraction: itinerary.fraction,
-            state: RecordingActivityAttributes.ItineraryState(itinerary.state)
+            state: itinerary.state
         )
-    }
-}
-
-extension RecordingActivityAttributes.ItineraryState {
-    init(_ state: RecordingLiveActivityContent.ItineraryState) {
-        switch state {
-        case .notSnapped: self = .notSnapped
-        case .onTrack: self = .onTrack
-        case .offTrack: self = .offTrack
-        case .returnPath: self = .returnPath
-        case .finished: self = .finished
-        }
     }
 }

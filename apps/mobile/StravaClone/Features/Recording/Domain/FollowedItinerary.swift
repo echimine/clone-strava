@@ -5,17 +5,7 @@ import Foundation
 /// and its Return path. It can be removed, never replaced.
 struct FollowedItinerary: Equatable, Sendable {
     /// What the Recording screen and the Live Activity show next to the distance left.
-    enum State: Equatable, Sendable {
-        /// No position within 50 m of the track yet, no Return path: "—".
-        case notSnapped
-        case onTrack
-        /// "Hors Itinéraire": off it for 3 points and 10 s, no Return path to show.
-        case offTrack
-        /// "Chemin recalculé".
-        case returnPath
-        /// "Itinéraire terminé".
-        case finished
-    }
+    typealias State = ItineraryFollowState
 
     let id: ItineraryID
     let name: String
@@ -115,6 +105,15 @@ struct FollowedItinerary: Equatable, Sendable {
     /// Back online, a Return path still wanted leaves at once. One already shown stays offline.
     mutating func connectivityChanged(_ isOnline: Bool, lastPosition: LocationSample?, at time: Date) -> ReturnPathCommand? {
         rules.connectivityChanged(isOnline)
+        guard let lastPosition else { return nil }
+        return requestIfDue(from: lastPosition, at: time)
+    }
+
+    /// When a wanted Return path request may leave without a new fix (retry after 30 s).
+    var returnPathRetryDate: Date? { rules.nextRequestDate }
+
+    /// The retry is due: the request leaves from the last position.
+    mutating func retryReturnPath(from lastPosition: LocationSample?, at time: Date) -> ReturnPathCommand? {
         guard let lastPosition else { return nil }
         return requestIfDue(from: lastPosition, at: time)
     }

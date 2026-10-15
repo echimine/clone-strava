@@ -48,7 +48,7 @@ struct AutoPauseDetector: Sendable {
     static let resumeSpeedMs = 1.5
     /// …or this far whatever the speed.
     static let resumeAnySpeedDistanceM = 40.0
-    /// Fixes less accurate than this are ignored, as for the live stats.
+    /// Fixes less accurate than this are ignored, as for the provisional values.
     static let maxAccuracyM = ProvisionalDistance.maxAccuracyM
     /// Running: pause after this long without `running`…
     static let motionWindow: TimeInterval = 5
@@ -157,14 +157,23 @@ struct AutoPauseDetector: Sendable {
         let distance = sample.coordinate.distance(to: position).meters
         let resumes = distance >= Self.resumeAnySpeedDistanceM
             || (distance >= Self.resumeDistanceM && (sample.speed ?? 0) >= Self.resumeSpeedMs)
-        guard resumes, let held = pause?.held else { return nil }
-        // The departure: the first of the points that keep moving away from the Pause position.
-        var index = held.count - 1
-        while index > 0,
-              held[index - 1].coordinate.distance(to: position) < held[index].coordinate.distance(to: position) {
+        guard resumes, let held = pause?.held, let start = pause?.start else { return nil }
+        return endPause(at: Self.departure(from: position, among: held) ?? start)
+    }
+
+    /// The actual departure (ADR-031 §4): the last point within `resumeDistanceM` of the Pause
+    /// position before the points that move away (each farther than the one before). A GPS
+    /// that trembles at the stop, even jumping farther, never dates it at a jump.
+    private static func departure(from position: Coordinate, among held: [LocationSample]) -> Date? {
+        let distances = held.map { $0.coordinate.distance(to: position).meters }
+        var index = distances.count - 1
+        while index > 0, distances[index - 1] < distances[index] {
             index -= 1
         }
-        return endPause(at: held[index].timestamp)
+        while index >= 0, distances[index] >= resumeDistanceM {
+            index -= 1
+        }
+        return index >= 0 ? held[index].timestamp : nil
     }
 
     // MARK: - Running (smoothed Core Motion)

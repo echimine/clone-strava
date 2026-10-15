@@ -144,6 +144,7 @@ final class Di {
     /// Wakes the senders of the `sync_operation` queue on the shared triggers (ADR-031 §14).
     private(set) lazy var syncCoordinator: SyncQueueCoordinator = SyncQueueCoordinator(
         activitySender: activitySender,
+        localActivities: localActivities,
         sendItineraryChanges: { [itinerarySynchronizer] in await itinerarySynchronizer.sendPendingChanges() },
         stopItineraryChanges: { [itinerarySynchronizer] in itinerarySynchronizer.stopSendingChanges() },
         reloadFeed: { [weak self] in await self?.feedStore.refresh() ?? false }
@@ -193,7 +194,7 @@ final class Di {
             itineraries: itineraryCache,
             launch: recordingLaunch,
             ensureFullAccuracy: { await permission.ensureFullAccuracy(purposeKey: "Recording") },
-            saveRecording: SaveRecording(service: recordingService, activities: localActivities),
+            saveRecording: SaveRecording(service: recordingService, activities: GRDBRecordingSaver(activities: localActivities)),
             defaultVisibility: { defaultVisibility.cachedDefaultVisibility },
             autoPausePreferences: UserDefaultsRecordingPreferences(),
             requestMotionAuthorization: { await motion.requestAuthorization() }

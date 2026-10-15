@@ -45,6 +45,7 @@ final class SyncQueueCoordinator {
     nonisolated static let activityEvents: Set<String> = ["activity.processed", "activity.failed"]
 
     private let activitySender: ActivitySender
+    private let localActivities: GRDBLocalActivityStore
     private let sendItineraryChanges: @MainActor () async -> Void
     private let stopItineraryChanges: @MainActor @Sendable () -> Void
     private let reloadFeed: @MainActor () async -> Bool
@@ -52,12 +53,14 @@ final class SyncQueueCoordinator {
 
     init(
         activitySender: ActivitySender,
+        localActivities: GRDBLocalActivityStore,
         sendItineraryChanges: @escaping @MainActor () async -> Void,
         stopItineraryChanges: @escaping @MainActor @Sendable () -> Void = {},
         reloadFeed: @escaping @MainActor () async -> Bool,
         backgroundTasks: any BackgroundTaskRunning = UIKitBackgroundTasks()
     ) {
         self.activitySender = activitySender
+        self.localActivities = localActivities
         self.sendItineraryChanges = sendItineraryChanges
         self.stopItineraryChanges = stopItineraryChanges
         self.reloadFeed = reloadFeed
@@ -87,12 +90,12 @@ final class SyncQueueCoordinator {
     func trackProcessing() async {
         let processed = await activitySender.trackProcessing()
         guard !processed.isEmpty, await reloadFeed() else { return }
-        await activitySender.wipe(processed)
+        try? await localActivities.wipe(processed)
     }
 
     /// For the sign-out confirmation: the Activities that would be lost.
     func unsentActivityCount() async -> Int {
-        await activitySender.unsentCount()
+        (try? await localActivities.unsentCount()) ?? 0
     }
 
     /// Sign-out, once confirmed: the local Activities and their queued steps are wiped.

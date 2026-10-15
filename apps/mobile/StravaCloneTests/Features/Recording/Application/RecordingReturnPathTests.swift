@@ -10,6 +10,8 @@ struct RecordingReturnPathTests {
     private let provider = FakeLocationProvider()
     private let router = FakeReturnPathRouter()
     private let network = FakeConnectivity()
+    /// The 30 s retry timer, driven by the test.
+    private let sleeper = ManualSleeper()
     private let clock: Locked<Date>
     private let repository: GRDBRecordingRepository
     private let service: RecordingService
@@ -20,7 +22,14 @@ struct RecordingReturnPathTests {
         let clock = Locked(start)
         self.clock = clock
         repository = GRDBRecordingRepository(database: try AppDatabase.inMemory())
-        service = Self.makeService(provider: provider, repository: repository, router: router, network: network, clock: clock)
+        service = Self.makeService(
+            provider: provider,
+            repository: repository,
+            router: router,
+            network: network,
+            clock: clock,
+            sleep: sleeper.sleep
+        )
     }
 
     static func makeService(
@@ -28,14 +37,16 @@ struct RecordingReturnPathTests {
         repository: GRDBRecordingRepository,
         router: FakeReturnPathRouter,
         network: FakeConnectivity,
-        clock: Locked<Date>
+        clock: Locked<Date>,
+        sleep: @escaping @Sendable (Duration) async throws -> Void = ManualSleeper().sleep
     ) -> RecordingService {
         RecordingService(
             locationProvider: provider,
             repository: repository,
             now: { clock.value },
             returnPathRouter: router,
-            connectivity: { network.stream() }
+            connectivity: { network.stream() },
+            sleep: sleep
         )
     }
 
@@ -213,6 +224,50 @@ struct RecordingReturnPathTests {
 
         await send(60, 141, 100, to: watcher)
         #expect(await router.waitForCalls(2).count == 2)
+    }
+
+    /// The athlete stops after leaving the track: no fix comes, the retry leaves on its own.
+    @Test func aFailedRequestIsAskedAgainAfter30SecondsEvenWithoutANewFix() async throws {
+        await router.fail(with: .temporary)
+        let watcher = await ReturnPathWatcher(service)
+        _ = try await service.start(sport: .run, itinerary: followed)
+        await leaveTheTrack(until: 30, watcher: watcher)
+        #expect(await router.waitForCalls(1).count == 1)
+        #expect(await eventually { sleeper.waiting == 1 })
+        #expect(sleeper.requested.last == .seconds(30))
+
+        await router.answer(with: FakeReturnPathRouter.straight)
+        clock.value = start.addingTimeInterval(60)
+        sleeper.wakeAll()
+
+        let calls = await router.waitForCalls(2)
+        #expect(calls.count == 2)
+        expectNear(calls.last?.position, 110, 100)
+        await watcher.until { $0?.itinerary?.returnPath != nil }
+    }
+
+    @Test func reSnappingCancelsTheRetry() async throws {
+        await router.fail(with: .temporary)
+        let watcher = await ReturnPathWatcher(service)
+        _ = try await service.start(sport: .run, itinerary: followed)
+        await leaveTheTrack(until: 30, watcher: watcher)
+        #expect(await eventually { sleeper.waiting == 1 })
+
+        await send(35, 120, 5, to: watcher) // back on the track
+
+        #expect(sleeper.waiting == 0)
+    }
+
+    @Test func removingTheItineraryCancelsTheRetry() async throws {
+        await router.fail(with: .temporary)
+        let watcher = await ReturnPathWatcher(service)
+        _ = try await service.start(sport: .run, itinerary: followed)
+        await leaveTheTrack(until: 30, watcher: watcher)
+        #expect(await eventually { sleeper.waiting == 1 })
+
+        _ = try await service.removeItinerary()
+
+        #expect(sleeper.waiting == 0)
     }
 
     @Test func atMostFiveRequestsPerDepartureThenOfflineModeUntilReSnapping() async throws {

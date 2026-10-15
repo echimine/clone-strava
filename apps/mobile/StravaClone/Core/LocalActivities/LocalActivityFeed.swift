@@ -19,4 +19,8 @@ struct LocalActivityFeed: LocalActivityFeedSource {
     func retry(_ id: ActivityID) async throws {
         try await sender.retry(id)
     }
+
+    func deletionRefusals() -> AsyncStream<ActivityID> {
+        sender.deletionRefusals()
+    }
 }

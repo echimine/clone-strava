@@ -2,25 +2,20 @@ import Foundation
 import GRDB
 
 /// GRDB adapter of `RecordingRepository` (ADR-031 §10, migration `recording_v1`): the
-/// `recording` row, plus the `activity_point` and `activity_pause` rows of its Activity UUID.
-/// WAL on disk (`AppDatabase.onDisk`): one short transaction per point, ~1 Hz.
+/// `recording` row; the points and finished Pauses of its Activity UUID are written through
+/// `Core/LocalActivities` (`ActivityTraceRecords`, ADR-031 §15). WAL on disk
+/// (`AppDatabase.onDisk`): one short transaction per point, ~1 Hz.
 struct GRDBRecordingRepository: RecordingRepository {
     let database: AppDatabase
 
     func load() async throws -> StoredRecording? {
         try await database.writer.read { db in
             guard let row = try RecordingRow.fetchOne(db) else { return nil }
-            let activityID = row.activityId
-            let pauses = try PauseRow
-                .filter(Column("activity_id") == activityID)
-                .order(Column("start_ms"))
-                .fetchAll(db)
-            let points = try PointRow
-                .filter(Column("activity_id") == activityID)
-                .order(Column("timestamp_ms"), Column("id"))
-                .fetchAll(db)
-            guard let recording = row.recording(pauses: pauses.map(\.pause)) else { return nil }
-            return StoredRecording(recording: recording, points: points.map(\.sample), itinerary: try Self.fetchItinerary(db))
+            guard let id = row.activityID else { return nil }
+            let pauses = try ActivityTraceRecords.pauses(of: id, db).map { RecordingPause(start: $0.start, end: $0.end) }
+            guard let recording = row.recording(pauses: pauses) else { return nil }
+            let points = try ActivityTraceRecords.points(of: id, db)
+            return StoredRecording(recording: recording, points: points, itinerary: try Self.fetchItinerary(db))
         }
     }
 
@@ -48,24 +43,29 @@ struct GRDBRecordingRepository: RecordingRepository {
                   row.activityId == id.description,
                   row.phase == RecordingPhase.active.rawValue
             else { return false }
-            try PointRow(point, activityID: id).insert(db)
+            try ActivityTraceRecords.appendPoint(point, to: id, db)
             return true
         }
     }
 
     func delete(_ id: ActivityID) async throws {
         try await database.writer.write { db in
-            try RecordingRow.filter(Column("activity_id") == id.description).deleteAll(db)
-            try PointRow.filter(Column("activity_id") == id.description).deleteAll(db)
-            try PauseRow.filter(Column("activity_id") == id.description).deleteAll(db)
+            try Self.close(id, db)
+            try ActivityTraceRecords.delete(of: [id.description], db)
         }
+    }
+
+    /// The `recording` row goes (Save: inside the Save transaction of `Core/LocalActivities`;
+    /// the points and Pauses stay with the local Activity).
+    static func close(_ id: ActivityID, _ db: Database) throws {
+        try RecordingRow.filter(Column("activity_id") == id.description).deleteAll(db)
     }
 
     /// Pauses are only ever appended: the stored ones are the first ones of the Recording.
     private func insertNewPauses(of recording: Recording, _ db: Database) throws {
-        let stored = try PauseRow.filter(Column("activity_id") == recording.id.description).fetchCount(db)
+        let stored = try ActivityTraceRecords.pauseCount(of: recording.id, db)
         for pause in recording.pauses.dropFirst(stored) {
-            try PauseRow(pause, activityID: recording.id).insert(db)
+            try ActivityTraceRecords.appendPause(TracePauseInterval(start: pause.start, end: pause.end), to: recording.id, db)
         }
     }
 }
@@ -100,6 +100,10 @@ private struct RecordingRow: Codable, FetchableRecord, PersistableRecord {
         autoPauseEnabled = recording.autoPauseEnabled
     }
 
+    var activityID: ActivityID? {
+        UUID(uuidString: activityId).map(ActivityID.init)
+    }
+
     func recording(pauses: [RecordingPause]) -> Recording? {
         guard let uuid = UUID(uuidString: activityId),
               let sport = RecordingSport(rawValue: sportTypeCode),
@@ -121,61 +125,5 @@ private struct RecordingRow: Codable, FetchableRecord, PersistableRecord {
     private var pausePosition: Coordinate? {
         guard let pauseLatitude, let pauseLongitude else { return nil }
         return Coordinate(latitude: pauseLatitude, longitude: pauseLongitude)
-    }
-}
-
-private struct PointRow: Codable, FetchableRecord, PersistableRecord {
-    static let databaseTableName = "activity_point"
-    static var databaseColumnDecodingStrategy: DatabaseColumnDecodingStrategy { .convertFromSnakeCase }
-    static var databaseColumnEncodingStrategy: DatabaseColumnEncodingStrategy { .convertToSnakeCase }
-
-    var id: Int64?
-    var activityId: String
-    var timestampMs: Int64
-    var latitude: Double
-    var longitude: Double
-    var altitudeM: Double?
-    var horizontalAccuracyM: Double
-    var speedMs: Double?
-
-    init(_ sample: LocationSample, activityID: ActivityID) {
-        activityId = activityID.description
-        timestampMs = sample.timestamp.epochMilliseconds
-        latitude = sample.coordinate.latitude
-        longitude = sample.coordinate.longitude
-        altitudeM = sample.altitude
-        horizontalAccuracyM = sample.horizontalAccuracy
-        speedMs = sample.speed
-    }
-
-    var sample: LocationSample {
-        LocationSample(
-            coordinate: Coordinate(latitude: latitude, longitude: longitude),
-            altitude: altitudeM,
-            horizontalAccuracy: horizontalAccuracyM,
-            speed: speedMs,
-            timestamp: Date(epochMilliseconds: timestampMs)
-        )
-    }
-}
-
-private struct PauseRow: Codable, FetchableRecord, PersistableRecord {
-    static let databaseTableName = "activity_pause"
-    static var databaseColumnDecodingStrategy: DatabaseColumnDecodingStrategy { .convertFromSnakeCase }
-    static var databaseColumnEncodingStrategy: DatabaseColumnEncodingStrategy { .convertToSnakeCase }
-
-    var id: Int64?
-    var activityId: String
-    var startMs: Int64
-    var endMs: Int64
-
-    init(_ pause: RecordingPause, activityID: ActivityID) {
-        activityId = activityID.description
-        startMs = pause.start.epochMilliseconds
-        endMs = pause.end.epochMilliseconds
-    }
-
-    var pause: RecordingPause {
-        RecordingPause(start: Date(epochMilliseconds: startMs), end: Date(epochMilliseconds: endMs))
     }
 }

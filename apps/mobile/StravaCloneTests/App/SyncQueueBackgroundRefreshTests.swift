@@ -35,16 +35,6 @@ final class FakeRefreshTask: BackgroundRefreshTask {
     }
 }
 
-/// Polls `condition` until it holds or about two seconds have passed.
-@MainActor
-func eventually(_ condition: () async throws -> Bool) async rethrows -> Bool {
-    for _ in 0 ..< 200 {
-        if try await condition() { return true }
-        try? await Task.sleep(for: .milliseconds(10))
-    }
-    return try await condition()
-}
-
 /// Nested in `ActivitySenderTests` to share its serialized network stub.
 extension ActivitySenderTests {
     /// The `BGAppRefreshTask` of ADR-031 §14: scheduled only while `sync_operation` is not
@@ -118,10 +108,13 @@ extension ActivitySenderTests {
                 repository: itineraries,
                 cache: cache,
                 queue: GRDBItineraryChangeQueue(database: harness.database),
-                sessionRefresher: FakeSessionRefresher()
+                sessionRefresher: FakeSessionRefresher(),
+                // The retry after the backoff never fires on its own: only the test's triggers send.
+                sleep: ManualSleeper().sleep
             )
             let coordinator = SyncQueueCoordinator(
                 activitySender: harness.makeSender(),
+                localActivities: harness.store,
                 sendItineraryChanges: { await changes.send(ignoringBackoff: true) },
                 stopItineraryChanges: { changes.cancelPass() },
                 reloadFeed: { true },

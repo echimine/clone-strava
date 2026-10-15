@@ -85,7 +85,10 @@ struct ActivitySenderHarness: Sendable {
     }
 
     @MainActor
-    func makeSender(backoff: RetryBackoff = RetryBackoff(initialDelay: .seconds(2), maxDelay: .seconds(300))) -> ActivitySender {
+    func makeSender(
+        backoff: RetryBackoff = RetryBackoff(initialDelay: .seconds(2), maxDelay: .seconds(300)),
+        sleep: @escaping @Sendable (Duration) async throws -> Void = ManualSleeper().sleep
+    ) -> ActivitySender {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [ActivityURLProtocolStub.self]
         let session = URLSession(configuration: configuration)
@@ -95,7 +98,7 @@ struct ActivitySenderHarness: Sendable {
             apiClient: APIClient(baseURL: URL(string: "https://api.test")!, session: session, authSession: authSession),
             uploadSession: session
         )
-        return ActivitySender(server: server, store: store, sessionRefresher: refresher, backoff: backoff, now: { Self.now })
+        return ActivitySender(server: server, store: store, sessionRefresher: refresher, backoff: backoff, now: { Self.now }, sleep: sleep)
     }
 
     /// A 10-minute run with a Pause, finished and saved: 3 points, one finished Pause.
@@ -112,7 +115,7 @@ struct ActivitySenderHarness: Sendable {
         recording.pause(at: start.addingTimeInterval(600))
         recording.finish()
         try await recordings.save(recording)
-        try await store.saveRecorded(LocalActivity(
+        try await GRDBRecordingSaver(activities: store).saveRecorded(LocalActivity(
             id: id,
             sport: .run,
             title: "Course à pied le matin",
