@@ -17,6 +17,9 @@ actor RecordingService {
     private var restoring: Task<Void, any Error>?
     private var observers: [UUID: AsyncStream<RecordingSnapshot?>.Continuation] = [:]
 
+    /// How long points may fail to reach the disk before the athlete is warned (ADR-031 §10).
+    static let writeFailureWarningDelay: TimeInterval = 30
+
     init(
         locationProvider: any LocationProvider,
         repository: any RecordingRepository,
@@ -158,6 +161,7 @@ actor RecordingService {
         await write(sample, to: recording.id)
         guard snapshot?.recording.id == recording.id else { return }
         snapshot?.pointCount += 1
+        snapshot?.isTraceWriteFailing = isWriteFailing
         if RecordingSnapshot.isAccurate(sample) {
             snapshot?.trace.append(sample.coordinate)
         }
@@ -178,6 +182,12 @@ actor RecordingService {
         } catch {
             // Kept in memory and retried with the next point (ADR-031 §10).
         }
+    }
+
+    /// Points have failed to reach the disk for the warning delay, measured on their own times.
+    private var isWriteFailing: Bool {
+        guard let first = unwrittenPoints.first, let last = unwrittenPoints.last else { return false }
+        return last.timestamp.timeIntervalSince(first.timestamp) >= Self.writeFailureWarningDelay
     }
 
     private func publish() {

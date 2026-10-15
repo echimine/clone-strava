@@ -20,17 +20,21 @@ final class RecordingStore {
 
     @ObservationIgnored private let service: RecordingService
     @ObservationIgnored private let preferences: any RecordingPreferences
+    @ObservationIgnored private let launch: RecordingLaunch
     @ObservationIgnored private let ensureFullAccuracy: @MainActor () async -> Bool
 
     /// - Parameter ensureFullAccuracy: asks for temporary full accuracy when only the approximate
     ///   location is allowed; `false` when refused (ADR-031 §2).
+    /// - Parameter launch: how this launch of the app picks a stored Recording up (ADR-031 §10).
     init(
         service: RecordingService,
         preferences: any RecordingPreferences,
+        launch: RecordingLaunch = .openedByAthlete,
         ensureFullAccuracy: @escaping @MainActor () async -> Bool
     ) {
         self.service = service
         self.preferences = preferences
+        self.launch = launch
         self.ensureFullAccuracy = ensureFullAccuracy
         sport = preferences.lastSavedSport ?? .run
     }
@@ -47,7 +51,7 @@ final class RecordingStore {
     /// Picks up a stored Recording, then follows the service until cancelled (SwiftUI `.task`).
     func observe() async {
         do {
-            _ = try await service.restore()
+            _ = try await service.restore(launch)
         } catch {
             errorMessage = RecordingMessages.startFailed
         }
@@ -89,6 +93,13 @@ final class RecordingStore {
     /// "Reprendre" on the finish screen.
     func reopen() async {
         await perform { try await $0.reopen() }
+    }
+
+    /// The sign-out confirmation while a Recording exists, even if the Record tab was never
+    /// opened (ADR-031 §10); `nil` when there is none. Confirmed, `delete()` wipes it first.
+    func signOutWarning() async -> String? {
+        let current = try? await service.restore(launch)
+        return current == nil ? nil : RecordingMessages.signOutWarning
     }
 
     /// After the confirmation: everything is wiped, back to the pre-start screen.
