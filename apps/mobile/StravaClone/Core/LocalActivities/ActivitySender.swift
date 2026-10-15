@@ -60,6 +60,13 @@ final class ActivitySender {
         await task.value
     }
 
+    /// iOS takes the background time back (ADR-031 §14): the pass in flight stops. Its request
+    /// fails like a lost network and nothing is written past it, so each operation stays at
+    /// its step for the next trigger.
+    func cancelPass() {
+        sending?.cancel()
+    }
+
     /// Follows the Activities in `processing` with `GET /v1/activities/:id` (ADR-031 §14): a
     /// worker failure turns the local Activity `failed` (points kept). Returns the processed
     /// ones: the caller reloads the feed, then `wipe`s them.

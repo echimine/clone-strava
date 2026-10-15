@@ -20,6 +20,8 @@ private final class MeURLProtocolStub: URLProtocol, @unchecked Sendable {
             client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
             client?.urlProtocol(self, didLoad: Data(body.utf8))
             client?.urlProtocolDidFinishLoading(self)
+        case .hang:
+            break
         }
     }
 

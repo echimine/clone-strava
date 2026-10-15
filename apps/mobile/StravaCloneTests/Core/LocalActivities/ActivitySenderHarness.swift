@@ -7,6 +7,8 @@ final class ActivityURLProtocolStub: URLProtocol, @unchecked Sendable {
     enum Answer {
         case status(Int, String = "")
         case offline
+        /// No answer until the request is cancelled.
+        case hang
     }
 
     static let handler = Locked<(@Sendable (URLRequest) -> Answer)?>(nil)
@@ -22,6 +24,8 @@ final class ActivityURLProtocolStub: URLProtocol, @unchecked Sendable {
         switch Self.handler.value?(recorded) ?? .status(500) {
         case .offline:
             client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet))
+        case .hang:
+            break
         case .status(let status, let body):
             let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!
             client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)

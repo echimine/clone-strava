@@ -25,6 +25,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         di.start()
+        // The sync queue's BGAppRefreshTask must be registered before launch ends (ADR-031 §14).
+        di.startBackgroundRefresh()
         // iOS relaunches the app for location with this key; any other launch after the app
         // was killed is the athlete opening it (ADR-031 §10).
         di.resumeRecording(after: launchOptions?[.location] != nil ? .relaunchedInBackground : .openedByAthlete)

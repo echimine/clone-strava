@@ -70,6 +70,12 @@ final class ItineraryChangeSender {
         await task.value
     }
 
+    /// iOS takes the background time back (ADR-031 §14): the pass in flight stops; its request
+    /// fails like a lost network, the change stays queued.
+    func cancelPass() {
+        sending?.cancel()
+    }
+
     /// The changes that a sign-out would lose.
     func pendingCount() async -> Int {
         (try? await queue.pending().count) ?? 0

@@ -135,7 +135,15 @@ final class Di {
     private(set) lazy var syncCoordinator: SyncQueueCoordinator = SyncQueueCoordinator(
         activitySender: activitySender,
         sendItineraryChanges: { [itinerarySynchronizer] in await itinerarySynchronizer.sendPendingChanges() },
+        stopItineraryChanges: { [itinerarySynchronizer] in itinerarySynchronizer.stopSendingChanges() },
         reloadFeed: { [weak self] in await self?.feedStore.refresh() ?? false }
+    )
+
+    /// Empties the queue while the app is not open (`BGAppRefreshTask`, ADR-031 §14).
+    private lazy var backgroundRefresh = SyncQueueBackgroundRefresh(
+        queue: SyncQueueState(database: database),
+        scheduler: BGTaskSchedulerRefresh(),
+        refresh: { [weak self] in await self?.syncCoordinator.backgroundRefresh() }
     )
 
     static func live() throws -> Di {
@@ -144,6 +152,14 @@ final class Di {
 
     func start() {
         connectivityMonitor.start()
+    }
+
+    /// At launch, before `didFinishLaunching` returns: registers the `BGAppRefreshTask`, then
+    /// schedules it whenever `sync_operation` holds operations (ADR-031 §14).
+    func startBackgroundRefresh() {
+        let backgroundRefresh = backgroundRefresh
+        backgroundRefresh.register()
+        Task { await backgroundRefresh.observeQueue() }
     }
 
     /// At launch (ADR-031 §3, §10): a stored Recording rejoins the background session and the
