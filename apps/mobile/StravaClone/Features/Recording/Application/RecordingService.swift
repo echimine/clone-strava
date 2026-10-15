@@ -80,6 +80,23 @@ actor RecordingService {
         try await change { $0.reopen() }
     }
 
+    /// Save (ADR-031 §11), from the finish screen only: `persist` turns the finished Recording
+    /// into a local Activity in one transaction that also deletes the `recording` row; then the
+    /// GPS and the background session are released and the Record tab returns to the pre-start
+    /// screen. Nothing is released if `persist` throws.
+    func save(_ persist: @Sendable (RecordingSnapshot) async throws -> Void) async throws {
+        guard let snapshot, snapshot.recording.phase == .finishing else { throw RecordingSaveError.notSavable }
+        try await persist(snapshot)
+        guard self.snapshot?.recording.id == snapshot.recording.id else { return }
+        consumer?.cancel()
+        consumer = nil
+        await locationProvider.endBackgroundTracking()
+        self.snapshot = nil
+        distance = nil
+        unwrittenPoints = []
+        publish()
+    }
+
     /// Wipes the Recording, its points and its Pauses, and releases the GPS.
     func delete() async throws {
         guard let id = snapshot?.recording.id else { return }

@@ -49,7 +49,7 @@ struct FeedView<TopContent: View>: View {
                     )
                     .padding(.top, 80)
                 }
-                .refreshable { await store.refresh() }
+                .refreshable { await store.pullToRefresh() }
             } else {
                 list
             }
@@ -57,27 +57,35 @@ struct FeedView<TopContent: View>: View {
     }
 
     private var list: some View {
-        ScrollView {
-            LazyVStack(spacing: Theme.spacing) {
-                ForEach(store.posts) { post in
-                    ActivityCard(
-                        post: post,
-                        onToggleKudos: { Task { await store.toggleKudos(on: post.id) } },
-                        // TODO(ADR-029): open the comments screen once it exists.
-                        onComments: {}
-                    )
-                    .task { await store.loadMoreIfNeeded(currentPost: post) }
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(spacing: Theme.spacing) {
+                    Color.clear.frame(height: 0).id(Self.topID)
+                    ForEach(store.posts) { post in
+                        ActivityCard(
+                            post: post,
+                            onToggleKudos: { Task { await store.toggleKudos(on: post.id) } },
+                            // TODO(ADR-029): open the comments screen once it exists.
+                            onComments: {}
+                        )
+                        .task { await store.loadMoreIfNeeded(currentPost: post) }
+                    }
+                    if store.isLoadingMore {
+                        ProgressView().padding()
+                    }
                 }
-                if store.isLoadingMore {
-                    ProgressView().padding()
-                }
+                .padding(.horizontal, Theme.spacing)
+                .padding(.vertical, 8)
             }
-            .padding(.horizontal, Theme.spacing)
-            .padding(.vertical, 8)
+            .refreshable { await store.pullToRefresh() }
+            .accessibilityIdentifier("feed.list")
+            .onChange(of: store.scrollToTopRequest) {
+                withAnimation { proxy.scrollTo(Self.topID, anchor: .top) }
+            }
         }
-        .refreshable { await store.refresh() }
-        .accessibilityIdentifier("feed.list")
     }
+
+    private static var topID: String { "feed.top" }
 }
 
 extension FeedView where TopContent == EmptyView {

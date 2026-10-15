@@ -35,7 +35,9 @@ struct StravaCloneApp: App {
                 makeItineraryEditFlow: di.makeItineraryEditFlow,
                 itineraryCreation: di.makeItineraryCreationFlow(),
                 itinerarySynchronizer: di.itinerarySynchronizer,
-                connectivityChanges: di.connectivityChanges
+                connectivityChanges: di.connectivityChanges,
+                syncCoordinator: di.syncCoordinator,
+                defaultVisibility: di.defaultVisibility
             )
                 .tint(Theme.accent)
                 .environment(\.imageLoader, di.imageLoader)
@@ -68,8 +70,17 @@ struct RootView: View {
     @State var itineraryCreation: ItineraryCreationFlow
     let itinerarySynchronizer: ItinerarySynchronizer
     let connectivityChanges: @MainActor () -> AsyncStream<Bool>
+    /// Sends the queued operations and follows the Activities in `processing` (ADR-031 §14).
+    let syncCoordinator: SyncQueueCoordinator
+    let defaultVisibility: DefaultVisibilityCache
+
+    /// The tabs, so Save can bring the athlete to the feed (ADR-031 §11).
+    enum Tab: Hashable {
+        case home, map, record, profile
+    }
 
     @Environment(\.scenePhase) private var scenePhase
+    @State private var selectedTab = Tab.home
     /// A queued Itinerary change the server turned down (ADR-030 §8).
     @State private var itineraryChangeToast: String?
 
@@ -88,11 +99,12 @@ struct RootView: View {
                 AuthFlowView(store: authStore)
                     .onAppear {
                         feedStore.reset()
+                        defaultVisibility.clear()
                         // ADR-030 §8: the Itinerary cache does not outlive the session.
                         Task { await itinerarySynchronizer.signOut() }
                     }
             case .signedIn:
-                TabView {
+                TabView(selection: $selectedTab) {
                     FeedView(store: feedStore, onImportActivity: importStore.startImport) {
                         if let banner = importStore.banner {
                             ImportStatusBanner(
@@ -117,6 +129,7 @@ struct RootView: View {
                         )
                     }
                     .tabItem { Label("Accueil", systemImage: "house") }
+                    .tag(Tab.home)
                     NavigationStack {
                         MapScreen(
                             onCreateItinerary: { itineraryCreation.start(from: .mapTab) },
@@ -133,8 +146,10 @@ struct RootView: View {
                         }
                     }
                     .tabItem { Label("Map", systemImage: "map") }
-                    RecordingView(store: recordingStore)
+                    .tag(Tab.map)
+                    RecordingView(store: recordingStore, onSaved: activitySaved)
                         .tabItem { Label("Enregistrer", systemImage: "record.circle") }
+                        .tag(Tab.record)
                     ProfileView(store: authStore, signOutWarning: {
                         ItineraryMessages.signOutWarning(pendingChanges: await itinerarySynchronizer.pendingChangeCount())
                     }) {
@@ -146,6 +161,7 @@ struct RootView: View {
                         )
                     }
                     .tabItem { Label("Profil", systemImage: "person") }
+                    .tag(Tab.profile)
                 }
                 .fullScreenCover(isPresented: $itineraryCreation.isPresented) {
                     ItineraryCreationView(
@@ -182,10 +198,31 @@ struct RootView: View {
             try? await itinerarySynchronizer.refresh()
             await itinerarySynchronizer.resyncOnReconnection(connectivityChanges())
         }
+        // ADR-031 §14: the queue is sent and the Activities in `processing` checked on sign-in and
+        // each return to the foreground, then on network back and realtime (re)connections and
+        // events. The default visibility is reloaded at the same moments (§13).
+        .task(id: realtimeUserId) {
+            guard realtimeUserId != nil else { return }
+            await defaultVisibility.refresh()
+            await syncCoordinator.appBecameActive()
+            await syncCoordinator.observe(
+                connectivity: connectivityChanges(),
+                connections: realtimeService.connections(),
+                events: realtimeService.events()
+            )
+        }
         // ADR-030 §9: what another device saves or deletes shows here live.
         .task(id: realtimeUserId) {
             guard realtimeUserId != nil else { return }
             await itinerarySynchronizer.applyRemoteChanges()
         }
+    }
+
+    /// After Save (ADR-031 §11): the Home tab at the top of the feed, and the Activity leaves
+    /// at once.
+    private func activitySaved() {
+        selectedTab = .home
+        Task { await feedStore.showTop() }
+        Task { await syncCoordinator.activitySaved() }
     }
 }

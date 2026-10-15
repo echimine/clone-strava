@@ -4,6 +4,8 @@ import SwiftUI
 /// with the tab bar hidden, and the finish screen over it.
 struct RecordingView: View {
     @State var store: RecordingStore
+    /// After Save (ADR-031 §11): the app shell shows the top of the feed.
+    var onSaved: () -> Void = {}
 
     var body: some View {
         NavigationStack {
@@ -14,7 +16,7 @@ struct RecordingView: View {
         .task { await store.observe() }
         .fullScreenCover(isPresented: .constant(store.screen == .finishing)) {
             if let snapshot = store.snapshot {
-                RecordingFinishView(store: store, snapshot: snapshot)
+                RecordingFinishView(store: store, snapshot: snapshot, onSaved: onSaved)
             }
         }
     }

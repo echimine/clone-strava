@@ -7,9 +7,12 @@ struct RecordingStoreTests {
     private let provider = FakeLocationProvider()
     private let repository: GRDBRecordingRepository
     private let service: RecordingService
+    private let activities: GRDBLocalActivityStore
 
     init() throws {
-        repository = GRDBRecordingRepository(database: try AppDatabase.inMemory())
+        let database = try AppDatabase.inMemory()
+        repository = GRDBRecordingRepository(database: database)
+        activities = GRDBLocalActivityStore(database: database)
         service = RecordingService(locationProvider: provider, repository: repository)
     }
 
@@ -20,7 +23,9 @@ struct RecordingStoreTests {
         RecordingStore(
             service: service,
             preferences: InMemoryRecordingPreferences(lastSavedSport: lastSavedSport),
-            ensureFullAccuracy: { fullAccuracy }
+            ensureFullAccuracy: { fullAccuracy },
+            saveRecording: SaveRecording(service: service, activities: activities),
+            defaultVisibility: { .public }
         )
     }
 
