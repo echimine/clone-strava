@@ -50,8 +50,22 @@ final class Di {
     /// Product events (ADR-015): PostHog, opted out until a consent screen exists; nothing
     /// without a key.
     let analytics: any AnalyticsClient
+    /// Saved Activities until processed (ADR-031 §14, §15) and their sender.
+    let localActivities: GRDBLocalActivityStore
+    let activitySender: ActivitySender
+    /// `defaultVisibility` of `GET /v1/me`, for the finish screen (ADR-031 §11, §13).
+    let defaultVisibility: DefaultVisibilityCache
 
     private let recordingService: RecordingService
+    /// Lock screen and Dynamic Island of the Recording (ADR-031 §9).
+    private let recordingLiveActivity = RecordingLiveActivityUpdater(
+        port: ActivityKitRecordingLiveActivity(),
+        ticks: RecordingLiveActivityUpdater.everyFiveSeconds
+    )
+    /// Core Motion for the automatic Pause of a run (ADR-031 §4).
+    private let motionProvider = CoreMotionActivityProvider()
+    /// How this launch picks a stored Recording up, set by the `AppDelegate` (ADR-031 §10).
+    private var recordingLaunch = RecordingLaunch.openedByAthlete
     private let authService: AuthService
     private let importRepository: APIActivityImportRepository
     private let feedRepository: APIFeedRepository
@@ -74,9 +88,16 @@ final class Di {
         // TODO(ADR-022): Apple Sign-In — blocked on a paid Apple Developer Program membership.
         // TODO(ADR-022 §5): admin 2FA — credential-only, backoffice web, not applicable to mobile.
 
+        let monitor = connectivityMonitor
         recordingService = RecordingService(
             locationProvider: locationProvider,
-            repository: GRDBRecordingRepository(database: database)
+            repository: GRDBRecordingRepository(database: database),
+            motionProvider: motionProvider,
+            autoPauseFeedback: HapticAutoPauseFeedback(),
+            liveActivity: recordingLiveActivity,
+            // Return path (ADR-031 §7): the Itineraries' router and token.
+            returnPathRouter: MapboxDirectionsRouter(accessToken: configuration.mapboxItinerariesToken),
+            connectivity: { await Di.connectivityChanges(of: monitor) }
         )
         realtimeService = RealtimeService(
             client: webSocketClient,
@@ -102,7 +123,39 @@ final class Di {
             repository: APIAuthRepository(apiClient: apiClient, authSession: authSession),
             googleAuthProvider: GIDGoogleAuthProvider()
         )
+        localActivities = GRDBLocalActivityStore(database: database)
+        activitySender = ActivitySender(
+            server: APIActivityServer(apiClient: apiClient),
+            store: localActivities,
+            sessionRefresher: APISessionRefresher(apiClient: apiClient, authSession: authSession)
+        )
+        defaultVisibility = DefaultVisibilityCache(apiClient: apiClient)
     }
+
+    /// The Home feed, one for the app: the queue coordinator reloads it.
+    private(set) lazy var feedStore: FeedStore = FeedStore(
+        loadFeed: LoadFeed(repository: feedRepository),
+        toggleKudos: ToggleKudos(repository: feedRepository),
+        events: RealtimeFeedEventSource(client: webSocketClient),
+        localActivities: LocalActivityFeed(store: localActivities, sender: activitySender),
+        onPullToRefresh: { [weak self] in await self?.syncCoordinator.pullToRefresh() }
+    )
+
+    /// Wakes the senders of the `sync_operation` queue on the shared triggers (ADR-031 §14).
+    private(set) lazy var syncCoordinator: SyncQueueCoordinator = SyncQueueCoordinator(
+        activitySender: activitySender,
+        localActivities: localActivities,
+        sendItineraryChanges: { [itinerarySynchronizer] in await itinerarySynchronizer.sendPendingChanges() },
+        stopItineraryChanges: { [itinerarySynchronizer] in itinerarySynchronizer.stopSendingChanges() },
+        reloadFeed: { [weak self] in await self?.feedStore.refresh() ?? false }
+    )
+
+    /// Empties the queue while the app is not open (`BGAppRefreshTask`, ADR-031 §14).
+    private lazy var backgroundRefresh = SyncQueueBackgroundRefresh(
+        queue: SyncQueueState(database: database),
+        scheduler: BGTaskSchedulerRefresh(),
+        refresh: { [weak self] in await self?.syncCoordinator.backgroundRefresh() }
+    )
 
     static func live() throws -> Di {
         try Di(database: .onDisk())
@@ -112,8 +165,40 @@ final class Di {
         connectivityMonitor.start()
     }
 
+    /// At launch, before `didFinishLaunching` returns: registers the `BGAppRefreshTask`, then
+    /// schedules it whenever `sync_operation` holds operations (ADR-031 §14).
+    func startBackgroundRefresh() {
+        let backgroundRefresh = backgroundRefresh
+        backgroundRefresh.register()
+        Task { await backgroundRefresh.observeQueue() }
+    }
+
+    /// At launch (ADR-031 §3, §9, §10): Live Activities left by a previous run end, then a
+    /// stored Recording rejoins the background session and the GPS loop at once, whether or not
+    /// a screen ever shows it.
+    func resumeRecording(after launch: RecordingLaunch) {
+        recordingLaunch = launch
+        let liveActivity = recordingLiveActivity
+        Task { await liveActivity.run() }
+        let service = recordingService
+        Task { _ = try? await service.restore(launch) }
+    }
+
     func makeRecordingStore() -> RecordingStore {
-        RecordingStore(service: recordingService)
+        let permission = locationPermission
+        let defaultVisibility = defaultVisibility
+        let motion = motionProvider
+        return RecordingStore(
+            service: recordingService,
+            preferences: UserDefaultsRecordingPreferences(),
+            itineraries: itineraryCache,
+            launch: recordingLaunch,
+            ensureFullAccuracy: { await permission.ensureFullAccuracy(purposeKey: "Recording") },
+            saveRecording: SaveRecording(service: recordingService, activities: GRDBRecordingSaver(activities: localActivities)),
+            defaultVisibility: { defaultVisibility.cachedDefaultVisibility },
+            autoPausePreferences: UserDefaultsRecordingPreferences(),
+            requestMotionAuthorization: { await motion.requestAuthorization() }
+        )
     }
 
     func makeAuthStore() -> AuthStore {
@@ -121,11 +206,7 @@ final class Di {
     }
 
     func makeFeedStore() -> FeedStore {
-        FeedStore(
-            loadFeed: LoadFeed(repository: feedRepository),
-            toggleKudos: ToggleKudos(repository: feedRepository),
-            events: RealtimeFeedEventSource(client: webSocketClient)
-        )
+        feedStore
     }
 
     /// - Parameter id: the new Itinerary's, generated by its save store: links the events.
@@ -206,7 +287,11 @@ final class Di {
 
     /// `true` while a network route exists, current state first (`ConnectivityMonitor`).
     func connectivityChanges() -> AsyncStream<Bool> {
-        let updates = connectivityMonitor.updates()
+        Self.connectivityChanges(of: connectivityMonitor)
+    }
+
+    private static func connectivityChanges(of monitor: ConnectivityMonitor) -> AsyncStream<Bool> {
+        let updates = monitor.updates()
         return AsyncStream { continuation in
             let task = Task {
                 for await status in updates {

@@ -20,7 +20,9 @@ struct ItineraryChangeTriggersTests {
             repository: repository,
             cache: cache,
             queue: GRDBItineraryChangeQueue(database: database),
-            sessionRefresher: FakeSessionRefresher()
+            sessionRefresher: FakeSessionRefresher(),
+            // The retry after the backoff never fires on its own: only the test's triggers send.
+            sleep: ManualSleeper().sleep
         )
         return Harness(
             synchronizer: ItinerarySynchronizer(repository: repository, cache: cache, changes: changes),

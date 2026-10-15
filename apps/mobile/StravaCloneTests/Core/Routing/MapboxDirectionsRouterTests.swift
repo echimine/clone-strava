@@ -84,6 +84,30 @@ struct MapboxDirectionsRouterTests {
         #expect(query["access_token"] == "pk.test")
     }
 
+    @Test func constrainsTheFirstWaypointToTheGivenBearing() async throws {
+        let router = makeRouter()
+        let json = twoLegsJSON
+        DirectionsURLProtocolStub.handler.value = { _ in (200, json) }
+
+        _ = try await router.path(through: [a, b, c], profile: .walking, startBearing: Bearing(degrees: 87, tolerance: 45))
+
+        let url = try #require(DirectionsURLProtocolStub.requests.value.first?.url)
+        let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        #expect(items.first { $0.name == "bearings" }?.value == "87,45;;")
+    }
+
+    @Test func sendsNoBearingsWhenNoneIsGiven() async throws {
+        let router = makeRouter()
+        let json = twoLegsJSON
+        DirectionsURLProtocolStub.handler.value = { _ in (200, json) }
+
+        _ = try await router.path(through: [a, b, c], profile: .walking)
+
+        let url = try #require(DirectionsURLProtocolStub.requests.value.first?.url)
+        let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        #expect(!items.contains { $0.name == "bearings" })
+    }
+
     @Test(arguments: [RoutingProfile.walking, .cycling])
     func usesTheProfileOfTheSportCategory(profile: RoutingProfile) async throws {
         let router = makeRouter()
@@ -94,11 +118,6 @@ struct MapboxDirectionsRouterTests {
 
         let url = try #require(DirectionsURLProtocolStub.requests.value.first?.url)
         #expect(url.path.hasPrefix("/directions/v5/mapbox/\(profile.rawValue)/"))
-    }
-
-    @Test func profilesMatchTheSportCategories() {
-        #expect(SportCategory.foot.routingProfile.rawValue == "walking")
-        #expect(SportCategory.wheels.routingProfile.rawValue == "cycling")
     }
 
     @Test func decodesTheSnappedWaypointsAndOneGeometryPerLeg() async throws {
@@ -187,6 +206,74 @@ struct MapboxDirectionsRouterTests {
 
         await #expect(throws: RoutingError.temporary) {
             try await router.path(through: [a, b], profile: .walking)
+        }
+    }
+
+    // MARK: Return path (ADR-031 §7)
+
+    private let returnPathJSON = """
+    {
+      "code": "Ok",
+      "routes": [{ "geometry": "_mopvA_cptJo}@o}@o}@?", "distance": 248.5, "legs": [{ "distance": 248.5 }] }],
+      "waypoints": [{ "name": "", "location": [6.12, 45.9] }, { "name": "", "location": [6.121, 45.902] }]
+    }
+    """
+
+    @Test func asksAReturnPathWithUnlimitedSnappingNoStepsAndTheCourse() async throws {
+        let router = makeRouter()
+        respond(200, returnPathJSON)
+
+        _ = try await router.returnPath(from: a, to: b, profile: .cycling, bearing: Bearing(degrees: 271.6, tolerance: 45))
+
+        let request = try #require(DirectionsURLProtocolStub.requests.value.first)
+        let components = try #require(URLComponents(url: request.url!, resolvingAgainstBaseURL: false))
+        #expect(components.path == "/directions/v5/mapbox/cycling/6.120300,45.900200;6.121400,45.901100")
+        let query = Dictionary(uniqueKeysWithValues: (components.queryItems ?? []).map { ($0.name, $0.value) })
+        #expect(query["radiuses"] == "unlimited;unlimited")
+        #expect(query["steps"] == "false")
+        #expect(query["bearings"] == "272,45;")
+        #expect(query["geometries"] == "polyline6")
+        #expect(query["overview"] == "full")
+        #expect(query["access_token"] == "pk.test")
+    }
+
+    @Test func omitsTheBearingsOfAReturnPathWithoutACourse() async throws {
+        let router = makeRouter()
+        respond(200, returnPathJSON)
+
+        _ = try await router.returnPath(from: a, to: b, profile: .walking, bearing: nil)
+
+        let request = try #require(DirectionsURLProtocolStub.requests.value.first)
+        let items = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        #expect(!items.contains { $0.name == "bearings" })
+    }
+
+    @Test func decodesTheReturnPathGeometryAndItsMapboxDistance() async throws {
+        let router = makeRouter()
+        respond(200, returnPathJSON)
+
+        let path = try await router.returnPath(from: a, to: b, profile: .walking, bearing: nil)
+
+        #expect(path.distance == Distance(meters: 248.5))
+        #expect(path.path == [
+            Coordinate(latitude: 45.9, longitude: 6.12),
+            Coordinate(latitude: 45.901, longitude: 6.121),
+            Coordinate(latitude: 45.902, longitude: 6.121),
+        ])
+    }
+
+    @Test(arguments: [
+        (200, #"{"code":"NoRoute","message":"No route found"}"#, RoutingError.noPath),
+        (200, #"{"code":"NoSegment","message":"No road segment could be matched"}"#, .noPath),
+        (429, #"{"message":"Too Many Requests"}"#, .rateLimited),
+        (503, "", .temporary),
+    ])
+    func classifiesReturnPathFailures(status: Int, body: String, error: RoutingError) async {
+        let router = makeRouter()
+        respond(status, body)
+
+        await #expect(throws: error) {
+            try await router.returnPath(from: a, to: b, profile: .walking, bearing: nil)
         }
     }
 }

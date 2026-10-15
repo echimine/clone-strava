@@ -103,6 +103,17 @@ final class ItinerarySynchronizer {
         await changes?.delete(id: id)
     }
 
+    /// Sends the queued changes without a resync, whatever their backoff (queue coordinator in
+    /// `App/`, ADR-031 §14).
+    func sendPendingChanges() async {
+        await changes?.send(ignoringBackoff: true)
+    }
+
+    /// Stops the pass of `sendPendingChanges` in flight (the background refresh expired).
+    func stopSendingChanges() {
+        changes?.cancelPass()
+    }
+
     /// The changes a sign-out would lose: the confirmation warns about them.
     func pendingChangeCount() async -> Int {
         await changes?.pendingCount() ?? 0

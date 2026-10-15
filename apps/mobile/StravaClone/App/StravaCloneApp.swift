@@ -3,21 +3,10 @@ import SwiftUI
 
 @main
 struct StravaCloneApp: App {
-    private let di: Di
+    /// Owns the composition root, built before `didFinishLaunchingWithOptions` (ADR-031 §3).
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
-    init() {
-        // UI tests launch with `-uiTestResetAuth` to start from a clean, signed-out
-        // state regardless of what a previous run left in the Keychain.
-        if ProcessInfo.processInfo.arguments.contains("-uiTestResetAuth") {
-            AuthSession().clear()
-        }
-        do {
-            di = try Di.live()
-        } catch {
-            fatalError("Unable to open the local database: \(error)")
-        }
-        di.start()
-    }
+    private var di: Di { appDelegate.di }
 
     var body: some Scene {
         WindowGroup {
@@ -35,7 +24,9 @@ struct StravaCloneApp: App {
                 makeItineraryEditFlow: di.makeItineraryEditFlow,
                 itineraryCreation: di.makeItineraryCreationFlow(),
                 itinerarySynchronizer: di.itinerarySynchronizer,
-                connectivityChanges: di.connectivityChanges
+                connectivityChanges: di.connectivityChanges,
+                syncCoordinator: di.syncCoordinator,
+                defaultVisibility: di.defaultVisibility
             )
                 .tint(Theme.accent)
                 .environment(\.imageLoader, di.imageLoader)
@@ -68,8 +59,12 @@ struct RootView: View {
     @State var itineraryCreation: ItineraryCreationFlow
     let itinerarySynchronizer: ItinerarySynchronizer
     let connectivityChanges: @MainActor () -> AsyncStream<Bool>
+    /// Sends the queued operations and follows the Activities in `processing` (ADR-031 §14).
+    let syncCoordinator: SyncQueueCoordinator
+    let defaultVisibility: DefaultVisibilityCache
 
     @Environment(\.scenePhase) private var scenePhase
+    @State private var selectedTab = AppTab.feed
     /// A queued Itinerary change the server turned down (ADR-030 §8).
     @State private var itineraryChangeToast: String?
 
@@ -77,6 +72,15 @@ struct RootView: View {
     private var realtimeUserId: String? {
         guard scenePhase == .active, case .signedIn(let user) = authStore.state else { return nil }
         return user.id
+    }
+
+    /// "Démarrer avec cet Itinéraire" on an Itinerary's detail (ADR-031 §2): the Record tab,
+    /// with the Itinerary chosen on the pre-start screen, or the Recording in progress.
+    private var startRecordingWithItinerary: StartRecordingWithItinerary {
+        StartRecordingWithItinerary(isRecording: recordingStore.snapshot != nil) { [recordingStore] id in
+            selectedTab = .record
+            Task { await recordingStore.prepare(itineraryID: id) }
+        }
     }
 
     var body: some View {
@@ -88,11 +92,12 @@ struct RootView: View {
                 AuthFlowView(store: authStore)
                     .onAppear {
                         feedStore.reset()
+                        defaultVisibility.clear()
                         // ADR-030 §8: the Itinerary cache does not outlive the session.
                         Task { await itinerarySynchronizer.signOut() }
                     }
             case .signedIn:
-                TabView {
+                TabView(selection: $selectedTab) {
                     FeedView(store: feedStore, onImportActivity: importStore.startImport) {
                         if let banner = importStore.banner {
                             ImportStatusBanner(
@@ -117,6 +122,7 @@ struct RootView: View {
                         )
                     }
                     .tabItem { Label("Accueil", systemImage: "house") }
+                    .tag(AppTab.feed)
                     NavigationStack {
                         MapScreen(
                             onCreateItinerary: { itineraryCreation.start(from: .mapTab) },
@@ -133,10 +139,24 @@ struct RootView: View {
                         }
                     }
                     .tabItem { Label("Map", systemImage: "map") }
-                    RecordingView(store: recordingStore)
-                        .tabItem { Label("Enregistrer", systemImage: "record.circle") }
+                    .tag(AppTab.map)
+                    RecordingView(
+                        store: recordingStore,
+                        onSaved: activitySaved,
+                        onCreateItinerary: { itineraryCreation.start(from: .recording) }
+                    )
+                    .tabItem { Label("Enregistrer", systemImage: "record.circle") }
+                    .tag(AppTab.record)
                     ProfileView(store: authStore, signOutWarning: {
-                        ItineraryMessages.signOutWarning(pendingChanges: await itinerarySynchronizer.pendingChangeCount())
+                        // ADR-031 §10, §14: one confirmation for all that a sign-out loses.
+                        SignOutWarning.message(
+                            recordingInProgress: await recordingStore.signOutWarning() != nil,
+                            unsentActivities: await syncCoordinator.unsentActivityCount(),
+                            pendingItineraryChanges: await itinerarySynchronizer.pendingChangeCount()
+                        )
+                    }, beforeSignOut: {
+                        await recordingStore.delete()
+                        await syncCoordinator.signOut()
                     }) {
                         MyItinerariesView(
                             store: itineraryListStore,
@@ -146,7 +166,9 @@ struct RootView: View {
                         )
                     }
                     .tabItem { Label("Profil", systemImage: "person") }
+                    .tag(AppTab.profile)
                 }
+                .environment(\.startRecordingWithItinerary, startRecordingWithItinerary)
                 .fullScreenCover(isPresented: $itineraryCreation.isPresented) {
                     ItineraryCreationView(
                         makeEditorStore: { [itineraryCreation] sport, id in
@@ -182,10 +204,36 @@ struct RootView: View {
             try? await itinerarySynchronizer.refresh()
             await itinerarySynchronizer.resyncOnReconnection(connectivityChanges())
         }
+        // ADR-031 §14: the queue is sent and the Activities in `processing` checked on sign-in and
+        // each return to the foreground, then on network back and realtime (re)connections and
+        // events. The default visibility is reloaded at the same moments (§13).
+        .task(id: realtimeUserId) {
+            guard realtimeUserId != nil else { return }
+            await defaultVisibility.refresh()
+            await syncCoordinator.appBecameActive()
+            await syncCoordinator.observe(
+                connectivity: connectivityChanges(),
+                connections: realtimeService.connections(),
+                events: realtimeService.events()
+            )
+        }
         // ADR-030 §9: what another device saves or deletes shows here live.
         .task(id: realtimeUserId) {
             guard realtimeUserId != nil else { return }
             await itinerarySynchronizer.applyRemoteChanges()
         }
     }
+
+    /// After Save (ADR-031 §11): the Home tab at the top of the feed, and the Activity leaves
+    /// at once.
+    private func activitySaved() {
+        selectedTab = .feed
+        Task { await feedStore.showTop() }
+        Task { await syncCoordinator.activitySaved() }
+    }
+}
+
+/// Tabs of the signed-in app; Save brings the athlete back to the feed (ADR-031 §11).
+enum AppTab: Hashable {
+    case feed, map, record, profile
 }

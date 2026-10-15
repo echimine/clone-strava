@@ -14,6 +14,7 @@ describe("apiClient", () => {
           name: "Admin",
           role: "admin",
           isPremium: false,
+          defaultVisibility: "public",
         }),
       ),
     );

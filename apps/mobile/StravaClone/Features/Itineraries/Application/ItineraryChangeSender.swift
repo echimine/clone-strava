@@ -17,6 +17,7 @@ final class ItineraryChangeSender {
     private let sessionRefresher: any SessionRefreshing
     private let backoff: RetryBackoff
     private let now: @Sendable () -> Date
+    private let sleep: @Sendable (Duration) async throws -> Void
 
     private var sending: Task<Void, Never>?
     /// A trigger arrived during a pass: one more pass runs before `send` returns.
@@ -34,7 +35,8 @@ final class ItineraryChangeSender {
         queue: any ItineraryChangeQueue,
         sessionRefresher: any SessionRefreshing,
         backoff: RetryBackoff = RetryBackoff(initialDelay: .seconds(2), maxDelay: .seconds(300)),
-        now: @escaping @Sendable () -> Date = Date.init
+        now: @escaping @Sendable () -> Date = Date.init,
+        sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
     ) {
         self.repository = repository
         self.cache = cache
@@ -42,6 +44,7 @@ final class ItineraryChangeSender {
         self.sessionRefresher = sessionRefresher
         self.backoff = backoff
         self.now = now
+        self.sleep = sleep
     }
 
     /// Renames locally at once, then sends. The name is trimmed and must have 1 to 100 characters.
@@ -68,6 +71,15 @@ final class ItineraryChangeSender {
         let task = Task { await self.run(ignoringBackoff: ignoringBackoff, generation: generation) }
         sending = task
         await task.value
+    }
+
+    /// iOS takes the background time back (ADR-031 §14): the pass in flight stops; its request
+    /// fails like a lost network, the change stays queued. The scheduled retry is cancelled
+    /// too and none is scheduled: the next trigger sends.
+    func cancelPass() {
+        wakeUp?.cancel()
+        wakeUp = nil
+        sending?.cancel()
     }
 
     /// The changes that a sign-out would lose.
@@ -117,6 +129,7 @@ final class ItineraryChangeSender {
         } while rerun && self.generation == generation
         guard self.generation == generation else { return }
         sending = nil
+        guard !Task.isCancelled else { return }
         await scheduleWakeUp(generation: generation)
     }
 
@@ -124,7 +137,7 @@ final class ItineraryChangeSender {
     private func sendPending(ignoringBackoff: Bool, generation: Int) async {
         guard let pending = try? await queue.pending() else { return }
         let date = now()
-        for change in pending where ignoringBackoff || change.nextAttemptAt <= date {
+        for change in pending where ignoringBackoff || SyncQueueSchedule.isDue(change.nextAttemptAt, at: date) {
             guard self.generation == generation, !Task.isCancelled else { return }
             await send(change, generation: generation)
         }
@@ -181,9 +194,9 @@ final class ItineraryChangeSender {
             return
         }
         let delay = max(0, next.timeIntervalSince(now()))
+        let sleep = sleep
         wakeUp = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(delay))
-            guard !Task.isCancelled else { return }
+            guard (try? await sleep(.seconds(delay))) != nil, !Task.isCancelled else { return }
             await self?.send()
         }
     }

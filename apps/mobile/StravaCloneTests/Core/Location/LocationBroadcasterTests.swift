@@ -26,6 +26,35 @@ struct LocationBroadcasterTests {
         _ = keepAlive
     }
 
+    /// ADR-031 §3: the Recording's stream never replays a stale position.
+    @Test func liveSubscriberGetsNoReplay() async {
+        let broadcaster = LocationBroadcaster<Int> { _ in }
+        let keepAlive = broadcaster.subscribe()
+        broadcaster.send(1)
+
+        var live = broadcaster.subscribe(replaysLatest: false, bufferingPolicy: .unbounded).makeAsyncIterator()
+        broadcaster.send(2)
+
+        #expect(await live.next() == 2)
+        _ = keepAlive
+    }
+
+    /// ADR-031 §3: no sample dropped silently while the Recording is busy writing.
+    @Test func unboundedSubscriberKeepsEverySample() async {
+        let broadcaster = LocationBroadcaster<Int> { _ in }
+        var live = broadcaster.subscribe(replaysLatest: false, bufferingPolicy: .unbounded).makeAsyncIterator()
+
+        for value in 1...100 {
+            broadcaster.send(value)
+        }
+
+        var received: [Int] = []
+        for _ in 1...100 {
+            if let value = await live.next() { received.append(value) }
+        }
+        #expect(received == Array(1...100))
+    }
+
     @Test func reportsActivityOnFirstAndLastSubscriber() async {
         var changes: [Bool] = []
         let broadcaster = LocationBroadcaster<Int> { changes.append($0) }

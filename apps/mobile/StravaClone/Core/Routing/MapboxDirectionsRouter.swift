@@ -1,8 +1,9 @@
 import Foundation
 
-/// `ItineraryRouter` on the Mapbox Directions REST API (ADR-030 §2), with `URLSession` and
-/// `Codable` and no SDK. Uses the token dedicated to Itineraries, never the map's token.
-struct MapboxDirectionsRouter: ItineraryRouter {
+/// `ItineraryRouter` and `ReturnPathRouter` on the Mapbox Directions REST API (ADR-030 §2,
+/// ADR-031 §7), with `URLSession` and `Codable` and no SDK. Uses the token dedicated to
+/// Itineraries, never the map's token.
+struct MapboxDirectionsRouter: ItineraryRouter, ReturnPathRouter {
     /// A Waypoint further than this from any path is not snapped: the Leg has no path.
     static let snapRadiusMeters = 200
 
@@ -10,10 +11,47 @@ struct MapboxDirectionsRouter: ItineraryRouter {
     var session: URLSession = .shared
     var baseURL = URL(string: "https://api.mapbox.com")!
 
-    func path(through waypoints: [Coordinate], profile: RoutingProfile) async throws -> RoutedPath {
+    func path(through waypoints: [Coordinate], profile: RoutingProfile, startBearing: Bearing?) async throws -> RoutedPath {
+        var components = components(through: waypoints, profile: profile, startBearing: startBearing)
+        components.queryItems?.append(contentsOf: [
+            URLQueryItem(name: "radiuses", value: Array(repeating: "\(Self.snapRadiusMeters)", count: waypoints.count).joined(separator: ";")),
+            // Segment distances per Leg: their count tells where each Leg starts in the geometry.
+            URLQueryItem(name: "annotations", value: "distance"),
+        ])
+        let body = try await send(components)
+        guard let path = Self.routedPath(from: body, waypointCount: waypoints.count) else {
+            throw RoutingError.temporary
+        }
+        return path
+    }
+
+    /// Two points snapped however far they are from a path (`radiuses=unlimited`), no
+    /// turn-by-turn steps.
+    func returnPath(
+        from position: Coordinate,
+        to destination: Coordinate,
+        profile: RoutingProfile,
+        bearing: Bearing?
+    ) async throws -> RoutedReturnPath {
+        var components = components(through: [position, destination], profile: profile, startBearing: bearing)
+        components.queryItems?.append(contentsOf: [
+            URLQueryItem(name: "radiuses", value: "unlimited;unlimited"),
+            URLQueryItem(name: "steps", value: "false"),
+        ])
+        let body = try await send(components)
+        guard let route = body.routes?.first, let distance = route.distance else { throw RoutingError.temporary }
+        let path = EncodedPolyline(value: route.geometry, precision: 6).decode()
+        guard path.count >= 2 else { throw RoutingError.temporary }
+        return RoutedReturnPath(path: path, distance: Distance(meters: distance))
+    }
+
+    /// The decoded `Ok` answer, or the `RoutingError` its status and code mean.
+    private func send(_ components: URLComponents) async throws -> DirectionsResponse {
+        var request = URLRequest(url: components.url!)
+        request.timeoutInterval = 15
         let (data, response): (Data, URLResponse)
         do {
-            (data, response) = try await session.data(for: request(through: waypoints, profile: profile))
+            (data, response) = try await session.data(for: request)
         } catch let error as URLError where error.code == .cancelled {
             throw CancellationError()
         } catch {
@@ -27,16 +65,14 @@ struct MapboxDirectionsRouter: ItineraryRouter {
         case (429, _):
             throw RoutingError.rateLimited
         case (200, "Ok"):
-            guard let body, let path = Self.routedPath(from: body, waypointCount: waypoints.count) else {
-                throw RoutingError.temporary
-            }
-            return path
+            guard let body else { throw RoutingError.temporary }
+            return body
         default:
             throw RoutingError.temporary
         }
     }
 
-    private func request(through waypoints: [Coordinate], profile: RoutingProfile) -> URLRequest {
+    private func components(through waypoints: [Coordinate], profile: RoutingProfile, startBearing: Bearing?) -> URLComponents {
         let coordinates = waypoints
             .map { String(format: "%.6f,%.6f", $0.longitude, $0.latitude) }
             .joined(separator: ";")
@@ -45,14 +81,15 @@ struct MapboxDirectionsRouter: ItineraryRouter {
         components.queryItems = [
             URLQueryItem(name: "geometries", value: "polyline6"),
             URLQueryItem(name: "overview", value: "full"),
-            URLQueryItem(name: "radiuses", value: Array(repeating: "\(Self.snapRadiusMeters)", count: waypoints.count).joined(separator: ";")),
-            // Segment distances per Leg: their count tells where each Leg starts in the geometry.
-            URLQueryItem(name: "annotations", value: "distance"),
             URLQueryItem(name: "access_token", value: accessToken),
         ]
-        var request = URLRequest(url: components.url!)
-        request.timeoutInterval = 15
-        return request
+        if let startBearing {
+            // One `angle,range` per Waypoint, empty for the ones left free.
+            let first = "\(Int(startBearing.degrees.rounded())),\(Int(startBearing.tolerance.rounded()))"
+            let bearings = [first] + Array(repeating: "", count: waypoints.count - 1)
+            components.queryItems?.append(URLQueryItem(name: "bearings", value: bearings.joined(separator: ";")))
+        }
+        return components
     }
 
     // MARK: Decoding
@@ -102,6 +139,8 @@ struct MapboxDirectionsRouter: ItineraryRouter {
 private struct DirectionsResponse: Decodable {
     struct Route: Decodable {
         let geometry: String
+        /// Meters.
+        let distance: Double?
         let legs: [Leg]
     }
 

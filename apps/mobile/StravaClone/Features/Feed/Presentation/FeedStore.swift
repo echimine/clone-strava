@@ -14,6 +14,8 @@ final class FeedStore {
     }
 
     private(set) var posts: [ActivityPost] = []
+    /// Local Activities not yet processed (ADR-031 §14), newest first.
+    private var allLocalCards: [LocalActivityCard] = []
     private(set) var phase: Phase = .idle
     private(set) var isLoadingMore = false
     /// Short-lived error shown over the list (e.g. a kudos that could not be sent).
@@ -27,14 +29,34 @@ final class FeedStore {
     @ObservationIgnored private var nextCursor: String?
     @ObservationIgnored private var refreshGeneration = 0
     @ObservationIgnored private var kudosInFlight: Set<ActivityID> = []
+    /// Run on pull-to-refresh beside the reload: the app shell sends the queued operations
+    /// (ADR-031 §14).
+    @ObservationIgnored private let onPullToRefresh: @MainActor () async -> Void
+    @ObservationIgnored private let localActivities: (any LocalActivityFeedSource)?
+    /// Bumped to bring the list back to its top (after Save, ADR-031 §11).
+    private(set) var scrollToTopRequest = 0
 
-    init(loadFeed: LoadFeed, toggleKudos: ToggleKudos, events: any FeedEventSource) {
+    init(
+        loadFeed: LoadFeed,
+        toggleKudos: ToggleKudos,
+        events: any FeedEventSource,
+        localActivities: (any LocalActivityFeedSource)? = nil,
+        onPullToRefresh: @escaping @MainActor () async -> Void = {}
+    ) {
         self.loadFeed = loadFeed
         self.toggleKudos = toggleKudos
         self.events = events
+        self.localActivities = localActivities
+        self.onPullToRefresh = onPullToRefresh
     }
 
-    var isEmpty: Bool { phase == .loaded && posts.isEmpty }
+    /// Always on top (ADR-031 §14); a local card whose UUID the server already returned is dropped.
+    var localCards: [LocalActivityCard] {
+        let served = Set(posts.map(\.id))
+        return allLocalCards.filter { !served.contains($0.id) }
+    }
+
+    var isEmpty: Bool { phase == .loaded && posts.isEmpty && localCards.isEmpty }
 
     /// Sign-out: forgets the previous account's feed.
     func reset() {
@@ -51,8 +73,23 @@ final class FeedStore {
         await refresh()
     }
 
-    /// Replaces the list with the first page. A newer refresh wins over an older one.
-    func refresh() async {
+    /// Pull-to-refresh: the first page, and the queued operations sent meanwhile.
+    func pullToRefresh() async {
+        async let sending: Void = onPullToRefresh()
+        await refresh()
+        await sending
+    }
+
+    /// Back to the top of the list, then the first page again.
+    func showTop() async {
+        scrollToTopRequest += 1
+        await refresh()
+    }
+
+    /// Replaces the list with the first page. A newer refresh wins over an older one. `true`
+    /// once the first page is shown.
+    @discardableResult
+    func refresh() async -> Bool {
         refreshGeneration += 1
         let generation = refreshGeneration
         if posts.isEmpty {
@@ -60,17 +97,19 @@ final class FeedStore {
         }
         do {
             let page = try await loadFeed()
-            guard generation == refreshGeneration else { return }
+            guard generation == refreshGeneration else { return false }
             posts = page.posts
             nextCursor = page.nextCursor
             phase = .loaded
+            return true
         } catch {
-            guard generation == refreshGeneration else { return }
+            guard generation == refreshGeneration else { return false }
             if posts.isEmpty {
                 phase = .failed(message: FeedMessages.message(for: error))
             } else {
                 notice = FeedMessages.message(for: error)
             }
+            return false
         }
     }
 
@@ -126,6 +165,41 @@ final class FeedStore {
     func observeActivityChanges() async {
         for await _ in await events.activityChanges() {
             await refresh()
+        }
+    }
+
+    /// Runs for the lifetime of the view (`.task`): follows the local Activities, and reports a
+    /// Delete the server turned down.
+    func observeLocalActivities() async {
+        guard let localActivities else { return }
+        let refusals = localActivities.deletionRefusals()
+        let reporting = Task { [weak self] in
+            for await _ in refusals {
+                self?.notice = FeedMessages.localDeletionRefused
+            }
+        }
+        defer { reporting.cancel() }
+        for await cards in localActivities.cards() {
+            allLocalCards = cards
+        }
+    }
+
+    /// Delete, once confirmed (ADR-031 §14): the card goes at once.
+    func deleteLocalActivity(_ id: ActivityID) async {
+        await performLocal { try await $0.delete(id) }
+    }
+
+    /// Retry after an API refusal: the Activity resumes at the refused step.
+    func retryLocalActivity(_ id: ActivityID) async {
+        await performLocal { try await $0.retry(id) }
+    }
+
+    private func performLocal(_ action: @MainActor (any LocalActivityFeedSource) async throws -> Void) async {
+        guard let localActivities else { return }
+        do {
+            try await action(localActivities)
+        } catch {
+            notice = FeedMessages.localActionRefused
         }
     }
 

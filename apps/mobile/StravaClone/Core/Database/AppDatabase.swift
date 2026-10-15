@@ -75,6 +75,93 @@ final class AppDatabase: Sendable {
             }
             try db.create(index: "sync_operation_on_entity_id", on: "sync_operation", columns: ["entity_id", "type"])
         }
+        // ADR-031 §10: the Recording in progress (one row at most, `id` = 1), and the raw points and
+        // finished Pauses of an Activity keyed by its UUID. Points and Pauses outlive the Recording
+        // row: on Save they stay attached to the local Activity (ADR-031 §11, Core/LocalActivities).
+        // Times are UTC epoch milliseconds, the trace v2 unit, so a point sitting exactly on a Pause
+        // boundary stays exactly on it (ADR-031 §12).
+        migrator.registerMigration("recording_v1") { db in
+            try db.create(table: "recording") { table in
+                table.primaryKey("id", .integer).check { $0 == 1 }
+                table.column("activity_id", .text).notNull()
+                table.column("sport_type_code", .text).notNull()
+                table.column("started_at_ms", .integer).notNull()
+                table.column("phase", .text).notNull()
+                table.column("pause_started_at_ms", .integer)
+            }
+            try db.create(table: "activity_point") { table in
+                table.autoIncrementedPrimaryKey("id")
+                table.column("activity_id", .text).notNull()
+                table.column("timestamp_ms", .integer).notNull()
+                table.column("latitude", .double).notNull()
+                table.column("longitude", .double).notNull()
+                table.column("altitude_m", .double)
+                table.column("horizontal_accuracy_m", .double).notNull()
+                table.column("speed_ms", .double)
+            }
+            try db.create(index: "activity_point_on_activity_id", on: "activity_point", columns: ["activity_id", "timestamp_ms"])
+            try db.create(table: "activity_pause") { table in
+                table.autoIncrementedPrimaryKey("id")
+                table.column("activity_id", .text).notNull()
+                table.column("start_ms", .integer).notNull()
+                table.column("end_ms", .integer).notNull()
+            }
+            try db.create(index: "activity_pause_on_activity_id", on: "activity_pause", columns: ["activity_id", "start_ms"])
+        }
+        // ADR-031 §14, §15 (Core/LocalActivities): a saved Activity until the server has processed
+        // it, with its provisional values (no elevation gain). Its points and Pauses are the
+        // `activity_point` / `activity_pause` rows of the same UUID; its operations
+        // (`create_activity`, `upload_trace`, `complete_activity`) are rows of `sync_operation`.
+        migrator.registerMigration("local_activities_v1") { db in
+            try db.create(table: "local_activity") { table in
+                table.primaryKey("id", .text)
+                table.column("sport_type_code", .text).notNull()
+                table.column("title", .text).notNull()
+                table.column("visibility", .text).notNull()
+                table.column("started_at_ms", .integer).notNull()
+                table.column("ended_at_ms", .integer).notNull()
+                table.column("distance_m", .double).notNull()
+                table.column("moving_time_s", .integer).notNull()
+                table.column("elapsed_time_s", .integer).notNull()
+                table.column("state", .text).notNull()
+                table.column("failure_reason", .text)
+                table.column("failure_resume_state", .text)
+            }
+        }
+        // ADR-031 §6, §10: the Itinerary followed by the Recording (all NULL without one, cleared when
+        // removed): its copy loaded at Start (track as polyline6, total distance from the API), and the
+        // progress in meters along that track with the first-snap flag.
+        migrator.registerMigration("recording_itinerary_v1") { db in
+            try db.alter(table: "recording") { table in
+                table.add(column: "itinerary_id", .text)
+                table.add(column: "itinerary_name", .text)
+                table.add(column: "itinerary_track_polyline6", .text)
+                table.add(column: "itinerary_distance_m", .double)
+                table.add(column: "itinerary_progress_m", .double)
+                table.add(column: "itinerary_snapped", .boolean)
+            }
+        }
+        // ADR-031 §4, §10: kind (manual / automatic) and position of the Pause in progress, and the
+        // auto-pause switch of the Recording.
+        migrator.registerMigration("recording_auto_pause_v1") { db in
+            try db.alter(table: "recording") { table in
+                table.add(column: "pause_kind", .text)
+                table.add(column: "pause_latitude", .double)
+                table.add(column: "pause_longitude", .double)
+                table.add(column: "auto_pause_enabled", .boolean).notNull().defaults(to: false)
+            }
+        }
+        // ADR-031 §7, §10: the last Return path and its return point, shown again on resume
+        // without a new request (a deviation from Mapbox Product Terms accepted, ADR-030 §1).
+        migrator.registerMigration("recording_return_path_v1") { db in
+            try db.alter(table: "recording") { table in
+                table.add(column: "return_path_polyline6", .text)
+                table.add(column: "return_path_distance_m", .double)
+                table.add(column: "return_point_latitude", .double)
+                table.add(column: "return_point_longitude", .double)
+                table.add(column: "return_point_progress_m", .double)
+            }
+        }
         return migrator
     }
 }
