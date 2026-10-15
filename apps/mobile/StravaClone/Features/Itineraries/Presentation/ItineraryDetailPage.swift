@@ -6,12 +6,14 @@ import SwiftUI
 struct ItineraryDetailPage: View {
     @State private var detailStore: ItineraryDetailStore
     @State private var editFlow: ItineraryEditFlow
+    private let id: ItineraryID
 
     init(
         id: ItineraryID,
         makeDetailStore: @MainActor (ItineraryID) -> ItineraryDetailStore,
         makeEditFlow: @MainActor (ItineraryID) -> ItineraryEditFlow
     ) {
+        self.id = id
         _detailStore = State(initialValue: makeDetailStore(id))
         _editFlow = State(initialValue: makeEditFlow(id))
     }
@@ -30,6 +32,7 @@ struct ItineraryDetailPage: View {
             .disabled(editFlow.isLoading)
             .accessibilityIdentifier("editItinerary")
         }
+        .safeAreaInset(edge: .bottom) { StartRecordingButton(id: id) }
         .toast($editFlow.toast)
         .fullScreenCover(item: $editFlow.session) { session in
             ItineraryEditingView(session: session, onClose: editFlow.close)

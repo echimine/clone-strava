@@ -20,7 +20,7 @@ struct GRDBRecordingRepository: RecordingRepository {
                 .order(Column("timestamp_ms"), Column("id"))
                 .fetchAll(db)
             guard let recording = row.recording(pauses: pauses.map(\.pause)) else { return nil }
-            return StoredRecording(recording: recording, points: points.map(\.sample))
+            return StoredRecording(recording: recording, points: points.map(\.sample), itinerary: try Self.fetchItinerary(db))
         }
     }
 
@@ -83,6 +83,10 @@ private struct RecordingRow: Codable, FetchableRecord, PersistableRecord {
     var startedAtMs: Int64
     var phase: String
     var pauseStartedAtMs: Int64?
+    var pauseKind: String?
+    var pauseLatitude: Double?
+    var pauseLongitude: Double?
+    var autoPauseEnabled: Bool
 
     init(_ recording: Recording) {
         activityId = recording.id.description
@@ -90,6 +94,10 @@ private struct RecordingRow: Codable, FetchableRecord, PersistableRecord {
         startedAtMs = recording.startedAt.epochMilliseconds
         phase = recording.phase.rawValue
         pauseStartedAtMs = recording.currentPauseStartedAt?.epochMilliseconds
+        pauseKind = recording.currentPauseKind?.rawValue
+        pauseLatitude = recording.currentPausePosition?.latitude
+        pauseLongitude = recording.currentPausePosition?.longitude
+        autoPauseEnabled = recording.autoPauseEnabled
     }
 
     func recording(pauses: [RecordingPause]) -> Recording? {
@@ -103,8 +111,16 @@ private struct RecordingRow: Codable, FetchableRecord, PersistableRecord {
             startedAt: Date(epochMilliseconds: startedAtMs),
             phase: phase,
             currentPauseStartedAt: pauseStartedAtMs.map(Date.init(epochMilliseconds:)),
-            pauses: pauses
+            pauses: pauses,
+            currentPauseKind: pauseKind.flatMap(RecordingPauseKind.init(rawValue:)),
+            currentPausePosition: pausePosition,
+            autoPauseEnabled: autoPauseEnabled
         )
+    }
+
+    private var pausePosition: Coordinate? {
+        guard let pauseLatitude, let pauseLongitude else { return nil }
+        return Coordinate(latitude: pauseLatitude, longitude: pauseLongitude)
     }
 }
 

@@ -85,6 +85,8 @@ targets:
         # Temporary full accuracy asked at Start when only the approximate location is allowed (ADR-031 §2).
         NSLocationTemporaryUsageDescriptionDictionary:
           Recording: "La position précise est nécessaire pour mesurer la distance de votre activité."
+        # Core Motion for the automatic Pause of a run, asked when the switch is turned on (ADR-031 §4).
+        NSMotionUsageDescription: "StravaClone détecte quand vous vous arrêtez de courir pour mettre l'enregistrement en pause automatiquement."
         # Debug on a physical iPhone reaches the dev API on the Mac (http://<mac>.local, Secrets.xcconfig):
         # plain HTTP is allowed on the local network only, and iOS asks for local network access.
         NSAppTransportSecurity:

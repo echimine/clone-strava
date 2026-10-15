@@ -6,6 +6,12 @@ enum RecordingPhase: String, Codable, Sendable {
     case active, paused, finishing
 }
 
+/// Who started the Pause in progress (ADR-031 §4, local only): a manual Pause only ends
+/// manually.
+enum RecordingPauseKind: String, Codable, Sendable {
+    case manual, automatic
+}
+
 /// A finished Pause of a Recording (ADR-031 §4, §12): no kind once finished.
 struct RecordingPause: Equatable, Sendable {
     let start: Date
@@ -23,9 +29,23 @@ struct Recording: Equatable, Sendable {
     private(set) var currentPauseStartedAt: Date?
     /// Finished Pauses, oldest first.
     private(set) var pauses: [RecordingPause]
+    /// Kind of the Pause in progress.
+    private(set) var currentPauseKind: RecordingPauseKind?
+    /// Where the athlete stopped, for an automatic Pause: the resume is measured from there.
+    private(set) var currentPausePosition: Coordinate?
+    /// The auto-pause switch for this Recording (ADR-031 §4); switching it off keeps a Pause.
+    var autoPauseEnabled: Bool
 
-    init(id: ActivityID = ActivityID(), sport: RecordingSport, startedAt: Date) {
-        self.init(id: id, sport: sport, startedAt: startedAt, phase: .active, currentPauseStartedAt: nil, pauses: [])
+    init(id: ActivityID = ActivityID(), sport: RecordingSport, startedAt: Date, autoPauseEnabled: Bool = false) {
+        self.init(
+            id: id,
+            sport: sport,
+            startedAt: startedAt,
+            phase: .active,
+            currentPauseStartedAt: nil,
+            pauses: [],
+            autoPauseEnabled: autoPauseEnabled
+        )
     }
 
     /// A Recording read back from storage.
@@ -35,17 +55,29 @@ struct Recording: Equatable, Sendable {
         startedAt: Date,
         phase: RecordingPhase,
         currentPauseStartedAt: Date?,
-        pauses: [RecordingPause]
+        pauses: [RecordingPause],
+        currentPauseKind: RecordingPauseKind? = nil,
+        currentPausePosition: Coordinate? = nil,
+        autoPauseEnabled: Bool = false
     ) {
         self.id = id
         self.sport = sport
         self.startedAt = startedAt
         self.phase = phase
-        self.currentPauseStartedAt = phase == .active ? nil : currentPauseStartedAt
+        let isPaused = phase != .active
+        self.currentPauseStartedAt = isPaused ? currentPauseStartedAt : nil
         self.pauses = pauses
+        self.currentPauseKind = isPaused ? currentPauseKind ?? .manual : nil
+        self.currentPausePosition = isPaused ? currentPausePosition : nil
+        self.autoPauseEnabled = autoPauseEnabled
     }
 
     var isPaused: Bool { phase != .active }
+
+    /// In a Pause the rules started (not on the finish screen): the rules may end it.
+    var isAutomaticallyPaused: Bool {
+        phase == .paused && currentPauseKind == .automatic
+    }
 
     /// End of the Activity once finished (ADR-031 §11): the start of the final Pause, which is
     /// never sent.
@@ -58,10 +90,12 @@ struct Recording: Equatable, Sendable {
         pauses.last?.end ?? startedAt
     }
 
-    mutating func pause(at date: Date) {
+    mutating func pause(at date: Date, kind: RecordingPauseKind = .manual, position: Coordinate? = nil) {
         guard phase == .active else { return }
         phase = .paused
         currentPauseStartedAt = date
+        currentPauseKind = kind
+        currentPausePosition = position
     }
 
     /// Ends the Pause in progress and returns it, to be stored with the points.
@@ -71,6 +105,8 @@ struct Recording: Equatable, Sendable {
         let pause = RecordingPause(start: start, end: max(date, start))
         phase = .active
         currentPauseStartedAt = nil
+        currentPauseKind = nil
+        currentPausePosition = nil
         pauses.append(pause)
         return pause
     }

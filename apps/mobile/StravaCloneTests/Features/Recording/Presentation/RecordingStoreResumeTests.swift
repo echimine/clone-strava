@@ -23,6 +23,7 @@ struct RecordingStoreResumeTests {
         RecordingStore(
             service: service,
             preferences: InMemoryRecordingPreferences(),
+            itineraries: FakeItineraryCacheReader(),
             launch: launch,
             ensureFullAccuracy: { true },
             saveRecording: SaveRecording(service: service, activities: activities),
