@@ -4,6 +4,8 @@ import SwiftUI
 /// with the tab bar hidden, and the finish screen over it.
 struct RecordingView: View {
     @State var store: RecordingStore
+    /// "Créer un Itinéraire" from the empty Itinerary chip.
+    var onCreateItinerary: () -> Void = {}
 
     var body: some View {
         NavigationStack {
@@ -12,6 +14,7 @@ struct RecordingView: View {
                 .toolbar(.hidden, for: .navigationBar)
         }
         .task { await store.observe() }
+        .toast($store.toast)
         .fullScreenCover(isPresented: .constant(store.screen == .finishing)) {
             if let snapshot = store.snapshot {
                 RecordingFinishView(store: store, snapshot: snapshot)
@@ -25,7 +28,7 @@ struct RecordingView: View {
         case .loading:
             ProgressView()
         case .preStart:
-            RecordingPreStartView(store: store)
+            RecordingPreStartView(store: store, onCreateItinerary: onCreateItinerary)
         case .recording, .finishing:
             if let snapshot = store.snapshot {
                 RecordingLiveView(store: store, snapshot: snapshot)

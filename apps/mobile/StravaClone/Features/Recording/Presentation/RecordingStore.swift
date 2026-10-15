@@ -160,6 +160,12 @@ final class RecordingStore {
         }
     }
 
+    /// The chosen Itinerary's track, drawn on the pre-start map.
+    func chosenItineraryTrack() async -> [Coordinate] {
+        guard let id = chosenItinerary?.id else { return [] }
+        return (try? await itineraryCache.track(of: id))?.points ?? []
+    }
+
     /// The copy of the chosen Itinerary to follow; `nil` without one, or when it was deleted
     /// elsewhere (the chip is then reset with a toast).
     private func loadChosenItinerary() async throws -> FollowedItinerary? {

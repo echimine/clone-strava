@@ -70,6 +70,7 @@ struct RootView: View {
     let connectivityChanges: @MainActor () -> AsyncStream<Bool>
 
     @Environment(\.scenePhase) private var scenePhase
+    @State private var selectedTab = AppTab.feed
     /// A queued Itinerary change the server turned down (ADR-030 §8).
     @State private var itineraryChangeToast: String?
 
@@ -77,6 +78,15 @@ struct RootView: View {
     private var realtimeUserId: String? {
         guard scenePhase == .active, case .signedIn(let user) = authStore.state else { return nil }
         return user.id
+    }
+
+    /// "Démarrer avec cet Itinéraire" on an Itinerary's detail (ADR-031 §2): the Record tab,
+    /// with the Itinerary chosen on the pre-start screen, or the Recording in progress.
+    private var startRecordingWithItinerary: StartRecordingWithItinerary {
+        StartRecordingWithItinerary(isRecording: recordingStore.snapshot != nil) { [recordingStore] id in
+            selectedTab = .record
+            Task { await recordingStore.prepare(itineraryID: id) }
+        }
     }
 
     var body: some View {
@@ -92,7 +102,7 @@ struct RootView: View {
                         Task { await itinerarySynchronizer.signOut() }
                     }
             case .signedIn:
-                TabView {
+                TabView(selection: $selectedTab) {
                     FeedView(store: feedStore, onImportActivity: importStore.startImport) {
                         if let banner = importStore.banner {
                             ImportStatusBanner(
@@ -117,6 +127,7 @@ struct RootView: View {
                         )
                     }
                     .tabItem { Label("Accueil", systemImage: "house") }
+                    .tag(AppTab.feed)
                     NavigationStack {
                         MapScreen(
                             onCreateItinerary: { itineraryCreation.start(from: .mapTab) },
@@ -133,8 +144,10 @@ struct RootView: View {
                         }
                     }
                     .tabItem { Label("Map", systemImage: "map") }
-                    RecordingView(store: recordingStore)
+                    .tag(AppTab.map)
+                    RecordingView(store: recordingStore, onCreateItinerary: { itineraryCreation.start(from: .recording) })
                         .tabItem { Label("Enregistrer", systemImage: "record.circle") }
+                        .tag(AppTab.record)
                     ProfileView(store: authStore, signOutWarning: {
                         ItineraryMessages.signOutWarning(pendingChanges: await itinerarySynchronizer.pendingChangeCount())
                     }) {
@@ -146,7 +159,9 @@ struct RootView: View {
                         )
                     }
                     .tabItem { Label("Profil", systemImage: "person") }
+                    .tag(AppTab.profile)
                 }
+                .environment(\.startRecordingWithItinerary, startRecordingWithItinerary)
                 .fullScreenCover(isPresented: $itineraryCreation.isPresented) {
                     ItineraryCreationView(
                         makeEditorStore: { [itineraryCreation] sport, id in
@@ -188,4 +203,9 @@ struct RootView: View {
             await itinerarySynchronizer.applyRemoteChanges()
         }
     }
+}
+
+/// Tabs of the signed-in app.
+enum AppTab: Hashable {
+    case feed, map, record, profile
 }

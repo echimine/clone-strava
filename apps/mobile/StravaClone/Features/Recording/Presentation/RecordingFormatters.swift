@@ -53,6 +53,22 @@ enum RecordingFormatters {
         return items
     }
 
+    /// Distance left on the followed Itinerary (ADR-031 §6, §8): "—" before the first snap; the
+    /// state replaces the "Restant sur l'Itinéraire" label off the track and at the end.
+    static func itinerary(_ progress: ItineraryProgress) -> RecordingStatItem {
+        let label = switch progress.status {
+        case .notSnapped, .onTrack: RecordingMessages.remainingOnItinerary
+        case .offTrack: RecordingMessages.offItinerary
+        case .finished: RecordingMessages.itineraryFinished
+        }
+        return RecordingStatItem(label: label, value: progress.remaining.map(remaining) ?? "—", unit: "km")
+    }
+
+    /// "0,75" (km), rounded: a distance left is not a distance covered.
+    private static func remaining(_ distance: Distance) -> String {
+        (max(0, distance.meters) / 1_000).formatted(.number.precision(.fractionLength(2)).locale(ActivityFormatters.locale))
+    }
+
     static func sportLabel(_ sport: RecordingSport) -> String {
         ActivityFormatters.sportLabel(sport.sportType)
     }

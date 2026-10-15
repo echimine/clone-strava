@@ -16,7 +16,7 @@ struct RecordingLiveView: View {
             let stats = snapshot.stats(at: context.date)
             ZStack {
                 if showsMap {
-                    RecordingLiveMap(trace: snapshot.trace)
+                    RecordingLiveMap(trace: snapshot.trace, itineraryTrack: snapshot.itinerary?.track ?? [])
                         .overlay(alignment: .top) { compactBanner(stats).padding(.top, 8) }
                 } else {
                     statsPage(stats)
@@ -59,6 +59,10 @@ struct RecordingLiveView: View {
             HStack {
                 ForEach(items.dropFirst(2)) { bigStat($0, size: 44).frame(maxWidth: .infinity) }
             }
+            if let itinerary = snapshot.itinerary {
+                Divider().padding(.horizontal, 40).padding(.vertical, 18)
+                RecordingItineraryPanel(progress: itinerary.progress)
+            }
             Spacer()
         }
         .frame(maxWidth: .infinity)
@@ -74,6 +78,7 @@ struct RecordingLiveView: View {
             .font(.subheadline.weight(.semibold))
             Spacer()
             RecordingGPSStatus()
+            RecordingMoreMenu(store: store, snapshot: snapshot)
         }
         .padding(.horizontal)
         .padding(.top, 8)
@@ -98,7 +103,7 @@ struct RecordingLiveView: View {
 
     private func compactBanner(_ stats: RecordingStats) -> some View {
         HStack(spacing: 18) {
-            ForEach(RecordingFormatters.items(stats).prefix(3)) { item in
+            ForEach(compactItems(stats)) { item in
                 VStack(spacing: 0) {
                     Text(item.value).font(.title3.weight(.bold)).monospacedDigit()
                     Text(item.label).font(.caption2).foregroundStyle(.secondary)
@@ -118,6 +123,13 @@ struct RecordingLiveView: View {
                     .offset(y: 26)
             }
         }
+    }
+
+    /// The main stats, and the distance left with an Itinerary.
+    private func compactItems(_ stats: RecordingStats) -> [RecordingStatItem] {
+        let items = RecordingFormatters.items(stats)
+        guard let itinerary = snapshot.itinerary else { return Array(items.prefix(3)) }
+        return Array(items.prefix(2)) + [RecordingFormatters.itinerary(itinerary.progress)]
     }
 
     // MARK: Controls
