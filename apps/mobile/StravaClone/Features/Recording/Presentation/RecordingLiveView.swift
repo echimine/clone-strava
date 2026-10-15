@@ -74,6 +74,7 @@ struct RecordingLiveView: View {
             .font(.subheadline.weight(.semibold))
             Spacer()
             RecordingGPSStatus()
+            RecordingMoreMenu(store: store)
         }
         .padding(.horizontal)
         .padding(.top, 8)

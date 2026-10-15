@@ -31,6 +31,9 @@ struct RecordingPreStartView: View {
     private var panel: some View {
         VStack(spacing: 14) {
             sportPicker
+            if store.offersAutoPause {
+                RecordingAutoPauseToggle(store: store)
+            }
             if let message = store.errorMessage {
                 Text(message)
                     .font(.footnote)

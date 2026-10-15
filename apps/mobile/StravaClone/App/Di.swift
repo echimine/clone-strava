@@ -52,6 +52,8 @@ final class Di {
     let analytics: any AnalyticsClient
 
     private let recordingService: RecordingService
+    /// Core Motion for the automatic Pause of a run (ADR-031 §4).
+    private let motionProvider = CoreMotionActivityProvider()
     private let authService: AuthService
     private let importRepository: APIActivityImportRepository
     private let feedRepository: APIFeedRepository
@@ -76,7 +78,9 @@ final class Di {
 
         recordingService = RecordingService(
             locationProvider: locationProvider,
-            repository: GRDBRecordingRepository(database: database)
+            repository: GRDBRecordingRepository(database: database),
+            motionProvider: motionProvider,
+            autoPauseFeedback: HapticAutoPauseFeedback()
         )
         realtimeService = RealtimeService(
             client: webSocketClient,
@@ -114,10 +118,13 @@ final class Di {
 
     func makeRecordingStore() -> RecordingStore {
         let permission = locationPermission
+        let motion = motionProvider
         return RecordingStore(
             service: recordingService,
             preferences: UserDefaultsRecordingPreferences(),
-            ensureFullAccuracy: { await permission.ensureFullAccuracy(purposeKey: "Recording") }
+            ensureFullAccuracy: { await permission.ensureFullAccuracy(purposeKey: "Recording") },
+            autoPausePreferences: UserDefaultsRecordingPreferences(),
+            requestMotionAuthorization: { await motion.requestAuthorization() }
         )
     }
 

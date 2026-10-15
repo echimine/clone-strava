@@ -7,6 +7,7 @@ enum RecordingMessages {
     static let startFailed = "Impossible de démarrer l'enregistrement."
     static let actionFailed = "Impossible d'enregistrer ce changement. Réessaie."
     static let paused = "En pause"
+    static let autoPause = "Pause automatique"
     static let finishTitle = "Terminer l'enregistrement ?"
     static let finishMessage = "Tu pourras encore reprendre depuis l'écran de fin."
     static let deleteTitle = "Supprimer cet enregistrement ?"

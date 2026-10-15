@@ -21,18 +21,58 @@ final class RecordingStore {
     @ObservationIgnored private let service: RecordingService
     @ObservationIgnored private let preferences: any RecordingPreferences
     @ObservationIgnored private let ensureFullAccuracy: @MainActor () async -> Bool
+    @ObservationIgnored private let autoPausePreferences: (any AutoPausePreferences)?
+    @ObservationIgnored private let requestMotionAuthorization: @MainActor () async -> Bool
+    /// The auto-pause switch per sport on the pre-start screen (ADR-031 §4).
+    private var autoPauseChoices: [RecordingSport: Bool] = [:]
 
     /// - Parameter ensureFullAccuracy: asks for temporary full accuracy when only the approximate
     ///   location is allowed; `false` when refused (ADR-031 §2).
+    /// - Parameter requestMotionAuthorization: asks for "Motion & Fitness" access when the
+    ///   switch is turned on for a run; `false` when refused (ADR-031 §4).
     init(
         service: RecordingService,
         preferences: any RecordingPreferences,
-        ensureFullAccuracy: @escaping @MainActor () async -> Bool
+        ensureFullAccuracy: @escaping @MainActor () async -> Bool,
+        autoPausePreferences: (any AutoPausePreferences)? = nil,
+        requestMotionAuthorization: @escaping @MainActor () async -> Bool = { true }
     ) {
         self.service = service
         self.preferences = preferences
         self.ensureFullAccuracy = ensureFullAccuracy
+        self.autoPausePreferences = autoPausePreferences
+        self.requestMotionAuthorization = requestMotionAuthorization
         sport = preferences.lastSavedSport ?? .run
+        for sport in RecordingSport.allCases {
+            autoPauseChoices[sport] = autoPausePreferences?.autoPause(for: sport) ?? sport.autoPauseByDefault
+        }
+    }
+
+    /// The sport of the pre-start screen, or of the Recording in progress, has an automatic Pause.
+    var offersAutoPause: Bool {
+        (snapshot?.recording.sport ?? sport).autoPauseRule != nil
+    }
+
+    /// The auto-pause switch: the Recording's during a Recording, else the sport's.
+    var autoPause: Bool {
+        if let recording = snapshot?.recording { return recording.autoPauseEnabled }
+        return offersAutoPause && autoPauseChoices[sport] == true
+    }
+
+    /// Remembered per sport; turned on for a run, it asks for Motion access first and goes
+    /// back off when refused. During a Recording it also changes the Recording's switch.
+    func setAutoPause(_ enabled: Bool) async {
+        let sport = snapshot?.recording.sport ?? sport
+        guard sport.autoPauseRule != nil else { return }
+        if enabled, sport.autoPauseRule == .motion, !(await requestMotionAuthorization()) {
+            autoPauseChoices[sport] = false
+            return
+        }
+        autoPauseChoices[sport] = enabled
+        autoPausePreferences?.rememberAutoPause(enabled, for: sport)
+        if snapshot != nil {
+            await perform { try await $0.setAutoPause(enabled) }
+        }
     }
 
     var screen: Screen {
@@ -67,7 +107,7 @@ final class RecordingStore {
             return
         }
         do {
-            snapshot = try await service.start(sport: sport)
+            snapshot = try await service.start(sport: sport, autoPause: autoPause)
         } catch {
             errorMessage = RecordingMessages.startFailed
         }
