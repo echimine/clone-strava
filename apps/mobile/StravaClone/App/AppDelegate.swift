@@ -27,9 +27,12 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         di.start()
         // The sync queue's BGAppRefreshTask must be registered before launch ends (ADR-031 §14).
         di.startBackgroundRefresh()
-        // iOS relaunches the app for location with this key; any other launch after the app
-        // was killed is the athlete opening it (ADR-031 §10).
-        di.resumeRecording(after: launchOptions?[.location] != nil ? .relaunchedInBackground : .openedByAthlete)
+        // A launch in the background (for location, the sync queue's refresh task…) goes on
+        // in the saved phase; a launch in the foreground is the athlete opening it (ADR-031 §10).
+        di.resumeRecording(after: RecordingLaunch(
+            launchedForLocation: launchOptions?[.location] != nil,
+            inBackground: application.applicationState == .background
+        ))
         return true
     }
 }

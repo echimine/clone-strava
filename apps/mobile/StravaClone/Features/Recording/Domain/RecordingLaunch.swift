@@ -7,6 +7,14 @@ enum RecordingLaunch: Equatable, Sendable {
     case relaunchedInBackground
     /// The athlete opened the app after a crash or a forced quit.
     case openedByAthlete
+
+    /// iOS relaunches a killed app in the background for location (the `location` launch key),
+    /// but also for the sync queue's `BGAppRefreshTask` or a `liveUpdates` relaunch without that
+    /// key: any launch in the background is a background relaunch; only a launch in the
+    /// foreground is the athlete opening the app.
+    init(launchedForLocation: Bool, inBackground: Bool) {
+        self = launchedForLocation || inBackground ? .relaunchedInBackground : .openedByAthlete
+    }
 }
 
 extension StoredRecording {
