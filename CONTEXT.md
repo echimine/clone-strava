@@ -35,3 +35,7 @@ _Avoid_: Marker, pin, via point, control point
 **Leg**:
 The part of an Itinerary from one Waypoint to the next. A Leg either follows roads and trails or runs in a straight line. Shown as "tronçon" in the app.
 _Avoid_: Segment, section, step
+
+**Return path**:
+The path the app works out from the athlete's position to get back onto an Itinerary they left during a Recording. Never part of the Activity. Shown as "Chemin recalculé" in the app.
+_Avoid_: Reroute, detour, route
