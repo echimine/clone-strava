@@ -39,8 +39,8 @@ struct RecordingActivityAttributes: ActivityAttributes {
         var state: ItineraryState
     }
 
-    /// State label of the Itinerary line. #72 adds the Return path ("Chemin recalculé").
+    /// State label of the Itinerary line; `returnPath` is "Chemin recalculé".
     enum ItineraryState: String, Codable, Hashable {
-        case notSnapped, onTrack, offTrack, finished
+        case notSnapped, onTrack, offTrack, returnPath, finished
     }
 }

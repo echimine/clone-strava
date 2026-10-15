@@ -46,6 +46,7 @@ enum LiveActivityFormat {
         switch state {
         case .notSnapped, .onTrack: "Restant sur l'Itinéraire"
         case .offTrack: "Hors Itinéraire"
+        case .returnPath: "Chemin recalculé"
         case .finished: "Itinéraire terminé"
         }
     }

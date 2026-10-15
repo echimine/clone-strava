@@ -34,4 +34,6 @@ protocol RecordingRepository: Sendable {
     func saveItinerary(_ itinerary: FollowedItinerary?, of id: ActivityID) async throws
     /// Saves the progress along the followed Itinerary of the Recording `id`.
     func saveItineraryProgress(_ progress: ItineraryProgress.Saved, of id: ActivityID) async throws
+    /// Saves the Return path of the Recording `id` and its return point (ADR-031 §7); `nil` clears it.
+    func saveReturnPath(_ returnPath: ReturnPath?, of id: ActivityID) async throws
 }

@@ -82,7 +82,7 @@ struct ExpandedIslandCenter: View {
                 ItineraryTrackBar(
                     fraction: itinerary.fraction,
                     symbol: attributes.sportSymbol,
-                    dimmed: itinerary.state == .offTrack
+                    dimmed: itinerary.state == .offTrack || itinerary.state == .returnPath
                 )
             }
             .padding(.horizontal, 12)

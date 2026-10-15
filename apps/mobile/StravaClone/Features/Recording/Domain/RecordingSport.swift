@@ -13,6 +13,11 @@ enum RecordingSport: String, CaseIterable, Codable, Sendable {
         self != .ride
     }
 
+    /// Return path profile (ADR-031 §7): `walking` on foot, `cycling` on a bike.
+    var routingProfile: RoutingProfile {
+        (isOnFoot ? SportCategory.foot : .wheels).routingProfile
+    }
+
     /// Plausible top speed of the server's cleanup (`maxPlausibleSpeedMs`, ADR-019 §5 step 3).
     var maxPlausibleSpeedMs: Double {
         switch self {
