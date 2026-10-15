@@ -6,6 +6,8 @@ import SwiftUI
 struct ProfileView<Itineraries: View>: View {
     @State var store: AuthStore
     var signOutWarning: @MainActor () async -> String? = { nil }
+    /// Run once the warning is confirmed, before signing out (a Recording is deleted, ADR-031 §10).
+    var beforeSignOut: @MainActor () async -> Void = {}
     @ViewBuilder var itineraries: () -> Itineraries
 
     @State private var pendingSignOutWarning: String?
@@ -51,7 +53,10 @@ struct ProfileView<Itineraries: View>: View {
                 presenting: pendingSignOutWarning
             ) { _ in
                 Button("Se déconnecter", role: .destructive) {
-                    Task { await store.signOut() }
+                    Task {
+                        await beforeSignOut()
+                        await store.signOut()
+                    }
                 }
                 Button("Annuler", role: .cancel) {}
             } message: { warning in

@@ -12,6 +12,9 @@ struct RecordingSnapshot: Equatable, Sendable {
     /// Last fix, during a Pause too (map position, GPS indicator).
     var position: LocationSample?
     var currentSpeed: CurrentSpeed
+    /// Points have failed to reach the disk for 30 s (ADR-031 §10): they are kept in memory and
+    /// retried, the Recording goes on, a banner warns the athlete.
+    var isTraceWriteFailing = false
 
     init(recording: Recording, points: [LocationSample] = [], position: LocationSample? = nil) {
         self.recording = recording
