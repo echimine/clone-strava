@@ -241,8 +241,55 @@
           }
         },
         "responses": {
+          "200": {
+            "description": "Replayed by the same athlete",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateActivityResponseDto_Output"
+                }
+              }
+            }
+          },
           "201": {
-            "description": ""
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateActivityResponseDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Activities"
+        ]
+      }
+    },
+    "/v1/activities/{id}": {
+      "get": {
+        "operationId": "ActivitiesController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivityDetailDto_Output"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -264,8 +311,15 @@
           }
         ],
         "responses": {
-          "201": {
-            "description": ""
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RenewUploadUrlResponseDto_Output"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -288,7 +342,14 @@
         ],
         "responses": {
           "202": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompleteActivityResponseDto_Output"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -1044,10 +1105,12 @@
           },
           "title": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "maxLength": 255
           },
           "description": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 10000
           },
           "startedAt": {
             "type": "string",
@@ -1098,6 +1161,279 @@
           "visibility",
           "isManual"
         ]
+      },
+      "CreateActivityResponseDto_Output": {
+        "type": "object",
+        "properties": {
+          "activity": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "sportTypeCode": {
+                "type": "string",
+                "minLength": 1
+              },
+              "visibility": {
+                "type": "string",
+                "enum": [
+                  "public",
+                  "followers",
+                  "private"
+                ]
+              },
+              "processingStatus": {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "processing",
+                  "processed",
+                  "failed"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "sportTypeCode",
+              "visibility",
+              "processingStatus"
+            ],
+            "additionalProperties": false
+          },
+          "upload": {
+            "type": "object",
+            "properties": {
+              "uploadUrl": {
+                "type": "string",
+                "format": "uri"
+              },
+              "expiresAt": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              }
+            },
+            "required": [
+              "uploadUrl",
+              "expiresAt"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "activity"
+        ],
+        "additionalProperties": false
+      },
+      "ActivityDetailDto_Output": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "sportTypeCode": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "endedAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "public",
+              "followers",
+              "private"
+            ]
+          },
+          "processingStatus": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "processing",
+              "processed",
+              "failed"
+            ]
+          },
+          "processingError": {
+            "type": "string",
+            "enum": [
+              "invalid_trace",
+              "empty_trace",
+              "processing_error"
+            ]
+          },
+          "stats": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "distanceM": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "movingTimeS": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "elapsedTimeS": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "elevationGainM": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "avgSpeedMs": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "maxSpeedMs": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "avgHeartRate": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "maxHeartRate": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "distanceM",
+              "movingTimeS",
+              "elapsedTimeS",
+              "elevationGainM",
+              "avgSpeedMs",
+              "maxSpeedMs",
+              "avgHeartRate",
+              "maxHeartRate"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "id",
+          "sportTypeCode",
+          "title",
+          "startedAt",
+          "endedAt",
+          "visibility",
+          "processingStatus",
+          "stats"
+        ],
+        "additionalProperties": false
+      },
+      "RenewUploadUrlResponseDto_Output": {
+        "type": "object",
+        "properties": {
+          "uploadUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          }
+        },
+        "required": [
+          "uploadUrl",
+          "expiresAt"
+        ],
+        "additionalProperties": false
+      },
+      "CompleteActivityResponseDto_Output": {
+        "type": "object",
+        "properties": {
+          "activity": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "sportTypeCode": {
+                "type": "string",
+                "minLength": 1
+              },
+              "visibility": {
+                "type": "string",
+                "enum": [
+                  "public",
+                  "followers",
+                  "private"
+                ]
+              },
+              "processingStatus": {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "processing",
+                  "processed",
+                  "failed"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "sportTypeCode",
+              "visibility",
+              "processingStatus"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "activity"
+        ],
+        "additionalProperties": false
       },
       "CreateActivityImportRequestDto": {
         "type": "object",
