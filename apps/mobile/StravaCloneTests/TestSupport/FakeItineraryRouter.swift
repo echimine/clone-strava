@@ -9,6 +9,7 @@ actor FakeItineraryRouter: ItineraryRouter {
     struct Call: Equatable, Sendable {
         let waypoints: [Coordinate]
         let profile: RoutingProfile
+        var startBearing: Bearing?
     }
 
     private(set) var calls: [Call] = []
@@ -44,8 +45,8 @@ actor FakeItineraryRouter: ItineraryRouter {
         }
     }
 
-    func path(through waypoints: [Coordinate], profile: RoutingProfile) async throws -> RoutedPath {
-        calls.append(Call(waypoints: waypoints, profile: profile))
+    func path(through waypoints: [Coordinate], profile: RoutingProfile, startBearing: Bearing?) async throws -> RoutedPath {
+        calls.append(Call(waypoints: waypoints, profile: profile, startBearing: startBearing))
         if isHolding {
             await withCheckedContinuation { held.append($0) }
         }

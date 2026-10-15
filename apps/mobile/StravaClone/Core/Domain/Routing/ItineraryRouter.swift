@@ -1,11 +1,28 @@
 import Foundation
 
-/// Computes the path of one or more consecutive Legs (ADR-030 §2): Mapbox Directions in
-/// the app, a fake network in tests.
+/// Computes the path of one or more consecutive Legs (ADR-030 §2), or a Return path
+/// (ADR-031 §7): Mapbox Directions in the app, a fake network in tests.
 protocol ItineraryRouter: Sendable {
-    /// Path through `waypoints` (2 to 25, in order), one geometry per Leg.
-    /// Throws a `RoutingError`, or `CancellationError` when the task is cancelled.
-    func path(through waypoints: [Coordinate], profile: RoutingProfile) async throws -> RoutedPath
+    /// Path through `waypoints` (2 to 25, in order), one geometry per Leg, leaving the first
+    /// one along `startBearing` when given. Throws a `RoutingError`, or `CancellationError`
+    /// when the task is cancelled.
+    func path(through waypoints: [Coordinate], profile: RoutingProfile, startBearing: Bearing?) async throws -> RoutedPath
+}
+
+extension ItineraryRouter {
+    /// Path through `waypoints`, in any direction from the first one. Runs on the caller's
+    /// executor, so concurrent callers reach the router in the order they called it.
+    nonisolated(nonsending) func path(through waypoints: [Coordinate], profile: RoutingProfile) async throws -> RoutedPath {
+        try await path(through: waypoints, profile: profile, startBearing: nil)
+    }
+}
+
+/// Direction the athlete is heading, clockwise from true north, give or take `tolerance`.
+struct Bearing: Equatable, Sendable {
+    /// 0 to 360 degrees.
+    let degrees: Double
+    /// 0 to 180 degrees either side of `degrees`.
+    let tolerance: Double
 }
 
 /// Router answer for consecutive Legs.
