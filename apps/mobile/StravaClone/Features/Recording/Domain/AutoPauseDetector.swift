@@ -85,7 +85,21 @@ struct AutoPauseDetector: Sendable {
         clock = since
     }
 
+    /// An automatic Pause read back from storage (relaunch by iOS): it stays automatic.
+    init(rule: AutoPauseRule, pausedAt start: Date, position: Coordinate?) {
+        self.init(rule: rule, monitoringSince: start)
+        pause = Pause(start: start, position: position)
+    }
+
     var isPaused: Bool { pause != nil }
+
+    /// Watches for a stop again from `date` (manual Resume, switch turned on), keeping the
+    /// Core Motion state.
+    mutating func monitor(since date: Date) {
+        pause = nil
+        monitoringSince = date
+        clock = max(clock, date)
+    }
 
     mutating func observe(_ signal: AutoPauseSignal) -> AutoPauseDecision? {
         let now = max(clock, signal.date)

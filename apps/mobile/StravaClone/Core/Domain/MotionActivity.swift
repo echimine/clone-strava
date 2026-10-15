@@ -21,3 +21,11 @@ struct MotionReading: Equatable, Sendable {
     let confidence: MotionConfidence
     let startDate: Date
 }
+
+/// Core Motion's activity readings (ADR-031 §4), a fake in tests.
+protocol MotionActivityProvider: Sendable {
+    /// Asks for "Motion & Fitness" access the first time; `false` when refused or unavailable.
+    func requestAuthorization() async -> Bool
+    /// Readings while the stream is alive.
+    func readings() async -> AsyncStream<MotionReading>
+}
