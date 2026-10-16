@@ -1,11 +1,9 @@
 import { Heading, Text } from "@react-email/components";
 import { render } from "@react-email/render";
-import { EmailButton, EmailLayout, PREVIEW_LOGO_URL } from "./email-layout.js";
+import { type BrandedEmailProps, EmailButton, EmailLayout, PREVIEW_LOGO_URL } from "./email-layout.js";
 
-export interface ResetPasswordEmailProps {
+export interface ResetPasswordEmailProps extends BrandedEmailProps {
   url: string;
-  /** Absolute URL of the header wordmark PNG (ADR-032 §2). */
-  logoUrl: string;
 }
 
 /** Password reset email (ADR-023). */

@@ -1,7 +1,17 @@
 import { describe, expect, it } from "vitest";
+import { emailWordmarkUrl } from "./email-layout.js";
 import { renderAdminOtpEmail, renderResetPasswordEmail, renderVerifyEmail } from "./index.js";
 
 const logoUrl = "https://admin.example.com/brand/nervo-wordmark-email.png";
+
+/** ADR-032 §2: the backoffice hosts the wordmark PNG, outside its login proxy. */
+describe("email wordmark URL", () => {
+  it("is the hosted PNG on the backoffice origin", () => {
+    expect(emailWordmarkUrl("https://admin.example.com")).toBe(
+      "https://admin.example.com/brand/nervo-wordmark-email.png",
+    );
+  });
+});
 
 /** Auth emails carry the Nervo brand (ADR-032 §1), never the old project names. */
 describe("auth emails", () => {

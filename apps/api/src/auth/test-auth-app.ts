@@ -39,7 +39,8 @@ class TestAdminController {
  */
 export const TEST_DATABASE_URL = "postgres://strava:strava@127.0.0.1:5432/strava";
 export const TEST_REDIS_URL = "redis://127.0.0.1:6379";
-export const TEST_EMAIL_LOGO_URL = "https://admin.test/brand/nervo-wordmark-email.png";
+/** Backoffice origin of the test app: trusted by Better Auth, host of the email wordmark. */
+export const TEST_ADMIN_ORIGIN = "https://admin.test";
 
 export interface TestAuthApp {
   app: INestApplication;
@@ -72,7 +73,7 @@ export async function bootstrapTestAuthApp(
         secret: "test-secret-at-least-32-characters-long-0",
         baseUrl: "http://127.0.0.1:0",
         trustedOrigins: ["http://127.0.0.1:0"],
-        emailLogoUrl: TEST_EMAIL_LOGO_URL,
+        adminOrigin: TEST_ADMIN_ORIGIN,
         googleClientId: "test-google-client-id",
         googleClientSecret: "test-google-client-secret",
         resendApiKey: "re_test_dummy_key_never_sent",
