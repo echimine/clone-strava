@@ -1,8 +1,8 @@
 import Foundation
 
 /// `ActivityEventSource` on top of the shared realtime connection (ADR-010): keeps only
-/// `activity.updated` `{ activityId, changedFields }` (ADR-033 §8). The echo of the device's own
-/// edit comes too; reloading is harmless.
+/// `activity.updated` `{ activityId, changedFields }` and `activity.deleted` `{ activityId }`
+/// (ADR-033 §8). The echo of the device's own edit or delete comes too; it is harmless.
 struct RealtimeActivityEventSource: ActivityEventSource {
     let client: WebSocketClient
 
@@ -33,6 +33,7 @@ struct RealtimeActivityEventSource: ActivityEventSource {
         }
         switch event.type {
         case "activity.updated": return .updated(ActivityID(uuid))
+        case "activity.deleted": return .deleted(ActivityID(uuid))
         default: return nil
         }
     }

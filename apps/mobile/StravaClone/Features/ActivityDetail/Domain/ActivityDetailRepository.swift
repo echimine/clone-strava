@@ -18,4 +18,7 @@ protocol ActivityDetailRepository: Sendable {
     func detail(id: ActivityID) async throws(ActivityDetailError) -> ActivityDetail
     /// The author's edit (ADR-033 §4); returns the detail as the server stored it.
     func update(id: ActivityID, with edit: ActivityEdit) async throws(ActivityDetailError) -> ActivityDetail
+    /// The author's hard delete (ADR-033 §6). Already gone: `.notFound`; still processing:
+    /// `.server(code: "not_deletable")`.
+    func delete(id: ActivityID) async throws(ActivityDetailError)
 }

@@ -32,13 +32,17 @@ final class ActivityDetailStore {
     @ObservationIgnored private let setKudos: SetActivityKudos
     @ObservationIgnored private let changes: ActivityChanges
     @ObservationIgnored private let events: (any ActivityEventSource)?
+    @ObservationIgnored private let deleter: ActivityDeleter
     @ObservationIgnored private var kudosInFlight = false
 
     /// - Parameters:
     ///   - changes: where the detail publishes what changed, for the feed (ADR-033 §7).
     ///   - updateActivity: "Enregistrer" of the edit sheet; by default over `loadDetail`'s
     ///     repository.
-    ///   - events: realtime events; this Activity's `activity.updated` reloads it (§8).
+    ///   - events: realtime events; this Activity's `activity.updated` reloads it,
+    ///     `activity.deleted` makes it unavailable (§8).
+    ///   - deleter: "⋯" > "Supprimer"; the feed's, so that a failure shows over the feed the
+    ///     page has gone back to (§7).
     init(
         id: ActivityID,
         loadDetail: LoadActivityDetail,
@@ -46,9 +50,14 @@ final class ActivityDetailStore {
         setKudos: SetActivityKudos,
         changes: ActivityChanges,
         updateActivity: UpdateActivity? = nil,
-        events: (any ActivityEventSource)? = nil
+        events: (any ActivityEventSource)? = nil,
+        deleter: ActivityDeleter? = nil
     ) {
         self.id = id
+        self.deleter = deleter ?? ActivityDeleter(
+            deleteActivity: DeleteActivity(repository: loadDetail.repository),
+            changes: changes
+        )
         self.loadDetail = loadDetail
         self.loadKudos = loadKudos
         self.setKudos = setKudos
@@ -63,12 +72,18 @@ final class ActivityDetailStore {
     }
 
     /// Runs while the detail is shown (`.task`): this Activity's realtime events. The echo of
-    /// the athlete's own edit reloads the same values.
+    /// the athlete's own edit reloads the same values; a deletion makes it unavailable (§3, §8).
     func observeEvents() async {
         guard let events else { return }
         for await event in await events.activityEvents() {
-            if case .updated(id) = event {
+            switch event {
+            case .updated(id):
                 await load()
+            case .deleted(id):
+                phase = .unavailable
+                changes.publish(.deleted(id))
+            default:
+                continue
             }
         }
     }
@@ -102,6 +117,12 @@ final class ActivityDetailStore {
     /// A comment gained or lost on the thread (ADR-034 §6): the count reaches the feed card.
     func commentCountChanged(by delta: Int) {
         setEngagement { $0.commentCount = max(0, $0.commentCount + delta) }
+    }
+
+    /// "⋯" > "Supprimer", once confirmed: the page goes back to the feed, where the card is
+    /// already gone (ADR-033 §7).
+    func delete() async {
+        await deleter.delete(id)
     }
 
     /// "Réessayer" after an error.

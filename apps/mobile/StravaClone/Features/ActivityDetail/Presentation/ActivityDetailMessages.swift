@@ -58,6 +58,18 @@ enum ActivityDetailMessages {
         }
     }
 
+    // MARK: Delete (ADR-033 §7)
+
+    /// The toast of a delete that failed; the card is back.
+    static func deleteFailed(_ error: ActivityDetailError) -> String {
+        switch error {
+        case .offline: "Vous êtes hors ligne : l'activité n'a pas été supprimée."
+        // `409 not_deletable`: the same words as for a local Activity (ADR-031 §14).
+        case .server(code: "not_deletable"): "Suppression impossible : l'activité est déjà en traitement."
+        default: "La suppression n'a pas pu être effectuée."
+        }
+    }
+
     /// Under the reopened sheet after a `422`.
     static func editRefused(code: String?) -> String {
         switch code {
