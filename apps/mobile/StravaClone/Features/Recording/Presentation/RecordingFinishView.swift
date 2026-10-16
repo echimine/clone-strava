@@ -48,7 +48,7 @@ struct RecordingFinishView: View {
                 .allowsHitTesting(!showsCelebration)
             if showsCelebration {
                 RecordingCelebration(stats: finalStats, namespace: celebrationSpace, onFinished: endCelebration) { frame in
-                    CelebrationSketchBackground(trace: snapshot.trace, progress: frame.traceProgress)
+                    CelebrationMapBackground(trace: snapshot.trace, frame: frame)
                 }
                 .zIndex(1)
             }
@@ -164,17 +164,19 @@ struct RecordingFinishView: View {
         .padding(Theme.spacing)
     }
 
-    /// Kept empty during the celebration: the celebration's background lands here when it ends.
-    @ViewBuilder
+    /// The celebration's background lands here when it ends. The mini-map loads during the
+    /// celebration, hidden with the form, so the background shrinks into a map already drawn
+    /// rather than one reloading (#83); it joins the celebration's geometry only at the end.
     private var miniMap: some View {
-        if showsCelebration {
-            Color.clear
-        } else {
-            RecordingTraceMap(trace: snapshot.trace)
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-                .matchedGeometryEffect(id: CelebrationGeometry.miniMapID, in: celebrationSpace)
-        }
+        RecordingTraceMap(trace: snapshot.trace)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .matchedGeometryEffect(
+                id: showsCelebration ? Self.hiddenMiniMapID : CelebrationGeometry.miniMapID,
+                in: celebrationSpace
+            )
     }
+
+    private static let hiddenMiniMapID = "recordingHiddenMiniMap"
 
     static func label(_ visibility: ActivityVisibility) -> String {
         switch visibility {
