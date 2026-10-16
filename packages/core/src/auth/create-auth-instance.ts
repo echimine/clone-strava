@@ -111,7 +111,7 @@ export function createAuthInstance(
       // ADR-022 §5: 2FA mandatory for admins. Adds `user.twoFactorEnabled`,
       // checked directly by `AdminGuard` — no separate "2FA required" flag.
       twoFactor({
-        issuer: "Clone Strava",
+        issuer: "Nervo",
         otpOptions: {
           period: 5,
           sendOTP: async ({ user, otp }) => {

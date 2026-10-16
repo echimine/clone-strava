@@ -1,4 +1,4 @@
-# Like-Strava
+# Nervo
 
 Monorepo Turborepo + pnpm (ADR-005). Les décisions d'architecture sont dans [`docs/adr/`](docs/adr).
 

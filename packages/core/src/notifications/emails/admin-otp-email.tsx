@@ -28,10 +28,10 @@ export function AdminOtpEmail({ otp, email }: AdminOtpEmailProps) {
   return (
     <Html lang="en">
       <Head />
-      <Preview>Your Clone Strava admin verification code</Preview>
+      <Preview>Your Nervo admin verification code</Preview>
       <Body style={{ fontFamily: "sans-serif", backgroundColor: "#f6f6f6" }}>
         <Container style={{ backgroundColor: "#ffffff", padding: "32px", borderRadius: "8px" }}>
-          <Heading as="h1">Clone Strava admin</Heading>
+          <Heading as="h1">Nervo admin</Heading>
           <Text>Verification code for {maskEmail(email)}:</Text>
           <Text style={{ fontSize: "28px", fontWeight: "bold", letterSpacing: "4px" }}>{otp}</Text>
           <Text style={{ color: "#666666", fontSize: "12px" }}>
