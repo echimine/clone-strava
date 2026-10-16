@@ -23,9 +23,14 @@ export type Envelope = z.infer<typeof envelopeSchema>;
 
 // --- Client -> server control messages (ADR-010 §5) ---
 
+/**
+ * `grant` (ADR-034 §5): a subscription grant from `POST /v1/realtime/grants`,
+ * for a topic that is not in the connection token (e.g. `activity:{id}`).
+ */
 export const subMessageSchema = z.object({
   a: z.literal("sub"),
   topic: z.string(),
+  grant: z.string().optional(),
 });
 export type SubMessage = z.infer<typeof subMessageSchema>;
 

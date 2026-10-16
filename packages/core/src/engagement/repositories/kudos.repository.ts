@@ -38,15 +38,22 @@ export class KudosRepository {
     return new Set(rows.map((row) => row.activityId));
   }
 
-  /** Idempotent: giving kudos twice keeps one row. */
-  async give(userId: string, activityId: string): Promise<void> {
-    await this.db.insert(schema.kudos).values({ userId, activityId }).onConflictDoNothing();
+  /** Idempotent: giving kudos twice keeps one row. Returns whether a row was inserted. */
+  async give(userId: string, activityId: string): Promise<boolean> {
+    const inserted = await this.db
+      .insert(schema.kudos)
+      .values({ userId, activityId })
+      .onConflictDoNothing()
+      .returning({ userId: schema.kudos.userId });
+    return inserted.length > 0;
   }
 
-  /** Idempotent: removing missing kudos is a no-op. */
-  async remove(userId: string, activityId: string): Promise<void> {
-    await this.db
+  /** Idempotent: removing missing kudos is a no-op. Returns whether a row was deleted. */
+  async remove(userId: string, activityId: string): Promise<boolean> {
+    const deleted = await this.db
       .delete(schema.kudos)
-      .where(and(eq(schema.kudos.userId, userId), eq(schema.kudos.activityId, activityId)));
+      .where(and(eq(schema.kudos.userId, userId), eq(schema.kudos.activityId, activityId)))
+      .returning({ userId: schema.kudos.userId });
+    return deleted.length > 0;
   }
 }
