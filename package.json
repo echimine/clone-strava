@@ -17,11 +17,13 @@
     "mobile:test": "pnpm mobile:generate && xcodebuild test -project apps/mobile/StravaClone.xcodeproj -scheme StravaClone -skipPackagePluginValidation -only-testing:StravaCloneTests -destination 'platform=iOS Simulator,name=iPhone 17'",
     "mobile:test:ui": "pnpm mobile:generate && xcodebuild test -project apps/mobile/StravaClone.xcodeproj -scheme StravaClone -skipPackagePluginValidation -only-testing:StravaCloneUITests -destination 'platform=iOS Simulator,name=iPhone 17'",
     "mobile:prod": "bash scripts/mobile-prod.sh",
+    "brand:generate": "node scripts/generate-brand-assets.mjs",
     "format": "prettier --write \"**/*.{ts,tsx,md}\""
   },
   "devDependencies": {
     "dependency-cruiser": "18.4.0",
     "prettier": "3.9.6",
+    "sharp": "0.35.4",
     "turbo": "^2.11.3",
     "typescript": "7.0.2"
   },
