@@ -230,9 +230,16 @@ final class Di {
             loadKudos: LoadKudosList(repository: activityKudosRepository),
             setKudos: SetActivityKudos(repository: activityKudosRepository),
             changes: activityChanges,
-            events: RealtimeActivityEventSource(client: webSocketClient)
+            events: RealtimeActivityEventSource(client: webSocketClient),
+            deleter: activityDeleter
         )
     }
+
+    /// "Supprimer" from a feed card or a detail (ADR-033 §7): its toast shows over the feed.
+    private(set) lazy var activityDeleter = ActivityDeleter(
+        deleteActivity: DeleteActivity(repository: activityDetailRepository),
+        changes: activityChanges
+    )
 
     /// "Modifier" in a feed card's context menu (ADR-033 §1, §7): its sheet shows over the feed.
     private(set) lazy var feedActivityEditor = ActivityEditor(
@@ -241,7 +248,8 @@ final class Di {
         changes: activityChanges
     )
 
-    /// The feed's cards follow `activity.updated` on the owner's topic (ADR-033 §8).
+    /// The feed's cards follow `activity.updated` and `activity.deleted` on the owner's topic
+    /// (ADR-033 §8).
     func makeReloadUpdatedActivities() -> ReloadUpdatedActivities {
         ReloadUpdatedActivities(
             loadDetail: LoadActivityDetail(repository: activityDetailRepository),

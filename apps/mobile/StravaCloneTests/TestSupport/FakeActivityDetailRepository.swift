@@ -17,6 +17,11 @@ final class FakeActivityDetailRepository: ActivityDetailRepository, @unchecked S
     /// Suspends `update` until resumed, to observe the optimistic state.
     var updateGate: AsyncStream<Void>?
     private(set) var updates: [Update] = []
+    /// Answer of `delete`; succeeds by default.
+    var deleteResult: Result<Void, ActivityDetailError> = .success(())
+    /// Suspends `delete` until resumed, to observe the optimistic state.
+    var deleteGate: AsyncStream<Void>?
+    private(set) var deletedIds: [ActivityID] = []
 
     init(_ results: Result<ActivityDetail, ActivityDetailError>...) {
         self.results = results
@@ -42,6 +47,17 @@ final class FakeActivityDetailRepository: ActivityDetailRepository, @unchecked S
             updateResult ?? results.last.map { $0.map(edit.applied(to:)) } ?? .failure(.network)
         }
         return try result.get()
+    }
+
+    func delete(id: ActivityID) async throws(ActivityDetailError) {
+        let gate = lock.withLock {
+            deletedIds.append(id)
+            return deleteGate
+        }
+        if let gate {
+            for await _ in gate { break }
+        }
+        try lock.withLock { deleteResult }.get()
     }
 }
 

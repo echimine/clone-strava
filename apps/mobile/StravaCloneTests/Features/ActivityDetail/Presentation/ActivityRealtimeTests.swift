@@ -85,4 +85,64 @@ struct ActivityRealtimeTests {
             break
         }
     }
+
+    // MARK: activity.deleted (#96)
+
+    @Test func anOpenDetailBecomesUnavailableOnItsActivityDeletedEvent() async {
+        let repository = FakeActivityDetailRepository(.success(before))
+        let events = FakeActivityEventSource()
+        let changes = ActivityChanges()
+        let published = changes.subscribe()
+        let kudos = FakeActivityKudosRepository()
+        let store = ActivityDetailStore(
+            id: before.id,
+            loadDetail: LoadActivityDetail(repository: repository),
+            loadKudos: LoadKudosList(repository: kudos),
+            setKudos: SetActivityKudos(repository: kudos),
+            changes: changes,
+            events: events
+        )
+        await store.load()
+        let observation = Task { await store.observeEvents() }
+        defer { observation.cancel() }
+        #expect(await eventually { events.subscriberCount == 1 })
+
+        // Another Activity's deletion: the detail stays.
+        events.send(.deleted(ActivityID()))
+        events.send(.deleted(before.id))
+
+        #expect(await eventually { store.phase == .unavailable })
+        // No reload: the event says it all.
+        #expect(repository.requestedIds == [before.id])
+        #expect(await changes.published(on: published) == [.updated(before.post), .deleted(before.id)])
+    }
+
+    @Test func theFeedCardGoesOnAnActivityDeletedEvent() async {
+        let changes = ActivityChanges()
+        let other = ActivityDetail.fixture(title: "Autre sortie")
+        let feedRepository = FakeFeedRepository()
+        feedRepository.pages[nil] = .success(FeedPage(posts: [before.post, other.post], nextCursor: nil))
+        let feed = FeedStore(
+            loadFeed: LoadFeed(repository: feedRepository),
+            toggleKudos: ToggleKudos(repository: feedRepository),
+            events: FakeFeedEventSource(),
+            activityChanges: changes
+        )
+        await feed.refresh()
+        let events = FakeActivityEventSource()
+        let repository = FakeActivityDetailRepository(.success(before))
+        let reload = ReloadUpdatedActivities(
+            loadDetail: LoadActivityDetail(repository: repository),
+            changes: changes,
+            events: events
+        )
+        let running = Task { await reload.run() }
+        defer { running.cancel() }
+        #expect(await eventually { events.subscriberCount == 1 })
+
+        events.send(.deleted(before.id))
+
+        #expect(await eventually { feed.posts == [other.post] })
+        #expect(repository.requestedIds.isEmpty)
+    }
 }

@@ -1,7 +1,7 @@
 import Foundation
 
 /// `APIClient` adapter of `ActivityDetailRepository`: `GET /v1/activities/:id` for any
-/// visible Activity (ADR-033 §2) and the author's `PATCH` (§4), decoded with the generated
+/// visible Activity (ADR-033 §2), the author's `PATCH` (§4) and `DELETE` (§6), decoded with the generated
 /// OpenAPI types (ADR-026).
 struct APIActivityDetailRepository: ActivityDetailRepository {
     private typealias DetailResponse = Components.Schemas.ActivityDetailDto_Output
@@ -35,6 +35,14 @@ struct APIActivityDetailRepository: ActivityDetailRepository {
         do {
             let response: DetailResponse = try await apiClient.send(method: "PATCH", path: "/v1/activities/\(id)", body: body)
             return response.model(id: id)
+        } catch {
+            throw Self.detailError(error)
+        }
+    }
+
+    func delete(id: ActivityID) async throws(ActivityDetailError) {
+        do {
+            let _: NoContent = try await apiClient.send(method: "DELETE", path: "/v1/activities/\(id)")
         } catch {
             throw Self.detailError(error)
         }

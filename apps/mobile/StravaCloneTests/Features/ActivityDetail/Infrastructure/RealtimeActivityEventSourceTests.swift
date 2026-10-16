@@ -17,6 +17,15 @@ struct RealtimeActivityEventSourceTests {
         #expect(event == .updated(ActivityID(UUID(uuidString: "7c9e6679-7425-40de-944b-e07fc1f90ae7")!)))
     }
 
+    /// #94: `activity.deleted` `{ activityId }` on the owner's topic.
+    @Test func readsADeletion() throws {
+        let event = try event(#"""
+            {"v":1,"t":"activity.deleted","id":"evt_2","data":{"activityId":"7c9e6679-7425-40de-944b-e07fc1f90ae7"}}
+            """#)
+
+        #expect(event == .deleted(ActivityID(UUID(uuidString: "7c9e6679-7425-40de-944b-e07fc1f90ae7")!)))
+    }
+
     @Test func ignoresOtherTypesAndUnreadablePayloads() throws {
         #expect(try event(#"{"v":1,"t":"activity.processed","id":"e","data":{"activityId":"7c9e6679-7425-40de-944b-e07fc1f90ae7"}}"#) == nil)
         #expect(try event(#"{"v":1,"t":"activity.updated","id":"e","data":{"activityId":"act_1","changedFields":["title"]}}"#) == nil)

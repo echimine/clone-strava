@@ -8,6 +8,8 @@ struct ActivityDetailPage: View {
     @State private var comments: ActivityCommentsStore
     /// Kept live while shown (ADR-034 §5).
     private let liveEvents: any ActivityLiveEventSource
+    /// "⋯" > "Supprimer", waiting for its confirmation.
+    @State private var deletionCandidate: ActivityID?
 
     @Environment(\.dismiss) private var dismiss
 
@@ -31,6 +33,11 @@ struct ActivityDetailPage: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { manageMenu }
             .activityEditing(store.editor)
+            // ADR-033 §7: back to the feed at once, where the card is already gone.
+            .activityDeleteConfirmation($deletionCandidate) { _ in
+                Task { await store.delete() }
+                dismiss()
+            }
             .task { await store.load() }
             .task { await store.observeEvents() }
             // Subscribed while shown, unsubscribed when the task ends with the screen.
@@ -45,7 +52,10 @@ struct ActivityDetailPage: View {
         if let detail = store.detail, detail.viewerIsAuthor {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
-                    ActivityManageButtons(onEdit: { store.editor.edit(detail) })
+                    ActivityManageButtons(
+                        onEdit: { store.editor.edit(detail) },
+                        onDelete: { deletionCandidate = detail.id }
+                    )
                 } label: {
                     Label(ActivityDetailMessages.manage, systemImage: "ellipsis")
                 }
@@ -190,6 +200,8 @@ private struct PreviewActivityDetailRepository: ActivityDetailRepository {
     func update(id: ActivityID, with edit: ActivityEdit) async throws(ActivityDetailError) -> ActivityDetail {
         edit.applied(to: try await detail(id: id))
     }
+
+    func delete(id: ActivityID) async throws(ActivityDetailError) {}
 }
 
 private struct PreviewActivityKudosRepository: ActivityKudosRepository {
