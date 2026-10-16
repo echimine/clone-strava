@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Nervo">
+  <title>Nervo</title>
+  <!-- Symbol "Col" (ADR-032 §2): one open stroke, so it can be drawn progressively. -->
+  <path d="M24 78 L24 24 L44 50 L51 42 L76 78 L76 22" fill="none" stroke="currentColor" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
