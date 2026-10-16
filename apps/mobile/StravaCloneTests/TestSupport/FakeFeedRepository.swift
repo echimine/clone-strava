@@ -47,14 +47,16 @@ final class FakeFeedEventSource: FeedEventSource, @unchecked Sendable {
 extension ActivityPost {
     static func fixture(
         id: ActivityID = ActivityID(),
+        title: String = "Sortie",
+        sport: SportType = .run,
         kudos: Int = 0,
         viewerHasKudoed: Bool = false,
         viewerIsAuthor: Bool = false
     ) -> ActivityPost {
         ActivityPost(
             id: id,
-            title: "Sortie",
-            sport: .run,
+            title: title,
+            sport: sport,
             startedAt: Date(timeIntervalSince1970: 1_790_000_000),
             locationName: "Annecy, Haute-Savoie",
             distance: Distance(meters: 10_000),
