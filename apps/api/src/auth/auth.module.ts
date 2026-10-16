@@ -8,12 +8,16 @@ import { SessionGuard } from "./session.guard.js";
 // the environment is loaded directly here, the same way `ConfigModule`
 // does it -- both run once, at module-decoration time.
 const config = loadConfig();
+const ADMIN_ORIGIN = "https://admin.strava.echimine.fr";
 const coreAuthModule = CoreAuthModule.forRoot({
   secret: config.BETTER_AUTH_SECRET,
   baseUrl: config.BETTER_AUTH_URL,
   // ADR-022: the backoffice (cross-subdomain cookie) and the iOS app
   // (custom scheme) both need to be trusted explicitly.
-  trustedOrigins: ["https://admin.strava.echimine.fr", "app://strava"],
+  trustedOrigins: [ADMIN_ORIGIN, "app://strava"],
+  // ADR-032 §2: the admin hosts the email wordmark (`apps/admin/public/brand/`),
+  // outside its login proxy, so mail clients load it without a session.
+  emailLogoUrl: new URL("/brand/nervo-wordmark-email.png", ADMIN_ORIGIN).href,
   googleClientId: config.GOOGLE_CLIENT_ID,
   googleClientSecret: config.GOOGLE_CLIENT_SECRET,
   resendApiKey: config.RESEND_API_KEY,

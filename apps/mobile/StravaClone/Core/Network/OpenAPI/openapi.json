@@ -927,7 +927,7 @@
     }
   },
   "info": {
-    "title": "Clone Strava API",
+    "title": "Nervo API",
     "description": "REST API for the mobile app and the backoffice (ADR-009).",
     "version": "1",
     "contact": {}

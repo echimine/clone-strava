@@ -11,6 +11,8 @@ export interface AuthModuleOptions {
   secret: string;
   baseUrl: string;
   trustedOrigins: string[];
+  /** Absolute public URL of the auth emails' header wordmark PNG (ADR-032 §2). */
+  emailLogoUrl: string;
   googleClientId: string;
   googleClientSecret: string;
   resendApiKey: string;

@@ -16,6 +16,7 @@ import { Activity, LayoutDashboard, MapPinned, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "@/lib/auth-client";
+import { NervoSymbol } from "./NervoSymbol";
 
 const navItems = [
   { href: "/", label: "Tableau de bord", icon: LayoutDashboard },
@@ -31,7 +32,17 @@ export function AppSidebar({ me }: { me: MeResponse }) {
   return (
     <Sidebar>
       <SidebarHeader>
-        <span className="px-2 text-sm font-semibold">Like-Strava</span>
+        {/* ADR-032 §2: white symbol on a #FC5200 tile, then the italic wordmark. */}
+        <div className="flex items-center gap-2 px-2 py-1">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[#FC5200] text-white">
+            <NervoSymbol className="size-6 -skew-x-[10deg]" />
+          </span>
+          <span className="text-base font-extrabold italic tracking-tight">NERVO</span>
+          <span aria-hidden="true" className="text-muted-foreground">
+            ·
+          </span>
+          <span className="text-sm text-muted-foreground">Backoffice</span>
+        </div>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>

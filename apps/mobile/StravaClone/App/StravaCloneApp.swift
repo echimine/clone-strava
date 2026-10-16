@@ -26,7 +26,8 @@ struct StravaCloneApp: App {
                 itinerarySynchronizer: di.itinerarySynchronizer,
                 connectivityChanges: di.connectivityChanges,
                 syncCoordinator: di.syncCoordinator,
-                defaultVisibility: di.defaultVisibility
+                defaultVisibility: di.defaultVisibility,
+                isSplashPresented: !ProcessInfo.processInfo.arguments.contains(SplashView.disablingArgument)
             )
                 .tint(Theme.accent)
                 .environment(\.imageLoader, di.imageLoader)
@@ -62,6 +63,9 @@ struct RootView: View {
     /// Sends the queued operations and follows the Activities in `processing` (ADR-031 §14).
     let syncCoordinator: SyncQueueCoordinator
     let defaultVisibility: DefaultVisibilityCache
+    /// The animated splash (ADR-032 §4), over the app from the cold launch until it is revealed.
+    /// It lives as long as the scene, so a return from the background does not replay it.
+    @State var isSplashPresented = true
 
     @Environment(\.scenePhase) private var scenePhase
     @State private var selectedTab = AppTab.feed
@@ -184,6 +188,15 @@ struct RootView: View {
                     for await refusal in itinerarySynchronizer.changeRefusals() {
                         itineraryChangeToast = ItineraryMessages.refused(refusal)
                     }
+                }
+            }
+        }
+        // The full screen even while the root is a bare `ProgressView`, so the splash covers it.
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .overlay {
+            if isSplashPresented {
+                SplashView(isSessionKnown: authStore.state != .checkingSession) {
+                    isSplashPresented = false
                 }
             }
         }
