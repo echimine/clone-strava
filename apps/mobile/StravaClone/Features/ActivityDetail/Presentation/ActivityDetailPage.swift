@@ -17,8 +17,25 @@ struct ActivityDetailPage: View {
             .background(Color(.systemGroupedBackground))
             .navigationTitle(store.detail.map { ActivityFormatters.sportLabel($0.sport) } ?? "")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar { manageMenu }
+            .activityEditing(store.editor)
             .task { await store.load() }
+            .task { await store.observeEvents() }
             .accessibilityIdentifier("activityDetail")
+    }
+
+    /// "⋯" for the author only (ADR-033 §3).
+    @ToolbarContentBuilder private var manageMenu: some ToolbarContent {
+        if let detail = store.detail, detail.viewerIsAuthor {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    ActivityManageButtons(onEdit: { store.editor.edit(detail) })
+                } label: {
+                    Label(ActivityDetailMessages.manage, systemImage: "ellipsis")
+                }
+                .accessibilityIdentifier("activityDetail.manage")
+            }
+        }
     }
 
     @ViewBuilder private var content: some View {
@@ -130,8 +147,12 @@ private struct PreviewActivityDetailRepository: ActivityDetailRepository {
             route: post.route,
             author: post.author,
             engagement: post.engagement,
-            viewerIsAuthor: false
+            viewerIsAuthor: true
         )
+    }
+
+    func update(id: ActivityID, with edit: ActivityEdit) async throws(ActivityDetailError) -> ActivityDetail {
+        edit.applied(to: try await detail(id: id))
     }
 }
 
@@ -141,6 +162,7 @@ private struct PreviewActivityDetailRepository: ActivityDetailRepository {
             ActivityDetailStore(
                 id: id,
                 loadDetail: LoadActivityDetail(repository: PreviewActivityDetailRepository()),
+                updateActivity: UpdateActivity(repository: PreviewActivityDetailRepository()),
                 changes: ActivityChanges()
             )
         }

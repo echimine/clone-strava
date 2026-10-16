@@ -11,7 +11,12 @@ struct ActivityDetailStoreTests {
         id: ActivityID,
         changes: ActivityChanges = ActivityChanges()
     ) -> ActivityDetailStore {
-        ActivityDetailStore(id: id, loadDetail: LoadActivityDetail(repository: repository), changes: changes)
+        ActivityDetailStore(
+            id: id,
+            loadDetail: LoadActivityDetail(repository: repository),
+            updateActivity: UpdateActivity(repository: repository),
+            changes: changes
+        )
     }
 
     @Test func loadingShowsTheActivity() async {

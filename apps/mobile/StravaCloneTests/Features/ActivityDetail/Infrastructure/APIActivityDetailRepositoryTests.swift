@@ -6,12 +6,15 @@ import Testing
 private final class DetailURLProtocolStub: URLProtocol, @unchecked Sendable {
     static let handler = Locked<(@Sendable (URLRequest) -> (Int, Data))?>(nil)
     static let requests = Locked<[URLRequest]>([])
+    /// Request bodies, read from `httpBodyStream` (`URLProtocol` does not keep `httpBody`).
+    static let bodies = Locked<[Data]>([])
 
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
 
     override func startLoading() {
         Self.requests.value.append(request)
+        Self.bodies.value.append(request.httpBody ?? request.httpBodyStream.map(Self.read) ?? Data())
         let (status, body) = Self.handler.value?(request) ?? (500, Data())
         let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
@@ -20,6 +23,19 @@ private final class DetailURLProtocolStub: URLProtocol, @unchecked Sendable {
     }
 
     override func stopLoading() {}
+
+    private static func read(_ stream: InputStream) -> Data {
+        stream.open()
+        defer { stream.close() }
+        var data = Data()
+        var buffer = [UInt8](repeating: 0, count: 4_096)
+        while stream.hasBytesAvailable {
+            let count = stream.read(&buffer, maxLength: buffer.count)
+            guard count > 0 else { break }
+            data.append(buffer, count: count)
+        }
+        return data
+    }
 }
 
 /// `GET /v1/activities/:id` (ADR-033 §2) through the generated `ActivityDetailDto_Output`.
@@ -34,6 +50,7 @@ struct APIActivityDetailRepositoryTests {
         let authSession = AuthSession(service: "test.activityDetail.\(UUID())")
         authSession.clear()
         DetailURLProtocolStub.requests.value = []
+        DetailURLProtocolStub.bodies.value = []
         return APIActivityDetailRepository(
             apiClient: APIClient(
                 baseURL: URL(string: "https://api.test")!,
@@ -141,5 +158,62 @@ struct APIActivityDetailRepositoryTests {
             (500, Data(#"{"error":{"code":"internal_error","message":"x"}}"#.utf8))
         }
         await #expect(throws: ActivityDetailError.server(code: "internal_error")) { try await repository.detail(id: id) }
+    }
+
+    /// `PATCH /v1/activities/:id` (ADR-033 §4): every field sent, the server's detail back.
+    @Test func sendsTheEditAndDecodesTheStoredDetail() async throws {
+        let repository = makeRepository()
+        let json = detailJSON
+        DetailURLProtocolStub.handler.value = { _ in (200, json) }
+        let edit = ActivityEdit(title: "Sortie vélo", description: "Avec Paul", sport: .ride, visibility: .followers)
+
+        let detail = try await repository.update(id: id, with: edit)
+
+        let request = try #require(DetailURLProtocolStub.requests.value.first)
+        #expect(request.httpMethod == "PATCH")
+        #expect(request.url?.path == "/v1/activities/\(activityId)")
+        let body = try #require(DetailURLProtocolStub.bodies.value.first)
+        let sent = try #require(try JSONSerialization.jsonObject(with: body) as? [String: String])
+        #expect(sent == ["title": "Sortie vélo", "description": "Avec Paul", "sportTypeCode": "ride", "visibility": "followers"])
+        #expect(detail.id == id)
+        #expect(detail.title == "Sortie du matin")
+    }
+
+    /// The generated type cannot send `null`: an empty string clears the description (t92).
+    @Test func aClearedDescriptionIsSentEmpty() async throws {
+        let repository = makeRepository()
+        let json = detailJSON
+        DetailURLProtocolStub.handler.value = { _ in (200, json) }
+
+        _ = try await repository.update(id: id, with: ActivityEdit(title: "Course", description: nil, sport: .run, visibility: .private))
+
+        let body = try #require(DetailURLProtocolStub.bodies.value.first)
+        let sent = try #require(try JSONSerialization.jsonObject(with: body) as? [String: String])
+        #expect(sent["description"] == "")
+        #expect(sent["visibility"] == "private")
+    }
+
+    @Test func mapsEditErrors() async {
+        let repository = makeRepository()
+        let edit = ActivityEdit(title: "Course", description: nil, sport: .ride, visibility: .public)
+
+        DetailURLProtocolStub.handler.value = { _ in
+            (422, Data(#"{"error":{"code":"activity_too_short_for_sport","message":"x"}}"#.utf8))
+        }
+        await #expect(throws: ActivityDetailError.invalid(code: "activity_too_short_for_sport")) {
+            try await repository.update(id: id, with: edit)
+        }
+
+        DetailURLProtocolStub.handler.value = { _ in
+            (404, Data(#"{"error":{"code":"activity_not_found","message":"x"}}"#.utf8))
+        }
+        await #expect(throws: ActivityDetailError.notFound) { try await repository.update(id: id, with: edit) }
+
+        DetailURLProtocolStub.handler.value = { _ in
+            (409, Data(#"{"error":{"code":"activity_not_editable","message":"x"}}"#.utf8))
+        }
+        await #expect(throws: ActivityDetailError.server(code: "activity_not_editable")) {
+            try await repository.update(id: id, with: edit)
+        }
     }
 }

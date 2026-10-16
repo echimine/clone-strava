@@ -94,6 +94,12 @@ final class FeedStore {
         path.append(ActivityDetailRequest(id: id, showsComments: showingComments))
     }
 
+    /// Long press (ADR-033 §1): the "Modifier" menu is only on my processed cards, the ones the
+    /// server returned; local cards keep their own menu.
+    func canManage(_ id: ActivityID) -> Bool {
+        posts.first { $0.id == id }?.viewerIsAuthor == true
+    }
+
     /// A change made away from the feed (ADR-033 §7). Activities the feed does not show are
     /// ignored: the change stream never adds a card.
     func apply(_ change: ActivityChange) {

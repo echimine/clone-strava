@@ -16,6 +16,8 @@ struct StravaCloneApp: App {
                 importStore: di.makeImportStore(),
                 feedStore: di.makeFeedStore(),
                 makeActivityDetailStore: { [di] id in di.makeActivityDetailStore(id: id) },
+                feedActivityEditor: di.feedActivityEditor,
+                reloadUpdatedActivities: di.makeReloadUpdatedActivities(),
                 realtimeService: di.realtimeService,
                 makeItineraryEditorStore: di.makeItineraryEditorStore,
                 makeItinerarySaveStore: di.makeItinerarySaveStore,
@@ -52,6 +54,10 @@ struct RootView: View {
     @State var feedStore: FeedStore
     /// Details pushed from the feed's cards (ADR-033 §1).
     let makeActivityDetailStore: @MainActor (ActivityID) -> ActivityDetailStore
+    /// "Modifier" in the context menu of my feed cards (ADR-033 §1).
+    @State var feedActivityEditor: ActivityEditor
+    /// The feed's cards follow `activity.updated` (ADR-033 §8).
+    let reloadUpdatedActivities: ReloadUpdatedActivities
     let realtimeService: RealtimeService
     let makeItineraryEditorStore: @MainActor (ItinerarySport, ItineraryID, AnalyticsEvent.EditorSource) -> ItineraryEditorStore
     let makeItinerarySaveStore: @MainActor () -> ItinerarySaveStore
@@ -108,6 +114,7 @@ struct RootView: View {
                     FeedView(
                         store: feedStore,
                         onImportActivity: importStore.startImport,
+                        editActivity: { [feedActivityEditor] id in Task { await feedActivityEditor.edit(id: id) } },
                         openActivity: { request in
                             ActivityDetailPage(request: request, makeStore: makeActivityDetailStore)
                         }
@@ -122,6 +129,7 @@ struct RootView: View {
                         }
                     }
                     .animation(.default, value: importStore.banner)
+                    .activityEditing(feedActivityEditor)
                     .fileImporter(
                         isPresented: $importStore.isPickingFile,
                         allowedContentTypes: ImportFileTypes.all,
@@ -238,6 +246,12 @@ struct RootView: View {
                 connections: realtimeService.connections(),
                 events: realtimeService.events()
             )
+        }
+        // ADR-033 §8: an edit made elsewhere, or the official values recomputed after a sport
+        // change, reach the feed's card.
+        .task(id: realtimeUserId) {
+            guard realtimeUserId != nil else { return }
+            await reloadUpdatedActivities.run()
         }
         // ADR-030 §9: what another device saves or deletes shows here live.
         .task(id: realtimeUserId) {

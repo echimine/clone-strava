@@ -17,15 +17,40 @@ final class ActivityDetailStore {
 
     let id: ActivityID
     private(set) var phase: Phase = .loading
+    /// "⋯" > "Modifier" (ADR-033 §7): what it shows replaces the detail at once.
+    let editor: ActivityEditor
 
     @ObservationIgnored private let loadDetail: LoadActivityDetail
     @ObservationIgnored private let changes: ActivityChanges
+    @ObservationIgnored private let events: (any ActivityEventSource)?
 
-    /// - Parameter changes: where the detail publishes what changed, for the feed (ADR-033 §7).
-    init(id: ActivityID, loadDetail: LoadActivityDetail, changes: ActivityChanges) {
+    /// - Parameters:
+    ///   - changes: where the detail publishes what changed, for the feed (ADR-033 §7).
+    ///   - events: realtime events; this Activity's `activity.updated` reloads it (§8).
+    init(
+        id: ActivityID,
+        loadDetail: LoadActivityDetail,
+        updateActivity: UpdateActivity,
+        changes: ActivityChanges,
+        events: (any ActivityEventSource)? = nil
+    ) {
         self.id = id
         self.loadDetail = loadDetail
         self.changes = changes
+        self.events = events
+        editor = ActivityEditor(loadDetail: loadDetail, updateActivity: updateActivity, changes: changes)
+        editor.onChange = { [weak self] detail in self?.phase = .loaded(detail) }
+    }
+
+    /// Runs while the detail is shown (`.task`): this Activity's realtime events. The echo of
+    /// the athlete's own edit reloads the same values.
+    func observeEvents() async {
+        guard let events else { return }
+        for await event in await events.activityEvents() {
+            if case .updated(id) = event {
+                await load()
+            }
+        }
     }
 
     var detail: ActivityDetail? {

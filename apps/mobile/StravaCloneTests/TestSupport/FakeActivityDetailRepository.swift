@@ -4,9 +4,19 @@ import Foundation
 /// In-memory `ActivityDetailRepository`: answers scripted in order (the last one repeats),
 /// recorded calls.
 final class FakeActivityDetailRepository: ActivityDetailRepository, @unchecked Sendable {
+    struct Update: Equatable {
+        let id: ActivityID
+        let edit: ActivityEdit
+    }
+
     private let lock = NSLock()
     private var results: [Result<ActivityDetail, ActivityDetailError>]
     private(set) var requestedIds: [ActivityID] = []
+    /// Answer of `update`; by default the edit applied to the last detail answered.
+    var updateResult: Result<ActivityDetail, ActivityDetailError>?
+    /// Suspends `update` until resumed, to observe the optimistic state.
+    var updateGate: AsyncStream<Void>?
+    private(set) var updates: [Update] = []
 
     init(_ results: Result<ActivityDetail, ActivityDetailError>...) {
         self.results = results
@@ -16,6 +26,20 @@ final class FakeActivityDetailRepository: ActivityDetailRepository, @unchecked S
         let result = lock.withLock {
             requestedIds.append(id)
             return results.count > 1 ? results.removeFirst() : results.first ?? .failure(.network)
+        }
+        return try result.get()
+    }
+
+    func update(id: ActivityID, with edit: ActivityEdit) async throws(ActivityDetailError) -> ActivityDetail {
+        let gate = lock.withLock {
+            updates.append(Update(id: id, edit: edit))
+            return updateGate
+        }
+        if let gate {
+            for await _ in gate { break }
+        }
+        let result = lock.withLock {
+            updateResult ?? results.last.map { $0.map(edit.applied(to:)) } ?? .failure(.network)
         }
         return try result.get()
     }
