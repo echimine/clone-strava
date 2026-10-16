@@ -80,7 +80,10 @@ targets:
         CFBundleDisplayName: Nervo
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
-        # Plain #FC5200, identical to the first frame of the animated splash (ADR-032 §4).
+        # Plain #FC5200, identical to the first frame of the animated splash (ADR-032 §4). iOS
+        # draws the launch screen colour's sRGB components as Display P3 (sRGB #FC5200 shows as
+        # #FF3D00), so the colour set holds the Display P3 components of #FC5200 (0.91410,
+        # 0.37170, 0.16305) under an sRGB tag; Theme.accent reads them back as Display P3.
         UILaunchScreen:
           UIColorName: LaunchBackground
         UIApplicationSupportsIndirectInputEvents: true

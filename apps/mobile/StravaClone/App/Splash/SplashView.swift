@@ -47,8 +47,6 @@ struct SplashView: View {
 }
 
 private extension SplashView {
-    /// The launch screen's own colour, so the hand-off from it does not flash (ADR-032 §4).
-    static let orange = Color("LaunchBackground")
     /// Reference layout: the N's 100 box at scale 1.7 on a 320 pt wide screen.
     static let markScaleOnReferenceWidth: CGFloat = 1.7
     static let referenceWidth: CGFloat = 320
@@ -62,7 +60,7 @@ private extension SplashView {
         var context = context
         context.opacity = frame.layerOpacity
         context.drawLayer { layer in
-            layer.fill(Path(CGRect(origin: .zero, size: size)), with: .color(orange))
+            layer.fill(Path(CGRect(origin: .zero, size: size)), with: .color(Theme.accent))
             if let holeScale = frame.holeScale {
                 layer.blendMode = .destinationOut
                 stroke(masterPath, scale: holeScale, in: &layer, size: size)
