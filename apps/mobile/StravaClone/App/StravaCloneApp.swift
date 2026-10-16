@@ -16,6 +16,7 @@ struct StravaCloneApp: App {
                 importStore: di.makeImportStore(),
                 feedStore: di.makeFeedStore(),
                 makeActivityDetailStore: { [di] id in di.makeActivityDetailStore(id: id) },
+                makeActivityCommentsStore: { [di] request, detail in di.makeActivityCommentsStore(request: request, detail: detail) },
                 feedActivityEditor: di.feedActivityEditor,
                 reloadUpdatedActivities: di.makeReloadUpdatedActivities(),
                 realtimeService: di.realtimeService,
@@ -54,6 +55,8 @@ struct RootView: View {
     @State var feedStore: FeedStore
     /// Details pushed from the feed's cards (ADR-033 §1).
     let makeActivityDetailStore: @MainActor (ActivityID) -> ActivityDetailStore
+    /// Their comment threads (ADR-034 §6).
+    let makeActivityCommentsStore: @MainActor (ActivityDetailRequest, ActivityDetailStore) -> ActivityCommentsStore
     /// "Modifier" in the context menu of my feed cards (ADR-033 §1).
     @State var feedActivityEditor: ActivityEditor
     /// The feed's cards follow `activity.updated` (ADR-033 §8).
@@ -116,7 +119,11 @@ struct RootView: View {
                         onImportActivity: importStore.startImport,
                         editActivity: { [feedActivityEditor] id in Task { await feedActivityEditor.edit(id: id) } },
                         openActivity: { request in
-                            ActivityDetailPage(request: request, makeStore: makeActivityDetailStore)
+                            ActivityDetailPage(
+                                request: request,
+                                makeStore: makeActivityDetailStore,
+                                makeCommentsStore: makeActivityCommentsStore
+                            )
                         }
                     ) {
                         if let banner = importStore.banner {

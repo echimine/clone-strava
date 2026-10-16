@@ -72,6 +72,7 @@ final class Di {
     private let importRepository: APIActivityImportRepository
     private let feedRepository: APIFeedRepository
     private let activityDetailRepository: APIActivityDetailRepository
+    private let activityKudosRepository: APIActivityKudosRepository
     private let itineraryRouter: MapboxDirectionsRouter
     private let itineraryRepository: APIItineraryRepository
     private let itineraryCache: GRDBItineraryCache
@@ -109,6 +110,7 @@ final class Di {
         importRepository = APIActivityImportRepository(apiClient: apiClient)
         feedRepository = APIFeedRepository(apiClient: apiClient)
         activityDetailRepository = APIActivityDetailRepository(apiClient: apiClient)
+        activityKudosRepository = APIActivityKudosRepository(apiClient: apiClient)
         itineraryRouter = MapboxDirectionsRouter(accessToken: configuration.mapboxItinerariesToken)
         itineraryRepository = APIItineraryRepository(apiClient: apiClient)
         itineraryCache = GRDBItineraryCache(database: database)
@@ -219,7 +221,8 @@ final class Di {
         ActivityDetailStore(
             id: id,
             loadDetail: LoadActivityDetail(repository: activityDetailRepository),
-            updateActivity: UpdateActivity(repository: activityDetailRepository),
+            loadKudos: LoadKudosList(repository: activityKudosRepository),
+            setKudos: SetActivityKudos(repository: activityKudosRepository),
             changes: activityChanges,
             events: RealtimeActivityEventSource(client: webSocketClient)
         )
@@ -238,6 +241,15 @@ final class Di {
             loadDetail: LoadActivityDetail(repository: activityDetailRepository),
             changes: activityChanges,
             events: RealtimeActivityEventSource(client: webSocketClient)
+        )
+    }
+
+    /// The comment thread of a detail (ADR-034 §6), wired to that detail's count.
+    func makeActivityCommentsStore(request: ActivityDetailRequest, detail: ActivityDetailStore) -> ActivityCommentsStore {
+        .forDetail(
+            detail,
+            request: request,
+            useCases: ActivityCommentUseCases(repository: APIActivityCommentRepository(apiClient: apiClient))
         )
     }
 

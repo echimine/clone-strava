@@ -16,10 +16,12 @@ struct ActivityRealtimeTests {
     @Test func anOpenDetailReloadsOnItsActivityUpdatedEvent() async {
         let repository = FakeActivityDetailRepository(.success(before), .success(reprocessed))
         let events = FakeActivityEventSource()
+        let kudos = FakeActivityKudosRepository()
         let store = ActivityDetailStore(
             id: before.id,
             loadDetail: LoadActivityDetail(repository: repository),
-            updateActivity: UpdateActivity(repository: repository),
+            loadKudos: LoadKudosList(repository: kudos),
+            setKudos: SetActivityKudos(repository: kudos),
             changes: ActivityChanges(),
             events: events
         )

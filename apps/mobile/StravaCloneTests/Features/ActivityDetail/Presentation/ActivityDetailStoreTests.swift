@@ -11,10 +11,12 @@ struct ActivityDetailStoreTests {
         id: ActivityID,
         changes: ActivityChanges = ActivityChanges()
     ) -> ActivityDetailStore {
-        ActivityDetailStore(
+        let kudos = FakeActivityKudosRepository()
+        return ActivityDetailStore(
             id: id,
             loadDetail: LoadActivityDetail(repository: repository),
-            updateActivity: UpdateActivity(repository: repository),
+            loadKudos: LoadKudosList(repository: kudos),
+            setKudos: SetActivityKudos(repository: kudos),
             changes: changes
         )
     }

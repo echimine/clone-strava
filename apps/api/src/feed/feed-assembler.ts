@@ -1,9 +1,8 @@
 import { Injectable } from "@nestjs/common";
 import type { ActivityDetail, FeedItem } from "@repo/contracts";
 import type { ActivityDetailRecord, ActivityRecord, FeedActivity } from "@repo/core/activities";
-import { AuthService } from "@repo/core/auth";
 import { EngagementService } from "@repo/core/engagement";
-import { UsersService } from "@repo/core/users";
+import { AthleteIdentities } from "../identities/athlete-identities.js";
 
 /**
  * Feed steps 3-4 of ADR-021 §6 (ADR-029): adds authors and engagement to a
@@ -14,8 +13,7 @@ import { UsersService } from "@repo/core/users";
 @Injectable()
 export class FeedAssembler {
   constructor(
-    private readonly users: UsersService,
-    private readonly auth: AuthService,
+    private readonly identities: AthleteIdentities,
     private readonly engagement: EngagementService,
   ) {}
 
@@ -57,29 +55,17 @@ export class FeedAssembler {
 
   /** Author, engagement and `viewerIsAuthor` of each activity, with one batch call per module. */
   private async socialParts(viewerId: string, activities: ActivityRecord[]) {
-    const authorIds = [...new Set(activities.map((activity) => activity.userId))];
     const activityIds = activities.map((activity) => activity.id);
-    const [summaries, identities, counts, kudoed] = await Promise.all([
-      this.users.getSummaries(authorIds),
-      this.auth.getPublicIdentities(authorIds),
+    const [author, counts, kudoed] = await Promise.all([
+      this.identities.resolve(activities.map((activity) => activity.userId)),
       this.engagement.getCounts(activityIds),
       this.engagement.getKudoedBy(viewerId, activityIds),
     ]);
-    const summaryById = new Map(summaries.map((summary) => [summary.userId, summary]));
-    const identityById = new Map(identities.map((identity) => [identity.userId, identity]));
 
     return (activity: ActivityRecord): Pick<FeedItem, "author" | "engagement" | "viewerIsAuthor"> => {
-      const summary = summaryById.get(activity.userId);
-      const identity = identityById.get(activity.userId);
-      // `user_profile` names win; Better Auth's account name is the fallback.
-      const profileName = [summary?.firstName, summary?.lastName].filter(Boolean).join(" ").trim();
       const count = counts.get(activity.id);
       return {
-        author: {
-          id: activity.userId,
-          displayName: profileName || identity?.name || "",
-          avatarUrl: summary?.avatarUrl ?? identity?.image ?? null,
-        },
+        author: author(activity.userId),
         engagement: {
           kudosCount: count?.kudosCount ?? 0,
           commentCount: count?.commentCount ?? 0,

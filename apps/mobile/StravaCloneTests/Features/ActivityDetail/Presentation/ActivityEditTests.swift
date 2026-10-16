@@ -33,10 +33,12 @@ struct ActivityEditTests {
     }
 
     private func makeDetail(_ repository: FakeActivityDetailRepository, changes: ActivityChanges) async -> ActivityDetailStore {
+        let kudos = FakeActivityKudosRepository()
         let store = ActivityDetailStore(
             id: previous.id,
             loadDetail: LoadActivityDetail(repository: repository),
-            updateActivity: UpdateActivity(repository: repository),
+            loadKudos: LoadKudosList(repository: kudos),
+            setKudos: SetActivityKudos(repository: kudos),
             changes: changes
         )
         await store.load()
