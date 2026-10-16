@@ -49,6 +49,14 @@ final class ActivityDetailStore {
         }
     }
 
+    /// A comment gained or lost on the thread (ADR-034 §6): the count reaches the feed card.
+    func commentCountChanged(by delta: Int) {
+        guard case .loaded(var detail) = phase else { return }
+        detail.engagement.commentCount = max(0, detail.engagement.commentCount + delta)
+        phase = .loaded(detail)
+        changes.publish(.engagement(id, detail.engagement))
+    }
+
     /// "Réessayer" after an error.
     func retry() async {
         phase = .loading

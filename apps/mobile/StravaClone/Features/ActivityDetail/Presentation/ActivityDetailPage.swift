@@ -4,11 +4,19 @@ import SwiftUI
 /// loading, error with "Réessayer", the unavailable state with "Retour", or the Activity.
 struct ActivityDetailPage: View {
     @State private var store: ActivityDetailStore
+    /// The comment thread (ADR-034 §6).
+    @State private var comments: ActivityCommentsStore
 
     @Environment(\.dismiss) private var dismiss
 
-    init(request: ActivityDetailRequest, makeStore: @MainActor (ActivityID) -> ActivityDetailStore) {
-        _store = State(initialValue: makeStore(request.id))
+    init(
+        request: ActivityDetailRequest,
+        makeStore: @MainActor (ActivityID) -> ActivityDetailStore,
+        makeCommentsStore: @MainActor (ActivityDetailRequest, ActivityDetailStore) -> ActivityCommentsStore
+    ) {
+        let store = makeStore(request.id)
+        _store = State(initialValue: store)
+        _comments = State(initialValue: makeCommentsStore(request, store))
     }
 
     var body: some View {
@@ -18,6 +26,7 @@ struct ActivityDetailPage: View {
             .navigationTitle(store.detail.map { ActivityFormatters.sportLabel($0.sport) } ?? "")
             .navigationBarTitleDisplayMode(.inline)
             .task { await store.load() }
+            .toast($comments.toast)
             .accessibilityIdentifier("activityDetail")
     }
 
@@ -43,14 +52,28 @@ struct ActivityDetailPage: View {
                     .accessibilityIdentifier("activityDetail.back")
             }
         case .loaded(let detail):
-            ActivityDetailContent(detail: detail)
+            ScrollViewReader { proxy in
+                ActivityDetailContent(detail: detail, comments: comments)
+                    .scrollDismissesKeyboard(.interactively)
+                    .safeAreaInset(edge: .bottom, spacing: 0) { ActivityCommentComposer(store: comments) }
+                    .onChange(of: comments.isComposerFocused, initial: true) { scrollToComments(proxy) }
+                    .onChange(of: comments.comments.count) { scrollToComments(proxy) }
+            }
         }
+    }
+
+    /// While writing, the end of the thread stays in view; from the card's comment button the
+    /// detail opens on it (ADR-034 §6).
+    private func scrollToComments(_ proxy: ScrollViewProxy) {
+        guard comments.isComposerFocused else { return }
+        withAnimation { proxy.scrollTo(ActivityCommentsSection.endAnchor, anchor: .bottom) }
     }
 }
 
-/// The loaded Activity: map, header, title and description, stats grid.
+/// The loaded Activity: map, header, title and description, stats grid, then the comments.
 struct ActivityDetailContent: View {
     let detail: ActivityDetail
+    var comments: ActivityCommentsStore?
 
     private let columns = [GridItem(.flexible(), alignment: .leading), GridItem(.flexible(), alignment: .leading)]
 
@@ -74,6 +97,10 @@ struct ActivityDetailContent: View {
                     }
                     if let stats = detail.stats {
                         statsGrid(ActivityStatItem.items(for: stats, sport: detail.sport))
+                    }
+                    if let comments {
+                        ActivityCommentsSection(store: comments)
+                        Color.clear.frame(height: 1).id(ActivityCommentsSection.endAnchor)
                     }
                 }
                 .padding(.horizontal, Theme.spacing)
@@ -137,13 +164,19 @@ private struct PreviewActivityDetailRepository: ActivityDetailRepository {
 
 #Preview {
     NavigationStack {
-        ActivityDetailPage(request: ActivityDetailRequest(id: ActivityID())) { id in
-            ActivityDetailStore(
-                id: id,
-                loadDetail: LoadActivityDetail(repository: PreviewActivityDetailRepository()),
-                changes: ActivityChanges()
-            )
-        }
+        ActivityDetailPage(
+            request: ActivityDetailRequest(id: ActivityID()),
+            makeStore: { id in
+                ActivityDetailStore(
+                    id: id,
+                    loadDetail: LoadActivityDetail(repository: PreviewActivityDetailRepository()),
+                    changes: ActivityChanges()
+                )
+            },
+            makeCommentsStore: { request, detail in
+                .forDetail(detail, request: request, useCases: ActivityCommentUseCases(repository: PreviewActivityCommentRepository()))
+            }
+        )
     }
     .tint(Theme.accent)
 }

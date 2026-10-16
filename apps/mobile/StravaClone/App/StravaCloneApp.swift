@@ -16,6 +16,7 @@ struct StravaCloneApp: App {
                 importStore: di.makeImportStore(),
                 feedStore: di.makeFeedStore(),
                 makeActivityDetailStore: { [di] id in di.makeActivityDetailStore(id: id) },
+                makeActivityCommentsStore: { [di] request, detail in di.makeActivityCommentsStore(request: request, detail: detail) },
                 realtimeService: di.realtimeService,
                 makeItineraryEditorStore: di.makeItineraryEditorStore,
                 makeItinerarySaveStore: di.makeItinerarySaveStore,
@@ -52,6 +53,8 @@ struct RootView: View {
     @State var feedStore: FeedStore
     /// Details pushed from the feed's cards (ADR-033 §1).
     let makeActivityDetailStore: @MainActor (ActivityID) -> ActivityDetailStore
+    /// Their comment threads (ADR-034 §6).
+    let makeActivityCommentsStore: @MainActor (ActivityDetailRequest, ActivityDetailStore) -> ActivityCommentsStore
     let realtimeService: RealtimeService
     let makeItineraryEditorStore: @MainActor (ItinerarySport, ItineraryID, AnalyticsEvent.EditorSource) -> ItineraryEditorStore
     let makeItinerarySaveStore: @MainActor () -> ItinerarySaveStore
@@ -109,7 +112,11 @@ struct RootView: View {
                         store: feedStore,
                         onImportActivity: importStore.startImport,
                         openActivity: { request in
-                            ActivityDetailPage(request: request, makeStore: makeActivityDetailStore)
+                            ActivityDetailPage(
+                                request: request,
+                                makeStore: makeActivityDetailStore,
+                                makeCommentsStore: makeActivityCommentsStore
+                            )
                         }
                     ) {
                         if let banner = importStore.banner {
