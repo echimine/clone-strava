@@ -8,6 +8,8 @@ import { z } from "zod";
 export const ACTIVITY_PROCESSED = "activity.processed";
 export const ACTIVITY_FAILED = "activity.failed";
 export const ACTIVITY_SEGMENTS_MATCHED = "activity.segments_matched";
+/** The author edited the activity, or its reprocessing landed (ADR-033 §8). */
+export const ACTIVITY_UPDATED = "activity.updated";
 /** The author deleted the activity (ADR-033 §8). */
 export const ACTIVITY_DELETED = "activity.deleted";
 /** File imports (ADR-028 §10). */
@@ -21,6 +23,7 @@ export const mobileEventTypeSchema = z.enum([
   ACTIVITY_PROCESSED,
   ACTIVITY_FAILED,
   ACTIVITY_SEGMENTS_MATCHED,
+  ACTIVITY_UPDATED,
   ACTIVITY_DELETED,
   ACTIVITY_IMPORT_COMPLETED,
   ACTIVITY_IMPORT_FAILED,
@@ -55,6 +58,17 @@ export const activitySegmentsMatchedDataSchema = z.object({
 export type ActivitySegmentsMatchedData = z.infer<
   typeof activitySegmentsMatchedDataSchema
 >;
+
+/**
+ * `changedFields`: `title`, `description`, `sportTypeCode`, `visibility` (an edit) or `stats`
+ * (a reprocessing). The app reloads the card and an open detail; the echo of its own write is
+ * harmless.
+ */
+export const activityUpdatedDataSchema = z.object({
+  activityId: z.string(),
+  changedFields: z.array(z.string()),
+});
+export type ActivityUpdatedData = z.infer<typeof activityUpdatedDataSchema>;
 
 /** The app drops the card and switches an open detail to its unavailable state. */
 export const activityDeletedDataSchema = z.object({
@@ -101,6 +115,7 @@ export const mobileEventDataSchemas = {
   [ACTIVITY_PROCESSED]: activityProcessedDataSchema,
   [ACTIVITY_FAILED]: activityFailedDataSchema,
   [ACTIVITY_SEGMENTS_MATCHED]: activitySegmentsMatchedDataSchema,
+  [ACTIVITY_UPDATED]: activityUpdatedDataSchema,
   [ACTIVITY_DELETED]: activityDeletedDataSchema,
   [ACTIVITY_IMPORT_COMPLETED]: activityImportCompletedDataSchema,
   [ACTIVITY_IMPORT_FAILED]: activityImportFailedDataSchema,
@@ -112,6 +127,7 @@ export type MobileEventData =
   | ActivityProcessedData
   | ActivityFailedData
   | ActivitySegmentsMatchedData
+  | ActivityUpdatedData
   | ActivityDeletedData
   | ActivityImportCompletedData
   | ActivityImportFailedData

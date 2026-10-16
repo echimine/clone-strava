@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Res,
   UseGuards,
@@ -20,6 +21,7 @@ import {
   createActivityRequestSchema,
   createActivityResponseSchema,
   renewUploadUrlResponseSchema,
+  updateActivityRequestSchema,
   type ActivityDetail,
   type ActivitySummary,
   type CompleteActivityResponse,
@@ -37,6 +39,7 @@ class CreateActivityResponseDto extends createZodDto(createActivityResponseSchem
 class RenewUploadUrlResponseDto extends createZodDto(renewUploadUrlResponseSchema) {}
 class CompleteActivityResponseDto extends createZodDto(completeActivityResponseSchema) {}
 class ActivityDetailDto extends createZodDto(activityDetailSchema) {}
+class UpdateActivityRequestDto extends createZodDto(updateActivityRequestSchema) {}
 
 /** `ActivityRecord` (core) -> `ActivitySummary` (contracts wire shape). */
 function toActivitySummary(activity: ActivityRecord): ActivitySummary {
@@ -48,7 +51,7 @@ function toActivitySummary(activity: ActivityRecord): ActivitySummary {
   };
 }
 
-/** `/v1/activities` (ADR-019 §1-4, ADR-031 §13, ADR-033 §2): creation flow of a recorded activity, detail. */
+/** `/v1/activities` (ADR-019 §1-4, ADR-031 §13, ADR-033 §2): creation flow of a recorded activity, detail, edit. */
 @Controller("activities")
 @UseGuards(SessionGuard)
 export class ActivitiesController {
@@ -94,6 +97,23 @@ export class ActivitiesController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<ActivityDetail> {
     const activity = await this.activitiesService.getDetail(user.userId, activityId);
+    return this.assembler.assembleDetail(user.userId, activity);
+  }
+
+  /**
+   * The author edits title, description, sport or visibility of their processed activity
+   * (ADR-033 §4) and gets the detail back. `404 activity_not_found` if not visible; `403
+   * not_activity_author`; `409 activity_not_editable` unless `processed`; `422` for an empty
+   * body, an unknown sport or `activity_too_short_for_sport`.
+   */
+  @Patch(":id")
+  @ZodResponse({ status: 200, type: ActivityDetailDto })
+  async update(
+    @Param("id", ParseUUIDPipe) activityId: string,
+    @Body() body: UpdateActivityRequestDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<ActivityDetail> {
+    const activity = await this.activitiesService.update(user.userId, activityId, body);
     return this.assembler.assembleDetail(user.userId, activity);
   }
 

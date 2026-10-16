@@ -6,6 +6,7 @@ import {
   ACTIVITY_IMPORT_FAILED,
   ACTIVITY_PROCESSED,
   ACTIVITY_SEGMENTS_MATCHED,
+  ACTIVITY_UPDATED,
   ITINERARY_DELETED,
   ITINERARY_SAVED,
   userTopic,
@@ -60,6 +61,18 @@ describe("RealtimeBridge", () => {
 
     expect(publisher.publishRealtimeEvent).toHaveBeenCalledExactlyOnceWith([userTopic("user_1")], ACTIVITY_DELETED, {
       activityId: "act_1",
+    });
+  });
+
+  it("forwards activities.activity.updated as activity.updated on the author's topic, with the changed fields", async () => {
+    const publisher = createFakePublisher();
+    const bridge = new RealtimeBridge(publisher);
+
+    await bridge.onActivityUpdated({ activityId: "act_1", userId: "user_1", changedFields: ["title", "sportTypeCode"] });
+
+    expect(publisher.publishRealtimeEvent).toHaveBeenCalledExactlyOnceWith([userTopic("user_1")], ACTIVITY_UPDATED, {
+      activityId: "act_1",
+      changedFields: ["title", "sportTypeCode"],
     });
   });
 
