@@ -31,7 +31,7 @@ export function AppSidebar({ me }: { me: MeResponse }) {
   return (
     <Sidebar>
       <SidebarHeader>
-        <span className="px-2 text-sm font-semibold">Like-Strava</span>
+        <span className="px-2 text-sm font-semibold">Nervo</span>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>

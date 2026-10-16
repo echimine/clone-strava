@@ -49,7 +49,7 @@ export class NotificationsService {
   async sendAuthEmail(params: SendAuthEmailParams): Promise<void> {
     const { error } = await this.client.emails.send(
       {
-        from: "Clone Strava <noreply@mail.strava.echimine.fr>",
+        from: "Nervo <noreply@mail.strava.echimine.fr>",
         to: params.to,
         subject: params.subject,
         html: params.html,

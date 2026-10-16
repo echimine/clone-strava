@@ -19,10 +19,10 @@ export function VerifyEmail({ url }: VerifyEmailProps) {
   return (
     <Html lang="en">
       <Head />
-      <Preview>Verify your Clone Strava account</Preview>
+      <Preview>Verify your Nervo account</Preview>
       <Body style={{ fontFamily: "sans-serif", backgroundColor: "#f6f6f6" }}>
         <Container style={{ backgroundColor: "#ffffff", padding: "32px", borderRadius: "8px" }}>
-          <Heading as="h1">Clone Strava</Heading>
+          <Heading as="h1">Nervo</Heading>
           <Text>Confirm your email address to finish creating your account.</Text>
           <Button
             href={url}

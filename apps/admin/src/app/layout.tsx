@@ -3,8 +3,8 @@ import type { Metadata } from "next";
 import { Providers } from "@/components/Providers";
 
 export const metadata: Metadata = {
-  title: "Like-Strava · Backoffice",
-  description: "Administration Like-Strava",
+  title: "Nervo · Backoffice",
+  description: "Administration Nervo",
   robots: { index: false, follow: false },
 };
 
