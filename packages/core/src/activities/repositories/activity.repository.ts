@@ -149,6 +149,23 @@ export class ActivityRepository {
     return deleted.length > 0;
   }
 
+  /**
+   * The author's edit (ADR-033 §4): one `UPDATE` that also sets `updated_at`, only while the
+   * activity is `processed`; last write wins. The updated row, or `undefined` if it is gone or
+   * no longer `processed`.
+   */
+  async updateIfProcessed(
+    id: string,
+    values: Partial<Pick<typeof schema.activity.$inferInsert, "title" | "description" | "sportTypeCode" | "visibility">>,
+  ) {
+    const [row] = await this.db
+      .update(schema.activity)
+      .set({ ...values, updatedAt: new Date() })
+      .where(and(eq(schema.activity.id, id), eq(schema.activity.processingStatus, "processed")))
+      .returning();
+    return row;
+  }
+
   async incrementAttempts(id: string): Promise<void> {
     await this.db
       .update(schema.activity)

@@ -34,6 +34,23 @@ export const createActivityRequestSchema = z
   });
 export type CreateActivityRequest = z.infer<typeof createActivityRequestSchema>;
 
+/**
+ * `PATCH /v1/activities/:id` request body (ADR-033 §4): any non-empty subset of the fields the
+ * athlete may edit, with the limits of `createActivityRequestSchema`. `description` `null` or
+ * empty clears it.
+ */
+export const updateActivityRequestSchema = z
+  .object({
+    title: z.string().trim().min(1).max(255).optional(),
+    description: z.string().max(10_000).nullable().optional(),
+    sportTypeCode: sportTypeCodeSchema.optional(),
+    visibility: visibilitySchema.optional(),
+  })
+  .refine((body) => Object.values(body).some((value) => value !== undefined), {
+    message: "At least one field must be provided",
+  });
+export type UpdateActivityRequest = z.infer<typeof updateActivityRequestSchema>;
+
 /** Minimal activity representation returned by the creation/completion endpoints. */
 export const activitySummarySchema = z.object({
   id: z.uuid(),

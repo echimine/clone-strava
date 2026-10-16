@@ -3,6 +3,7 @@ import type {
   ActivityImport,
   CreateActivityImportRequest,
   CreateActivityRequest,
+  UpdateActivityRequest,
   ImportActivityJob,
   ListActivityImportsQuery,
   ListActivityImportsResponse,
@@ -31,6 +32,7 @@ import { GetFeedPageUseCase } from "./use-cases/get-feed-page.use-case.js";
 import { GetVisibleActivityUseCase } from "./use-cases/get-visible-activity.use-case.js";
 import { GetActivityDetailUseCase } from "./use-cases/get-activity-detail.use-case.js";
 import { DeleteActivityUseCase } from "./use-cases/delete-activity.use-case.js";
+import { UpdateActivityUseCase } from "./use-cases/update-activity.use-case.js";
 import type { ActivityDetailRecord } from "./domain/activity-detail.js";
 import type { ActivityRecord } from "./domain/activity-record.js";
 import type { FeedActivityPage } from "./domain/feed-activity.js";
@@ -59,6 +61,7 @@ export class ActivitiesService {
     private readonly getVisibleActivityUseCase: GetVisibleActivityUseCase,
     private readonly getActivityDetailUseCase: GetActivityDetailUseCase,
     private readonly deleteActivityUseCase: DeleteActivityUseCase,
+    private readonly updateActivityUseCase: UpdateActivityUseCase,
   ) {}
 
   create(userId: string, request: CreateActivityRequest): Promise<CreateActivityResult> {
@@ -109,6 +112,15 @@ export class ActivitiesService {
    */
   getDetail(viewerId: string, activityId: string): Promise<ActivityDetailRecord> {
     return this.getActivityDetailUseCase.execute(viewerId, activityId);
+  }
+
+  /**
+   * The author edits their processed activity (ADR-033 §4) and gets its detail back. The caller
+   * adds author and engagement, as for `getDetail`.
+   */
+  async update(userId: string, activityId: string, request: UpdateActivityRequest): Promise<ActivityDetailRecord> {
+    await this.updateActivityUseCase.execute(userId, activityId, request);
+    return this.getActivityDetailUseCase.execute(userId, activityId);
   }
 
   /** The author deletes their activity unless it is `processing` (ADR-031 §13, ADR-033 §6). */

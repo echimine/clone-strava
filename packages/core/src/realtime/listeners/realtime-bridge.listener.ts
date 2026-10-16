@@ -7,6 +7,7 @@ import {
   ACTIVITY_IMPORT_FAILED,
   ACTIVITY_PROCESSED,
   ACTIVITY_SEGMENTS_MATCHED,
+  ACTIVITY_UPDATED,
   ITINERARY_DELETED,
   ITINERARY_SAVED,
   userTopic,
@@ -18,6 +19,7 @@ import {
   ACTIVITY_IMPORT_COMPLETED_EVENT,
   ACTIVITY_IMPORT_FAILED_EVENT,
   ACTIVITY_PROCESSED_EVENT,
+  ACTIVITY_UPDATED_EVENT,
   ITINERARY_DELETED_EVENT,
   ITINERARY_SAVED_EVENT,
   SEGMENTS_EFFORTS_MATCHED_EVENT,
@@ -26,6 +28,7 @@ import {
   type ActivityImportCompletedEvent,
   type ActivityImportFailedEvent,
   type ActivityProcessedEvent,
+  type ActivityUpdatedEvent,
   type ItineraryDeletedEvent,
   type ItinerarySavedEvent,
   type SegmentsEffortsMatchedEvent,
@@ -43,6 +46,7 @@ import { REALTIME_PUBLISHER } from "../realtime.constants.js";
  * |----------------------------------|-------------------------------|
  * | `activities.activity.processed`  | `activity.processed`          |
  * | `activities.activity.failed`     | `activity.failed`             |
+ * | `activities.activity.updated`    | `activity.updated`            |
  * | `activities.activity.deleted`    | `activity.deleted`            |
  * | `segments.efforts.matched`       | `activity.segments_matched`   |
  * | `activities.import.completed`    | `activity_import.completed`   |
@@ -80,6 +84,17 @@ export class RealtimeBridge {
         activityId: event.activityId,
         status: "failed",
         at: new Date().toISOString(),
+      }),
+    );
+  }
+
+  /** ADR-033 §8: the author's other devices reload the card and the open detail. */
+  @OnEvent(ACTIVITY_UPDATED_EVENT, { async: true })
+  async onActivityUpdated(event: ActivityUpdatedEvent): Promise<void> {
+    await this.forward(ACTIVITY_UPDATED_EVENT, event.userId, () =>
+      this.publisher.publishRealtimeEvent([userTopic(event.userId)], ACTIVITY_UPDATED, {
+        activityId: event.activityId,
+        changedFields: event.changedFields,
       }),
     );
   }
