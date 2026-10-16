@@ -3,6 +3,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { admin, bearer, twoFactor } from "better-auth/plugins";
 import { schema, type Database } from "@repo/db";
 import {
+  emailWordmarkUrl,
   NotificationsService,
   renderAdminOtpEmail,
   renderResetPasswordEmail,
@@ -30,6 +31,7 @@ export function createAuthInstance(
   notifications: NotificationsService,
   options: AuthModuleOptions,
 ) {
+  const logoUrl = emailWordmarkUrl(options.adminOrigin);
   return betterAuth({
     // The full `@repo/db` schema is passed (not just the four auth
     // tables): the adapter only looks up the models it needs by name, and
@@ -38,7 +40,7 @@ export function createAuthInstance(
     database: drizzleAdapter(db, { provider: "pg", schema }),
     secret: options.secret,
     baseURL: options.baseUrl,
-    trustedOrigins: options.trustedOrigins,
+    trustedOrigins: [options.adminOrigin, ...options.trustedOrigins],
     // ADR-022 §4: session/verification cache and rate-limit counters live
     // in Redis, not in-process memory (the API runs as several instances).
     secondaryStorage: createAuthSecondaryStorage(redis),
@@ -60,7 +62,7 @@ export function createAuthInstance(
       // (Resend), never throws (logs only) per NotificationsService's own
       // contract.
       sendResetPassword: async ({ user, url }) => {
-        const html = await renderResetPasswordEmail({ url });
+        const html = await renderResetPasswordEmail({ url, logoUrl });
         await notifications.sendAuthEmail({
           to: user.email,
           subject: "Reset your password",
@@ -74,7 +76,7 @@ export function createAuthInstance(
     emailVerification: {
       sendOnSignUp: true,
       sendVerificationEmail: async ({ user, url }) => {
-        const html = await renderVerifyEmail({ url });
+        const html = await renderVerifyEmail({ url, logoUrl });
         await notifications.sendAuthEmail({
           to: user.email,
           subject: "Verify your email",
@@ -111,11 +113,11 @@ export function createAuthInstance(
       // ADR-022 §5: 2FA mandatory for admins. Adds `user.twoFactorEnabled`,
       // checked directly by `AdminGuard` — no separate "2FA required" flag.
       twoFactor({
-        issuer: "Clone Strava",
+        issuer: "Nervo",
         otpOptions: {
           period: 5,
           sendOTP: async ({ user, otp }) => {
-            const html = await renderAdminOtpEmail({ otp, email: user.email });
+            const html = await renderAdminOtpEmail({ otp, email: user.email, logoUrl });
             await notifications.sendAuthEmail({
               to: user.email,
               subject: "Your admin verification code",

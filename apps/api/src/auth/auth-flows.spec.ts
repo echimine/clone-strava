@@ -79,6 +79,8 @@ describe("Better Auth email sign-up/sign-in (ADR-022)", () => {
       // rendered HTML and calling the real `GET /api/auth/verify-email`
       // endpoint end-to-end.
       const sentHtml = sendAuthEmailSpy.mock.calls[0]?.[0]?.html;
+      // ADR-032 §2: the header wordmark loads from the backoffice that hosts it.
+      expect(sentHtml).toContain('src="https://admin.test/brand/nervo-wordmark-email.png"');
       const urlMatch = /href="([^"]*\/verify-email\?[^"]+)"/.exec(sentHtml ?? "");
       expect(urlMatch).not.toBeNull();
       const verifyUrl = new URL(urlMatch?.[1]?.replace(/&amp;/g, "&") ?? "");

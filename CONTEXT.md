@@ -1,4 +1,4 @@
-# Strava clone
+# Nervo
 
 A fitness-tracking platform: athletes record and import their outings, share them with the people who follow them, and plan where they will go next.
 
