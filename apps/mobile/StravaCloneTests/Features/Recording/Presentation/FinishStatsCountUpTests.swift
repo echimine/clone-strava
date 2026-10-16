@@ -23,6 +23,13 @@ struct FinishStatsCountUpTests {
         #expect(items.map(\.value) == ["1:00:00", "24,00", "24,0"])
     }
 
+    /// Each counting value is told by its stat, not by its place or its French label.
+    @Test func eachItemCarriesItsStat() {
+        #expect(FinishStatsCountUp.items(run, progress: 0.5).map(\.stat) == [.elapsed, .distance, .averagePace])
+        #expect(FinishStatsCountUp.items(ride, progress: 0.5).map(\.stat) == [.elapsed, .distance, .averageSpeed])
+        #expect(FinishStatsCountUp.items(ride, progress: 1).map(\.stat) == [.elapsed, .distance, .averageSpeed])
+    }
+
     @Test func halfwayEachValueIsHalfItsFinalValue() {
         #expect(FinishStatsCountUp.items(run, progress: 0.5).map(\.value) == ["0:12:30", "2,50", "2:30"])
         #expect(FinishStatsCountUp.items(ride, progress: 0.5).map(\.value) == ["0:30:00", "12,00", "12,0"])
