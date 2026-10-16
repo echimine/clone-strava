@@ -2,16 +2,24 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
   UnprocessableEntityException,
 } from "@nestjs/common";
+import { InjectQueue } from "@nestjs/bullmq";
 import { EventEmitter2 } from "@nestjs/event-emitter";
+import type { Queue } from "bullmq";
 import {
+  ACTIVITIES_QUEUE_NAME,
   ACTIVITY_UPDATED_EVENT,
+  REPROCESS_ACTIVITY_JOB_NAME,
+  reprocessActivityJobId,
+  type ReprocessActivityJob,
   type ActivityChangedField,
   type ActivityUpdatedEvent,
   type UpdateActivityRequest,
 } from "@repo/contracts";
+import { enqueueUnique } from "../../infrastructure/index.js";
 import { SportsService } from "../../sports/index.js";
 import { ActivityRepository } from "../repositories/activity.repository.js";
 import { ActivityStatsRepository } from "../repositories/activity-stats.repository.js";
@@ -23,16 +31,20 @@ type ActivityRow = NonNullable<Awaited<ReturnType<GetVisibleActivityUseCase["fin
  * `PATCH /v1/activities/:id` (ADR-033 §4): the author edits the title, description, sport or
  * visibility of their processed activity. Not visible: `404`; visible but someone else's:
  * `403`; not `processed`: `409`. A new sport must accept the official values (its minimums),
- * otherwise `422`. One `UPDATE`, last write wins, then `activities.activity.updated`.
+ * otherwise `422`. One `UPDATE`, last write wins, then `activities.activity.updated` and, when
+ * the sport changed, `reprocess-activity` (ADR-033 §5).
  */
 @Injectable()
 export class UpdateActivityUseCase {
+  private readonly logger = new Logger(UpdateActivityUseCase.name);
+
   constructor(
     private readonly activities: ActivityRepository,
     private readonly activityStats: ActivityStatsRepository,
     private readonly getVisibleActivity: GetVisibleActivityUseCase,
     private readonly sports: SportsService,
     private readonly events: EventEmitter2,
+    @InjectQueue(ACTIVITIES_QUEUE_NAME) private readonly queue: Queue<ReprocessActivityJob>,
   ) {}
 
   async execute(userId: string, activityId: string, request: UpdateActivityRequest): Promise<void> {
@@ -73,6 +85,29 @@ export class UpdateActivityUseCase {
     if (changedFields.length > 0) {
       const event: ActivityUpdatedEvent = { activityId: row.id, userId, changedFields };
       this.events.emit(ACTIVITY_UPDATED_EVENT, event);
+    }
+    if (changedFields.includes("sportTypeCode")) {
+      await this.enqueueReprocessing(row.id, userId, updated.updatedAt);
+    }
+  }
+
+  /**
+   * Must-happen reaction (ADR-033 §5, ADR-021 §3): the official values follow the sport. The
+   * edit is committed, so a failed enqueue does not fail it: the reconciliation sweep
+   * (ADR-019 §7) enqueues the job later.
+   */
+  private async enqueueReprocessing(activityId: string, userId: string, updatedAt: Date): Promise<void> {
+    try {
+      await enqueueUnique(
+        this.queue,
+        REPROCESS_ACTIVITY_JOB_NAME,
+        { activityId, userId },
+        reprocessActivityJobId(activityId, updatedAt),
+      );
+    } catch (error) {
+      this.logger.error(
+        `Could not enqueue reprocess-activity for ${activityId}, left to reconciliation: ${String(error)}`,
+      );
     }
   }
 

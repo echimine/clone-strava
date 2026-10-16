@@ -87,6 +87,28 @@ export class ActivityRepository {
   }
 
   /**
+   * ADR-033 §5 reconciliation: processed activities whose official values were computed for
+   * another sport than their current one (a `reprocess-activity` lost or still to run).
+   */
+  findWithValuesForAnotherSport(limit = 100) {
+    return this.db
+      .select({
+        id: schema.activity.id,
+        userId: schema.activity.userId,
+        updatedAt: schema.activity.updatedAt,
+      })
+      .from(schema.activity)
+      .innerJoin(schema.activityStats, eq(schema.activityStats.activityId, schema.activity.id))
+      .where(
+        and(
+          eq(schema.activity.processingStatus, "processed"),
+          sql`${schema.activityStats.computedForSportTypeCode} is distinct from ${schema.activity.sportTypeCode}`,
+        ),
+      )
+      .limit(limit);
+  }
+
+  /**
    * The user's activities whose time interval intersects `[startedAt,
    * endedAt]`, failed ones excluded (ADR-028 §6). Uses
    * `activity_user_started_at_idx`; the overlap ratio is computed by the caller.
@@ -163,6 +185,15 @@ export class ActivityRepository {
       .set({ ...values, updatedAt: new Date() })
       .where(and(eq(schema.activity.id, id), eq(schema.activity.processingStatus, "processed")))
       .returning();
+    return row;
+  }
+
+  /**
+   * Reads and locks the row until the end of `tx` (ADR-033 §5): a concurrent edit waits, so a
+   * reprocessing that sees the sport it computed for writes values that match it.
+   */
+  async findForUpdate(id: string, tx: DbExecutor) {
+    const [row] = await tx.select().from(schema.activity).where(eq(schema.activity.id, id)).for("update");
     return row;
   }
 

@@ -25,6 +25,8 @@ import { GetVisibleActivityUseCase } from "./use-cases/get-visible-activity.use-
 import { GetActivityDetailUseCase } from "./use-cases/get-activity-detail.use-case.js";
 import { DeleteActivityUseCase } from "./use-cases/delete-activity.use-case.js";
 import { UpdateActivityUseCase } from "./use-cases/update-activity.use-case.js";
+import { ReprocessActivityUseCase } from "./use-cases/reprocess-activity.use-case.js";
+import { OfficialValuesService } from "./services/official-values.js";
 import { ImportRateLimiter } from "./services/import-rate-limiter.js";
 import { ImportJobEnqueuer } from "./services/import-job-enqueuer.js";
 import { ActivitiesService } from "./activities.service.js";
@@ -66,6 +68,8 @@ import { ActivitiesService } from "./activities.service.js";
     GetActivityDetailUseCase,
     DeleteActivityUseCase,
     UpdateActivityUseCase,
+    ReprocessActivityUseCase,
+    OfficialValuesService,
     ActivitiesService,
   ],
   exports: [ActivitiesService],

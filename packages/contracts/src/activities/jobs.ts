@@ -22,6 +22,28 @@ export const processActivityJobSchema = z.object({
 });
 export type ProcessActivityJob = z.infer<typeof processActivityJobSchema>;
 
+/**
+ * `reprocess-activity` job (ADR-033 §5): recomputes a processed Activity's official values
+ * after a sport change, on the `activities` queue.
+ */
+export const REPROCESS_ACTIVITY_JOB_NAME = "reprocess-activity";
+
+/**
+ * One job per sport change (ADR-033 §5): a replay of the same change is deduplicated, a later
+ * change (new `updated_at`) gets its own job.
+ */
+export function reprocessActivityJobId(activityId: string, updatedAt: Date): string {
+  return `reprocess-${activityId}-${updatedAt.getTime()}`;
+}
+
+/** `reprocess-activity` job payload (ADR-033 §5). */
+export const reprocessActivityJobSchema = z.object({
+  activityId: z.uuid(),
+  userId: z.uuid(),
+  requestId: requestIdFieldSchema,
+});
+export type ReprocessActivityJob = z.infer<typeof reprocessActivityJobSchema>;
+
 /** `imports` queue (ADR-028 §4): separate from `activities` so bulk imports never delay live recordings. */
 export const IMPORTS_QUEUE_NAME = "imports";
 /** `import-activity` job (ADR-028 §4). */
