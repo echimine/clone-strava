@@ -22,7 +22,9 @@ export const TEST_REDIS_URL = "redis://127.0.0.1:6379";
  * In-memory stand-in for the bucket: S3 is a third-party network service,
  * the only thing ADR-024 §2 allows to fake in an integration test.
  */
-export class InMemoryStorage implements Pick<StorageService, "head" | "getObject" | "putObject" | "presignPut"> {
+export class InMemoryStorage
+  implements Pick<StorageService, "head" | "getObject" | "putObject" | "deleteObject" | "presignPut">
+{
   readonly objects = new Map<string, Uint8Array>();
 
   async head(key: string) {
@@ -36,6 +38,10 @@ export class InMemoryStorage implements Pick<StorageService, "head" | "getObject
 
   async putObject(key: string, body: Uint8Array) {
     this.objects.set(key, body);
+  }
+
+  async deleteObject(key: string) {
+    this.objects.delete(key);
   }
 
   async presignPut(key: string) {

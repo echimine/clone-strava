@@ -10,6 +10,8 @@ import { activityImportErrorCodeSchema } from "./import.js";
  */
 export const ACTIVITY_PROCESSED_EVENT = "activities.activity.processed";
 export const ACTIVITY_FAILED_EVENT = "activities.activity.failed";
+/** The author deleted the activity, emitted after the commit (ADR-033 §6). */
+export const ACTIVITY_DELETED_EVENT = "activities.activity.deleted";
 
 /** Minimal payload (ADR-021 §3: "identifiers and what the listeners need"). */
 export const activityProcessedEventSchema = z.object({
@@ -27,6 +29,12 @@ export const activityFailedEventSchema = z.object({
   requestId: requestIdFieldSchema,
 });
 export type ActivityFailedEvent = z.infer<typeof activityFailedEventSchema>;
+
+export const activityDeletedEventSchema = z.object({
+  activityId: z.uuid(),
+  userId: z.uuid(),
+});
+export type ActivityDeletedEvent = z.infer<typeof activityDeletedEventSchema>;
 
 /** Emitted after the `import-activity` commit (ADR-028 §4 step 11, §10). */
 export const ACTIVITY_IMPORT_COMPLETED_EVENT = "activities.import.completed";
