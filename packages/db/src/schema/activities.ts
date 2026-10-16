@@ -101,6 +101,9 @@ export const activityStats = activitiesSchema.table("activity_stats", {
   avgHeartRate: integer("avg_heart_rate"),
   maxHeartRate: integer("max_heart_rate"),
   calories: integer("calories"),
+  // ADR-033 §5 (amends ADR-017): the sport these official values were computed for; differs
+  // from `activity.sport_type_code` until `reprocess-activity` has run after a sport change.
+  computedForSportTypeCode: text("computed_for_sport_type_code").references(() => sportType.code),
 });
 
 export const activityTrack = activitiesSchema.table(

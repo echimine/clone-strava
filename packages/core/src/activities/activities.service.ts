@@ -8,6 +8,7 @@ import type {
   ListActivityImportsQuery,
   ListActivityImportsResponse,
   ProcessActivityJob,
+  ReprocessActivityJob,
   UploadUrlResponse,
 } from "@repo/contracts";
 import { CreateActivityUseCase, type CreateActivityResult } from "./use-cases/create-activity.use-case.js";
@@ -33,6 +34,7 @@ import { GetVisibleActivityUseCase } from "./use-cases/get-visible-activity.use-
 import { GetActivityDetailUseCase } from "./use-cases/get-activity-detail.use-case.js";
 import { DeleteActivityUseCase } from "./use-cases/delete-activity.use-case.js";
 import { UpdateActivityUseCase } from "./use-cases/update-activity.use-case.js";
+import { ReprocessActivityUseCase } from "./use-cases/reprocess-activity.use-case.js";
 import type { ActivityDetailRecord } from "./domain/activity-detail.js";
 import type { ActivityRecord } from "./domain/activity-record.js";
 import type { FeedActivityPage } from "./domain/feed-activity.js";
@@ -62,6 +64,7 @@ export class ActivitiesService {
     private readonly getActivityDetailUseCase: GetActivityDetailUseCase,
     private readonly deleteActivityUseCase: DeleteActivityUseCase,
     private readonly updateActivityUseCase: UpdateActivityUseCase,
+    private readonly reprocessActivityUseCase: ReprocessActivityUseCase,
   ) {}
 
   create(userId: string, request: CreateActivityRequest): Promise<CreateActivityResult> {
@@ -84,6 +87,11 @@ export class ActivitiesService {
   /** Last technical attempt of `process-activity` failed (ADR-019 §6). */
   markProcessingFailed(job: ProcessActivityJob): Promise<void> {
     return this.processActivityUseCase.markTechnicalFailure(job);
+  }
+
+  /** Called by `apps/worker`'s `reprocess-activity` processor after a sport change (ADR-033 §5). */
+  reprocess(job: ReprocessActivityJob): Promise<void> {
+    return this.reprocessActivityUseCase.execute(job);
   }
 
   /** Called by `apps/worker`'s reconciliation schedule (ADR-019 §7). */
