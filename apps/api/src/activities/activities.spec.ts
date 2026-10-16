@@ -36,9 +36,6 @@ const objects = new Map<string, Uint8Array>();
 const storage = {
   head: async (key: string) => (objects.has(key) ? { sizeBytes: objects.get(key)!.byteLength } : undefined),
   getObject: async (key: string) => objects.get(key),
-  deleteObject: async (key: string) => {
-    objects.delete(key);
-  },
   presignPut: async (key: string) => ({
     url: `https://bucket.test/${key}?sig=${randomUUID()}`,
     expiresAt: new Date(Date.now() + 900_000),
@@ -66,7 +63,8 @@ function runTrace(points = 11): Uint8Array {
  * `/v1/activities` creation flow (ADR-019 §1, §2, §4) and the author's
  * `GET /v1/activities/:id` (ADR-031 §13) over real HTTP, Postgres and
  * Redis (ADR-024 §2). Sessions come from `x-test-user` through a fake
- * `AuthService` (see `activity-imports.spec.ts`).
+ * `AuthService` (see `activity-imports.spec.ts`). `DELETE` is in
+ * `delete-activity.spec.ts`.
  */
 describe("/v1/activities (integration)", () => {
   let app: INestApplication;
@@ -335,51 +333,6 @@ describe("/v1/activities (integration)", () => {
       const id = await processedActivity();
       expect((await get(id, userB)).status).toBe(404);
       expect((await get(randomUUID())).status).toBe(404);
-    });
-  });
-
-  describe("DELETE /v1/activities/:id", () => {
-    const remove = (id: string, user = userA) => call(`/${id}`, user, { method: "DELETE" });
-    const exists = async (id: string) =>
-      (await sql("select id from activities.activity where id = $1", [id])).length > 0;
-
-    it("deletes the author's pending activity for good (204), its trace with it", async () => {
-      const id = randomUUID();
-      await call("", userA, { body: body(id) });
-      objects.set(activityTraceKey(userA, id), runTrace());
-      const response = await remove(id);
-      expect(response.status).toBe(204);
-      expect(await exists(id)).toBe(false);
-      expect(objects.has(activityTraceKey(userA, id))).toBe(false);
-      expect((await call(`/${id}`, userA, { method: "GET" })).status).toBe(404);
-    });
-
-    it("deletes a failed activity (204)", async () => {
-      const id = await failedActivity();
-      expect((await remove(id)).status).toBe(204);
-      expect(await exists(id)).toBe(false);
-    });
-
-    it("refuses a processing or processed activity (409) and keeps it", async () => {
-      const processing = randomUUID();
-      await call("", userA, { body: body(processing) });
-      objects.set(activityTraceKey(userA, processing), runTrace());
-      await call(`/${processing}/complete`, userA);
-      const processed = await processedActivity();
-      for (const id of [processing, processed]) {
-        const response = await remove(id);
-        expect(response.status).toBe(409);
-        expect((await json(response)).error.code).toBe("not_deletable");
-        expect(await exists(id)).toBe(true);
-      }
-    });
-
-    it("answers 404 to another athlete and for an unknown id", async () => {
-      const id = randomUUID();
-      await call("", userA, { body: body(id) });
-      expect((await remove(id, userB)).status).toBe(404);
-      expect(await exists(id)).toBe(true);
-      expect((await remove(randomUUID())).status).toBe(404);
     });
   });
 

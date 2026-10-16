@@ -98,8 +98,9 @@ export class ActivitiesController {
   }
 
   /**
-   * Hard delete of the author's activity while `pending` or `failed` (ADR-031 §13), with its
-   * trace: `204`. `409 not_deletable` in any other state; `404` if unknown or someone else's.
+   * Hard delete of the author's activity, with its trace and imported file (ADR-031 §13,
+   * ADR-033 §6): `204`. `409 not_deletable` while `processing`; `403 not_activity_author`
+   * for another athlete who sees it; `404` if unknown or not visible.
    */
   @Delete(":id")
   @HttpCode(HttpStatus.NO_CONTENT)
