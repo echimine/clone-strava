@@ -16,6 +16,7 @@ import { GeocodingModule } from "@repo/core/geocoding";
 import { CoreInfrastructureModule, DATABASE, type Database } from "@repo/core/infrastructure";
 import { StorageModule } from "@repo/core/storage";
 import { UsersModule } from "@repo/core/users";
+import { KudosAssembler } from "../activities/kudos-assembler.js";
 import { KudosController } from "../activities/kudos.controller.js";
 import { ensureTestDatabaseMigrated, TEST_DATABASE_URL, TEST_REDIS_URL } from "../auth/test-auth-app.js";
 import { SessionGuard } from "../auth/session.guard.js";
@@ -107,6 +108,7 @@ describe("/v1/feed and kudos (integration)", () => {
         SessionGuard,
         FeedAssembler,
         AthleteIdentities,
+        KudosAssembler,
         {
           provide: AuthService,
           useValue: {

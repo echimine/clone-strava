@@ -1,13 +1,9 @@
-import { Injectable, NotFoundException, UnprocessableEntityException } from "@nestjs/common";
-import { ActivitiesService } from "../../activities/index.js";
-import {
-  decodeKudosCursor,
-  encodeKudosCursor,
-  InvalidKudosCursorError,
-  type KudosCursor,
-} from "../domain/kudos-cursor.js";
+import { Injectable } from "@nestjs/common";
+import { ActivitiesService, activityNotFound } from "../../activities/index.js";
+import { decodeKudosCursor, encodeKudosCursor } from "../domain/kudos-cursor.js";
 import type { KudosPage } from "../domain/kudos-view.js";
 import { KudosRepository } from "../repositories/kudos.repository.js";
+import { readKeysetPage } from "../services/keyset-page.js";
 
 /**
  * `GET /v1/activities/:id/kudos` (ADR-034 §1): who gave kudos to an
@@ -23,26 +19,14 @@ export class ListKudosUseCase {
 
   async execute(viewerId: string, activityId: string, query: { cursor?: string; limit: number }): Promise<KudosPage> {
     if (!(await this.activities.getVisible(viewerId, activityId))) {
-      throw new NotFoundException({ code: "activity_not_found", message: "Activity not found" });
+      throw activityNotFound();
     }
-    const after = query.cursor === undefined ? undefined : this.decode(query.cursor);
-    const rows = await this.kudos.findPage(activityId, after, query.limit + 1);
-    const page = rows.slice(0, query.limit);
-    const last = page.at(-1);
+    const { rows, boundary: last } = await readKeysetPage(query, decodeKudosCursor, (after, take) =>
+      this.kudos.findPage(activityId, after, take),
+    );
     return {
-      items: page.map((row) => ({ athleteId: row.userId, givenAt: row.createdAt })),
-      nextCursor: rows.length > query.limit && last ? encodeKudosCursor({ at: last.at, userId: last.userId }) : null,
+      items: rows.map((row) => ({ athleteId: row.userId, givenAt: row.createdAt })),
+      nextCursor: last ? encodeKudosCursor({ at: last.at, userId: last.userId }) : null,
     };
-  }
-
-  private decode(cursor: string): KudosCursor {
-    try {
-      return decodeKudosCursor(cursor);
-    } catch (error) {
-      if (error instanceof InvalidKudosCursorError) {
-        throw new UnprocessableEntityException({ code: "invalid_cursor", message: "Invalid kudos cursor" });
-      }
-      throw error;
-    }
   }
 }

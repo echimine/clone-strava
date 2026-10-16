@@ -1,5 +1,5 @@
-import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import { ActivitiesService, type ActivityRecord } from "../../activities/index.js";
+import { ConflictException, Injectable } from "@nestjs/common";
+import { ActivitiesService, activityNotFound, type ActivityRecord } from "../../activities/index.js";
 
 /**
  * First check of every comment route (ADR-034 §3): the viewer must see the
@@ -14,7 +14,7 @@ export class CommentableActivity {
   async get(viewerId: string, activityId: string): Promise<ActivityRecord> {
     const activity = await this.activities.getVisible(viewerId, activityId);
     if (!activity) {
-      throw new NotFoundException({ code: "activity_not_found", message: "Activity not found" });
+      throw activityNotFound();
     }
     if (activity.processingStatus !== "processed") {
       throw new ConflictException({

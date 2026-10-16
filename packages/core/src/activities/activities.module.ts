@@ -29,6 +29,7 @@ import { ReprocessActivityUseCase } from "./use-cases/reprocess-activity.use-cas
 import { OfficialValuesService } from "./services/official-values.js";
 import { ImportRateLimiter } from "./services/import-rate-limiter.js";
 import { ImportJobEnqueuer } from "./services/import-job-enqueuer.js";
+import { ReprocessJobEnqueuer } from "./services/reprocess-job-enqueuer.js";
 import { ActivitiesService } from "./activities.service.js";
 
 /**
@@ -57,6 +58,7 @@ import { ActivitiesService } from "./activities.service.js";
     ActivityImportRepository,
     ImportRateLimiter,
     ImportJobEnqueuer,
+    ReprocessJobEnqueuer,
     CreateActivityImportUseCase,
     RequestImportUploadUrlUseCase,
     CompleteActivityImportUseCase,

@@ -7,3 +7,4 @@ export type { CreateActivityResult } from "./use-cases/create-activity.use-case.
 export type { CreateActivityImportResult } from "./use-cases/create-activity-import.use-case.js";
 export type { ImportActivityResult } from "./use-cases/import-activity-from-file.use-case.js";
 export { PermanentProcessingError } from "./domain/processing-error.js";
+export { activityNotFound } from "./services/activity-not-found.js";

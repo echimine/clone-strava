@@ -20,6 +20,7 @@ import { ensureTestDatabaseMigrated, TEST_DATABASE_URL, TEST_REDIS_URL } from ".
 import { SessionGuard } from "../auth/session.guard.js";
 import { GlobalExceptionFilter } from "../common/global-exception.filter.js";
 import { AthleteIdentities } from "../identities/athlete-identities.js";
+import { KudosAssembler } from "./kudos-assembler.js";
 import { KudosController } from "./kudos.controller.js";
 
 /**
@@ -93,6 +94,7 @@ describe("GET /v1/activities/:id/kudos (integration)", () => {
       providers: [
         SessionGuard,
         AthleteIdentities,
+        KudosAssembler,
         {
           provide: AuthService,
           useValue: {

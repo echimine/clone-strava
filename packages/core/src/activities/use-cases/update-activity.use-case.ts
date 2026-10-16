@@ -3,26 +3,20 @@ import {
   ForbiddenException,
   Injectable,
   Logger,
-  NotFoundException,
   UnprocessableEntityException,
 } from "@nestjs/common";
-import { InjectQueue } from "@nestjs/bullmq";
 import { EventEmitter2 } from "@nestjs/event-emitter";
-import type { Queue } from "bullmq";
 import {
-  ACTIVITIES_QUEUE_NAME,
   ACTIVITY_UPDATED_EVENT,
-  REPROCESS_ACTIVITY_JOB_NAME,
-  reprocessActivityJobId,
-  type ReprocessActivityJob,
   type ActivityChangedField,
   type ActivityUpdatedEvent,
   type UpdateActivityRequest,
 } from "@repo/contracts";
-import { enqueueUnique } from "../../infrastructure/index.js";
 import { SportsService } from "../../sports/index.js";
 import { ActivityRepository } from "../repositories/activity.repository.js";
 import { ActivityStatsRepository } from "../repositories/activity-stats.repository.js";
+import { activityNotFound } from "../services/activity-not-found.js";
+import { ReprocessJobEnqueuer } from "../services/reprocess-job-enqueuer.js";
 import { GetVisibleActivityUseCase } from "./get-visible-activity.use-case.js";
 
 type ActivityRow = NonNullable<Awaited<ReturnType<GetVisibleActivityUseCase["findRow"]>>>;
@@ -44,13 +38,13 @@ export class UpdateActivityUseCase {
     private readonly getVisibleActivity: GetVisibleActivityUseCase,
     private readonly sports: SportsService,
     private readonly events: EventEmitter2,
-    @InjectQueue(ACTIVITIES_QUEUE_NAME) private readonly queue: Queue<ReprocessActivityJob>,
+    private readonly reprocessEnqueuer: ReprocessJobEnqueuer,
   ) {}
 
   async execute(userId: string, activityId: string, request: UpdateActivityRequest): Promise<void> {
     const row = await this.getVisibleActivity.findRow(userId, activityId);
     if (!row) {
-      throw notFound();
+      throw activityNotFound();
     }
     if (row.userId !== userId) {
       throw new ForbiddenException({
@@ -77,7 +71,7 @@ export class UpdateActivityUseCase {
       if (await this.activities.findById(row.id)) {
         throw notEditable();
       }
-      throw notFound();
+      throw activityNotFound();
     }
 
     // After the commit (ADR-021 §3). An edit that changes nothing has nothing to tell.
@@ -98,12 +92,7 @@ export class UpdateActivityUseCase {
    */
   private async enqueueReprocessing(activityId: string, userId: string, updatedAt: Date): Promise<void> {
     try {
-      await enqueueUnique(
-        this.queue,
-        REPROCESS_ACTIVITY_JOB_NAME,
-        { activityId, userId },
-        reprocessActivityJobId(activityId, updatedAt),
-      );
+      await this.reprocessEnqueuer.enqueue({ activityId, userId }, updatedAt);
     } catch (error) {
       this.logger.error(
         `Could not enqueue reprocess-activity for ${activityId}, left to reconciliation: ${String(error)}`,
@@ -151,10 +140,6 @@ function toStoredDescription(description: string | null | undefined): string | n
 
 function changedFieldsBetween(before: ActivityRow, after: ActivityRow): ActivityChangedField[] {
   return EDITABLE_FIELDS.filter((field) => before[field] !== after[field]);
-}
-
-function notFound(): NotFoundException {
-  return new NotFoundException({ code: "activity_not_found", message: "Activity not found" });
 }
 
 function notEditable(): ConflictException {

@@ -3,7 +3,7 @@ import { toCommentView, type CommentView } from "../domain/comment-view.js";
 import { CommentRepository } from "../repositories/comment.repository.js";
 import { CommentEvents } from "../services/comment-events.service.js";
 import { CommentableActivity } from "../services/commentable-activity.service.js";
-import { commentNotFound } from "./comment-not-found.js";
+import { commentNotFound } from "../services/comment-not-found.js";
 
 /**
  * `PATCH /v1/activities/:id/comments/:commentId` (ADR-034 §2-4): the
