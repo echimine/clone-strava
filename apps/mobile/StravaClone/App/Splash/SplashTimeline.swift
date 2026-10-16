@@ -41,29 +41,29 @@ struct SplashTimeline {
     private static var drawEnd: TimeInterval { launchHold + drawDuration }
 
     /// When the reveal starts: after the draw and once the session is known, whichever comes
-    /// later. `nil` while the session is unknown: the app is never revealed before its root
-    /// is decided.
+    /// later; under Reduce Motion, which plays no draw, as soon as the session is known. `nil`
+    /// while the session is unknown: the app is never revealed before its root is decided.
     func revealStart(sessionReadyAt: TimeInterval?) -> TimeInterval? {
-        sessionReadyAt.map { max(Self.drawEnd + Self.settle, $0) }
+        sessionReadyAt.map { reduceMotion ? $0 : max(Self.drawEnd + Self.settle, $0) }
     }
 
     /// When the splash is over and can be removed.
     func end(sessionReadyAt: TimeInterval?) -> TimeInterval? {
-        revealStart(sessionReadyAt: sessionReadyAt).map { $0 + revealDuration }
+        revealStart(sessionReadyAt: sessionReadyAt).map { $0 + exitDuration }
     }
 
     func frame(at time: TimeInterval, sessionReadyAt: TimeInterval?) -> SplashFrame {
         reduceMotion ? reducedFrame(at: time, sessionReadyAt: sessionReadyAt) : diveFrame(at: time, sessionReadyAt: sessionReadyAt)
     }
 
-    private var revealDuration: TimeInterval { reduceMotion ? Self.reducedFadeDuration : Self.revealDuration }
+    /// How long the splash takes to leave once its reveal starts: the dive, or the plain fade.
+    private var exitDuration: TimeInterval { reduceMotion ? Self.reducedFadeDuration : Self.revealDuration }
 
-    /// Reduce Motion: the N appears at once where the draw would start, then the splash fades.
+    /// Reduce Motion: the N is there from the first frame, then the splash fades.
     private func reducedFrame(at time: TimeInterval, sessionReadyAt: TimeInterval?) -> SplashFrame {
-        let shown: Double = time >= Self.launchHold ? 1 : 0
         let faded = revealStart(sessionReadyAt: sessionReadyAt)
             .map { Self.progress(time, from: $0, over: Self.reducedFadeDuration) } ?? 0
-        return SplashFrame(drawProgress: shown, markOpacity: shown, markScale: 1, holeScale: nil, layerOpacity: 1 - faded)
+        return SplashFrame(drawProgress: 1, markOpacity: 1, markScale: 1, holeScale: nil, layerOpacity: 1 - faded)
     }
 
     private func diveFrame(at time: TimeInterval, sessionReadyAt: TimeInterval?) -> SplashFrame {

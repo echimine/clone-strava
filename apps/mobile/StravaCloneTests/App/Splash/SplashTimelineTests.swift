@@ -78,20 +78,26 @@ struct SplashTimelineTests {
         expectClose(timeline.frame(at: 3.15, sessionReadyAt: 2.6).layerOpacity, 0)
     }
 
-    /// ADR-032 §4, Reduce Motion: the N appears at once, never pulses nor grows, and the splash
-    /// leaves with a plain 0.3 s fade, still not before the session is known.
-    @Test func withReduceMotionTheNAppearsAtOnceThenTheSplashFades() {
+    /// ADR-032 §4, Reduce Motion: the N is there from the first frame, never drawn, pulsed nor
+    /// grown, and the splash leaves with a plain 0.3 s fade as soon as the session is known,
+    /// without waiting for the draw it does not play.
+    @Test func withReduceMotionTheNAppearsAtOnceAndTheSplashFadesOnceTheSessionIsKnown() {
         let reduced = SplashTimeline(reduceMotion: true)
-        #expect(reduced.frame(at: 0, sessionReadyAt: nil).markOpacity == 0)
-
-        let shown = reduced.frame(at: 0.3, sessionReadyAt: nil)
-        #expect(shown.markOpacity == 1)
-        #expect(shown.drawProgress == 1)
+        let first = reduced.frame(at: 0, sessionReadyAt: nil)
+        #expect(first.markOpacity == 1)
+        #expect(first.drawProgress == 1)
+        #expect(first.layerOpacity == 1)
 
         let waiting = reduced.frame(at: 0.9 + 1 / 4.8, sessionReadyAt: nil)
         #expect(waiting.markScale == 1)
         #expect(waiting.layerOpacity == 1)
 
+        // A session known right away: the fade starts at once.
+        expectClose(reduced.revealStart(sessionReadyAt: 0.05), 0.05)
+        expectClose(reduced.end(sessionReadyAt: 0.05), 0.35)
+        expectClose(reduced.frame(at: 0.2, sessionReadyAt: 0.05).layerOpacity, 0.5)
+
+        // A slow session: the fade starts when it is known.
         expectClose(reduced.revealStart(sessionReadyAt: 2), 2)
         expectClose(reduced.end(sessionReadyAt: 2), 2.3)
         let fading = reduced.frame(at: 2.15, sessionReadyAt: 2)
@@ -100,25 +106,5 @@ struct SplashTimelineTests {
         #expect(fading.markScale == 1)
         expectClose(fading.layerOpacity, 0.5)
         expectClose(reduced.frame(at: 2.3, sessionReadyAt: 2).layerOpacity, 0)
-    }
-}
-
-/// The splash's clock (ADR-032 §4) counts the frames actually shown, so a busy main thread at
-/// launch pauses the draw instead of skipping it.
-struct SplashElapsedTimeTests {
-    @Test func itStartsAtTheFirstFrameAndFollowsSmoothFrames() {
-        var elapsed = SplashElapsedTime()
-        elapsed.advance(to: 100)
-        #expect(elapsed.seconds == 0)
-        elapsed.advance(to: 100 + 1.0 / 60)
-        elapsed.advance(to: 100 + 2.0 / 60)
-        #expect(abs(elapsed.seconds - 2.0 / 60) < 1e-9)
-    }
-
-    @Test func aStalledFrameAdvancesTheSplashByOneThirtiethOfASecondAtMost() {
-        var elapsed = SplashElapsedTime()
-        elapsed.advance(to: 100)
-        elapsed.advance(to: 100.5)
-        #expect(abs(elapsed.seconds - 1.0 / 30) < 1e-9)
     }
 }

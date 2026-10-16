@@ -116,11 +116,11 @@ final class AuthFlowUITests: XCTestCase {
         app.buttons["signUp.submit"].tap()
 
         // 2. Reaching the TabView confirms signedIn.
-        let feedTab = app.tabBars.buttons["Fil"]
+        let feedTab = app.tabBars.buttons["Accueil"]
         XCTAssertTrue(feedTab.waitForExistence(timeout: 10))
 
-        // 3. Sign out from the "Compte" tab.
-        app.tabBars.buttons["Compte"].tap()
+        // 3. Sign out from the "Profil" tab.
+        app.tabBars.buttons["Profil"].tap()
         app.buttons["Se déconnecter"].tap()
 
         // 4. Sign in again with the same credentials.

@@ -3,8 +3,9 @@ import SwiftUI
 /// The "dive into the N" splash (ADR-032 §4), laid over `RootView` on a cold launch. Its first
 /// frame is the launch screen's plain orange; the white N draws itself, pulses while the
 /// session is unknown, then becomes a window cut out of the orange layer that grows until the
-/// app shows through. Timing lives in `SplashTimeline`, on the clock of the frames shown
-/// (`SplashClock`).
+/// app shows through. Under Reduce Motion, the N is there at once and the splash fades out as
+/// soon as the session is known. Timing lives in `SplashTimeline`, on the clock of the frames
+/// shown (`SplashClock`).
 struct SplashView: View {
     /// UI tests launch with this argument to skip the splash.
     static let disablingArgument = "-uiTestDisableSplash"
@@ -47,8 +48,6 @@ struct SplashView: View {
 }
 
 private extension SplashView {
-    /// The launch screen's own colour, so the hand-off from it does not flash (ADR-032 §4).
-    static let orange = Color("LaunchBackground")
     /// Reference layout: the N's 100 box at scale 1.7 on a 320 pt wide screen.
     static let markScaleOnReferenceWidth: CGFloat = 1.7
     static let referenceWidth: CGFloat = 320
@@ -62,7 +61,7 @@ private extension SplashView {
         var context = context
         context.opacity = frame.layerOpacity
         context.drawLayer { layer in
-            layer.fill(Path(CGRect(origin: .zero, size: size)), with: .color(orange))
+            layer.fill(Path(CGRect(origin: .zero, size: size)), with: .color(Theme.accent))
             if let holeScale = frame.holeScale {
                 layer.blendMode = .destinationOut
                 stroke(masterPath, scale: holeScale, in: &layer, size: size)

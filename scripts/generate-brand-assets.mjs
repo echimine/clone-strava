@@ -31,7 +31,7 @@ const targets = [
   // `app/icon.png` convention. The orange tile reads on light and dark tabs alike.
   { out: join(admin, "src/app/icon.png"), svg: "nervo-symbol.svg", size: 64, ground: ORANGE, mark: WHITE, radius: tileRadius(64) },
   // Email header (#80): white wordmark on orange, 2x for retina; email clients do not render SVG.
-  // Hosted by the admin at /brand/nervo-wordmark-email.png, which the login proxy lets through.
+  // Hosted by the admin at EMAIL_WORDMARK_PATH (@repo/contracts), which the login proxy lets through.
   { out: join(admin, "public/brand/nervo-wordmark-email.png"), svg: "nervo-wordmark.svg", width: 558, ground: ORANGE, mark: WHITE },
 ];
 

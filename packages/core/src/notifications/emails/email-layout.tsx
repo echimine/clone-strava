@@ -1,4 +1,5 @@
 import { Body, Button, Container, Head, Html, Img, Preview, Section } from "@react-email/components";
+import { EMAIL_WORDMARK_PATH } from "@repo/contracts";
 import type { ReactNode } from "react";
 
 /** Nervo orange, the app's `Theme.accent` (ADR-032 §2). */
@@ -8,10 +9,19 @@ const BRAND_ORANGE = "#FC5200";
 const WORDMARK_WIDTH = 140;
 const WORDMARK_HEIGHT = 32;
 
-export interface EmailLayoutProps {
-  preview: string;
-  /** Absolute public URL of the wordmark PNG (`apps/admin/public/brand/`). */
+/** Props every auth email takes for its header (ADR-032 §2). */
+export interface BrandedEmailProps {
+  /** Absolute public URL of the wordmark PNG, see `emailWordmarkUrl`. */
   logoUrl: string;
+}
+
+/** The wordmark PNG hosted by the backoffice at `adminOrigin`. */
+export function emailWordmarkUrl(adminOrigin: string): string {
+  return new URL(EMAIL_WORDMARK_PATH, adminOrigin).href;
+}
+
+export interface EmailLayoutProps extends BrandedEmailProps {
+  preview: string;
   children: ReactNode;
 }
 
@@ -57,4 +67,4 @@ export function EmailButton({ href, children }: { href: string; children: ReactN
 }
 
 /** Wordmark URL used by the react-email previews (production admin). */
-export const PREVIEW_LOGO_URL = "https://admin.strava.echimine.fr/brand/nervo-wordmark-email.png";
+export const PREVIEW_LOGO_URL = emailWordmarkUrl("https://admin.strava.echimine.fr");

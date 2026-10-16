@@ -35,7 +35,7 @@ export async function sendAuthEmail(params: {
 }) {
   const { error } = await resend.emails.send(
     {
-      from: "Clone Strava <noreply@mail.strava.echimine.fr>",
+      from: "Clone Strava <noreply@mail.strava.echimine.fr>", // Amended by ADR-032 §1: "Nervo <noreply@mail.strava.echimine.fr>"
       to: params.to,
       subject: params.subject,
       html: params.html,
@@ -47,6 +47,8 @@ export async function sendAuthEmail(params: {
   }
 }
 ```
+
+*Amended by [ADR-032](ADR-032-brand-and-motion-design.md) §1*: the sender name is Nervo, `from: "Nervo <noreply@mail.strava.echimine.fr>"`; the address keeps "strava" until the domains are renamed.
 
 Wired into the three Better Auth handlers from ADR-022:
 
@@ -169,4 +171,5 @@ This keeps domain verification, webhook wiring and template iteration reproducib
 
 - **Depends on**: [ADR-022](ADR-022-authentication-better-auth.md)
 - **Amends**: [ADR-022](ADR-022-authentication-better-auth.md) (resolves the deferred email-sender choice; mitigates its "admin 2FA depends on outbound email deliverability" risk)
+- **Amended by**: [ADR-032](ADR-032-brand-and-motion-design.md) (§1 sender name, preview and heading become Nervo; §2 email header with the hosted wordmark PNG)
 - **Related**: [ADR-009](ADR-009-backend-api.md), [ADR-011](ADR-011-backend-worker.md), [ADR-014](ADR-014-revenuecat.md), [ADR-018](ADR-018-docker-vps-deployment.md), [ADR-020](ADR-020-mcp-servers.md) (MCP/skills usage rule), [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md)

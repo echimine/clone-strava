@@ -1,12 +1,10 @@
 import { Heading, Text } from "@react-email/components";
 import { render } from "@react-email/render";
-import { EmailLayout, PREVIEW_LOGO_URL } from "./email-layout.js";
+import { type BrandedEmailProps, EmailLayout, PREVIEW_LOGO_URL } from "./email-layout.js";
 
-export interface AdminOtpEmailProps {
+export interface AdminOtpEmailProps extends BrandedEmailProps {
   otp: string;
   email: string;
-  /** Absolute URL of the header wordmark PNG (ADR-032 §2). */
-  logoUrl: string;
 }
 
 /** Masks all but the first character of the local part, e.g. `jdoe@example.com` -> `j***@example.com` (ADR-023 §2). */

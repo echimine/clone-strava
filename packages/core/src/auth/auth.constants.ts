@@ -10,9 +10,13 @@ export const AUTH_INSTANCE = Symbol("AUTH_INSTANCE");
 export interface AuthModuleOptions {
   secret: string;
   baseUrl: string;
+  /**
+   * Origin of the backoffice: trusted by Better Auth (cross-subdomain
+   * cookie, ADR-022) and host of the auth emails' wordmark (ADR-032 §2).
+   */
+  adminOrigin: string;
+  /** Origins trusted besides the backoffice's (e.g. the iOS app's scheme). */
   trustedOrigins: string[];
-  /** Absolute public URL of the auth emails' header wordmark PNG (ADR-032 §2). */
-  emailLogoUrl: string;
   googleClientId: string;
   googleClientSecret: string;
   resendApiKey: string;

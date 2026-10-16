@@ -65,7 +65,7 @@ export const auth = betterAuth({
     bearer(),      // §2a — mobile
     admin(),       // §3 — admin role
     twoFactor({    // §5 — admin-only 2FA, TOTP or email OTP (admin's choice)
-      issuer: "Clone Strava",
+      issuer: "Clone Strava", // Amended by ADR-032 §1: "Nervo"
       otpOptions: {
         sendOTP: async ({ user, otp }) => sendAdminOtpEmail(user.email, otp),
         period: 5,
@@ -86,6 +86,8 @@ export const auth = betterAuth({
   },
 });
 ```
+
+*Amended by [ADR-032](ADR-032-brand-and-motion-design.md) §1*: the TOTP issuer shown in authenticator apps is Nervo, `issuer: "Nervo"`.
 
 **a. Mobile (iOS, Swift): bearer token, no cookie.**
 The `bearer` plugin lets a signed-in client trade its session for an opaque bearer token, sent as `Authorization: Bearer <token>` instead of relying on a `Set-Cookie`/`Cookie` round-trip that a native app does not do transparently like a browser. The API validates that header on every request the same way it validates the cookie for web clients — Better Auth exposes both under the same session-resolution call, so NestJS guards do not branch on client type. The token is stored in the iOS **Keychain** (confirms ADR-003), never in `UserDefaults` or on disk unencrypted.
@@ -187,4 +189,4 @@ Mechanics:
 
 - **Depends on**: [ADR-003](ADR-003-backend.md), [ADR-009](ADR-009-backend-api.md), [ADR-013](ADR-013-backoffice-architecture.md), [ADR-017](ADR-017-data-model.md)
 - **Amends**: [ADR-003](ADR-003-backend.md) (resolves the "tokens managed on the Swift side" open point), [ADR-013](ADR-013-backoffice-architecture.md) (cookie scope)
-- **Amended by**: [ADR-023](ADR-023-transactional-email-resend.md) (transactional email sender for verification, password reset, admin OTP)
+- **Amended by**: [ADR-023](ADR-023-transactional-email-resend.md) (transactional email sender for verification, password reset, admin OTP), [ADR-032](ADR-032-brand-and-motion-design.md) (§1 the TOTP issuer becomes Nervo)
