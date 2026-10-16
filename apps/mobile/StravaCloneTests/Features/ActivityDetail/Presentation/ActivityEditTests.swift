@@ -137,6 +137,24 @@ struct ActivityEditTests {
         #expect(store.editor.toast == nil)
     }
 
+    /// Deleted or no longer visible meanwhile (`404`, ADR-033 §3): nothing to roll back, the
+    /// detail switches to its unavailable state and the card leaves the feed.
+    @Test func anEditOfAnActivityGoneMeanwhileMakesTheDetailUnavailable() async throws {
+        let changes = ActivityChanges()
+        let feed = await makeFeed(changes: changes)
+        let repository = FakeActivityDetailRepository(.success(previous))
+        repository.updateResult = .failure(.notFound)
+        let store = await makeDetail(repository, changes: changes)
+        store.editor.edit(previous)
+
+        await store.editor.save(try editedForm(store.editor))
+
+        #expect(store.phase == .unavailable)
+        #expect(await eventually { feed.posts.isEmpty })
+        #expect(store.editor.form == nil)
+        #expect(store.editor.toast == nil)
+    }
+
     @Test func saveIsDisabledWhileTheTitleIsBlank() throws {
         var form = ActivityEditor.Form(detail: previous)
         #expect(form.canSave)

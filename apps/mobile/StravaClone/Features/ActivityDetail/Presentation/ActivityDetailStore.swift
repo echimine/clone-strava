@@ -69,6 +69,7 @@ final class ActivityDetailStore {
             changes: changes
         )
         editor.onChange = { [weak self] detail in self?.phase = .loaded(detail) }
+        editor.onUnavailable = { [weak self] in self?.phase = .unavailable }
     }
 
     /// Runs while the detail is shown (`.task`): this Activity's realtime events. The echo of
