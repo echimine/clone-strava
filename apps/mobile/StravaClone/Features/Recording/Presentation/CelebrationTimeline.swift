@@ -19,7 +19,7 @@ struct CelebrationFrame: Equatable, Sendable {
 /// The celebration's timing (ADR-032 §5): about 3 s, fixed whatever the distance. The trace
 /// draws, the stats count up from a little after the start, a haptic marks the end of each, then
 /// the trace shrinks into the mini-map's place and the form appears at `duration`.
-/// Pure: the background (sketch today, Mapbox 3D map later) reads `traceProgress`.
+/// Pure: the background (the Mapbox map, or the no-map sketch) reads `traceProgress`.
 enum CelebrationTimeline {
     static let traceDrawnAt: TimeInterval = 1.5
     static let countStartsAt: TimeInterval = 0.4

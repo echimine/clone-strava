@@ -42,6 +42,9 @@ private struct ReturnPathLine: Identifiable {
 struct RecordingTraceMap: View {
     let trace: [Coordinate]
 
+    /// The trace's framing, shared with the celebration's map that shrinks into this one.
+    static let overviewPadding = EdgeInsets(top: 32, leading: 24, bottom: 32, trailing: 24)
+
     @State private var isMapLoaded = false
 
     var body: some View {
@@ -60,10 +63,7 @@ struct RecordingTraceMap: View {
 
     private var map: some View {
         let line = trace.map(\.locationCoordinate)
-        return Map(initialViewport: .overview(
-            geometry: LineString(line),
-            geometryPadding: EdgeInsets(top: 32, leading: 24, bottom: 32, trailing: 24)
-        )) {
+        return Map(initialViewport: .overview(geometry: LineString(line), geometryPadding: Self.overviewPadding)) {
             PolylineAnnotation(lineCoordinates: line)
                 .lineColor(UIColor(Theme.accent))
                 .lineWidth(4)
@@ -71,7 +71,15 @@ struct RecordingTraceMap: View {
             RouteEndpointsContent(coordinates: line)
         }
         .mapStyle(.outdoors)
-        .gestureOptions(GestureOptions(
+        .gestureOptions(.allDisabled)
+        .onMapLoaded { _ in isMapLoaded = true }
+    }
+}
+
+extension GestureOptions {
+    /// A map that only shows: no pan, zoom, rotation or pitch.
+    static var allDisabled: GestureOptions {
+        GestureOptions(
             panEnabled: false,
             pinchEnabled: false,
             rotateEnabled: false,
@@ -82,8 +90,7 @@ struct RecordingTraceMap: View {
             doubleTapToZoomInEnabled: false,
             doubleTouchToZoomOutEnabled: false,
             quickZoomEnabled: false
-        ))
-        .onMapLoaded { _ in isMapLoaded = true }
+        )
     }
 }
 

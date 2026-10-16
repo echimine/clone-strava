@@ -26,6 +26,7 @@ bucket. Cleanup uses the server rules: accuracy ≤ 50 m and the sport's plausib
 | `run-no-pause.json`           | 600 legs of 3 m, no Pause                                                           |
 | `run-train-during-pause.json` | 60 km by train during a 1 h Pause: neither distance nor moving time, but total time |
 | `walk-imprecise-points.json`  | inaccurate fixes (> 50 m) and a GPS jump, all dropped by the cleanup                |
+| `ride-long-loop.json`         | a 52 km ride, 1,040 legs of 50 m every 5 s: the long outing of the celebration      |
 
 ## Expected values
 
