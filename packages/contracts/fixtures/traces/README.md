@@ -26,12 +26,14 @@ bucket. Cleanup uses the server rules: accuracy ≤ 50 m and the sport's plausib
 | `run-no-pause.json`           | 600 legs of 3 m, no Pause                                                           |
 | `run-train-during-pause.json` | 60 km by train during a 1 h Pause: neither distance nor moving time, but total time |
 | `walk-imprecise-points.json`  | inaccurate fixes (> 50 m) and a GPS jump, all dropped by the cleanup                |
+| `ride-long-loop.json`         | a 52 km ride, 1,040 legs of 50 m every 5 s: the long outing of the celebration      |
 
 ## Expected values
 
 They come from the construction, not from the code under test: every leg is built on the
-6,371 km sphere used by `@repo/geo` to measure exactly 3 m (or 1.5 m) along a meridian or a
-parallel, so the distance is the number of kept legs times the step. An ellipsoidal distance
+6,371 km sphere used by `@repo/geo` to measure exactly its trace's step along a meridian or a
+parallel: 3 m for the runs, 1.5 m for the walk, 50 m for the ride. The distance is the number
+of kept legs times the step. An ellipsoidal distance
 (e.g. `CLLocation.distance(from:)`) differs by well under 1 %.
 
 A new trace needs its expected values worked out the same way, independently of `computeMetrics`.

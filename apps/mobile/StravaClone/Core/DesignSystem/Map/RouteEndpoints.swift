@@ -48,6 +48,8 @@ struct RouteEndpointMarker: View {
 /// user puck: a path usually starts where the athlete stands.
 struct RouteEndpointsContent: MapContent {
     let coordinates: [CLLocationCoordinate2D]
+    /// Below 1 while they fade in.
+    var opacity: Double = 1
 
     var body: some MapContent {
         if let start = coordinates.first, let finish = coordinates.last {
@@ -60,6 +62,7 @@ struct RouteEndpointsContent: MapContent {
     private func marker(_ endpoint: RouteEndpoint, at coordinate: CLLocationCoordinate2D) -> MapViewAnnotation {
         MapViewAnnotation(coordinate: coordinate) {
             RouteEndpointMarker(endpoint: endpoint)
+                .opacity(opacity)
         }
         .allowOverlap(true)
         .allowOverlapWithPuck(true)

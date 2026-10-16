@@ -1,11 +1,22 @@
 import Foundation
 
+/// Which stat a `RecordingStatItem` shows, whatever its French label.
+enum RecordingStat: Equatable, Sendable {
+    case elapsed, distance, averagePace, currentSpeed, averageSpeed, itineraryRemaining
+}
+
 /// One stat of the Recording screen: "5:12" with its unit "/km" and label "Allure moy.".
 struct RecordingStatItem: Equatable, Identifiable {
+    let stat: RecordingStat
     let label: String
     let value: String
     let unit: String
     var id: String { label }
+
+    /// The label under the value, with its unit: "Distance (km)", or "Temps".
+    var caption: String {
+        unit.isEmpty ? label : "\(label) (\(unit))"
+    }
 }
 
 /// French display formats of a Recording's provisional values (ADR-031 §5): "0,00 km", "h:mm:ss",
@@ -38,14 +49,14 @@ enum RecordingFormatters {
     /// The sport's stats, in display order: pace on foot, speeds on a bike.
     static func items(_ stats: RecordingStats) -> [RecordingStatItem] {
         var items = [
-            RecordingStatItem(label: "Temps", value: timer(stats.elapsed), unit: ""),
-            RecordingStatItem(label: "Distance", value: distance(stats.distance), unit: "km"),
+            RecordingStatItem(stat: .elapsed, label: "Temps", value: timer(stats.elapsed), unit: ""),
+            RecordingStatItem(stat: .distance, label: "Distance", value: distance(stats.distance), unit: "km"),
         ]
         if stats.sport.isOnFoot {
-            items.append(RecordingStatItem(label: "Allure moy.", value: pace(stats.averagePace), unit: "/km"))
+            items.append(RecordingStatItem(stat: .averagePace, label: "Allure moy.", value: pace(stats.averagePace), unit: "/km"))
         } else {
-            items.append(RecordingStatItem(label: "Vitesse", value: speed(stats.currentSpeedMs), unit: "km/h"))
-            items.append(RecordingStatItem(label: "Vitesse moy.", value: speed(stats.averageSpeedMs), unit: "km/h"))
+            items.append(RecordingStatItem(stat: .currentSpeed, label: "Vitesse", value: speed(stats.currentSpeedMs), unit: "km/h"))
+            items.append(RecordingStatItem(stat: .averageSpeed, label: "Vitesse moy.", value: speed(stats.averageSpeedMs), unit: "km/h"))
         }
         return items
     }
@@ -55,6 +66,7 @@ enum RecordingFormatters {
     /// and at the end.
     static func itinerary(_ itinerary: FollowedItinerary) -> RecordingStatItem {
         RecordingStatItem(
+            stat: .itineraryRemaining,
             label: itinerary.state.caption,
             value: itinerary.remaining.map { RecordingNumberFormat.remainingKilometers($0.meters) } ?? "—",
             unit: "km"

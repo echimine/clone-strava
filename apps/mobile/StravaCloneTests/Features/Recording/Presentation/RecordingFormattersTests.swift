@@ -38,6 +38,13 @@ struct RecordingFormattersTests {
         #expect(items.map(\.unit) == ["", "km", "/km"])
     }
 
+    /// Under the value, the label with its unit: "Distance (km)"; "Temps" has none.
+    @Test func theCaptionIsTheLabelWithItsUnit() {
+        let stats = RecordingStats(sport: .run, elapsed: .seconds(312), distance: Distance(meters: 1_000), currentSpeedMs: 3)
+
+        #expect(RecordingFormatters.items(stats).map(\.caption) == ["Temps", "Distance (km)", "Allure moy. (/km)"])
+    }
+
     @Test func onABikeShowsCurrentAndAverageSpeed() {
         let stats = RecordingStats(sport: .ride, elapsed: .seconds(3_600), distance: Distance(meters: 24_300), currentSpeedMs: nil)
 

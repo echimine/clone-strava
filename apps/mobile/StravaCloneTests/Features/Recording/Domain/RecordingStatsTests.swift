@@ -34,6 +34,16 @@ struct RecordingStatsTests {
         #expect(still.averageSpeedMs == 0)
     }
 
+    /// The finish screen and the celebration show the stats at the Recording's end, however
+    /// long the athlete stays on the screen.
+    @Test func theFinalStatsStopAtTheEndOfTheRecording() {
+        var recording = Recording(sport: .run, startedAt: start)
+        recording.pause(at: at(600))
+        recording.finish()
+
+        #expect(RecordingSnapshot(recording: recording).finalStats.elapsed == .seconds(600))
+    }
+
     @Test func currentSpeedIsTheDistanceOfTheLastFiveSeconds() {
         var speed = CurrentSpeed(movingSince: start)
         for second in 1...20 {

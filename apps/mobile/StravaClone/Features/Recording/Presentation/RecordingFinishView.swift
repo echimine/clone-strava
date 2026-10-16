@@ -5,26 +5,68 @@ import SwiftUI
 /// on `defaultVisibility`; neither is saved with the Recording. Mini-map and the sport's final
 /// stats, without a "provisional" label. Save is disabled below the sport's minimum duration or
 /// with fewer than 2 points, with the explanation.
+/// It opens with the celebration (ADR-032 §5) when the Recording is eligible, unless Reduce
+/// Motion is on; Resume then finish again plays it again (a new finish screen).
 struct RecordingFinishView: View {
     let store: RecordingStore
     let snapshot: RecordingSnapshot
     /// After Save: the app shell switches to the top of the feed.
-    var onSaved: () -> Void = {}
+    var onSaved: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Namespace private var celebrationSpace
+    @State private var celebration: CelebrationPhase
     @State private var confirmsDelete = false
     @State private var title = ""
     @State private var visibility = ActivityVisibility.public
     @FocusState private var editsTitle: Bool
 
+    init(store: RecordingStore, snapshot: RecordingSnapshot, onSaved: @escaping () -> Void = {}) {
+        self.store = store
+        self.snapshot = snapshot
+        self.onSaved = onSaved
+        _celebration = State(initialValue: CelebrationEligibility.allows(snapshot) ? .playing : .over)
+    }
+
+    private var showsCelebration: Bool {
+        celebration != .over && !reduceMotion
+    }
+
+    private var hidesForm: Bool {
+        celebration == .playing && !reduceMotion
+    }
+
     private var canSave: Bool {
         snapshot.saveBlocker == nil && !store.isBusy
     }
 
-    private var finalStats: RecordingStats {
-        snapshot.stats(at: snapshot.recording.endedAt ?? .now)
+    var body: some View {
+        ZStack {
+            form
+                .opacity(hidesForm ? 0 : 1)
+                .accessibilityHidden(hidesForm)
+                .allowsHitTesting(!hidesForm)
+            if showsCelebration {
+                RecordingCelebration(stats: snapshot.finalStats, namespace: celebrationSpace, phase: $celebration) { frame in
+                    CelebrationMapBackground(trace: snapshot.trace, frame: frame)
+                }
+                .transition(.opacity)
+                .zIndex(1)
+            }
+        }
+        .interactiveDismissDisabled()
+        .onAppear {
+            title = store.defaultTitle
+            visibility = store.defaultVisibility
+        }
+        .confirmationDialog(RecordingMessages.deleteTitle, isPresented: $confirmsDelete, titleVisibility: .visible) {
+            Button("Supprimer", role: .destructive) { Task { await store.delete() } }
+        } message: {
+            Text(RecordingMessages.deleteMessage)
+        }
     }
 
-    var body: some View {
+    private var form: some View {
         VStack(spacing: 20) {
             Label(
                 RecordingFormatters.sportLabel(snapshot.recording.sport),
@@ -54,15 +96,13 @@ struct RecordingFinishView: View {
             .pickerStyle(.segmented)
             .accessibilityIdentifier("recordingVisibilityPicker")
 
-            RecordingTraceMap(trace: snapshot.trace)
-                .frame(height: 200)
-                .clipShape(RoundedRectangle(cornerRadius: 16))
+            CelebrationMiniMap(trace: snapshot.trace, namespace: celebrationSpace, isCelebrating: hidesForm)
 
             HStack(alignment: .top) {
-                ForEach(RecordingFormatters.items(finalStats).filter { $0.label != "Vitesse" }) { item in
+                ForEach(FinishStatsCountUp.items(snapshot.finalStats, progress: 1)) { item in
                     VStack(spacing: 2) {
                         Text(item.value).font(.title2.weight(.bold)).monospacedDigit()
-                        Text(item.unit.isEmpty ? item.label : "\(item.label) (\(item.unit))")
+                        Text(item.caption)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -115,16 +155,6 @@ struct RecordingFinishView: View {
             .buttonStyle(.plain)
         }
         .padding(Theme.spacing)
-        .interactiveDismissDisabled()
-        .onAppear {
-            title = store.defaultTitle
-            visibility = store.defaultVisibility
-        }
-        .confirmationDialog(RecordingMessages.deleteTitle, isPresented: $confirmsDelete, titleVisibility: .visible) {
-            Button("Supprimer", role: .destructive) { Task { await store.delete() } }
-        } message: {
-            Text(RecordingMessages.deleteMessage)
-        }
     }
 
     static func label(_ visibility: ActivityVisibility) -> String {
