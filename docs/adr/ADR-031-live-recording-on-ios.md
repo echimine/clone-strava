@@ -158,8 +158,8 @@ Pre-start screen ─ Start ─► Recording (GRDB `recording` row + points + Pau
 ### 13. API (completes ADR-019)
 
 - **Real implementation** of `POST /v1/activities`, `POST /v1/activities/:id/upload-url` and `POST /v1/activities/:id/complete`, as specified in ADR-019 §1, §2, §4.
-- **`GET /v1/activities/:id`**, **author only**, whatever the state: summary, official values once `processed`, `processingStatus` and `processingError` (added to the contracts). A non-author gets `404`.
-- **`DELETE /v1/activities/:id`**, author only, for `pending` and `failed` Activities: hard delete (ADR-017), `204`. Other states: `409`; unknown or not the author: `404`.
+- **`GET /v1/activities/:id`**, **author only**, whatever the state: summary, official values once `processed`, `processingStatus` and `processingError` (added to the contracts). A non-author gets `404`. *Amended by [ADR-033](ADR-033-activity-detail-edit-delete.md)* (§2): any viewer who can see the Activity gets it (others only `processed`), with author, map, place and engagement; the author still gets it in any state.
+- **`DELETE /v1/activities/:id`**, author only, for `pending` and `failed` Activities: hard delete (ADR-017), `204`. Other states: `409`; unknown or not the author: `404`. *Amended by [ADR-033](ADR-033-activity-detail-edit-delete.md)* (§6): `processed` Activities can be deleted too (trace and original import file removed); only `processing` still gets `409`; a visible non-author gets `403`.
 - **`GET /v1/me`** gains `defaultVisibility` (from `user_profile.default_visibility`).
 - Contracts, then OpenAPI, then Swift (ADR-026), with response schemas documented (`@ZodResponse`).
 
@@ -253,5 +253,5 @@ Pre-start screen ─ Start ─► Recording (GRDB `recording` row + points + Pau
 ## Links
 
 - **Amends**: [ADR-007](ADR-007-mobile-architecture.md) (`Core/LocalActivities`, `Core/Routing`, widget extension), [ADR-008](ADR-008-mobile-offline-sync.md) (§2 no `recording` state, §3 no background `URLSession` and `BGAppRefreshTask`, §5 response table, §6 no provisional elevation gain, §7 local Activity wiped at `processed`), [ADR-019](ADR-019-activity-creation-flow.md) (§3 trace v2 and regular `URLSession`, §5 metrics across Pauses, new `GET` and `DELETE /v1/activities/:id`), [ADR-028](ADR-028-activity-import-from-file.md) (the importer writes v2 traces)
-- **Amended by**: [ADR-032](ADR-032-brand-and-motion-design.md) (§11 the finish screen opens with the celebration)
+- **Amended by**: [ADR-032](ADR-032-brand-and-motion-design.md) (§11 the finish screen opens with the celebration), [ADR-033](ADR-033-activity-detail-edit-delete.md) (§13 `GET` for visible Activities, `DELETE` of processed Activities)
 - **Related**: [ADR-006](ADR-006-mobile-stack.md), [ADR-017](ADR-017-data-model.md), [ADR-025](ADR-025-mobile-testing-strategy.md), [ADR-026](ADR-026-openapi-swift-codegen.md), [ADR-027](ADR-027-user-location-on-maps.md), [ADR-029](ADR-029-activity-feed-and-card.md), [ADR-030](ADR-030-itineraries-on-ios.md)

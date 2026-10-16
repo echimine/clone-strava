@@ -23,6 +23,7 @@ Creating an activity on the server side takes several calls (slide 10): creation
 - Screens read **only from GRDB**, via `ValueObservation` (ADR-006).
 - The network does not update the screen directly: it **writes to GRDB**, and the screen updates on its own.
 - Consequence: a screen works the same way with or without network.
+- *Amended by [ADR-033](ADR-033-activity-detail-edit-delete.md)*: the Activity detail, like the feed (ADR-031 §14), reads the API directly and is not cached in GRDB; it needs the network.
 
 ### 2. Local lifecycle of an activity
 
@@ -49,7 +50,7 @@ The state is **saved to the database at each step**: if the app is killed, sync 
 ### 3. Sync queue
 
 - A GRDB table `sync_operation`: operation type, target entity, number of attempts, next attempt, last error.
-- MVP operations: `create_activity`, `upload_trace`, `complete_activity`. *Amended by [ADR-031](ADR-031-live-recording-on-ios.md)*: each successful operation is replaced by the next one in the same transaction as the local state change, and `delete_activity` is added. Others will be added (edit or delete an activity, kudos, comment). *Amended by [ADR-030](ADR-030-itineraries-on-ios.md)*: the queue is first built for `rename_itinerary` and `delete_itinerary` (coalesced per Itinerary: last rename wins, a delete cancels a pending rename); background draining with `BGTaskScheduler` arrives with the activity operations.
+- MVP operations: `create_activity`, `upload_trace`, `complete_activity`. *Amended by [ADR-031](ADR-031-live-recording-on-ios.md)*: each successful operation is replaced by the next one in the same transaction as the local state change, and `delete_activity` is added. Others will be added (edit or delete an activity, kudos, comment). *Amended by [ADR-033](ADR-033-activity-detail-edit-delete.md) and [ADR-034](ADR-034-activity-engagement-and-live-detail.md)*: editing or deleting a **processed** Activity, kudos and comments are **not** queued: they are sent online with an optimistic update, rolled back with a toast on failure. *Amended by [ADR-030](ADR-030-itineraries-on-ios.md)*: the queue is first built for `rename_itinerary` and `delete_itinerary` (coalesced per Itinerary: last rename wins, a delete cancels a pending rename); background draining with `BGTaskScheduler` arrives with the activity operations.
 - **Ordering guaranteed per entity**: an activity's trace is not sent before the activity is created.
 - **Triggers**: end of a recording, network coming back (`NWPathMonitor`), app returning to the foreground, and iOS background task (`BGTaskScheduler`) to drain the queue when the app is not open. *Amended by [ADR-031](ADR-031-live-recording-on-ios.md)*: also the feed's pull-to-refresh; the background task is a `BGAppRefreshTask` scheduled only while the queue is not empty, and a queue coordinator in `App/` wakes the Activity and Itinerary senders.
 - ~~**Background trace upload**: the `PUT` to the bucket uses a background `URLSession` (`background` configuration), which continues even if the user leaves the app.~~ *Amended by [ADR-031](ADR-031-live-recording-on-ios.md)*: the `PUT` uses a regular `URLSession`, started right after Save under `beginBackgroundTask`; what is unfinished resumes on the next trigger. A background session would delay the upload past the URL's 15 minutes for a file of a few hundred KB.
@@ -132,3 +133,4 @@ An activity in `failed` is **never deleted automatically**: its points stay on t
 - **Depends on**: [ADR-001](ADR-001-global-architecture.md), [ADR-006](ADR-006-mobile-stack.md), [ADR-007](ADR-007-mobile-architecture.md)
 - **Amended by**: [ADR-030](ADR-030-itineraries-on-ios.md) (first `sync_operation` operations and first GRDB cache: Itineraries)
 - **Amended by**: [ADR-031](ADR-031-live-recording-on-ios.md) (§2 no `recording` state, §3 regular `URLSession` and `BGAppRefreshTask`, §5 responses, §6 no provisional elevation gain, §7 local Activity wiped at `processed`)
+- **Amended by**: [ADR-033](ADR-033-activity-detail-edit-delete.md) (§1 Activity detail read from the API, §3 no queue for edit and delete of processed Activities), [ADR-034](ADR-034-activity-engagement-and-live-detail.md) (§3 kudos and comments not queued)

@@ -267,14 +267,14 @@ As for every mobile event, the payload is minimal and the app reloads through `G
 - ADR-019's processing pipeline (`process-activity`, segments, realtime events) is reused unchanged: an imported activity is indistinguishable from a recorded one after import.
 - Every step is replayable: creation, URL renewal, `complete`, `import-activity` (idempotent insert, idempotent trace `PUT`).
 - Duplicates are refused at the database level for identical files, and detected by time overlap for the same session from different sources.
-- Original files are kept, so imports can be reprocessed when parsers improve.
+- Original files are kept, so imports can be reprocessed when parsers improve. *Amended by [ADR-033](ADR-033-activity-detail-edit-delete.md)*: until the Activity is deleted, which deletes its original file.
 
 ### Negative / Risks
 - **Three parsers to maintain**, with many vendor variants (GPX extensions, FIT developer fields); fixtures from real devices are needed for each.
 - **`@garmin/fitsdk` compatibility** with TypeScript 7 and ESM is not verified yet; fallback above.
 - **Indoor activities** (no GPS) are refused in the MVP, which will frustrate treadmill and home-trainer users.
 - **Overlap rule** (50 %) can refuse a legitimate activity (e.g. two short activities inside a long one); forcing an import is not possible in the MVP.
-- **Storage**: original files are kept indefinitely (a few MB per import).
+- **Storage**: original files are kept indefinitely (a few MB per import). *Amended by [ADR-033](ADR-033-activity-detail-edit-delete.md)* (§6): deleting the Activity deletes `imports/{userId}/{importId}/source.{format}`; the `activity_import` row stays with `activity_id = null`.
 
 ## References
 - GPX 1.1 schema: https://www.topografix.com/GPX/1/1/
@@ -285,6 +285,6 @@ As for every mobile event, the payload is minimal and the app reloads through `G
 ## Links
 
 - **Depends on**: [ADR-019](ADR-019-activity-creation-flow.md), [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md)
-- **Amended by**: [ADR-031](ADR-031-live-recording-on-ios.md) (trace v2)
+- **Amended by**: [ADR-031](ADR-031-live-recording-on-ios.md) (trace v2), [ADR-033](ADR-033-activity-detail-edit-delete.md) (original file deleted with its Activity)
 - **Amends**: [ADR-017](ADR-017-data-model.md) (`activity_import` table, `activity.source`), [ADR-011](ADR-011-backend-worker.md) (`imports` queue, `import-activity` job), [ADR-010](ADR-010-backend-realtime.md) (`activity_import.*` mobile events), [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md) (bridge forwarding table, `activities` owns `activity_import`)
 - **Related**: [ADR-001](ADR-001-global-architecture.md), [ADR-008](ADR-008-mobile-offline-sync.md), [ADR-009](ADR-009-backend-api.md), [ADR-018](ADR-018-docker-vps-deployment.md), [ADR-024](ADR-024-backend-testing-strategy.md)

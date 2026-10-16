@@ -138,7 +138,7 @@ Target job duration: **under 30 seconds**, compatible with the worker's 120-seco
 
 ### 7. Reconciliation
 
-A recurring job (every 10 minutes) re-enqueues activities that have stayed `processing` for more than 15 minutes without an active job. It covers a failed enqueue, a lost job, or a loss of Redis data (ADR-018). It relies on the partial index on `processing_status` (ADR-017).
+A recurring job (every 10 minutes) re-enqueues activities that have stayed `processing` for more than 15 minutes without an active job. It covers a failed enqueue, a lost job, or a loss of Redis data (ADR-018). It relies on the partial index on `processing_status` (ADR-017). *Amended by [ADR-033](ADR-033-activity-detail-edit-delete.md)* (§5): it also enqueues `reprocess-activity` for processed Activities whose `activity_stats.computed_for_sport_type_code` differs from `sport_type_code`.
 
 Activities that stay `pending` (trace never uploaded, app offline for a long time) are not deleted automatically in the MVP: the app can resume the upload at any time thanks to URL renewal.
 
@@ -162,6 +162,8 @@ Activities that stay `pending` (trace never uploaded, app offline for a long tim
 | `processing` → `failed` | `activity.failed` event or resync |
 
 *Amended by [ADR-031](ADR-031-live-recording-on-ios.md)* (§13): `GET /v1/activities/:id` is **author only**, whatever the state, and returns `processingStatus` and `processingError`. `DELETE /v1/activities/:id` (author only, `pending` and `failed` only, hard delete, `204`; `409` otherwise) lets the app delete an Activity it has not finished sending. `recorded` is now the first local state: a Recording is not an Activity.
+
+*Amended by [ADR-033](ADR-033-activity-detail-edit-delete.md)* (§2, §6): `GET /v1/activities/:id` serves any viewer who can see the Activity (the author in any state, others `processed` only); `DELETE` also accepts `processed` Activities; a visible non-author gets `403`.
 
 ### 10. Data model changes (amends ADR-017)
 
@@ -215,4 +217,5 @@ Additions to the `activity` table:
 - **Amended by**: [ADR-028](ADR-028-activity-import-from-file.md) (job id separator `-`)
 - **Amended by**: [ADR-030](ADR-030-itineraries-on-ios.md) (§5 elevation-gain algorithm shared with Itineraries in `@repo/geo`)
 - **Amended by**: [ADR-031](ADR-031-live-recording-on-ios.md) (§3 trace v2 with Pauses and regular `URLSession`, §5 metrics across Pauses, §9 `GET` and `DELETE /v1/activities/:id`)
+- **Amended by**: [ADR-033](ADR-033-activity-detail-edit-delete.md) (§7 reconciliation also covers reprocessing, §9 `GET` for visible Activities and `DELETE` of processed Activities)
 - **Related**: [ADR-001](ADR-001-global-architecture.md), [ADR-008](ADR-008-mobile-offline-sync.md), [ADR-009](ADR-009-backend-api.md), [ADR-010](ADR-010-backend-realtime.md), [ADR-018](ADR-018-docker-vps-deployment.md)

@@ -46,13 +46,14 @@ ADR-021 §6 steps 1–2 (followees, then a page of activities with stats and map
 
 ### 5. Kudos
 
-`PUT` / `DELETE /v1/activities/:id/kudos`, both idempotent, both returning `{ activityId, kudosCount, viewerHasKudoed }` so the app's optimistic update can reconcile. `404 activity_not_found` when the viewer cannot see the activity (owner, `public`, or `followers` for followers), `422 cannot_kudos_own_activity`. Comments are counted (non-deleted) but have no screen yet; share uses the iOS share sheet and is not counted.
+`PUT` / `DELETE /v1/activities/:id/kudos`, both idempotent, both returning `{ activityId, kudosCount, viewerHasKudoed }` so the app's optimistic update can reconcile. `404 activity_not_found` when the viewer cannot see the activity (owner, `public`, or `followers` for followers), `422 cannot_kudos_own_activity`. Comments are counted (non-deleted) but have no screen yet (*amended by [ADR-034](ADR-034-activity-engagement-and-live-detail.md)*: they are listed, added, edited and deleted on the Activity detail); share uses the iOS share sheet and is not counted.
 
 ### 6. Mobile
 
 - The card lives in `Core/DesignSystem/ActivityCard/` with its model in `Core/Domain/Activities/`, because Feed and Profile may not import each other (ADR-007).
 - `Features/Feed` owns `FeedStore` (refresh, infinite scroll, optimistic kudos) and reloads on the realtime `activity.processed` event (ADR-010), not on `activity_import.completed`, which fires while the activity is still processing.
 - `APIClient` now decodes ISO 8601 dates with or without fractional seconds.
+- *Amended by [ADR-033](ADR-033-activity-detail-edit-delete.md)*: tapping a processed card opens the Activity detail; a long press on one of the viewer's own cards offers Modifier / Supprimer; the card reflects what changed on the detail when the athlete comes back.
 
 ## Alternatives Considered
 
@@ -75,7 +76,7 @@ ADR-021 §6 steps 1–2 (followees, then a page of activities with stats and map
 - **Geocoding terms**: storing temporary-endpoint results breaches Mapbox's terms; Mapbox may revoke the token, in which case place names become `null` (processing is unaffected). Must move to the permanent endpoint or a free dataset (e.g. GeoNames) before any public release. Activities processed before this ADR keep `location_name = null`.
 - **Followee list in `IN (...)`**: fine for the MVP (ADR-021 "Negative"), a materialized feed later.
 - **Public Mapbox token in image URLs**: normal for public tokens; it must be URL- and scope-restricted in the Mapbox dashboard.
-- **Realtime only reaches the owner** (`user:{id}` topic): followees' new activities appear on pull-to-refresh.
+- **Realtime only reaches the owner** (`user:{id}` topic): followees' new activities appear on pull-to-refresh. *Amended by [ADR-034](ADR-034-activity-engagement-and-live-detail.md)*: viewers of an Activity detail also get its events on `activity:{id}`; the feed still does not.
 
 ## References
 - Google encoded polyline: https://developers.google.com/maps/documentation/utilities/polylinealgorithm
@@ -87,4 +88,5 @@ ADR-021 §6 steps 1–2 (followees, then a page of activities with stats and map
 
 - **Depends on**: [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md), [ADR-019](ADR-019-activity-creation-flow.md), [ADR-028](ADR-028-activity-import-from-file.md)
 - **Amends**: [ADR-017](ADR-017-data-model.md) (`activity_track.map_polyline`, `location_name`), [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md) (§6 feed assembled in `apps/api`, `geocoding` platform module, auth identity fallback), [ADR-026](ADR-026-openapi-swift-codegen.md) (first documented response bodies)
+- **Amended by**: [ADR-033](ADR-033-activity-detail-edit-delete.md) (§6 card opens the detail, context menu), [ADR-034](ADR-034-activity-engagement-and-live-detail.md) (§5 comments screen, realtime per Activity)
 - **Related**: [ADR-007](ADR-007-mobile-architecture.md), [ADR-008](ADR-008-mobile-offline-sync.md), [ADR-010](ADR-010-backend-realtime.md), [ADR-011](ADR-011-backend-worker.md), [ADR-027](ADR-027-user-location-on-maps.md)
