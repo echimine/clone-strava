@@ -7,13 +7,13 @@ struct CelebrationMapModeTests {
     @Test func baseMapAndTerrainReadyGiveThe3DMap() {
         let loading = CelebrationMapLoading(baseMapLoaded: true, terrainLoaded: true)
 
-        #expect(CelebrationMapMode.pending.next(loading, reduceMotion: false) == .terrain3D)
+        #expect(CelebrationMapMode.pending.next(loading) == .terrain3D)
     }
 
     /// The map waits, hidden over the no-map sketch, while the base map or the terrain loads.
     @Test func theMapWaitsWhileItLoads() {
-        #expect(CelebrationMapMode.pending.next(CelebrationMapLoading(), reduceMotion: false) == .pending)
-        #expect(CelebrationMapMode.pending.next(CelebrationMapLoading(baseMapLoaded: true), reduceMotion: false) == .pending)
+        #expect(CelebrationMapMode.pending.next(CelebrationMapLoading()) == .pending)
+        #expect(CelebrationMapMode.pending.next(CelebrationMapLoading(baseMapLoaded: true)) == .pending)
         #expect(!CelebrationMapMode.pending.showsMap)
     }
 
@@ -21,14 +21,14 @@ struct CelebrationMapModeTests {
     @Test func terrainLateAtTheDeadlineGivesThe2DMap() {
         let loading = CelebrationMapLoading(baseMapLoaded: true, deadlinePassed: true)
 
-        #expect(CelebrationMapMode.pending.next(loading, reduceMotion: false) == .flat2D)
+        #expect(CelebrationMapMode.pending.next(loading) == .flat2D)
     }
 
     /// ADR-032 §5: a base map not ready in about 1 s (no network) keeps the no-map celebration.
     @Test func baseMapNotReadyAtTheDeadlineGivesNoMap() {
         let loading = CelebrationMapLoading(terrainLoaded: true, deadlinePassed: true)
 
-        #expect(CelebrationMapMode.pending.next(loading, reduceMotion: false) == .noMap)
+        #expect(CelebrationMapMode.pending.next(loading) == .noMap)
         #expect(CelebrationMapMode.loadingDeadline == 1)
     }
 
@@ -36,16 +36,7 @@ struct CelebrationMapModeTests {
     @Test func aStyleErrorGivesNoMapAtOnce() {
         let loading = CelebrationMapLoading(styleFailed: true)
 
-        #expect(CelebrationMapMode.pending.next(loading, reduceMotion: false) == .noMap)
-    }
-
-    /// ADR-032 §5: with Reduce Motion, the map is top-down and does not wait for the terrain.
-    @Test func reduceMotionGivesThe2DMapAsSoonAsTheBaseMapIsReady() {
-        let baseMapOnly = CelebrationMapLoading(baseMapLoaded: true)
-        let everything = CelebrationMapLoading(baseMapLoaded: true, terrainLoaded: true)
-
-        #expect(CelebrationMapMode.pending.next(baseMapOnly, reduceMotion: true) == .flat2D)
-        #expect(CelebrationMapMode.pending.next(everything, reduceMotion: true) == .flat2D)
+        #expect(CelebrationMapMode.pending.next(loading) == .noMap)
     }
 
     /// Once chosen, the mode holds for the whole celebration: no switch from sketch to map, or
@@ -53,9 +44,9 @@ struct CelebrationMapModeTests {
     @Test func aChosenModeNeverChanges() {
         let everything = CelebrationMapLoading(baseMapLoaded: true, terrainLoaded: true, deadlinePassed: true)
 
-        #expect(CelebrationMapMode.noMap.next(everything, reduceMotion: false) == .noMap)
-        #expect(CelebrationMapMode.flat2D.next(everything, reduceMotion: false) == .flat2D)
-        #expect(CelebrationMapMode.terrain3D.next(CelebrationMapLoading(styleFailed: true), reduceMotion: true) == .terrain3D)
+        #expect(CelebrationMapMode.noMap.next(everything) == .noMap)
+        #expect(CelebrationMapMode.flat2D.next(everything) == .flat2D)
+        #expect(CelebrationMapMode.terrain3D.next(CelebrationMapLoading(styleFailed: true)) == .terrain3D)
     }
 
     /// The 3D mode is pitched with terrain; the 2D one is top-down.

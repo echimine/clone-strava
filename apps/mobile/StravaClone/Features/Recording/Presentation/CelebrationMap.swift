@@ -3,13 +3,12 @@ import SwiftUI
 
 /// The celebration's background on the real map (ADR-032 §5, #83). The map loads hidden over
 /// the no-map sketch, which keeps drawing meanwhile; `CelebrationMapMode` then reveals it in 3D
-/// with terrain, in top-down 2D (terrain late, Reduce Motion), or never (base map not ready in
-/// about 1 s): the sketch then plays the whole celebration, as offline.
+/// with terrain, in top-down 2D (terrain late), or never (base map not ready in about 1 s): the
+/// sketch then plays the whole celebration, as offline.
 struct CelebrationMapBackground: View {
     let trace: [Coordinate]
     let frame: CelebrationFrame
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Built once: the background is redrawn on every frame of the celebration.
     @State private var route: CelebrationRoute?
     @State private var loading = CelebrationMapLoading()
@@ -22,7 +21,7 @@ struct CelebrationMapBackground: View {
                 // the orange would show through the map as it fades out into the mini-map.
                 .opacity(mode.showsMap && frame.milestone == .counted ? 0 : 1)
             if let route, mode != .noMap {
-                CelebrationMap(route: route, frame: frame, mode: mode, reduceMotion: reduceMotion, loading: $loading)
+                CelebrationMap(route: route, frame: frame, mode: mode, loading: $loading)
                     .opacity(mode.showsMap ? 1 : 0)
                 // The stats count up in white at the bottom: keep them readable over the map.
                 LinearGradient(
@@ -41,7 +40,7 @@ struct CelebrationMapBackground: View {
             loading.deadlinePassed = true
         }
         .onChange(of: loading) { _, loading in
-            mode = mode.next(loading, reduceMotion: reduceMotion)
+            mode = mode.next(loading)
         }
     }
 }
@@ -53,7 +52,6 @@ private struct CelebrationMap: View {
     let route: CelebrationRoute
     let frame: CelebrationFrame
     let mode: CelebrationMapMode
-    let reduceMotion: Bool
     @Binding var loading: CelebrationMapLoading
 
     @State private var viewport = Viewport.idle
@@ -65,9 +63,9 @@ private struct CelebrationMap: View {
     /// The vector source of `outdoors-v12`, the base map.
     private static let baseMapSourceID = "composite"
 
-    /// Past the draw (or with Reduce Motion, from the start), the camera frames the outing.
+    /// Past the draw, the camera frames the outing.
     private var framesWholeOuting: Bool {
-        reduceMotion || frame.milestone >= .traceDrawn
+        frame.milestone >= .traceDrawn
     }
 
     var body: some View {
@@ -128,19 +126,14 @@ private struct CelebrationMap: View {
             if framesWholeOuting { viewport = overview }
         }
         .onChange(of: frame.milestone) { _, milestone in
-            guard milestone == .traceDrawn, !reduceMotion else { return }
+            guard milestone == .traceDrawn else { return }
             let pullBack = CelebrationTimeline.settlesAt - CelebrationTimeline.traceDrawnAt
             withViewportAnimation(.easeInOut(duration: pullBack)) { viewport = overview }
         }
     }
 
-    /// While the trace draws, the camera sits on the head of the simplified trace; with Reduce
-    /// Motion it never moves from the whole outing.
+    /// While the trace draws, the camera sits on the head of the simplified trace.
     private func placeCamera() {
-        if reduceMotion {
-            viewport = overview
-            return
-        }
         guard !framesWholeOuting, let center = route.cameraCenter(at: frame.traceProgress) else { return }
         viewport = .camera(
             center: center.locationCoordinate,

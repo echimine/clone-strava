@@ -13,8 +13,8 @@ struct CelebrationMapLoading: Equatable, Sendable {
 }
 
 /// How the celebration plays its trace (ADR-032 §5): on the map in 3D with terrain, on a
-/// top-down 2D map (terrain late, or Reduce Motion), or without a map (style not ready in about
-/// 1 s, typically offline). Pure: the view feeds it the map's load events.
+/// top-down 2D map (terrain late), or without a map (style not ready in about 1 s, typically
+/// offline). Pure: the view feeds it the map's load events.
 enum CelebrationMapMode: Equatable, Sendable {
     /// Still loading: the no-map sketch shows, the map loads hidden over it.
     case pending
@@ -27,10 +27,9 @@ enum CelebrationMapMode: Equatable, Sendable {
 
     /// The mode once `loading` is known. A chosen mode holds for the whole celebration: the
     /// background never switches mid-draw.
-    func next(_ loading: CelebrationMapLoading, reduceMotion: Bool) -> CelebrationMapMode {
+    func next(_ loading: CelebrationMapLoading) -> CelebrationMapMode {
         guard self == .pending else { return self }
         if loading.styleFailed { return .noMap }
-        if loading.baseMapLoaded, reduceMotion { return .flat2D }
         if loading.baseMapLoaded, loading.terrainLoaded { return .terrain3D }
         guard loading.deadlinePassed else { return .pending }
         return loading.baseMapLoaded ? .flat2D : .noMap
