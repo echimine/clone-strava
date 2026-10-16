@@ -60,7 +60,7 @@ export function createAuthInstance(
       // (Resend), never throws (logs only) per NotificationsService's own
       // contract.
       sendResetPassword: async ({ user, url }) => {
-        const html = await renderResetPasswordEmail({ url });
+        const html = await renderResetPasswordEmail({ url, logoUrl: options.emailLogoUrl });
         await notifications.sendAuthEmail({
           to: user.email,
           subject: "Reset your password",
@@ -74,7 +74,7 @@ export function createAuthInstance(
     emailVerification: {
       sendOnSignUp: true,
       sendVerificationEmail: async ({ user, url }) => {
-        const html = await renderVerifyEmail({ url });
+        const html = await renderVerifyEmail({ url, logoUrl: options.emailLogoUrl });
         await notifications.sendAuthEmail({
           to: user.email,
           subject: "Verify your email",
@@ -115,7 +115,7 @@ export function createAuthInstance(
         otpOptions: {
           period: 5,
           sendOTP: async ({ user, otp }) => {
-            const html = await renderAdminOtpEmail({ otp, email: user.email });
+            const html = await renderAdminOtpEmail({ otp, email: user.email, logoUrl: options.emailLogoUrl });
             await notifications.sendAuthEmail({
               to: user.email,
               subject: "Your admin verification code",

@@ -23,6 +23,11 @@ export function proxy(request: NextRequest) {
   return NextResponse.next();
 }
 
+/**
+ * Public files are left out: the favicon (`app/icon.png`, served at
+ * `/icon.png`) and `public/brand/*`, which emails load from clients that
+ * never carry the session cookie (ADR-032 §2).
+ */
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!api|_next/static|_next/image|favicon\\.ico|icon\\.png|brand/).*)"],
 };
