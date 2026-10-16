@@ -55,17 +55,18 @@ The decisions below were made in a grilling session. The logo and the splash wer
 - **When**: on arrival on the finish screen, only for a Recording made live with GPS. It never plays for imported Activities. It is skipped below **500 m or 2 min**. Those thresholds are constants, to be tuned after real outings, and are separate from the sport's `min_duration_s`, which only gates Save.
 - **Sequence (10 s, fixed whatever the distance)**. Decided on an iPhone on 2026-10-16: the first cut lasted about 3 s and went by too fast. The trace draws in about 6.5 s, the stats count from 0.7 s to 7.3 s, the camera pulls back over about 2.7 s, and the shrink into the mini-map takes the last 0.8 s:
   1. the map fills the screen, pitched in 3D with terrain;
-  2. the trace draws itself while the camera follows its head, then the camera pulls back to frame the whole outing;
-  3. the stats count up to their final values;
+  2. the trace draws itself while the camera follows its head, then the camera pulls back to frame the whole outing. The head is marked by a white disc ringed in orange;
+  3. the stats count up to their final values, in white at the bottom, over a dark gradient that keeps them readable on the map;
   4. haptics punctuate the end of the draw and the end of the count;
-  5. the map then shrinks into the mini-map's place, and the form (title, visibility, buttons) appears.
+  5. the map then shrinks into the mini-map's place, and the form (title, visibility, buttons) appears. While it shrinks, the map turns into the mini-map: framing, line width, start and finish markers, and rounded corners. The stats and their gradient fade out, so nothing jumps when the mini-map takes over.
 - **Skip**: one tap jumps to the end state. There is no replay in v1.
 - **Reduce Motion**: the celebration is skipped, and the finish screen shows at once.
 - **Fallbacks**:
   - **2D**: a top-down camera, used when terrain is slow to load.
-  - **No map**: if the map style is not ready within about 1 s (typically no network at the end of an outing), the trace draws on a plain brand background (`PolylineSketch` + `trim`), with the same counters and haptics.
+  - **No map**: if the base map is not ready within about 1 s (typically no network at the end of an outing), the trace draws in white on the plain brand orange (`Theme.accent`, `PolylineSketch` + `trim`), with the same counters and haptics. "Ready" means the style **and** the base map's tiles under the camera: offline, the style can still load from the cache without any tile, and an empty map is not shown.
 - **Sound**: none. An app sound would interrupt or duck the athlete's music or podcast, and `AVAudioSession` handling is not worth it.
 - The finish screen's rules (Save, Resume, Delete, title, visibility, too-short check) are unchanged. The celebration only precedes them.
+- *Amended in place after the code review of spec #77 (2026-10-16)*: the head disc, the gradient under the stats, the shrink that turns the map into the mini-map, the orange no-map background, and the no-map fallback waiting for the tiles as well as the style.
 - **Debug preview**: in Debug builds only, the Profile tab links to a preview screen that replays the splash and the celebration on a fictional outing, so both can be checked on a device without a cold launch or a real outing. It is absent from Release builds.
 
 ### 6. Out of scope
