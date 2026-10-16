@@ -89,7 +89,7 @@ private struct CelebrationPreview: View {
 
     @Namespace private var space
     @State private var isCelebrating = true
-    @State private var run = 0
+    @State private var replayCount = 0
 
     var body: some View {
         ZStack {
@@ -100,7 +100,7 @@ private struct CelebrationPreview: View {
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                 Button("Rejouer") {
-                    run += 1
+                    replayCount += 1
                     isCelebrating = true
                 }
                 .buttonStyle(.borderedProminent)
@@ -124,7 +124,7 @@ private struct CelebrationPreview: View {
                         CelebrationSketchBackground(trace: PreviewOuting.trace, progress: frame.traceProgress)
                     }
                 }
-                .id(run)
+                .id(replayCount)
                 .zIndex(1)
             }
         }
