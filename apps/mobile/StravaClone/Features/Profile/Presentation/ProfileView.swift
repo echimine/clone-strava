@@ -9,6 +9,8 @@ struct ProfileView<Itineraries: View>: View {
     /// Run before signing out, once the warning is confirmed or when there is none: the local
     /// data is wiped (Recording, local Activities, ADR-031 §10, §14).
     var beforeSignOut: @MainActor () async -> Void = {}
+    /// Debug builds only: the app shell passes its animations preview screen.
+    var animationsPreview: AnyView?
     @ViewBuilder var itineraries: () -> Itineraries
 
     @State private var pendingSignOutWarning: String?
@@ -29,6 +31,15 @@ struct ProfileView<Itineraries: View>: View {
                         Label("Mes Itinéraires", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
                     }
                     .accessibilityIdentifier("myItinerariesLink")
+                }
+                if let animationsPreview {
+                    Section("Debug") {
+                        NavigationLink {
+                            animationsPreview
+                        } label: {
+                            Label("Prévisualiser les animations", systemImage: "play.rectangle")
+                        }
+                    }
                 }
                 Section {
                     Button("Se déconnecter", role: .destructive) {

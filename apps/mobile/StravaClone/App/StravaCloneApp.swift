@@ -161,7 +161,7 @@ struct RootView: View {
                     }, beforeSignOut: {
                         await recordingStore.delete()
                         await syncCoordinator.signOut()
-                    }) {
+                    }, animationsPreview: Self.animationsPreview) {
                         MyItinerariesView(
                             store: itineraryListStore,
                             makeDetailStore: makeItineraryDetailStore,
@@ -243,6 +243,15 @@ struct RootView: View {
         selectedTab = .feed
         Task { await feedStore.showTop() }
         Task { await syncCoordinator.activitySaved() }
+    }
+
+    /// Debug builds only: the splash and celebration preview, reached from the Profile tab.
+    static var animationsPreview: AnyView? {
+        #if DEBUG
+        AnyView(AnimationsPreviewView())
+        #else
+        nil
+        #endif
     }
 }
 
