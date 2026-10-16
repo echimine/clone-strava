@@ -216,4 +216,31 @@ struct APIActivityDetailRepositoryTests {
             try await repository.update(id: id, with: edit)
         }
     }
+
+    /// `DELETE /v1/activities/:id` (ADR-033 §6): `204`, no body.
+    @Test func deletesTheActivity() async throws {
+        let repository = makeRepository()
+        DetailURLProtocolStub.handler.value = { _ in (204, Data()) }
+
+        try await repository.delete(id: id)
+
+        let request = try #require(DetailURLProtocolStub.requests.value.first)
+        #expect(request.httpMethod == "DELETE")
+        #expect(request.url?.path == "/v1/activities/\(activityId)")
+    }
+
+    /// #94: a second `DELETE` gets `404 not_found`; `409 not_deletable` while processing.
+    @Test func mapsDeleteErrors() async {
+        let repository = makeRepository()
+
+        DetailURLProtocolStub.handler.value = { _ in
+            (404, Data(#"{"error":{"code":"not_found","message":"x"}}"#.utf8))
+        }
+        await #expect(throws: ActivityDetailError.notFound) { try await repository.delete(id: id) }
+
+        DetailURLProtocolStub.handler.value = { _ in
+            (409, Data(#"{"error":{"code":"not_deletable","message":"x"}}"#.utf8))
+        }
+        await #expect(throws: ActivityDetailError.server(code: "not_deletable")) { try await repository.delete(id: id) }
+    }
 }

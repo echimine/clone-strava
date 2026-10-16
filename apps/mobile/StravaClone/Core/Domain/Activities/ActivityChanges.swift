@@ -7,6 +7,9 @@ enum ActivityChange: Hashable, Sendable {
     case updated(ActivityPost)
     /// Deleted, or no longer visible: the card goes.
     case deleted(ActivityID)
+    /// A deletion the server turned down (ADR-033 §7, optimistic): the card comes back where
+    /// it was.
+    case restored(ActivityID)
     /// New kudos or comment counts.
     case engagement(ActivityID, ActivityEngagement)
 }

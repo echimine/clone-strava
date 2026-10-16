@@ -2,14 +2,18 @@ import SwiftUI
 
 /// Home tab: the activity feed (ADR-029). Knows nothing of other features (ADR-007 rule 5):
 /// the app shell passes the "+" action, the content shown above the feed (e.g. the import
-/// banner), `openActivity`, the Activity detail pushed in this tab's stack, and `editActivity`,
-/// "Modifier" in the context menu of my processed cards (ADR-033 §1).
+/// banner), `openActivity`, the Activity detail pushed in this tab's stack, and `editActivity`
+/// and `deleteActivity` (once confirmed), "Modifier" and "Supprimer" in the context menu of my
+/// processed cards (ADR-033 §1, §7).
 struct FeedView<TopContent: View, ActivityDestination: View>: View {
     @Bindable var store: FeedStore
     var onImportActivity: () -> Void = {}
     var editActivity: ((ActivityID) -> Void)?
+    var deleteActivity: ((ActivityID) -> Void)?
     @ViewBuilder var openActivity: (ActivityDetailRequest) -> ActivityDestination
     @ViewBuilder var topContent: () -> TopContent
+    /// "Supprimer" on a card, waiting for its confirmation.
+    @State private var deletionCandidate: ActivityID?
 
     var body: some View {
         NavigationStack(path: $store.path) {
@@ -30,6 +34,7 @@ struct FeedView<TopContent: View, ActivityDestination: View>: View {
                 .navigationDestination(for: ActivityDetailRequest.self) { request in
                     openActivity(request)
                 }
+                .activityDeleteConfirmation($deletionCandidate) { id in deleteActivity?(id) }
         }
     }
 
@@ -96,7 +101,10 @@ struct FeedView<TopContent: View, ActivityDestination: View>: View {
                         // Long press on one of my cards; none on other athletes' cards.
                         .contextMenu {
                             if let editActivity, store.canManage(post.id) {
-                                ActivityManageButtons(onEdit: { editActivity(post.id) })
+                                ActivityManageButtons(
+                                    onEdit: { editActivity(post.id) },
+                                    onDelete: { deletionCandidate = post.id }
+                                )
                             }
                         }
                         .task { await store.loadMoreIfNeeded(currentPost: post) }
@@ -105,6 +113,8 @@ struct FeedView<TopContent: View, ActivityDestination: View>: View {
                         ProgressView().padding()
                     }
                 }
+                // ADR-033 §7: a deleted card leaves with an animation (and comes back with one).
+                .animation(.default, value: store.posts.map(\.id))
                 .padding(.horizontal, Theme.spacing)
                 .padding(.vertical, 8)
             }

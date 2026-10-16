@@ -18,6 +18,7 @@ struct StravaCloneApp: App {
                 makeActivityDetailStore: { [di] id in di.makeActivityDetailStore(id: id) },
                 makeActivityCommentsStore: { [di] request, detail in di.makeActivityCommentsStore(request: request, detail: detail) },
                 feedActivityEditor: di.feedActivityEditor,
+                activityDeleter: di.activityDeleter,
                 reloadUpdatedActivities: di.makeReloadUpdatedActivities(),
                 realtimeService: di.realtimeService,
                 makeItineraryEditorStore: di.makeItineraryEditorStore,
@@ -59,7 +60,9 @@ struct RootView: View {
     let makeActivityCommentsStore: @MainActor (ActivityDetailRequest, ActivityDetailStore) -> ActivityCommentsStore
     /// "Modifier" in the context menu of my feed cards (ADR-033 §1).
     @State var feedActivityEditor: ActivityEditor
-    /// The feed's cards follow `activity.updated` (ADR-033 §8).
+    /// "Supprimer" in that menu and in a detail's "⋯" (ADR-033 §7); its toast shows over the feed.
+    @State var activityDeleter: ActivityDeleter
+    /// The feed's cards follow `activity.updated` and `activity.deleted` (ADR-033 §8).
     let reloadUpdatedActivities: ReloadUpdatedActivities
     let realtimeService: RealtimeService
     let makeItineraryEditorStore: @MainActor (ItinerarySport, ItineraryID, AnalyticsEvent.EditorSource) -> ItineraryEditorStore
@@ -118,6 +121,7 @@ struct RootView: View {
                         store: feedStore,
                         onImportActivity: importStore.startImport,
                         editActivity: { [feedActivityEditor] id in Task { await feedActivityEditor.edit(id: id) } },
+                        deleteActivity: { [activityDeleter] id in Task { await activityDeleter.delete(id) } },
                         openActivity: { request in
                             ActivityDetailPage(
                                 request: request,
@@ -137,6 +141,7 @@ struct RootView: View {
                     }
                     .animation(.default, value: importStore.banner)
                     .activityEditing(feedActivityEditor)
+                    .toast($activityDeleter.toast)
                     .fileImporter(
                         isPresented: $importStore.isPickingFile,
                         allowedContentTypes: ImportFileTypes.all,
