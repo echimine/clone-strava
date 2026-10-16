@@ -9,7 +9,8 @@ import XCTest
 final class AuthFlowUITests: XCTestCase {
     private func launchSignedOutApp() -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments += ["-uiTestResetAuth"]
+        // The animated splash (ADR-032 §4) is skipped: it only delays the first screen.
+        app.launchArguments += ["-uiTestResetAuth", "-uiTestDisableSplash"]
         app.launch()
         return app
     }
