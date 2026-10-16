@@ -20,6 +20,8 @@ final class ActivityDetailStore {
 
     let id: ActivityID
     private(set) var phase: Phase = .loading
+    /// "⋯" > "Modifier" (ADR-033 §7): what it shows replaces the detail at once.
+    let editor: ActivityEditor
     /// The most recent kudos givers, for the kudos row (at most `recentKudosLimit`).
     private(set) var recentKudos: [KudosGiver] = []
     /// Short-lived error shown over the detail (a kudos that could not be sent).
@@ -29,21 +31,46 @@ final class ActivityDetailStore {
     @ObservationIgnored private let loadKudos: LoadKudosList
     @ObservationIgnored private let setKudos: SetActivityKudos
     @ObservationIgnored private let changes: ActivityChanges
+    @ObservationIgnored private let events: (any ActivityEventSource)?
     @ObservationIgnored private var kudosInFlight = false
 
-    /// - Parameter changes: where the detail publishes what changed, for the feed (ADR-033 §7).
+    /// - Parameters:
+    ///   - changes: where the detail publishes what changed, for the feed (ADR-033 §7).
+    ///   - updateActivity: "Enregistrer" of the edit sheet; by default over `loadDetail`'s
+    ///     repository.
+    ///   - events: realtime events; this Activity's `activity.updated` reloads it (§8).
     init(
         id: ActivityID,
         loadDetail: LoadActivityDetail,
         loadKudos: LoadKudosList,
         setKudos: SetActivityKudos,
-        changes: ActivityChanges
+        changes: ActivityChanges,
+        updateActivity: UpdateActivity? = nil,
+        events: (any ActivityEventSource)? = nil
     ) {
         self.id = id
         self.loadDetail = loadDetail
         self.loadKudos = loadKudos
         self.setKudos = setKudos
         self.changes = changes
+        self.events = events
+        editor = ActivityEditor(
+            loadDetail: loadDetail,
+            updateActivity: updateActivity ?? UpdateActivity(repository: loadDetail.repository),
+            changes: changes
+        )
+        editor.onChange = { [weak self] detail in self?.phase = .loaded(detail) }
+    }
+
+    /// Runs while the detail is shown (`.task`): this Activity's realtime events. The echo of
+    /// the athlete's own edit reloads the same values.
+    func observeEvents() async {
+        guard let events else { return }
+        for await event in await events.activityEvents() {
+            if case .updated(id) = event {
+                await load()
+            }
+        }
     }
 
     var detail: ActivityDetail? {

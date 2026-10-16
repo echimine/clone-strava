@@ -229,7 +229,24 @@ final class Di {
             loadDetail: LoadActivityDetail(repository: activityDetailRepository),
             loadKudos: LoadKudosList(repository: activityKudosRepository),
             setKudos: SetActivityKudos(repository: activityKudosRepository),
-            changes: activityChanges
+            changes: activityChanges,
+            events: RealtimeActivityEventSource(client: webSocketClient)
+        )
+    }
+
+    /// "Modifier" in a feed card's context menu (ADR-033 §1, §7): its sheet shows over the feed.
+    private(set) lazy var feedActivityEditor = ActivityEditor(
+        loadDetail: LoadActivityDetail(repository: activityDetailRepository),
+        updateActivity: UpdateActivity(repository: activityDetailRepository),
+        changes: activityChanges
+    )
+
+    /// The feed's cards follow `activity.updated` on the owner's topic (ADR-033 §8).
+    func makeReloadUpdatedActivities() -> ReloadUpdatedActivities {
+        ReloadUpdatedActivities(
+            loadDetail: LoadActivityDetail(repository: activityDetailRepository),
+            changes: activityChanges,
+            events: RealtimeActivityEventSource(client: webSocketClient)
         )
     }
 
