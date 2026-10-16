@@ -4,11 +4,19 @@ import SwiftUI
 /// loading, error with "Réessayer", the unavailable state with "Retour", or the Activity.
 struct ActivityDetailPage: View {
     @State private var store: ActivityDetailStore
+    /// The comment thread (ADR-034 §6).
+    @State private var comments: ActivityCommentsStore
 
     @Environment(\.dismiss) private var dismiss
 
-    init(request: ActivityDetailRequest, makeStore: @MainActor (ActivityID) -> ActivityDetailStore) {
-        _store = State(initialValue: makeStore(request.id))
+    init(
+        request: ActivityDetailRequest,
+        makeStore: @MainActor (ActivityID) -> ActivityDetailStore,
+        makeCommentsStore: @MainActor (ActivityDetailRequest, ActivityDetailStore) -> ActivityCommentsStore
+    ) {
+        let store = makeStore(request.id)
+        _store = State(initialValue: store)
+        _comments = State(initialValue: makeCommentsStore(request, store))
     }
 
     var body: some View {
@@ -19,6 +27,7 @@ struct ActivityDetailPage: View {
             .navigationBarTitleDisplayMode(.inline)
             .task { await store.load() }
             .toast($store.kudosNotice)
+            .toast($comments.toast)
             .accessibilityIdentifier("activityDetail")
     }
 
@@ -44,10 +53,25 @@ struct ActivityDetailPage: View {
                     .accessibilityIdentifier("activityDetail.back")
             }
         case .loaded(let detail):
-            ActivityDetailContent(detail: detail) {
-                ActivityKudosSection(store: store, engagement: detail.engagement)
+            ScrollViewReader { proxy in
+                ActivityDetailContent(detail: detail) {
+                    ActivityKudosSection(store: store, engagement: detail.engagement)
+                    ActivityCommentsSection(store: comments)
+                    Color.clear.frame(height: 1).id(ActivityCommentsSection.endAnchor)
+                }
+                .scrollDismissesKeyboard(.interactively)
+                .safeAreaInset(edge: .bottom, spacing: 0) { ActivityCommentComposer(store: comments) }
+                .onChange(of: comments.isComposerFocused, initial: true) { scrollToComments(proxy) }
+                .onChange(of: comments.comments.count) { scrollToComments(proxy) }
             }
         }
+    }
+
+    /// While writing, the end of the thread stays in view; from the card's comment button the
+    /// detail opens on it (ADR-034 §6).
+    private func scrollToComments(_ proxy: ScrollViewProxy) {
+        guard comments.isComposerFocused else { return }
+        withAnimation { proxy.scrollTo(ActivityCommentsSection.endAnchor, anchor: .bottom) }
     }
 }
 
@@ -157,15 +181,21 @@ private struct PreviewActivityKudosRepository: ActivityKudosRepository {
 
 #Preview {
     NavigationStack {
-        ActivityDetailPage(request: ActivityDetailRequest(id: ActivityID())) { id in
-            ActivityDetailStore(
-                id: id,
-                loadDetail: LoadActivityDetail(repository: PreviewActivityDetailRepository()),
-                loadKudos: LoadKudosList(repository: PreviewActivityKudosRepository()),
-                setKudos: SetActivityKudos(repository: PreviewActivityKudosRepository()),
-                changes: ActivityChanges()
-            )
-        }
+        ActivityDetailPage(
+            request: ActivityDetailRequest(id: ActivityID()),
+            makeStore: { id in
+                ActivityDetailStore(
+                    id: id,
+                    loadDetail: LoadActivityDetail(repository: PreviewActivityDetailRepository()),
+                    loadKudos: LoadKudosList(repository: PreviewActivityKudosRepository()),
+                    setKudos: SetActivityKudos(repository: PreviewActivityKudosRepository()),
+                    changes: ActivityChanges()
+                )
+            },
+            makeCommentsStore: { request, detail in
+                .forDetail(detail, request: request, useCases: ActivityCommentUseCases(repository: PreviewActivityCommentRepository()))
+            }
+        )
     }
     .tint(Theme.accent)
 }
