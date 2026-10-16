@@ -46,6 +46,11 @@ struct RecordingSnapshot: Equatable, Sendable {
         )
     }
 
+    /// The stats at the Recording's end, however long the finish screen stays open.
+    var finalStats: RecordingStats {
+        stats(at: recording.endedAt ?? .now)
+    }
+
     /// Why the Activity cannot be saved yet (ADR-031 §11), `nil` when it can.
     var saveBlocker: RecordingSaveBlocker? {
         RecordingSaveBlocker(recording: recording, pointCount: pointCount)

@@ -12,6 +12,11 @@ struct RecordingStatItem: Equatable, Identifiable {
     let value: String
     let unit: String
     var id: String { label }
+
+    /// The label under the value, with its unit: "Distance (km)", or "Temps".
+    var caption: String {
+        unit.isEmpty ? label : "\(label) (\(unit))"
+    }
 }
 
 /// French display formats of a Recording's provisional values (ADR-031 §5): "0,00 km", "h:mm:ss",

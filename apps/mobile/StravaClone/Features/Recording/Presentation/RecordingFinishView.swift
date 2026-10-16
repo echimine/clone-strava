@@ -36,10 +36,6 @@ struct RecordingFinishView: View {
         snapshot.saveBlocker == nil && !store.isBusy
     }
 
-    private var finalStats: RecordingStats {
-        snapshot.stats(at: snapshot.recording.endedAt ?? .now)
-    }
-
     var body: some View {
         ZStack {
             form
@@ -47,7 +43,7 @@ struct RecordingFinishView: View {
                 .accessibilityHidden(showsCelebration)
                 .allowsHitTesting(!showsCelebration)
             if showsCelebration {
-                RecordingCelebration(stats: finalStats, namespace: celebrationSpace, onFinished: endCelebration) { frame in
+                RecordingCelebration(stats: snapshot.finalStats, namespace: celebrationSpace, onFinished: endCelebration) { frame in
                     CelebrationMapBackground(trace: snapshot.trace, frame: frame)
                 }
                 .zIndex(1)
@@ -67,7 +63,7 @@ struct RecordingFinishView: View {
 
     /// The trace shrinks into the mini-map's place while the form appears; a tap cuts it short.
     private func endCelebration(skipped: Bool) {
-        withAnimation(.smooth(duration: skipped ? 0.3 : CelebrationTimeline.settleDuration)) {
+        withAnimation(CelebrationMiniMap.settleAnimation(skipped: skipped)) {
             isCelebrating = false
         }
     }
@@ -102,14 +98,13 @@ struct RecordingFinishView: View {
             .pickerStyle(.segmented)
             .accessibilityIdentifier("recordingVisibilityPicker")
 
-            miniMap
-                .frame(height: 200)
+            CelebrationMiniMap(trace: snapshot.trace, namespace: celebrationSpace, isCelebrating: showsCelebration)
 
             HStack(alignment: .top) {
-                ForEach(FinishStatsCountUp.items(finalStats, progress: 1)) { item in
+                ForEach(FinishStatsCountUp.items(snapshot.finalStats, progress: 1)) { item in
                     VStack(spacing: 2) {
                         Text(item.value).font(.title2.weight(.bold)).monospacedDigit()
-                        Text(item.unit.isEmpty ? item.label : "\(item.label) (\(item.unit))")
+                        Text(item.caption)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -163,20 +158,6 @@ struct RecordingFinishView: View {
         }
         .padding(Theme.spacing)
     }
-
-    /// The celebration's background lands here when it ends. The mini-map loads during the
-    /// celebration, hidden with the form, so the background shrinks into a map already drawn
-    /// rather than one reloading (#83); it joins the celebration's geometry only at the end.
-    private var miniMap: some View {
-        RecordingTraceMap(trace: snapshot.trace)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
-            .matchedGeometryEffect(
-                id: showsCelebration ? Self.hiddenMiniMapID : CelebrationGeometry.miniMapID,
-                in: celebrationSpace
-            )
-    }
-
-    private static let hiddenMiniMapID = "recordingHiddenMiniMap"
 
     static func label(_ visibility: ActivityVisibility) -> String {
         switch visibility {

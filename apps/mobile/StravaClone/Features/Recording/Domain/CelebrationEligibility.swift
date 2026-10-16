@@ -15,7 +15,7 @@ enum CelebrationEligibility {
 
     /// The finished Recording, with the points of its drawn trace.
     static func allows(_ snapshot: RecordingSnapshot) -> Bool {
-        let stats = snapshot.stats(at: snapshot.recording.endedAt ?? .now)
+        let stats = snapshot.finalStats
         return allows(distance: stats.distance, elapsed: stats.elapsed, pointCount: snapshot.trace.count)
     }
 }

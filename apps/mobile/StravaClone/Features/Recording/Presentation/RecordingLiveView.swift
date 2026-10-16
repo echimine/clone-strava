@@ -116,7 +116,7 @@ struct RecordingLiveView: View {
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
-            Text(item.unit.isEmpty ? item.label : "\(item.label) (\(item.unit))")
+            Text(item.caption)
                 .font(.footnote.weight(.medium))
                 .foregroundStyle(.secondary)
         }

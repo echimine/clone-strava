@@ -63,6 +63,32 @@ enum CelebrationGeometry {
     static let miniMapID = "recordingCelebrationMiniMap"
 }
 
+/// The finish screen's mini-map, where the celebration's background lands (ADR-032 §5, step 5).
+/// It loads during the celebration, hidden with the form, so the background shrinks into a map
+/// already drawn rather than one reloading (#83); it joins the celebration's geometry only at
+/// the end.
+struct CelebrationMiniMap: View {
+    let trace: [Coordinate]
+    let namespace: Namespace.ID
+    let isCelebrating: Bool
+
+    static let height: CGFloat = 200
+
+    /// The shrink into the mini-map as the form appears; quicker after a tap to skip.
+    static func settleAnimation(skipped: Bool) -> Animation {
+        .smooth(duration: skipped ? 0.3 : CelebrationTimeline.settleDuration)
+    }
+
+    var body: some View {
+        RecordingTraceMap(trace: trace)
+            .frame(height: Self.height)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .matchedGeometryEffect(id: isCelebrating ? Self.hiddenID : CelebrationGeometry.miniMapID, in: namespace)
+    }
+
+    private static let hiddenID = "recordingHiddenMiniMap"
+}
+
 /// The counting stats, white on the brand background.
 private struct CelebrationStats: View {
     let items: [RecordingStatItem]
@@ -76,7 +102,7 @@ private struct CelebrationStats: View {
                         .monospacedDigit()
                         .lineLimit(1)
                         .minimumScaleFactor(0.6)
-                    Text(item.unit.isEmpty ? item.label : "\(item.label) (\(item.unit))")
+                    Text(item.caption)
                         .font(.caption.weight(.semibold))
                         .opacity(0.85)
                 }

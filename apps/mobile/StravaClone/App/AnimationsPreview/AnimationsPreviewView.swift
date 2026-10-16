@@ -94,13 +94,7 @@ private struct CelebrationPreview: View {
     var body: some View {
         ZStack {
             VStack(spacing: 20) {
-                RecordingTraceMap(trace: PreviewOuting.trace)
-                    .frame(height: 200)
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
-                    .matchedGeometryEffect(
-                        id: isCelebrating ? "animationsPreviewHiddenMiniMap" : CelebrationGeometry.miniMapID,
-                        in: space
-                    )
+                CelebrationMiniMap(trace: PreviewOuting.trace, namespace: space, isCelebrating: isCelebrating)
                 Text("La carte s'est rétractée à la place de la mini-carte de l'écran de fin.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -120,7 +114,7 @@ private struct CelebrationPreview: View {
 
             if isCelebrating {
                 RecordingCelebration(stats: PreviewOuting.stats, namespace: space, onFinished: { skipped in
-                    withAnimation(.smooth(duration: skipped ? 0.3 : CelebrationTimeline.settleDuration)) {
+                    withAnimation(CelebrationMiniMap.settleAnimation(skipped: skipped)) {
                         isCelebrating = false
                     }
                 }) { frame in
@@ -154,7 +148,7 @@ private enum PreviewOuting {
 
     static let stats: RecordingStats = {
         let meters = zip(trace, trace.dropFirst()).reduce(0) { total, pair in
-            total + haversineMeters(pair.0, pair.1)
+            total + pair.0.distance(to: pair.1).meters
         }
         let averageSpeedMs = 7.4
         return RecordingStats(
@@ -164,14 +158,5 @@ private enum PreviewOuting {
             currentSpeedMs: nil
         )
     }()
-
-    private static func haversineMeters(_ a: Coordinate, _ b: Coordinate) -> Double {
-        let radius = 6_371_000.0
-        let dLat = (b.latitude - a.latitude) * .pi / 180
-        let dLon = (b.longitude - a.longitude) * .pi / 180
-        let h = sin(dLat / 2) * sin(dLat / 2)
-            + cos(a.latitude * .pi / 180) * cos(b.latitude * .pi / 180) * sin(dLon / 2) * sin(dLon / 2)
-        return 2 * radius * asin(min(1, sqrt(h)))
-    }
 }
 #endif
