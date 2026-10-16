@@ -54,6 +54,18 @@ enum ActivityFormatters {
         return "\(seconds) s"
     }
 
+    /// "5:00 /km" from a speed in m/s; nil without movement.
+    static func pace(metersPerSecond speed: Double) -> String? {
+        guard speed > 0 else { return nil }
+        let seconds = Int((1_000 / speed).rounded())
+        return "\(seconds / 60):\(String(format: "%02d", seconds % 60)) /km"
+    }
+
+    /// "36,0 km/h" from a speed in m/s.
+    static func speed(metersPerSecond speed: Double) -> String {
+        "\((speed * 3.6).formatted(.number.precision(.fractionLength(1)).locale(locale))) km/h"
+    }
+
     static func sportLabel(_ sport: SportType) -> String {
         switch sport {
         case .run: "Course à pied"

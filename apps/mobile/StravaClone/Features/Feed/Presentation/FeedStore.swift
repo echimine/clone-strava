@@ -3,6 +3,8 @@ import Observation
 
 /// State of the Home feed (ADR-029): first load and pull-to-refresh, infinite scroll,
 /// optimistic kudos, and reload when one of the user's activities finishes processing.
+/// Processed cards open the Activity detail, and follow what it publishes on the Core change
+/// stream (ADR-033 §1, §7).
 @Observable
 @MainActor
 final class FeedStore {
@@ -35,12 +37,17 @@ final class FeedStore {
     @ObservationIgnored private let localActivities: (any LocalActivityFeedSource)?
     /// Bumped to bring the list back to its top (after Save, ADR-031 §11).
     private(set) var scrollToTopRequest = 0
+    /// Navigation of the Home tab: the Activity details opened from the feed.
+    var path: [ActivityDetailRequest] = []
+    /// Applies the change stream for the store's lifetime, even while a detail covers the feed.
+    @ObservationIgnored private var changeObservation: Task<Void, Never>?
 
     init(
         loadFeed: LoadFeed,
         toggleKudos: ToggleKudos,
         events: any FeedEventSource,
         localActivities: (any LocalActivityFeedSource)? = nil,
+        activityChanges: ActivityChanges? = nil,
         onPullToRefresh: @escaping @MainActor () async -> Void = {}
     ) {
         self.loadFeed = loadFeed
@@ -48,6 +55,18 @@ final class FeedStore {
         self.events = events
         self.localActivities = localActivities
         self.onPullToRefresh = onPullToRefresh
+        // Subscribed here, not in a view task: a pushed detail would cancel the feed's tasks.
+        if let changes = activityChanges?.subscribe() {
+            changeObservation = Task { [weak self] in
+                for await change in changes {
+                    self?.apply(change)
+                }
+            }
+        }
+    }
+
+    deinit {
+        changeObservation?.cancel()
     }
 
     /// Always on top (ADR-031 §14); a local card whose UUID the server already returned is dropped.
@@ -65,6 +84,28 @@ final class FeedStore {
         nextCursor = nil
         phase = .idle
         notice = nil
+        path = []
+    }
+
+    /// Tap on a card outside its buttons, or its comment button: only a processed card, one the
+    /// server returned, opens the detail; local cards are not tappable (ADR-033 §1).
+    func open(_ id: ActivityID, showingComments: Bool = false) {
+        guard posts.contains(where: { $0.id == id }) else { return }
+        path.append(ActivityDetailRequest(id: id, showsComments: showingComments))
+    }
+
+    /// A change made away from the feed (ADR-033 §7). Activities the feed does not show are
+    /// ignored: the change stream never adds a card.
+    func apply(_ change: ActivityChange) {
+        switch change {
+        case .updated(let post):
+            guard let index = posts.firstIndex(where: { $0.id == post.id }) else { return }
+            posts[index] = post
+        case .deleted(let id):
+            posts.removeAll { $0.id == id }
+        case .engagement(let id, let engagement):
+            update(id) { $0 = engagement }
+        }
     }
 
     /// First appearance: loads once.

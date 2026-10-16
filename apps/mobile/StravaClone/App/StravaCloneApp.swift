@@ -15,6 +15,7 @@ struct StravaCloneApp: App {
                 recordingStore: di.makeRecordingStore(),
                 importStore: di.makeImportStore(),
                 feedStore: di.makeFeedStore(),
+                makeActivityDetailStore: { [di] id in di.makeActivityDetailStore(id: id) },
                 realtimeService: di.realtimeService,
                 makeItineraryEditorStore: di.makeItineraryEditorStore,
                 makeItinerarySaveStore: di.makeItinerarySaveStore,
@@ -49,6 +50,8 @@ struct RootView: View {
     @State var recordingStore: RecordingStore
     @State var importStore: ImportStore
     @State var feedStore: FeedStore
+    /// Details pushed from the feed's cards (ADR-033 §1).
+    let makeActivityDetailStore: @MainActor (ActivityID) -> ActivityDetailStore
     let realtimeService: RealtimeService
     let makeItineraryEditorStore: @MainActor (ItinerarySport, ItineraryID, AnalyticsEvent.EditorSource) -> ItineraryEditorStore
     let makeItinerarySaveStore: @MainActor () -> ItinerarySaveStore
@@ -102,7 +105,13 @@ struct RootView: View {
                     }
             case .signedIn:
                 TabView(selection: $selectedTab) {
-                    FeedView(store: feedStore, onImportActivity: importStore.startImport) {
+                    FeedView(
+                        store: feedStore,
+                        onImportActivity: importStore.startImport,
+                        openActivity: { request in
+                            ActivityDetailPage(request: request, makeStore: makeActivityDetailStore)
+                        }
+                    ) {
                         if let banner = importStore.banner {
                             ImportStatusBanner(
                                 banner: banner,

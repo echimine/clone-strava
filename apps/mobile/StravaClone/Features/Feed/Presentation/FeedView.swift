@@ -1,15 +1,16 @@
 import SwiftUI
 
 /// Home tab: the activity feed (ADR-029). Knows nothing of other features (ADR-007 rule 5):
-/// the app shell passes the "+" action and the content shown above the feed (e.g. the
-/// import banner).
-struct FeedView<TopContent: View>: View {
+/// the app shell passes the "+" action, the content shown above the feed (e.g. the import
+/// banner) and `openActivity`, the Activity detail pushed in this tab's stack (ADR-033 §1).
+struct FeedView<TopContent: View, ActivityDestination: View>: View {
     @Bindable var store: FeedStore
     var onImportActivity: () -> Void = {}
+    @ViewBuilder var openActivity: (ActivityDetailRequest) -> ActivityDestination
     @ViewBuilder var topContent: () -> TopContent
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $store.path) {
             content
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Color(.systemGroupedBackground))
@@ -23,6 +24,9 @@ struct FeedView<TopContent: View>: View {
                     isPresented: Binding(get: { store.notice != nil }, set: { if !$0 { store.notice = nil } })
                 ) {
                     Button("OK", role: .cancel) {}
+                }
+                .navigationDestination(for: ActivityDetailRequest.self) { request in
+                    openActivity(request)
                 }
         }
     }
@@ -80,9 +84,13 @@ struct FeedView<TopContent: View>: View {
                         ActivityCard(
                             post: post,
                             onToggleKudos: { Task { await store.toggleKudos(on: post.id) } },
-                            // TODO(ADR-029): open the comments screen once it exists.
-                            onComments: {}
+                            onComments: { store.open(post.id, showingComments: true) }
                         )
+                        // ADR-033 §1: a tap outside the card's buttons opens the detail (the
+                        // buttons keep their own action).
+                        .contentShape(.rect(cornerRadius: 20))
+                        .onTapGesture { store.open(post.id) }
+                        .accessibilityAction(named: Text("Ouvrir l'activité")) { store.open(post.id) }
                         .task { await store.loadMoreIfNeeded(currentPost: post) }
                     }
                     if store.isLoadingMore {
@@ -109,9 +117,9 @@ private extension LocalActivityCard {
     var rowID: String { "local-\(id)" }
 }
 
-extension FeedView where TopContent == EmptyView {
+extension FeedView where TopContent == EmptyView, ActivityDestination == EmptyView {
     init(store: FeedStore, onImportActivity: @escaping () -> Void = {}) {
-        self.init(store: store, onImportActivity: onImportActivity) { EmptyView() }
+        self.init(store: store, onImportActivity: onImportActivity, openActivity: { _ in EmptyView() }) { EmptyView() }
     }
 }
 
