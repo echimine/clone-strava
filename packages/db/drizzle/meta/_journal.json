@@ -50,6 +50,13 @@
       "when": 1791627170955,
       "tag": "0006_itineraries",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792181510663,
+      "tag": "0007_comment_updated_at",
+      "breakpoints": true
     }
   ]
 }

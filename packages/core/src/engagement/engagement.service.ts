@@ -1,8 +1,13 @@
 import { Injectable } from "@nestjs/common";
 import { GiveKudosUseCase } from "./use-cases/give-kudos.use-case.js";
-import { AddCommentUseCase } from "./use-cases/add-comment.use-case.js";
+import { AddCommentUseCase, type AddCommentResult } from "./use-cases/add-comment.use-case.js";
+import { ListCommentsUseCase } from "./use-cases/list-comments.use-case.js";
+import { GetCommentUseCase } from "./use-cases/get-comment.use-case.js";
+import { EditCommentUseCase } from "./use-cases/edit-comment.use-case.js";
+import { DeleteCommentUseCase } from "./use-cases/delete-comment.use-case.js";
 import { GetEngagementCountsUseCase } from "./use-cases/get-engagement-counts.use-case.js";
 import { KudosRepository } from "./repositories/kudos.repository.js";
+import type { CommentPage, CommentView } from "./domain/comment-view.js";
 import type { EngagementCounts } from "./domain/engagement-counts.js";
 import type { KudosState } from "./domain/kudos-state.js";
 
@@ -15,6 +20,10 @@ export class EngagementService {
   constructor(
     private readonly giveKudosUseCase: GiveKudosUseCase,
     private readonly addCommentUseCase: AddCommentUseCase,
+    private readonly listCommentsUseCase: ListCommentsUseCase,
+    private readonly getCommentUseCase: GetCommentUseCase,
+    private readonly editCommentUseCase: EditCommentUseCase,
+    private readonly deleteCommentUseCase: DeleteCommentUseCase,
     private readonly getEngagementCountsUseCase: GetEngagementCountsUseCase,
     private readonly kudos: KudosRepository,
   ) {}
@@ -32,8 +41,29 @@ export class EngagementService {
     return this.kudos.findKudoedActivityIds(userId, activityIds);
   }
 
-  addComment(userId: string, activityId: string, body: string): Promise<void> {
-    return this.addCommentUseCase.execute(userId, activityId, body);
+  /** `GET /v1/activities/:id/comments` (ADR-034 §3). */
+  listComments(viewerId: string, activityId: string, query: { before?: string; limit: number }): Promise<CommentPage> {
+    return this.listCommentsUseCase.execute(viewerId, activityId, query);
+  }
+
+  /** `GET /v1/activities/:id/comments/:commentId` (ADR-034 §3). */
+  getComment(viewerId: string, activityId: string, commentId: string): Promise<CommentView> {
+    return this.getCommentUseCase.execute(viewerId, activityId, commentId);
+  }
+
+  /** `POST /v1/activities/:id/comments` (ADR-034 §3), idempotent on the app-generated id. */
+  addComment(userId: string, activityId: string, request: { id: string; body: string }): Promise<AddCommentResult> {
+    return this.addCommentUseCase.execute(userId, activityId, request);
+  }
+
+  /** `PATCH /v1/activities/:id/comments/:commentId` (ADR-034 §3): the comment's author only. */
+  editComment(userId: string, activityId: string, commentId: string, body: string): Promise<CommentView> {
+    return this.editCommentUseCase.execute(userId, activityId, commentId, body);
+  }
+
+  /** `DELETE /v1/activities/:id/comments/:commentId` (ADR-034 §3): soft delete, idempotent. */
+  deleteComment(userId: string, activityId: string, commentId: string): Promise<void> {
+    return this.deleteCommentUseCase.execute(userId, activityId, commentId);
   }
 
   /** Batch read (ADR-021 §2 rule 6): used by list screens (feed step 4). */

@@ -36,6 +36,8 @@ export const comment = engagementSchema.table(
       .references(() => user.id, { onDelete: "cascade" }),
     body: text("body").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    /** Set on each edit (ADR-034 §2); null for a comment never edited. */
+    updatedAt: timestamp("updated_at", { withTimezone: true }),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
   },
   (table) => [

@@ -2,6 +2,7 @@ export * from "./activities/index.js";
 export * from "./analytics/index.js";
 export * from "./common/index.js";
 export * from "./config/index.js";
+export * from "./engagement/index.js";
 export * from "./itineraries/index.js";
 export * from "./notifications/index.js";
 export * from "./segments/index.js";
