@@ -80,10 +80,16 @@ targets:
         CFBundleDisplayName: Nervo
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
-        # Plain #FC5200, identical to the first frame of the animated splash (ADR-032 §4). iOS
-        # draws the launch screen colour's sRGB components as Display P3 (sRGB #FC5200 shows as
-        # #FF3D00), so the colour set holds the Display P3 components of #FC5200 (0.91410,
-        # 0.37170, 0.16305) under an sRGB tag; Theme.accent reads them back as Display P3.
+        # Plain #FC5200, identical to the first frame of the animated splash (ADR-032 §4).
+        # DO NOT "fix" StravaClone/Assets.xcassets/LaunchBackground.colorset: iOS resolves the
+        # launch screen colour to sRGB components, then draws them as Display P3, whatever the
+        # colour space the set declares. Measured on the iOS 27 simulator (iPhone 18 Pro): sRGB
+        # #FC5200 showed as (255,61,0) = #FF3D00, and so did the same colour declared in
+        # display-p3. So the set holds the Display P3 components of #FC5200 (0.91410, 0.37170,
+        # 0.16305, from sRGB -> linear -> XYZ -> P3) under an sRGB tag, and Theme.accent reads
+        # them back as Display P3. Measured: launch screen (252,82,2), splash (252,82,0); the 2
+        # is the system's 8-bit rounding. SpringBoard caches the launch screen in memory: after
+        # a change, uninstall the app AND reboot the simulator before checking.
         UILaunchScreen:
           UIColorName: LaunchBackground
         UIApplicationSupportsIndirectInputEvents: true
