@@ -73,7 +73,7 @@ describe("process-activity of a recorded activity (integration)", () => {
     await activities.complete(userId, id, "req-recorded");
 
     const detail = await waitFor(async () => {
-      const own = await activities.getOwn(userId, id);
+      const own = await activities.getDetail(userId, id);
       return own.processingStatus === "processed" ? own : undefined;
     });
     // 10 legs of ~111.2 m; the leg across the Pause is skipped (ADR-031 §12): 9 legs remain.

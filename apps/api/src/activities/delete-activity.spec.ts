@@ -19,12 +19,15 @@ import {
 import { ActivitiesModule, ActivitiesService, PermanentProcessingError } from "@repo/core/activities";
 import { AnalyticsModule } from "@repo/core/analytics";
 import { AuthService } from "@repo/core/auth";
+import { EngagementModule } from "@repo/core/engagement";
 import { GeocodingModule } from "@repo/core/geocoding";
 import { CoreInfrastructureModule, DATABASE, type Database } from "@repo/core/infrastructure";
 import { StorageModule, StorageService } from "@repo/core/storage";
+import { UsersModule } from "@repo/core/users";
 import { ensureTestDatabaseMigrated, TEST_DATABASE_URL, TEST_REDIS_URL } from "../auth/test-auth-app.js";
 import { SessionGuard } from "../auth/session.guard.js";
 import { GlobalExceptionFilter } from "../common/global-exception.filter.js";
+import { FeedAssembler } from "../feed/feed-assembler.js";
 import { ActivitiesController } from "./activities.controller.js";
 
 /** In-memory bucket: S3 is the only third-party service faked here (ADR-024 §2). */
@@ -152,10 +155,13 @@ describe("DELETE /v1/activities/:id (integration)", () => {
         GeocodingModule.forRoot({}),
         EventEmitterModule.forRoot({ wildcard: true, delimiter: "." }),
         ActivitiesModule,
+        EngagementModule,
+        UsersModule,
       ],
       controllers: [ActivitiesController],
       providers: [
         SessionGuard,
+        FeedAssembler,
         {
           provide: AuthService,
           useValue: {
@@ -165,6 +171,7 @@ describe("DELETE /v1/activities/:id (integration)", () => {
                 ? { userId, email: `${userId}@test.local`, name: "Test", role: "user", twoFactorEnabled: false }
                 : null;
             },
+            getPublicIdentities: async () => [],
           },
         },
         { provide: APP_PIPE, useClass: ZodValidationPipe },

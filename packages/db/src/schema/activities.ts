@@ -75,6 +75,8 @@ export const activity = activitiesSchema.table(
     processingAttempts: integer("processing_attempts").notNull().default(0),
     processedAt: timestamp("processed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    // ADR-033 §2, §4 (amends ADR-017): last metadata change; initialised to `created_at`.
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     // ADR-017 "Main indexes": a user's activities, feed.
