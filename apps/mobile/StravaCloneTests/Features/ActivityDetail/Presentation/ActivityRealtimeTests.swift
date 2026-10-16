@@ -23,6 +23,8 @@ struct ActivityRealtimeTests {
             loadKudos: LoadKudosList(repository: kudos),
             setKudos: SetActivityKudos(repository: kudos),
             changes: ActivityChanges(),
+            updateActivity: UpdateActivity(repository: repository),
+            deleter: .over(repository),
             events: events
         )
         await store.load()
@@ -53,7 +55,8 @@ struct ActivityRealtimeTests {
         let reload = ReloadUpdatedActivities(
             loadDetail: LoadActivityDetail(repository: FakeActivityDetailRepository(.success(reprocessed))),
             changes: changes,
-            events: events
+            events: events,
+            isViewersOwn: { feed.canManage($0) }
         )
         let running = Task { await reload.run() }
         defer { running.cancel() }
@@ -72,7 +75,8 @@ struct ActivityRealtimeTests {
         let reload = ReloadUpdatedActivities(
             loadDetail: LoadActivityDetail(repository: FakeActivityDetailRepository(.failure(.notFound))),
             changes: changes,
-            events: events
+            events: events,
+            isViewersOwn: { _ in true }
         )
         let running = Task { await reload.run() }
         defer { running.cancel() }
@@ -100,6 +104,8 @@ struct ActivityRealtimeTests {
             loadKudos: LoadKudosList(repository: kudos),
             setKudos: SetActivityKudos(repository: kudos),
             changes: changes,
+            updateActivity: UpdateActivity(repository: repository),
+            deleter: .over(repository, changes: changes),
             events: events
         )
         await store.load()
@@ -134,7 +140,8 @@ struct ActivityRealtimeTests {
         let reload = ReloadUpdatedActivities(
             loadDetail: LoadActivityDetail(repository: repository),
             changes: changes,
-            events: events
+            events: events,
+            isViewersOwn: { feed.canManage($0) }
         )
         let running = Task { await reload.run() }
         defer { running.cancel() }
@@ -144,5 +151,39 @@ struct ActivityRealtimeTests {
 
         #expect(await eventually { feed.posts == [other.post] })
         #expect(repository.requestedIds.isEmpty)
+    }
+
+    /// Another athlete's Activity, whose events reach the connection while its detail is open
+    /// (`activity:{id}`): the feed does not follow it live (ADR-033 §10, ADR-034 §5).
+    @Test func theFeedDoesNotFollowAnotherAthletesActivity() async {
+        let changes = ActivityChanges()
+        let theirs = ActivityDetail.fixture(title: "Leur sortie", viewerIsAuthor: false)
+        let feedRepository = FakeFeedRepository()
+        feedRepository.pages[nil] = .success(FeedPage(posts: [before.post, theirs.post], nextCursor: nil))
+        let feed = FeedStore(
+            loadFeed: LoadFeed(repository: feedRepository),
+            toggleKudos: ToggleKudos(repository: feedRepository),
+            events: FakeFeedEventSource(),
+            activityChanges: changes
+        )
+        await feed.refresh()
+        let events = FakeActivityEventSource()
+        let repository = FakeActivityDetailRepository(.success(reprocessed))
+        let reload = ReloadUpdatedActivities(
+            loadDetail: LoadActivityDetail(repository: repository),
+            changes: changes,
+            events: events,
+            isViewersOwn: { feed.canManage($0) }
+        )
+        let running = Task { await reload.run() }
+        defer { running.cancel() }
+        #expect(await eventually { events.subscriberCount == 1 })
+
+        events.send(.updated(theirs.id))
+        events.send(.deleted(theirs.id))
+        events.send(.updated(before.id))
+
+        #expect(await eventually { feed.posts == [reprocessed.post, theirs.post] })
+        #expect(repository.requestedIds == [before.id])
     }
 }

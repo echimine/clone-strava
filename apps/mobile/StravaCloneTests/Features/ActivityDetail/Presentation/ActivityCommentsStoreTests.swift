@@ -14,7 +14,7 @@ struct ActivityCommentsStoreTests {
     ) -> ActivityCommentsStore {
         ActivityCommentsStore(
             request: ActivityDetailRequest(id: activityId),
-            useCases: ActivityCommentUseCases(repository: repository),
+            repository: repository,
             viewer: { repository.author },
             onCountChange: onCountChange
         )
@@ -141,17 +141,19 @@ struct ActivityCommentsStoreTests {
         let store = await loadedStore(repository, [first, third]) { countChanges.append($0) }
 
         let second = ActivityComment.fixture(body: "Deux", createdAt: at(60))
-        #expect(!store.knows(second.id))
-        store.receive(second)
-        #expect(store.knows(second.id))
         var edited = first
         edited.body = "Un, modifié"
         edited.updatedAt = at(200)
-        store.receive(edited)
-        // Its own echo, same state: nothing changes.
-        store.receive(third)
+        repository.scriptOne(.success(second), .success(edited))
+        #expect(!store.knows(second.id))
+        await store.created(second.id)
+        #expect(store.knows(second.id))
+        await store.updated(first.id)
+        // Known already, e.g. the echo of a send: not fetched again.
+        await store.created(third.id)
 
         #expect(store.comments.map(\.comment) == [edited, second, third])
+        #expect(repository.calls == [.page(before: nil), .one(second.id), .one(first.id)])
         #expect(countChanges == [1])
     }
 
@@ -162,8 +164,8 @@ struct ActivityCommentsStoreTests {
         let store = await loadedStore(repository, [mine]) { countChanges.append($0) }
         store.startEditing(mine.id)
 
-        store.remove(mine.id)
-        store.remove(UUID())
+        store.deleted(mine.id)
+        store.deleted(mine.id)
 
         #expect(store.comments.isEmpty)
         #expect(store.editing == nil)

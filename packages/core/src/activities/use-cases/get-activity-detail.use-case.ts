@@ -1,8 +1,9 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { activityProcessingErrorCodeSchema, type ActivityProcessingErrorCode } from "@repo/contracts";
 import { ActivityStatsRepository } from "../repositories/activity-stats.repository.js";
 import { ActivityTrackRepository } from "../repositories/activity-track.repository.js";
 import type { ActivityDetailRecord } from "../domain/activity-detail.js";
+import { activityNotFound } from "../services/activity-not-found.js";
 import { GetVisibleActivityUseCase } from "./get-visible-activity.use-case.js";
 
 /**
@@ -23,7 +24,7 @@ export class GetActivityDetailUseCase {
   async execute(viewerId: string, activityId: string): Promise<ActivityDetailRecord> {
     const row = await this.visible.findRow(viewerId, activityId);
     if (!row) {
-      throw new NotFoundException({ code: "activity_not_found", message: "Activity not found" });
+      throw activityNotFound();
     }
     // Official values only once processed (ADR-019 §5 step 7).
     const processed = row.processingStatus === "processed";

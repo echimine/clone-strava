@@ -10,7 +10,7 @@ import {
 import { EngagementService } from "@repo/core/engagement";
 import { CurrentUser } from "../auth/current-user.decorator.js";
 import { SessionGuard, type AuthenticatedUser } from "../auth/session.guard.js";
-import { AthleteIdentities } from "../identities/athlete-identities.js";
+import { KudosAssembler } from "./kudos-assembler.js";
 
 class KudosResponseDto extends createZodDto(kudosResponseSchema) {}
 class ListKudosQueryDto extends createZodDto(listKudosQuerySchema) {}
@@ -27,7 +27,7 @@ class ListKudosResponseDto extends createZodDto(listKudosResponseSchema) {}
 export class KudosController {
   constructor(
     private readonly engagement: EngagementService,
-    private readonly identities: AthleteIdentities,
+    private readonly assembler: KudosAssembler,
   ) {}
 
   /** Most recent first, keyset pages; a cursor this server did not produce is `422 invalid_cursor`. */
@@ -38,12 +38,7 @@ export class KudosController {
     @Query() query: ListKudosQueryDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<ListKudosResponse> {
-    const page = await this.engagement.listKudos(user.userId, activityId, query);
-    const athlete = await this.identities.resolve(page.items.map((item) => item.athleteId));
-    return {
-      items: page.items.map((item) => ({ athlete: athlete(item.athleteId), givenAt: item.givenAt.toISOString() })),
-      nextCursor: page.nextCursor,
-    };
+    return this.assembler.assemble(await this.engagement.listKudos(user.userId, activityId, query));
   }
 
   @Put()

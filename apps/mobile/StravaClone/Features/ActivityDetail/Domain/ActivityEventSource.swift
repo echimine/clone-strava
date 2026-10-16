@@ -10,6 +10,8 @@ enum ActivityEvent: Hashable, Sendable {
 
 /// Realtime events about Activities (ADR-010), implemented over the shared connection in
 /// Infrastructure, faked in tests.
+/// Follows the `user:{id}` topic (the viewer's own Activities; an open detail's `activity:{id}`
+/// subscription brings others' onto the same connection); `ActivityLiveEventSource` follows `activity:{id}`.
 protocol ActivityEventSource: Sendable {
     func activityEvents() async -> AsyncStream<ActivityEvent>
 }

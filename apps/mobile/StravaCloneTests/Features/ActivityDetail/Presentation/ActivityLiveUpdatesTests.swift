@@ -29,12 +29,14 @@ struct ActivityLiveUpdatesTests {
             loadDetail: LoadActivityDetail(repository: details),
             loadKudos: LoadKudosList(repository: kudos),
             setKudos: SetActivityKudos(repository: kudos),
-            changes: ActivityChanges()
+            changes: ActivityChanges(),
+            updateActivity: UpdateActivity(repository: details),
+            deleter: .over(details)
         )
         let comments = ActivityCommentsStore.forDetail(
             detail,
             request: ActivityDetailRequest(id: id),
-            useCases: ActivityCommentUseCases(repository: commentsRepository)
+            repository: commentsRepository
         )
         await detail.load()
         await comments.load()
@@ -119,8 +121,7 @@ struct ActivityLiveUpdatesTests {
         comments.resume()
         await sending.value
         screen.source.send(.commentCreated(id))
-        screen.source.send(.commentUpdated(UUID())) // a marker: processed after the echoes
-        _ = await eventually { comments.calls.count == 3 }
+        await processed(screen, comments)
 
         #expect(screen.comments.comments.map(\.comment.body) == ["Super sortie"])
         #expect(screen.comments.comments.map(\.status) == [.sent])
@@ -163,6 +164,120 @@ struct ActivityLiveUpdatesTests {
         #expect(comments.calls == [.page(before: nil)])
         #expect(screen.detail.detail?.engagement.commentCount == 1)
         screen.live.cancel()
+    }
+
+    /// Older comments not loaded yet: an edit of one of them is not this thread's to show,
+    /// and never changes the count.
+    @Test func anEditOfACommentNotLoadedChangesNeitherTheThreadNorTheCount() async {
+        let activity = ActivityDetail.fixture(engagement: ActivityEngagement(kudosCount: 0, commentCount: 3, viewerHasKudoed: false))
+        let comments = FakeActivityCommentRepository()
+        let newest = ActivityComment.fixture(body: "Dernier")
+        comments.setPage(.success(ActivityCommentsPage(items: [newest], previousCursor: "c1")))
+        let screen = await openScreen(FakeActivityDetailRepository(.success(activity)), comments: comments, id: activity.id)
+        let older = UUID()
+
+        screen.source.send(.commentUpdated(older))
+        await processed(screen, comments)
+
+        #expect(screen.comments.comments.map(\.comment) == [newest])
+        #expect(screen.detail.detail?.engagement.commentCount == 3)
+        #expect(!comments.calls.contains(.one(older)))
+        screen.live.cancel()
+    }
+
+    /// A comment of an older page, deleted elsewhere: nothing to remove, one comment less all
+    /// the same.
+    @Test func aCommentNotLoadedDeletedElsewhereLowersTheCount() async {
+        let activity = ActivityDetail.fixture(engagement: ActivityEngagement(kudosCount: 0, commentCount: 3, viewerHasKudoed: false))
+        let comments = FakeActivityCommentRepository()
+        let newest = ActivityComment.fixture(body: "Dernier")
+        comments.setPage(.success(ActivityCommentsPage(items: [newest], previousCursor: "c1")))
+        let screen = await openScreen(FakeActivityDetailRepository(.success(activity)), comments: comments, id: activity.id)
+
+        screen.source.send(.commentDeleted(UUID()))
+
+        #expect(await eventually { screen.detail.detail?.engagement.commentCount == 2 })
+        #expect(screen.comments.comments.map(\.comment) == [newest])
+        screen.live.cancel()
+    }
+
+    /// My delete comes back as `comment.deleted`: the count already went down once.
+    @Test func theEchoOfMyOwnDeleteIsNotCountedTwice() async {
+        let activity = ActivityDetail.fixture(engagement: ActivityEngagement(kudosCount: 0, commentCount: 2, viewerHasKudoed: false))
+        let comments = FakeActivityCommentRepository()
+        let mine = ActivityComment.fixture(body: "À supprimer", mine: true)
+        let other = ActivityComment.fixture(body: "Reste", createdAt: Date(timeIntervalSince1970: 1_790_000_060))
+        comments.setPage(.success(ActivityCommentsPage(items: [mine, other], previousCursor: nil)))
+        let screen = await openScreen(FakeActivityDetailRepository(.success(activity)), comments: comments, id: activity.id)
+        screen.comments.requestDeletion(mine.id)
+        await screen.comments.confirmDeletion()
+
+        screen.source.send(.commentDeleted(mine.id))
+        await processed(screen, comments)
+
+        #expect(screen.comments.comments.map(\.comment) == [other])
+        #expect(screen.detail.detail?.engagement.commentCount == 1)
+        screen.live.cancel()
+    }
+
+    /// A comment fetched after its `comment.created` but gone by then: its `comment.deleted`
+    /// does not take it off the count, which never had it.
+    @Test func aCommentGoneBeforeItCouldBeFetchedIsNotCountedOut() async {
+        let activity = ActivityDetail.fixture(engagement: ActivityEngagement(kudosCount: 0, commentCount: 1, viewerHasKudoed: false))
+        let comments = FakeActivityCommentRepository()
+        let kept = ActivityComment.fixture(body: "Reste")
+        comments.setPage(.success(ActivityCommentsPage(items: [kept], previousCursor: nil)))
+        let screen = await openScreen(FakeActivityDetailRepository(.success(activity)), comments: comments, id: activity.id)
+        let gone = UUID()
+        comments.scriptOne(.failure(.notFound))
+
+        screen.source.send(.commentCreated(gone))
+        screen.source.send(.commentDeleted(gone))
+        await processed(screen, comments)
+
+        #expect(screen.comments.comments.map(\.comment) == [kept])
+        #expect(screen.detail.detail?.engagement.commentCount == 1)
+        screen.live.cancel()
+    }
+
+    /// My edit comes back as `comment.updated`, before or after the `PATCH` answers: the thread
+    /// already shows that text, so it is not fetched.
+    @Test(arguments: [true, false])
+    func theEchoOfMyOwnEditIsNotFetched(beforeTheAnswer: Bool) async {
+        let activity = ActivityDetail.fixture(engagement: ActivityEngagement(kudosCount: 0, commentCount: 1, viewerHasKudoed: false))
+        let comments = FakeActivityCommentRepository()
+        let mine = ActivityComment.fixture(body: "Belle sortie", author: comments.author, mine: true)
+        comments.setPage(.success(ActivityCommentsPage(items: [mine], previousCursor: nil)))
+        let screen = await openScreen(FakeActivityDetailRepository(.success(activity)), comments: comments, id: activity.id)
+        screen.comments.startEditing(mine.id)
+        screen.comments.draft = "Belle sortie au lac"
+        comments.holdNextWrite()
+        let editing = Task { await screen.comments.send() }
+        #expect(await eventually { comments.isHoldingWrite })
+
+        if beforeTheAnswer {
+            screen.source.send(.commentUpdated(mine.id))
+            await processed(screen, comments)
+        }
+        comments.resume()
+        await editing.value
+        if !beforeTheAnswer {
+            screen.source.send(.commentUpdated(mine.id))
+            await processed(screen, comments)
+        }
+
+        #expect(!comments.calls.contains(.one(mine.id)))
+        #expect(screen.comments.comments.map(\.comment.body) == ["Belle sortie au lac"])
+        #expect(screen.detail.detail?.engagement.commentCount == 1)
+        screen.live.cancel()
+    }
+
+    /// Waits until the events sent so far are handled: a marker sent after them is fetched
+    /// (and not found).
+    private func processed(_ screen: Screen, _ comments: FakeActivityCommentRepository) async {
+        let marker = UUID()
+        screen.source.send(.commentCreated(marker))
+        _ = await eventually { comments.calls.contains(.one(marker)) }
     }
 
     // MARK: Kudos

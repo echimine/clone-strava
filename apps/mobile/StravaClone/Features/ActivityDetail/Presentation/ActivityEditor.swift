@@ -4,7 +4,8 @@ import Observation
 /// The edit sheet of an Activity and what saving it does (ADR-033 §7), for one screen: the
 /// detail ("⋯" > "Modifier") or the feed (context menu of a card). Online and optimistic: the
 /// sheet closes and the new values show at once; a failure brings the previous ones back with
-/// a toast, and a `422` reopens the sheet with the athlete's input.
+/// a toast, and a `422` reopens the sheet with the athlete's input. An Activity gone meanwhile
+/// (`404`) becomes unavailable instead.
 @Observable
 @MainActor
 final class ActivityEditor {
@@ -39,10 +40,10 @@ final class ActivityEditor {
             )
         }
 
-        /// The sports the picker offers; an unknown current sport stays selectable.
+        /// The sports the picker offers: every active one (ADR-033 §4); an unknown current sport
+        /// stays selectable.
         var sports: [SportType] {
-            let known: [SportType] = [.run, .ride, .swim, .walk, .hike]
-            return known.contains(sport) ? known : known + [sport]
+            SportType.active.contains(sport) ? SportType.active : SportType.active + [sport]
         }
 
         private static func trimmed(_ text: String) -> String {
@@ -58,6 +59,8 @@ final class ActivityEditor {
     /// The screen's own copy of the Activity, e.g. the detail: called with the optimistic
     /// values, then the server's, or the previous ones on failure.
     @ObservationIgnored var onChange: @MainActor (ActivityDetail) -> Void = { _ in }
+    /// The screen's own copy is gone: the Activity was deleted or is no longer visible (`404`).
+    @ObservationIgnored var onUnavailable: @MainActor () -> Void = {}
     @ObservationIgnored private let loadDetail: LoadActivityDetail
     @ObservationIgnored private let updateActivity: UpdateActivity
     @ObservationIgnored private let changes: ActivityChanges
@@ -99,6 +102,10 @@ final class ActivityEditor {
         show(edit.applied(to: previous))
         do {
             show(try await updateActivity(previous.id, with: edit))
+        } catch .notFound {
+            // Deleted or no longer visible meanwhile (ADR-033 §3): nothing to roll back to.
+            onUnavailable()
+            changes.publish(.deleted(previous.id))
         } catch {
             show(previous)
             if case .invalid(let code) = error {

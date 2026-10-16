@@ -16,6 +16,7 @@ enum ActivityLiveEvent: Equatable, Sendable {
 
 /// Live events port (ADR-007): the realtime `activity:{id}` topic in Infrastructure, faked in
 /// tests.
+/// Follows the `activity:{id}` topic of one open detail; `ActivityEventSource` follows `user:{id}`.
 protocol ActivityLiveEventSource: Sendable {
     /// One Activity's events for as long as the stream is iterated: subscribed on start (and
     /// again after each reconnection), unsubscribed when the stream ends. It ends by itself once

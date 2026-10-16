@@ -37,38 +37,31 @@ final class ActivityDetailStore {
 
     /// - Parameters:
     ///   - changes: where the detail publishes what changed, for the feed (ADR-033 §7).
-    ///   - updateActivity: "Enregistrer" of the edit sheet; by default over `loadDetail`'s
-    ///     repository.
-    ///   - events: realtime events; this Activity's `activity.updated` reloads it,
-    ///     `activity.deleted` makes it unavailable (§8).
+    ///   - updateActivity: "Enregistrer" of the edit sheet.
     ///   - deleter: "⋯" > "Supprimer"; the feed's, so that a failure shows over the feed the
     ///     page has gone back to (§7).
+    ///   - events: realtime events; this Activity's `activity.updated` reloads it,
+    ///     `activity.deleted` makes it unavailable (§8).
     init(
         id: ActivityID,
         loadDetail: LoadActivityDetail,
         loadKudos: LoadKudosList,
         setKudos: SetActivityKudos,
         changes: ActivityChanges,
-        updateActivity: UpdateActivity? = nil,
-        events: (any ActivityEventSource)? = nil,
-        deleter: ActivityDeleter? = nil
+        updateActivity: UpdateActivity,
+        deleter: ActivityDeleter,
+        events: (any ActivityEventSource)? = nil
     ) {
         self.id = id
-        self.deleter = deleter ?? ActivityDeleter(
-            deleteActivity: DeleteActivity(repository: loadDetail.repository),
-            changes: changes
-        )
+        self.deleter = deleter
         self.loadDetail = loadDetail
         self.loadKudos = loadKudos
         self.setKudos = setKudos
         self.changes = changes
         self.events = events
-        editor = ActivityEditor(
-            loadDetail: loadDetail,
-            updateActivity: updateActivity ?? UpdateActivity(repository: loadDetail.repository),
-            changes: changes
-        )
+        editor = ActivityEditor(loadDetail: loadDetail, updateActivity: updateActivity, changes: changes)
         editor.onChange = { [weak self] detail in self?.phase = .loaded(detail) }
+        editor.onUnavailable = { [weak self] in self?.phase = .unavailable }
     }
 
     /// Runs while the detail is shown (`.task`): this Activity's realtime events. The echo of

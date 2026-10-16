@@ -14,6 +14,10 @@ enum SportType: Hashable, Sendable {
         case speed
     }
 
+    /// The active sports (`sport_type.is_active`, seed `0002_seed_sport_types`), in their
+    /// `display_order`: what an athlete can choose for an Activity.
+    static let active: [SportType] = [.run, .ride, .swim, .walk, .hike]
+
     init(code: String) {
         switch code {
         case "run": self = .run

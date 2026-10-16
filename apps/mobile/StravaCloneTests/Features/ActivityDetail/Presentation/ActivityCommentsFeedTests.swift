@@ -28,17 +28,20 @@ struct ActivityCommentsFeedTests {
         changes: ActivityChanges
     ) -> (ActivityDetailStore, ActivityCommentsStore) {
         let kudos = FakeActivityKudosRepository()
+        let details = FakeActivityDetailRepository(.success(detail))
         let detailStore = ActivityDetailStore(
             id: request.id,
-            loadDetail: LoadActivityDetail(repository: FakeActivityDetailRepository(.success(detail))),
+            loadDetail: LoadActivityDetail(repository: details),
             loadKudos: LoadKudosList(repository: kudos),
             setKudos: SetActivityKudos(repository: kudos),
-            changes: changes
+            changes: changes,
+            updateActivity: UpdateActivity(repository: details),
+            deleter: .over(details, changes: changes)
         )
         let comments = ActivityCommentsStore.forDetail(
             detailStore,
             request: request,
-            useCases: ActivityCommentUseCases(repository: repository)
+            repository: repository
         )
         return (detailStore, comments)
     }

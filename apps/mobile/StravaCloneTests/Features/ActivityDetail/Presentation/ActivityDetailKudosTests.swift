@@ -12,12 +12,15 @@ struct ActivityDetailKudosTests {
         kudos: FakeActivityKudosRepository,
         changes: ActivityChanges = ActivityChanges()
     ) -> ActivityDetailStore {
-        ActivityDetailStore(
+        let details = FakeActivityDetailRepository(.success(detail))
+        return ActivityDetailStore(
             id: detail.id,
-            loadDetail: LoadActivityDetail(repository: FakeActivityDetailRepository(.success(detail))),
+            loadDetail: LoadActivityDetail(repository: details),
             loadKudos: LoadKudosList(repository: kudos),
             setKudos: SetActivityKudos(repository: kudos),
-            changes: changes
+            changes: changes,
+            updateActivity: UpdateActivity(repository: details),
+            deleter: .over(details, changes: changes)
         )
     }
 

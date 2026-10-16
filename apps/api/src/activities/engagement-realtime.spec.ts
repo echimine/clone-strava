@@ -32,6 +32,7 @@ import { GlobalExceptionFilter } from "../common/global-exception.filter.js";
 import { CommentAssembler } from "./comment-assembler.js";
 import { AthleteIdentities } from "../identities/athlete-identities.js";
 import { CommentsController } from "./comments.controller.js";
+import { KudosAssembler } from "./kudos-assembler.js";
 import { KudosController } from "./kudos.controller.js";
 
 /**
@@ -107,6 +108,7 @@ describe("engagement realtime relay (integration)", () => {
         SessionGuard,
         CommentAssembler,
         AthleteIdentities,
+        KudosAssembler,
         {
           provide: AuthService,
           useValue: {

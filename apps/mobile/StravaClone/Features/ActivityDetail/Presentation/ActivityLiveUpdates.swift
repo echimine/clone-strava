@@ -19,15 +19,11 @@ struct ActivityLiveUpdates {
                 async let reloadedComments: Void = comments.load()
                 _ = await (reloadedDetail, reloadedComments)
             case .commentCreated(let id):
-                // Known already, in any state: the echo of my own send.
-                guard !comments.knows(id) else { continue }
-                await comments.refresh(id)
+                await comments.created(id)
             case .commentUpdated(let id):
-                // Only the fetched comment tells whether it changed: the echo of my own edit
-                // leaves the thread as it is.
-                await comments.refresh(id)
+                await comments.updated(id)
             case .commentDeleted(let id):
-                comments.remove(id)
+                comments.deleted(id)
             case .kudosChanged:
                 // The reload brings the count, `viewerHasKudoed` and the kudos row.
                 await detail.load()

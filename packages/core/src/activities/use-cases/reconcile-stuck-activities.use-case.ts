@@ -4,16 +4,14 @@ import type { Queue } from "bullmq";
 import {
   ACTIVITIES_QUEUE_NAME,
   PROCESS_ACTIVITY_JOB_NAME,
-  REPROCESS_ACTIVITY_JOB_NAME,
   processActivityJobId,
-  reprocessActivityJobId,
   type ProcessActivityJob,
-  type ReprocessActivityJob,
 } from "@repo/contracts";
-import { DEFAULT_JOB_RETRY, enqueueUnique } from "../../infrastructure/index.js";
+import { enqueueUnique } from "../../infrastructure/index.js";
 import { ActivityRepository } from "../repositories/activity.repository.js";
 import { ActivityImportRepository } from "../repositories/activity-import.repository.js";
 import { ImportJobEnqueuer } from "../services/import-job-enqueuer.js";
+import { ReprocessJobEnqueuer } from "../services/reprocess-job-enqueuer.js";
 
 /** ADR-019 §7, ADR-028 §8: older than this in `processing` counts as stuck. */
 const STUCK_AFTER_MINUTES = 15;
@@ -31,8 +29,8 @@ export class ReconcileStuckActivitiesUseCase {
     private readonly activities: ActivityRepository,
     private readonly imports: ActivityImportRepository,
     private readonly importEnqueuer: ImportJobEnqueuer,
-    @InjectQueue(ACTIVITIES_QUEUE_NAME)
-    private readonly queue: Queue<ProcessActivityJob | ReprocessActivityJob>,
+    private readonly reprocessEnqueuer: ReprocessJobEnqueuer,
+    @InjectQueue(ACTIVITIES_QUEUE_NAME) private readonly queue: Queue<ProcessActivityJob>,
   ) {}
 
   /** Returns the number of jobs re-enqueued. */
@@ -52,31 +50,12 @@ export class ReconcileStuckActivitiesUseCase {
         count++;
       }
     }
+    // The job id of the activity's last edit, so it matches the one the `PATCH` enqueued.
     for (const activity of await this.activities.findWithValuesForAnotherSport()) {
-      if (await this.enqueueReprocessingOnce(activity)) count++;
+      if (await this.reprocessEnqueuer.enqueue({ activityId: activity.id, userId: activity.userId }, activity.updatedAt)) {
+        count++;
+      }
     }
     return count;
-  }
-
-  /**
-   * The job id of the activity's last edit, so it matches the one the `PATCH` enqueued. Added
-   * only if no job holds that id: a reprocessing that failed for good keeps the old values
-   * (ADR-033 §5) instead of being retried by every sweep, until BullMQ drops the failed job.
-   */
-  private async enqueueReprocessingOnce(activity: {
-    id: string;
-    userId: string;
-    updatedAt: Date;
-  }): Promise<boolean> {
-    const jobId = reprocessActivityJobId(activity.id, activity.updatedAt);
-    if (await this.queue.getJob(jobId)) {
-      return false;
-    }
-    await (this.queue as Queue).add(
-      REPROCESS_ACTIVITY_JOB_NAME,
-      { activityId: activity.id, userId: activity.userId },
-      { ...DEFAULT_JOB_RETRY, jobId },
-    );
-    return true;
   }
 }

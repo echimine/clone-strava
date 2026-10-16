@@ -1,13 +1,9 @@
-import { Injectable, UnprocessableEntityException } from "@nestjs/common";
-import {
-  decodeCommentCursor,
-  encodeCommentCursor,
-  InvalidCommentCursorError,
-  type CommentCursor,
-} from "../domain/comment-cursor.js";
+import { Injectable } from "@nestjs/common";
+import { decodeCommentCursor, encodeCommentCursor } from "../domain/comment-cursor.js";
 import { toCommentView, type CommentPage } from "../domain/comment-view.js";
 import { CommentRepository } from "../repositories/comment.repository.js";
 import { CommentableActivity } from "../services/commentable-activity.service.js";
+import { readKeysetPage } from "../services/keyset-page.js";
 
 /**
  * `GET /v1/activities/:id/comments` (ADR-034 §3): the newest page of
@@ -23,25 +19,14 @@ export class ListCommentsUseCase {
 
   async execute(viewerId: string, activityId: string, query: { before?: string; limit: number }): Promise<CommentPage> {
     const activity = await this.access.get(viewerId, activityId);
-    const before = query.before === undefined ? undefined : this.decode(query.before);
-    const rows = await this.comments.findPage(activityId, before, query.limit + 1);
-    const page = rows.slice(0, query.limit);
-    const oldest = page.at(-1);
+    const { rows, boundary: oldest } = await readKeysetPage(
+      { cursor: query.before, limit: query.limit },
+      decodeCommentCursor,
+      (before, take) => this.comments.findPage(activityId, before, take),
+    );
     return {
-      items: page.reverse().map((row) => toCommentView(row, viewerId, activity.userId)),
-      previousCursor:
-        rows.length > query.limit && oldest ? encodeCommentCursor({ createdAt: oldest.createdAt, id: oldest.id }) : null,
+      items: rows.reverse().map((row) => toCommentView(row, viewerId, activity.userId)),
+      previousCursor: oldest ? encodeCommentCursor({ createdAt: oldest.createdAt, id: oldest.id }) : null,
     };
-  }
-
-  private decode(cursor: string): CommentCursor {
-    try {
-      return decodeCommentCursor(cursor);
-    } catch (error) {
-      if (error instanceof InvalidCommentCursorError) {
-        throw new UnprocessableEntityException({ code: "invalid_cursor", message: "Invalid comment cursor" });
-      }
-      throw error;
-    }
   }
 }

@@ -9,11 +9,6 @@ struct APIActivityDetailRepository: ActivityDetailRepository {
 
     let apiClient: APIClient
 
-    private struct ErrorEnvelope: Decodable {
-        struct Body: Decodable { let code: String }
-        let error: Body
-    }
-
     func detail(id: ActivityID) async throws(ActivityDetailError) -> ActivityDetail {
         do {
             let response: DetailResponse = try await apiClient.get("/v1/activities/\(id)")
@@ -48,17 +43,9 @@ struct APIActivityDetailRepository: ActivityDetailRepository {
         }
     }
 
+    /// An edit the server turned down (`422`) is `.invalid`.
     private static func detailError(_ error: APIError) -> ActivityDetailError {
-        switch error {
-        case .offline: return .offline
-        case .unauthorized: return .unauthorized
-        case .http(404, _): return .notFound
-        case .http(let status, let body):
-            let code = body.flatMap { try? JSONDecoder().decode(ErrorEnvelope.self, from: $0) }?.error.code
-            return status == 422 ? .invalid(code: code) : .server(code: code)
-        case .decoding: return .server(code: nil)
-        case .transport: return .network
-        }
+        ActivityDetailError(error) { status, code in status == 422 ? .invalid(code: code) : nil }
     }
 }
 

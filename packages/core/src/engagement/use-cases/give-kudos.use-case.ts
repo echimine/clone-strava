@@ -1,7 +1,7 @@
-import { Injectable, NotFoundException, UnprocessableEntityException } from "@nestjs/common";
+import { Injectable, UnprocessableEntityException } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { KUDOS_GIVEN_EVENT, KUDOS_REMOVED_EVENT, type KudosEvent } from "@repo/contracts";
-import { ActivitiesService } from "../../activities/index.js";
+import { ActivitiesService, activityNotFound } from "../../activities/index.js";
 import { KudosRepository } from "../repositories/kudos.repository.js";
 import type { KudosState } from "../domain/kudos-state.js";
 
@@ -40,7 +40,7 @@ export class GiveKudosUseCase {
   private async assertCanKudos(userId: string, activityId: string): Promise<void> {
     const activity = await this.activities.getVisible(userId, activityId);
     if (!activity) {
-      throw new NotFoundException({ code: "activity_not_found", message: "Activity not found" });
+      throw activityNotFound();
     }
     if (activity.userId === userId) {
       throw new UnprocessableEntityException({

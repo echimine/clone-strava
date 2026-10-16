@@ -25,6 +25,7 @@ import { ensureTestDatabaseMigrated, TEST_DATABASE_URL, TEST_REDIS_URL } from ".
 import { SessionGuard } from "../auth/session.guard.js";
 import { GlobalExceptionFilter } from "../common/global-exception.filter.js";
 import { CONFIG } from "../config/env.js";
+import { RealtimeGrantIssuer } from "./realtime-grant-issuer.js";
 import { RealtimeGrantsController } from "./realtime-grants.controller.js";
 
 const SECRET = "grants-spec-secret-at-least-32-characters";
@@ -89,6 +90,7 @@ describe("POST /v1/realtime/grants (integration)", () => {
       controllers: [RealtimeGrantsController],
       providers: [
         SessionGuard,
+        RealtimeGrantIssuer,
         { provide: CONFIG, useValue: { REALTIME_TOKEN_SECRET: SECRET } },
         {
           provide: AuthService,

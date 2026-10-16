@@ -89,6 +89,13 @@ extension ActivityDetail {
     }
 }
 
+extension ActivityDeleter {
+    /// "Supprimer" over a fake repository, as the app shell wires it.
+    static func over(_ repository: FakeActivityDetailRepository, changes: ActivityChanges = ActivityChanges()) -> ActivityDeleter {
+        ActivityDeleter(deleteActivity: DeleteActivity(repository: repository), changes: changes)
+    }
+}
+
 extension ActivityStats {
     static func fixture(
         distanceM: Double? = 10_000,

@@ -4,10 +4,10 @@ import Foundation
 /// `activity.updated` `{ activityId, changedFields }` and `activity.deleted` `{ activityId }`
 /// (ADR-033 §8). The echo of the device's own edit or delete comes too; it is harmless.
 struct RealtimeActivityEventSource: ActivityEventSource {
-    let client: WebSocketClient
+    let channel: any RealtimeChannel
 
     func activityEvents() async -> AsyncStream<ActivityEvent> {
-        let realtime = await client.events()
+        let realtime = await channel.events()
         return AsyncStream { continuation in
             let task = Task {
                 for await event in realtime {

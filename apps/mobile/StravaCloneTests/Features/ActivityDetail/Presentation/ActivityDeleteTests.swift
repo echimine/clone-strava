@@ -102,6 +102,7 @@ struct ActivityDeleteTests {
             loadKudos: LoadKudosList(repository: kudos),
             setKudos: SetActivityKudos(repository: kudos),
             changes: changes,
+            updateActivity: UpdateActivity(repository: repository),
             deleter: deleter
         )
         await store.load()
@@ -128,6 +129,7 @@ struct ActivityDeleteTests {
             loadKudos: LoadKudosList(repository: kudos),
             setKudos: SetActivityKudos(repository: kudos),
             changes: changes,
+            updateActivity: UpdateActivity(repository: repository),
             deleter: deleter
         )
         await store.load()
