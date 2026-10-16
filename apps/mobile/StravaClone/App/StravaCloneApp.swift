@@ -20,6 +20,7 @@ struct StravaCloneApp: App {
                 feedActivityEditor: di.feedActivityEditor,
                 activityDeleter: di.activityDeleter,
                 reloadUpdatedActivities: di.makeReloadUpdatedActivities(),
+                activityLiveEvents: di.activityLiveEvents,
                 realtimeService: di.realtimeService,
                 makeItineraryEditorStore: di.makeItineraryEditorStore,
                 makeItinerarySaveStore: di.makeItinerarySaveStore,
@@ -64,6 +65,8 @@ struct RootView: View {
     @State var activityDeleter: ActivityDeleter
     /// The feed's cards follow `activity.updated` and `activity.deleted` (ADR-033 §8).
     let reloadUpdatedActivities: ReloadUpdatedActivities
+    /// What happens to an open detail elsewhere (ADR-034 §5).
+    let activityLiveEvents: any ActivityLiveEventSource
     let realtimeService: RealtimeService
     let makeItineraryEditorStore: @MainActor (ItinerarySport, ItineraryID, AnalyticsEvent.EditorSource) -> ItineraryEditorStore
     let makeItinerarySaveStore: @MainActor () -> ItinerarySaveStore
@@ -126,7 +129,8 @@ struct RootView: View {
                             ActivityDetailPage(
                                 request: request,
                                 makeStore: makeActivityDetailStore,
-                                makeCommentsStore: makeActivityCommentsStore
+                                makeCommentsStore: makeActivityCommentsStore,
+                                liveEvents: activityLiveEvents
                             )
                         }
                     ) {
