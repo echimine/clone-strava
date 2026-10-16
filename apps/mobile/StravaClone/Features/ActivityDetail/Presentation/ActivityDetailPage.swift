@@ -6,17 +6,21 @@ struct ActivityDetailPage: View {
     @State private var store: ActivityDetailStore
     /// The comment thread (ADR-034 §6).
     @State private var comments: ActivityCommentsStore
+    /// Kept live while shown (ADR-034 §5).
+    private let liveEvents: any ActivityLiveEventSource
 
     @Environment(\.dismiss) private var dismiss
 
     init(
         request: ActivityDetailRequest,
         makeStore: @MainActor (ActivityID) -> ActivityDetailStore,
-        makeCommentsStore: @MainActor (ActivityDetailRequest, ActivityDetailStore) -> ActivityCommentsStore
+        makeCommentsStore: @MainActor (ActivityDetailRequest, ActivityDetailStore) -> ActivityCommentsStore,
+        liveEvents: any ActivityLiveEventSource
     ) {
         let store = makeStore(request.id)
         _store = State(initialValue: store)
         _comments = State(initialValue: makeCommentsStore(request, store))
+        self.liveEvents = liveEvents
     }
 
     var body: some View {
@@ -26,6 +30,8 @@ struct ActivityDetailPage: View {
             .navigationTitle(store.detail.map { ActivityFormatters.sportLabel($0.sport) } ?? "")
             .navigationBarTitleDisplayMode(.inline)
             .task { await store.load() }
+            // Subscribed while shown, unsubscribed when the task ends with the screen.
+            .task { await ActivityLiveUpdates(events: liveEvents, detail: store, comments: comments).run() }
             .toast($store.kudosNotice)
             .toast($comments.toast)
             .accessibilityIdentifier("activityDetail")
@@ -179,6 +185,12 @@ private struct PreviewActivityKudosRepository: ActivityKudosRepository {
     }
 }
 
+private struct PreviewActivityLiveEventSource: ActivityLiveEventSource {
+    func events(of activityId: ActivityID) -> AsyncStream<ActivityLiveEvent> {
+        AsyncStream { _ in }
+    }
+}
+
 #Preview {
     NavigationStack {
         ActivityDetailPage(
@@ -194,7 +206,8 @@ private struct PreviewActivityKudosRepository: ActivityKudosRepository {
             },
             makeCommentsStore: { request, detail in
                 .forDetail(detail, request: request, useCases: ActivityCommentUseCases(repository: PreviewActivityCommentRepository()))
-            }
+            },
+            liveEvents: PreviewActivityLiveEventSource()
         )
     }
     .tint(Theme.accent)

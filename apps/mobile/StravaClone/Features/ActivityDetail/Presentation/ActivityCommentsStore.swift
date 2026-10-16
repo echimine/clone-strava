@@ -140,6 +140,18 @@ final class ActivityCommentsStore {
         onCountChange(1)
     }
 
+    /// A `comment.created` / `comment.updated` about a comment not known in that state: fetched,
+    /// then shown; gone meanwhile (`404`), it is removed.
+    func refresh(_ id: UUID) async {
+        do {
+            receive(try await useCases.comment(id, on: activityId))
+        } catch .notFound {
+            remove(id)
+        } catch {
+            // Missed: the next catch-up (reconnection, new appearance) brings it.
+        }
+    }
+
     /// A `comment.deleted`, or a `404` on fetching it.
     func remove(_ id: UUID) {
         guard let index = index(of: id), comments[index].status == .sent else { return }

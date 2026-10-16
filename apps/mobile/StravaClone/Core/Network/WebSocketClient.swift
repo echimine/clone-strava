@@ -65,6 +65,18 @@ actor WebSocketClient {
         return stream
     }
 
+    /// A control message on the open connection (e.g. `sub` with a grant, `unsub`). Not
+    /// queued: `false` while disconnected, and the caller sends it again on the next connection.
+    func send(_ message: String) async -> Bool {
+        guard let socket else { return false }
+        do {
+            try await socket.send(.string(message))
+            return true
+        } catch {
+            return false
+        }
+    }
+
     private func removeSubscriber(_ id: UUID) {
         subscribers[id] = nil
     }
@@ -128,3 +140,5 @@ actor WebSocketClient {
         }
     }
 }
+
+extension WebSocketClient: RealtimeChannel {}

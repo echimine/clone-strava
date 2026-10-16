@@ -57,6 +57,8 @@ final class Di {
     let defaultVisibility: DefaultVisibilityCache
     /// What the Activity detail changes, applied by the feed (ADR-033 §7).
     let activityChanges = ActivityChanges()
+    /// The open detail's `activity:{id}` subscription (ADR-034 §5).
+    let activityLiveEvents: any ActivityLiveEventSource
 
     private let recordingService: RecordingService
     /// Lock screen and Dynamic Island of the Recording (ADR-031 §9).
@@ -107,6 +109,10 @@ final class Di {
             client: webSocketClient,
             tokenProvider: RealtimeTokenProvider(apiClient: apiClient)
         )
+        let grants = RealtimeGrantProvider(apiClient: apiClient)
+        activityLiveEvents = RealtimeActivityLiveEventSource(channel: webSocketClient) { topic in
+            try await grants.grant(topic: topic)
+        }
         importRepository = APIActivityImportRepository(apiClient: apiClient)
         feedRepository = APIFeedRepository(apiClient: apiClient)
         activityDetailRepository = APIActivityDetailRepository(apiClient: apiClient)

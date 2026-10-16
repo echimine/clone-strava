@@ -83,6 +83,13 @@ final class ActivityDetailStore {
         await load()
     }
 
+    /// Deleted elsewhere (realtime `activity.deleted`, ADR-034 §5): unavailable without asking
+    /// the API, and the feed card goes too.
+    func activityWasDeleted() {
+        phase = .unavailable
+        changes.publish(.deleted(id))
+    }
+
     // MARK: Kudos (ADR-034 §1)
 
     /// The viewer cannot give kudos to their own Activity: the button is hidden there.

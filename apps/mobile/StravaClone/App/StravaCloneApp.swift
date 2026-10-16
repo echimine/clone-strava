@@ -17,6 +17,7 @@ struct StravaCloneApp: App {
                 feedStore: di.makeFeedStore(),
                 makeActivityDetailStore: { [di] id in di.makeActivityDetailStore(id: id) },
                 makeActivityCommentsStore: { [di] request, detail in di.makeActivityCommentsStore(request: request, detail: detail) },
+                activityLiveEvents: di.activityLiveEvents,
                 realtimeService: di.realtimeService,
                 makeItineraryEditorStore: di.makeItineraryEditorStore,
                 makeItinerarySaveStore: di.makeItinerarySaveStore,
@@ -55,6 +56,8 @@ struct RootView: View {
     let makeActivityDetailStore: @MainActor (ActivityID) -> ActivityDetailStore
     /// Their comment threads (ADR-034 §6).
     let makeActivityCommentsStore: @MainActor (ActivityDetailRequest, ActivityDetailStore) -> ActivityCommentsStore
+    /// What happens to an open detail elsewhere (ADR-034 §5).
+    let activityLiveEvents: any ActivityLiveEventSource
     let realtimeService: RealtimeService
     let makeItineraryEditorStore: @MainActor (ItinerarySport, ItineraryID, AnalyticsEvent.EditorSource) -> ItineraryEditorStore
     let makeItinerarySaveStore: @MainActor () -> ItinerarySaveStore
@@ -115,7 +118,8 @@ struct RootView: View {
                             ActivityDetailPage(
                                 request: request,
                                 makeStore: makeActivityDetailStore,
-                                makeCommentsStore: makeActivityCommentsStore
+                                makeCommentsStore: makeActivityCommentsStore,
+                                liveEvents: activityLiveEvents
                             )
                         }
                     ) {
