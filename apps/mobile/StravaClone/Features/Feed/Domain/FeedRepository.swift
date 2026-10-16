@@ -6,12 +6,6 @@ struct FeedPage: Equatable, Sendable {
     let nextCursor: String?
 }
 
-/// Kudos of one activity as the server sees it after a give/remove (ADR-029).
-struct KudosState: Equatable, Sendable {
-    let kudosCount: Int
-    let viewerHasKudoed: Bool
-}
-
 /// Failures of the feed, as the presentation needs them.
 enum FeedError: Error, Equatable, Sendable {
     case offline

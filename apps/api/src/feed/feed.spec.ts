@@ -21,6 +21,7 @@ import { ensureTestDatabaseMigrated, TEST_DATABASE_URL, TEST_REDIS_URL } from ".
 import { SessionGuard } from "../auth/session.guard.js";
 import { GlobalExceptionFilter } from "../common/global-exception.filter.js";
 import { FeedAssembler } from "./feed-assembler.js";
+import { AthleteIdentities } from "../identities/athlete-identities.js";
 import { FeedController } from "./feed.controller.js";
 
 /**
@@ -105,6 +106,7 @@ describe("/v1/feed and kudos (integration)", () => {
       providers: [
         SessionGuard,
         FeedAssembler,
+        AthleteIdentities,
         {
           provide: AuthService,
           useValue: {

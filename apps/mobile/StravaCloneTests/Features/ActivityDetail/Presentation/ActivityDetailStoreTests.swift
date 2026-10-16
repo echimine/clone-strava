@@ -11,7 +11,14 @@ struct ActivityDetailStoreTests {
         id: ActivityID,
         changes: ActivityChanges = ActivityChanges()
     ) -> ActivityDetailStore {
-        ActivityDetailStore(id: id, loadDetail: LoadActivityDetail(repository: repository), changes: changes)
+        let kudos = FakeActivityKudosRepository()
+        return ActivityDetailStore(
+            id: id,
+            loadDetail: LoadActivityDetail(repository: repository),
+            loadKudos: LoadKudosList(repository: kudos),
+            setKudos: SetActivityKudos(repository: kudos),
+            changes: changes
+        )
     }
 
     @Test func loadingShowsTheActivity() async {

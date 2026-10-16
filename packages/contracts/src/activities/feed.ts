@@ -28,6 +28,8 @@ export const feedAuthorSchema = z.object({
   displayName: z.string(),
   avatarUrl: z.string().nullable(),
 });
+/** An athlete as shown next to their content: Activity author, comment author, kudos giver. */
+export type FeedAuthor = z.infer<typeof feedAuthorSchema>;
 
 export const feedEngagementSchema = z.object({
   kudosCount: z.number().int().nonnegative(),
