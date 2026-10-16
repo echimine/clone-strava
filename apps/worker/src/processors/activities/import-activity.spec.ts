@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { activityImportSourceKey } from "@repo/contracts";
+import { activityImportSourceKey, activityTraceKey } from "@repo/contracts";
 import { ActivitiesService } from "@repo/core/activities";
 import { bootstrapTestWorkerApp, waitFor, type TestWorkerApp } from "../../testing/test-worker-app.js";
 
@@ -122,6 +122,43 @@ describe("import-activity (integration)", () => {
     });
     expect(result.status).toBe("duplicate");
     expect(result.activityId).not.toBe(importId);
+  }, 30_000);
+
+  it("deletes an imported activity with its files, keeps the import, and lets the same file be imported again", async () => {
+    const file = runGpx(new Date("2026-06-01T06:00:00Z"));
+    const importId = await startImport(file);
+    await waitFor(async () => {
+      const [row] = await sql("select processing_status from activities.activity where id = $1", [importId]);
+      return row?.processing_status === "processed" ? row : undefined;
+    });
+    const sourceKey = activityImportSourceKey(userId, importId, "gpx");
+    expect(ctx.storage.objects.has(sourceKey)).toBe(true);
+    expect(ctx.storage.objects.has(activityTraceKey(userId, importId))).toBe(true);
+
+    await activities.delete(userId, importId);
+
+    expect(ctx.storage.objects.has(sourceKey)).toBe(false);
+    expect(ctx.storage.objects.has(activityTraceKey(userId, importId))).toBe(false);
+    const [kept] = await sql<{ status: string; activity_id: string | null }>(
+      "select status, activity_id from activities.activity_import where id = $1",
+      [importId],
+    );
+    expect(kept).toEqual({ status: "imported", activity_id: null });
+    await waitFor(async () =>
+      ctx.realtimeMessages.find(
+        (message) =>
+          message.topics.includes(`user:${userId}`) &&
+          message.envelope.t === "activity.deleted" &&
+          message.envelope.data.activityId === importId,
+      ),
+    );
+
+    const againId = await startImport(file);
+    const again = await waitFor(async () => {
+      const row = await activities.getImport(userId, againId);
+      return row.status === "processing" ? undefined : row;
+    });
+    expect(again).toMatchObject({ status: "imported", activityId: againId });
   }, 30_000);
 
   it("fails an unreadable file without retrying it", async () => {
