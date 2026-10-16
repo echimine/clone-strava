@@ -39,19 +39,22 @@ We do not use the `@nestjs/platform-ws` adapter: handling the `upgrade` ourselve
 4. The gateway verifies **locally** the signature, algorithm, issuer, audience and expiration. No network call. Invalid token = `401` and connection refused.
 5. The token is only used for opening: the connection stays valid after it expires. **Each reconnection requests a new token.** A revoked session therefore cannot reconnect beyond 60 seconds.
 
+*Amended by [ADR-034](ADR-034-activity-engagement-and-live-detail.md)* (§5): a topic that is not in the token can be added on an open connection with a **subscription grant**: `POST /v1/realtime/grants { topic }` checks that the user may receive that topic and returns a 60 s HS256 JWT `{ sub, topic }` with audience `clone-strava-realtime-grant`, verified locally by the gateway like the token.
+
 Any connection that presents an `Origin` header (browser) is refused: the backoffice does not use realtime (ADR-001).
 
 ### 4. Topics and explicit subscription
 
 - The client subscribes after connecting: `{ "a": "sub", "topic": "user:123" }`.
-- The gateway only accepts topics **present in the token**; otherwise it responds `sub:err` (`forbidden`).
+- The gateway only accepts topics **present in the token**; otherwise it responds `sub:err` (`forbidden`). *Amended by [ADR-034](ADR-034-activity-engagement-and-live-detail.md)*: or a topic covered by a valid grant sent with the subscription (`{ "a": "sub", "topic": "activity:42", "grant": "…" }`), whose `sub` matches the connection's user.
 - MVP topics:
 
 | Topic | Recipient | Example events |
 |---|---|---|
-| `user:{userId}` | The user themselves, on all their devices | `activity.processed`, `activity.failed` (*amended by [ADR-030](ADR-030-itineraries-on-ios.md)*: also `itinerary.saved`, `itinerary.deleted`) |
+| `user:{userId}` | The user themselves, on all their devices | `activity.processed`, `activity.failed` (*amended by [ADR-030](ADR-030-itineraries-on-ios.md)*: also `itinerary.saved`, `itinerary.deleted`; *amended by [ADR-033](ADR-033-activity-detail-edit-delete.md)*: also `activity.updated`, `activity.deleted`) |
+| `activity:{activityId}` (*added by [ADR-034](ADR-034-activity-engagement-and-live-detail.md)*) | Anyone who can see the Activity, while its detail is open (grant) | `comment.created`, `comment.updated`, `comment.deleted`, `kudos.changed`, `activity.updated`, `activity.deleted` |
 
-- Later, other topics can be added (e.g. `activity:{id}` for live comments) without changing the architecture.
+- Later, other topics can be added (e.g. `activity:{id}` for live comments) without changing the architecture. *Amended by [ADR-034](ADR-034-activity-engagement-and-live-detail.md)*: `activity:{id}` is added, through subscription grants.
 
 ### 5. Protocol (versioned)
 
@@ -70,7 +73,7 @@ Any connection that presents an `Origin` header (browser) is refused: the backof
 
 | Direction | Messages |
 |---|---|
-| Client → server | `{a:"sub", topic}`, `{a:"unsub", topic}`, `{a:"ping"}` |
+| Client → server | `{a:"sub", topic}` (*amended by [ADR-034](ADR-034-activity-engagement-and-live-detail.md)*: optional `grant`), `{a:"unsub", topic}`, `{a:"ping"}` |
 | Server → client | `{a:"sub:ok", topic}`, `{a:"sub:err", topic, reason: "forbidden" \| "limit"}`, `{a:"pong"}` |
 
 **Close codes:**
@@ -161,5 +164,5 @@ This package is added to those listed in ADR-005.
 
 - **Details**: [ADR-003](ADR-003-backend.md)
 - **Amends**: [ADR-005](ADR-005-monorepo.md) (adds `packages/realtime`)
-- **Amended by**: [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md) (single realtime bridge in `api` and `worker`), [ADR-028](ADR-028-activity-import-from-file.md) (`activity_import.*` events), [ADR-030](ADR-030-itineraries-on-ios.md) (`itinerary.*` events)
+- **Amended by**: [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md) (single realtime bridge in `api` and `worker`), [ADR-028](ADR-028-activity-import-from-file.md) (`activity_import.*` events), [ADR-030](ADR-030-itineraries-on-ios.md) (`itinerary.*` events), [ADR-033](ADR-033-activity-detail-edit-delete.md) (`activity.updated`, `activity.deleted`), [ADR-034](ADR-034-activity-engagement-and-live-detail.md) (§3 subscription grants, §4 `activity:{id}` topic, §5 `sub` with `grant`, comment and kudos events)
 - **Related**: [ADR-001](ADR-001-global-architecture.md), [ADR-006](ADR-006-mobile-stack.md), [ADR-008](ADR-008-mobile-offline-sync.md), [ADR-009](ADR-009-backend-api.md), [ADR-011](ADR-011-backend-worker.md)
