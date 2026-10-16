@@ -40,10 +40,10 @@ final class ActivityEditor {
             )
         }
 
-        /// The sports the picker offers; an unknown current sport stays selectable.
+        /// The sports the picker offers: every active one (ADR-033 §4); an unknown current sport
+        /// stays selectable.
         var sports: [SportType] {
-            let known: [SportType] = [.run, .ride, .swim, .walk, .hike]
-            return known.contains(sport) ? known : known + [sport]
+            SportType.active.contains(sport) ? SportType.active : SportType.active + [sport]
         }
 
         private static func trimmed(_ text: String) -> String {
