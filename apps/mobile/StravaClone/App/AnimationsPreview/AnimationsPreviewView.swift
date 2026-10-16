@@ -88,20 +88,20 @@ private struct CelebrationPreview: View {
     let onClose: () -> Void
 
     @Namespace private var space
-    @State private var isCelebrating = true
+    @State private var phase = CelebrationPhase.playing
     @State private var replayCount = 0
 
     var body: some View {
         ZStack {
             VStack(spacing: 20) {
-                CelebrationMiniMap(trace: PreviewOuting.trace, namespace: space, isCelebrating: isCelebrating)
+                CelebrationMiniMap(trace: PreviewOuting.trace, namespace: space, isCelebrating: phase == .playing)
                 Text("La carte s'est rétractée à la place de la mini-carte de l'écran de fin.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                 Button("Rejouer") {
                     replayCount += 1
-                    isCelebrating = true
+                    phase = .playing
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(Theme.accent)
@@ -109,15 +109,11 @@ private struct CelebrationPreview: View {
                 Spacer()
             }
             .padding(Theme.spacing)
-            .opacity(isCelebrating ? 0 : 1)
-            .allowsHitTesting(!isCelebrating)
+            .opacity(phase == .playing ? 0 : 1)
+            .allowsHitTesting(phase != .playing)
 
-            if isCelebrating {
-                RecordingCelebration(stats: PreviewOuting.stats, namespace: space, onFinished: { skipped in
-                    withAnimation(CelebrationMiniMap.settleAnimation(skipped: skipped)) {
-                        isCelebrating = false
-                    }
-                }) { frame in
+            if phase != .over {
+                RecordingCelebration(stats: PreviewOuting.stats, namespace: space, phase: $phase) { frame in
                     if mode == .map {
                         CelebrationMapBackground(trace: PreviewOuting.trace, frame: frame)
                     } else {
@@ -125,6 +121,7 @@ private struct CelebrationPreview: View {
                     }
                 }
                 .id(replayCount)
+                .transition(.opacity)
                 .zIndex(1)
             }
         }

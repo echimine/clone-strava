@@ -15,7 +15,7 @@ struct RecordingFinishView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Namespace private var celebrationSpace
-    @State private var isCelebrating: Bool
+    @State private var celebration: CelebrationPhase
     @State private var confirmsDelete = false
     @State private var title = ""
     @State private var visibility = ActivityVisibility.public
@@ -25,11 +25,15 @@ struct RecordingFinishView: View {
         self.store = store
         self.snapshot = snapshot
         self.onSaved = onSaved
-        _isCelebrating = State(initialValue: CelebrationEligibility.allows(snapshot))
+        _celebration = State(initialValue: CelebrationEligibility.allows(snapshot) ? .playing : .over)
     }
 
     private var showsCelebration: Bool {
-        isCelebrating && !reduceMotion
+        celebration != .over && !reduceMotion
+    }
+
+    private var hidesForm: Bool {
+        celebration == .playing && !reduceMotion
     }
 
     private var canSave: Bool {
@@ -39,13 +43,14 @@ struct RecordingFinishView: View {
     var body: some View {
         ZStack {
             form
-                .opacity(showsCelebration ? 0 : 1)
-                .accessibilityHidden(showsCelebration)
-                .allowsHitTesting(!showsCelebration)
+                .opacity(hidesForm ? 0 : 1)
+                .accessibilityHidden(hidesForm)
+                .allowsHitTesting(!hidesForm)
             if showsCelebration {
-                RecordingCelebration(stats: snapshot.finalStats, namespace: celebrationSpace, onFinished: endCelebration) { frame in
+                RecordingCelebration(stats: snapshot.finalStats, namespace: celebrationSpace, phase: $celebration) { frame in
                     CelebrationMapBackground(trace: snapshot.trace, frame: frame)
                 }
+                .transition(.opacity)
                 .zIndex(1)
             }
         }
@@ -58,13 +63,6 @@ struct RecordingFinishView: View {
             Button("Supprimer", role: .destructive) { Task { await store.delete() } }
         } message: {
             Text(RecordingMessages.deleteMessage)
-        }
-    }
-
-    /// The trace shrinks into the mini-map's place while the form appears; a tap cuts it short.
-    private func endCelebration(skipped: Bool) {
-        withAnimation(CelebrationMiniMap.settleAnimation(skipped: skipped)) {
-            isCelebrating = false
         }
     }
 
@@ -98,7 +96,7 @@ struct RecordingFinishView: View {
             .pickerStyle(.segmented)
             .accessibilityIdentifier("recordingVisibilityPicker")
 
-            CelebrationMiniMap(trace: snapshot.trace, namespace: celebrationSpace, isCelebrating: showsCelebration)
+            CelebrationMiniMap(trace: snapshot.trace, namespace: celebrationSpace, isCelebrating: hidesForm)
 
             HStack(alignment: .top) {
                 ForEach(FinishStatsCountUp.items(snapshot.finalStats, progress: 1)) { item in

@@ -23,14 +23,6 @@ struct CelebrationMapBackground: View {
             if let route, mode != .noMap {
                 CelebrationMap(route: route, frame: frame, mode: mode, loading: $loading)
                     .opacity(mode.showsMap ? 1 : 0)
-                // The stats count up in white at the bottom: keep them readable over the map.
-                LinearGradient(
-                    colors: [.clear, .black.opacity(0.55)],
-                    startPoint: UnitPoint(x: 0.5, y: 0.55),
-                    endPoint: .bottom
-                )
-                .opacity(mode.showsMap ? 1 : 0)
-                .allowsHitTesting(false)
             }
         }
         .animation(.easeIn(duration: 0.25), value: mode)
@@ -47,7 +39,8 @@ struct CelebrationMapBackground: View {
 
 /// The Mapbox map itself: the trace drawn by a trim on a line-metrics source, the camera on
 /// the head of the simplified trace, then pulling back to frame the whole outing top-down,
-/// north up, as the finish screen's mini-map does, which it then shrinks into.
+/// north up, as the finish screen's mini-map does, which it then shrinks into: its framing,
+/// line and markers turn into the mini-map's as it shrinks (`CelebrationShrink`).
 private struct CelebrationMap: View {
     let route: CelebrationRoute
     let frame: CelebrationFrame
@@ -56,6 +49,8 @@ private struct CelebrationMap: View {
 
     @State private var viewport = Viewport.idle
     @State private var size = CGSize.zero
+    /// The map's height before it shrinks into the mini-map.
+    @State private var fullHeight: CGFloat = 0
 
     private static let traceID = "celebration-trace"
     private static let headID = "celebration-head"
@@ -68,6 +63,10 @@ private struct CelebrationMap: View {
         frame.milestone >= .traceDrawn
     }
 
+    private var shrink: CelebrationShrink {
+        CelebrationShrink(height: size.height, fullHeight: fullHeight)
+    }
+
     var body: some View {
         Map(viewport: $viewport) {
             // Elevation loads with the style unless the 2D map was chosen.
@@ -78,7 +77,7 @@ private struct CelebrationMap: View {
             Self.traceSource(route.trace.map(\.locationCoordinate))
             LineLayer(id: "celebration-trace-line", source: Self.traceID)
                 .lineColor(UIColor(Theme.accent))
-                .lineWidth(6)
+                .lineWidth(shrink.lineWidth)
                 .lineCap(.round)
                 .lineJoin(.round)
                 // The part [start, end] is hidden: the trace is drawn up to `traceProgress`.
@@ -91,6 +90,9 @@ private struct CelebrationMap: View {
                     .circleColor(UIColor.white)
                     .circleStrokeColor(UIColor(Theme.accent))
                     .circleStrokeWidth(3)
+            }
+            if shrink.progress > 0 {
+                RouteEndpointsContent(coordinates: route.trace.map(\.locationCoordinate), opacity: shrink.endpointsOpacity)
             }
         }
         .mapStyle(.outdoors)
@@ -117,12 +119,22 @@ private struct CelebrationMap: View {
         }
         // The celebration's tap (skip to the end) goes through the map.
         .allowsHitTesting(false)
-        .onGeometryChange(for: CGSize.self, of: \.size) { size = $0 }
+        .overlay {
+            // The stats count up in white at the bottom: keep them readable over the map. Gone
+            // with them by the mini-map's size.
+            LinearGradient(colors: [.clear, .black.opacity(0.55)], startPoint: UnitPoint(x: 0.5, y: 0.55), endPoint: .bottom)
+                .opacity(1 - shrink.progress)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: CelebrationMiniMap.cornerRadius * shrink.progress))
+        .onGeometryChange(for: CGSize.self, of: \.size) { newSize in
+            size = newSize
+            fullHeight = max(fullHeight, newSize.height)
+        }
         .onAppear { placeCamera() }
         .onChange(of: frame.traceProgress) { placeCamera() }
         .onChange(of: mode) { placeCamera() }
         .onChange(of: size) {
-            // Shrinking into the mini-map: keep the whole outing framed.
+            // Shrinking into the mini-map, one frame at a time: the framing follows the shrink.
             if framesWholeOuting { viewport = overview }
         }
         .onChange(of: frame.milestone) { _, milestone in
@@ -143,13 +155,9 @@ private struct CelebrationMap: View {
         )
     }
 
-    /// Top-down and north up: what the mini-map shows. Full screen, room is kept at the bottom
-    /// for the stats; at the mini-map's size, its own padding.
+    /// Top-down and north up: what the mini-map shows, with the shrink's padding.
     private var overview: Viewport {
-        let padding = size.height >= 400
-            ? EdgeInsets(top: size.height * 0.12, leading: 32, bottom: size.height * 0.24, trailing: 32)
-            : RecordingTraceMap.overviewPadding
-        return .overview(geometry: LineString(route.trace.map(\.locationCoordinate)), geometryPadding: padding)
+        .overview(geometry: LineString(route.trace.map(\.locationCoordinate)), geometryPadding: shrink.overviewPadding)
     }
 
     /// `line-trim-offset` needs the source's line metrics; there is no modifier for them.
