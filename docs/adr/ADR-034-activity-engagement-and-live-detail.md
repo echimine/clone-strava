@@ -40,7 +40,7 @@ All routes first check that the viewer can see the Activity (`getVisibleActivity
 |---|---|---|
 | `GET /v1/activities/:id/comments?before=&limit=` | anyone who sees the Activity | The newest page (default and max **50**) in **chronological order**; `before` is an opaque cursor on `(created_at, id)` to load older comments; `previousCursor: null` when there are none. Items: `id, body, createdAt, updatedAt, author {id, displayName, avatarUrl}, viewerCanEdit, viewerCanDelete` |
 | `GET /v1/activities/:id/comments/:commentId` | same | One comment, `404 comment_not_found` if unknown or deleted (used by the realtime handling of §5) |
-| `POST /v1/activities/:id/comments` `{ id, body }` | anyone who sees the Activity | `201` with the comment. Same id by the same author on the same Activity: `200` with the existing comment (replay). Id used by someone else or on another Activity: `409 comment_id_conflict` |
+| `POST /v1/activities/:id/comments` `{ id, body }` | anyone who sees the Activity | `201` with the comment. Same id by the same author on the same Activity: `200` with the existing comment (replay). Id used by someone else or on another Activity: `409 comment_id_conflict`. *Amended 2026-10-17 (review of #88/#89)*: replaying the id of a comment its author has since deleted is also `409 comment_id_conflict` (the deleted comment is never returned, §2) |
 | `PATCH /v1/activities/:id/comments/:commentId` `{ body }` | the comment's author only (`403 not_comment_author`) | `200` with the comment, `updated_at` set. No time limit |
 | `DELETE /v1/activities/:id/comments/:commentId` | the comment's author **or** the Activity's author (`403` otherwise) | Soft delete, `204`; already deleted: `204` (idempotent) |
 
