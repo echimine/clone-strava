@@ -62,9 +62,11 @@ struct RealtimeActivityLiveEventSourceTests {
         detail.cancel()
     }
 
-    /// The connection also carries the `user:` topic: only this Activity's events reach the
-    /// detail, whatever the case of the ids.
-    @Test func translatesThisActivitysEventsOnly() async {
+    /// The connection also carries the `user:` topic: only this Activity's comment and kudos
+    /// events reach the live updates, whatever the case of the ids. `activity.updated` /
+    /// `activity.deleted` are the detail store's own (`ActivityEventSource`, ADR-033 §8): this
+    /// subscription only brings them onto the connection.
+    @Test func translatesThisActivitysCommentAndKudosEventsOnly() async {
         let channel = FakeRealtimeChannel()
         let source = RealtimeActivityLiveEventSource(channel: channel, grant: FakeRealtimeGrants().grant)
         let received = Locked<[ActivityLiveEvent]>([])
@@ -77,22 +79,39 @@ struct RealtimeActivityLiveEventSourceTests {
         channel.push(type: "comment.created", data: ["activityId": mine, "commentId": "0b5a5c1e-1f4e-4c55-9d6e-0d3f8f6e2a11"])
         channel.push(type: "comment.created", data: ["activityId": other, "commentId": "0b5a5c1e-1f4e-4c55-9d6e-0d3f8f6e2a11"])
         channel.push(type: "comment.updated", data: ["activityId": mine, "commentId": "0b5a5c1e-1f4e-4c55-9d6e-0d3f8f6e2a11"])
+        channel.push(type: "activity.updated", data: ["activityId": mine])
         channel.push(type: "comment.deleted", data: ["activityId": mine, "commentId": "0b5a5c1e-1f4e-4c55-9d6e-0d3f8f6e2a11"])
-        channel.push(type: "kudos.changed", data: ["activityId": mine])
-        channel.push(type: "activity.updated", data: ["activityId": other])
         channel.push(type: "activity.processed", data: ["activityId": mine, "status": "processed"])
-        channel.push(type: "activity.updated", data: ["activityId": mine.uppercased()])
-        channel.push(type: "activity.deleted", data: ["activityId": mine])
+        channel.push(type: "kudos.changed", data: ["activityId": other])
+        channel.push(type: "kudos.changed", data: ["activityId": mine.uppercased()])
 
-        #expect(await eventually { received.value.count == 6 })
+        #expect(await eventually { received.value.count == 4 })
         #expect(received.value == [
             .commentCreated(comment),
             .commentUpdated(comment),
             .commentDeleted(comment),
             .kudosChanged,
-            .activityUpdated,
-            .activityDeleted,
         ])
+        detail.cancel()
+    }
+
+    /// `activity.deleted` (ADR-034 §5): the store shows the unavailable state, the
+    /// subscription ends.
+    @Test func unsubscribesOnceTheActivityIsDeleted() async {
+        let channel = FakeRealtimeChannel()
+        let source = RealtimeActivityLiveEventSource(channel: channel, grant: FakeRealtimeGrants().grant)
+        let ended = Locked(false)
+        let detail = Task {
+            for await _ in source.events(of: id) {}
+            ended.value = true
+        }
+        #expect(await eventually { channel.sent == [sub("grant-1")] })
+
+        channel.push(type: "activity.deleted", data: ["activityId": "1c6b6d2f-2a5f-4d66-8e7f-1e4a9a7f3b22"])
+        channel.push(type: "activity.deleted", data: ["activityId": "7c9e6679-7425-40de-944b-e07fc1f90ae7"])
+
+        #expect(await eventually { ended.value })
+        #expect(await eventually { channel.sent == [sub("grant-1"), unsub] })
         detail.cancel()
     }
 }

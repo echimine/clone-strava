@@ -1,8 +1,9 @@
 import Foundation
 
 /// The detail kept live (ADR-034 §5): while `run()` runs (the page's `.task`, so while the
-/// detail is shown), the Activity's realtime events reach its stores. Ending `run()` ends the
-/// subscription.
+/// detail is shown), the Activity's comment and kudos events reach its stores. Ending `run()`
+/// ends the subscription. `activity.updated` / `activity.deleted` are the detail store's own
+/// (`observeEvents()`), which this subscription feeds for viewers other than the author.
 @MainActor
 struct ActivityLiveUpdates {
     let events: any ActivityLiveEventSource
@@ -27,13 +28,9 @@ struct ActivityLiveUpdates {
                 await comments.refresh(id)
             case .commentDeleted(let id):
                 comments.remove(id)
-            case .kudosChanged, .activityUpdated:
-                // The reload brings the engagement and the kudos row; a `404` (made private)
-                // shows the unavailable state.
+            case .kudosChanged:
+                // The reload brings the count, `viewerHasKudoed` and the kudos row.
                 await detail.load()
-            case .activityDeleted:
-                detail.activityWasDeleted()
-                return // ends the subscription
             }
         }
     }

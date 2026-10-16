@@ -165,7 +165,7 @@ struct ActivityLiveUpdatesTests {
         screen.live.cancel()
     }
 
-    // MARK: Kudos and the Activity
+    // MARK: Kudos
 
     /// Someone gave kudos: the count, `viewerHasKudoed` and the givers' row are read again.
     @Test func kudosGivenElsewhereReloadTheEngagementAndTheRow() async {
@@ -185,36 +185,6 @@ struct ActivityLiveUpdatesTests {
 
         #expect(await eventually { screen.detail.detail?.engagement.kudosCount == 1 })
         #expect(await eventually { screen.detail.recentKudos == giver })
-        screen.live.cancel()
-    }
-
-    @Test func anEditedActivityIsReloadedAndOneMadePrivateBecomesUnavailable() async {
-        let activity = ActivityDetail.fixture(title: "Sortie du matin")
-        let renamed = ActivityDetail.fixture(id: activity.id, title: "Tour du lac")
-        let screen = await openScreen(
-            FakeActivityDetailRepository(.success(activity), .success(renamed), .failure(.notFound)),
-            id: activity.id
-        )
-
-        screen.source.send(.activityUpdated)
-        #expect(await eventually { screen.detail.detail?.title == "Tour du lac" })
-
-        screen.source.send(.activityUpdated)
-        #expect(await eventually { screen.detail.phase == .unavailable })
-        screen.live.cancel()
-    }
-
-    /// Deleted by its author: unavailable at once, and the subscription ends.
-    @Test func aDeletedActivityBecomesUnavailableThenUnsubscribes() async {
-        let activity = ActivityDetail.fixture()
-        let details = FakeActivityDetailRepository(.success(activity))
-        let screen = await openScreen(details, id: activity.id)
-
-        screen.source.send(.activityDeleted)
-
-        #expect(await eventually { screen.detail.phase == .unavailable })
-        #expect(await eventually { screen.source.subscribedIds.isEmpty })
-        #expect(details.requestedIds == [activity.id])
         screen.live.cancel()
     }
 }

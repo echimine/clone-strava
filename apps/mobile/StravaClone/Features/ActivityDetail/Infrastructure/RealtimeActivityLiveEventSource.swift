@@ -2,6 +2,10 @@ import Foundation
 
 /// `ActivityLiveEventSource` on the shared realtime connection (ADR-034 §5): the token only
 /// covers `user:{id}`, so the detail asks a grant for `activity:{id}` and sends `sub` with it.
+///
+/// The subscription also brings `activity.updated` / `activity.deleted` onto the connection:
+/// the detail store already follows them (`ActivityEventSource`, ADR-033 §8), so they are not
+/// repeated here; a deletion only ends the subscription.
 struct RealtimeActivityLiveEventSource: ActivityLiveEventSource {
     typealias Grant = @Sendable (_ topic: String) async throws -> String
 
@@ -22,7 +26,12 @@ struct RealtimeActivityLiveEventSource: ActivityLiveEventSource {
                 await withTaskGroup(of: Void.self) { group in
                     group.addTask {
                         for await event in events {
-                            if let event = Self.liveEvent(event, of: activityId) {
+                            guard let payload = Self.payload(of: event, about: activityId) else { continue }
+                            if event.type == "activity.deleted" {
+                                continuation.finish() // unsubscribes
+                                return
+                            }
+                            if let event = Self.liveEvent(event.type, payload) {
                                 continuation.yield(event)
                             }
                         }
@@ -58,17 +67,19 @@ struct RealtimeActivityLiveEventSource: ActivityLiveEventSource {
     /// The connection also carries `user:{id}` (other Activities of the viewer, imports…): only
     /// this Activity's events count. The author gets `activity.*` on both topics with the same
     /// envelope id: `WebSocketClient` already drops the copy.
-    private static func liveEvent(_ event: RealtimeEvent, of activityId: ActivityID) -> ActivityLiveEvent? {
+    private static func payload(of event: RealtimeEvent, about activityId: ActivityID) -> Payload? {
         guard let payload = event.payload(as: Payload.self),
               UUID(uuidString: payload.activityId) == activityId.rawValue else { return nil }
+        return payload
+    }
+
+    private static func liveEvent(_ type: String, _ payload: Payload) -> ActivityLiveEvent? {
         let commentId = payload.commentId.flatMap(UUID.init(uuidString:))
-        switch (event.type, commentId) {
+        switch (type, commentId) {
         case ("comment.created", let id?): return .commentCreated(id)
         case ("comment.updated", let id?): return .commentUpdated(id)
         case ("comment.deleted", let id?): return .commentDeleted(id)
         case ("kudos.changed", _): return .kudosChanged
-        case ("activity.updated", _): return .activityUpdated
-        case ("activity.deleted", _): return .activityDeleted
         default: return nil
         }
     }
