@@ -1,0 +1,1 @@
+CREATE INDEX "kudos_activity_created_at_idx" ON "engagement"."kudos" USING btree ("activity_id","created_at" DESC NULLS LAST,"user_id" DESC NULLS LAST);

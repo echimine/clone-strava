@@ -15,16 +15,34 @@ final class ActivityDetailStore {
         case unavailable
     }
 
+    /// How many givers the kudos row shows (ADR-034 §1).
+    static let recentKudosLimit = 5
+
     let id: ActivityID
     private(set) var phase: Phase = .loading
+    /// The most recent kudos givers, for the kudos row (at most `recentKudosLimit`).
+    private(set) var recentKudos: [KudosGiver] = []
+    /// Short-lived error shown over the detail (a kudos that could not be sent).
+    var kudosNotice: String?
 
     @ObservationIgnored private let loadDetail: LoadActivityDetail
+    @ObservationIgnored private let loadKudos: LoadKudosList
+    @ObservationIgnored private let setKudos: SetActivityKudos
     @ObservationIgnored private let changes: ActivityChanges
+    @ObservationIgnored private var kudosInFlight = false
 
     /// - Parameter changes: where the detail publishes what changed, for the feed (ADR-033 §7).
-    init(id: ActivityID, loadDetail: LoadActivityDetail, changes: ActivityChanges) {
+    init(
+        id: ActivityID,
+        loadDetail: LoadActivityDetail,
+        loadKudos: LoadKudosList,
+        setKudos: SetActivityKudos,
+        changes: ActivityChanges
+    ) {
         self.id = id
         self.loadDetail = loadDetail
+        self.loadKudos = loadKudos
+        self.setKudos = setKudos
         self.changes = changes
     }
 
@@ -33,9 +51,10 @@ final class ActivityDetailStore {
         return detail
     }
 
-    /// First appearance, and any reload (e.g. a realtime `activity.updated`). What it learns
-    /// reaches the feed: the fresh card, or that the Activity is gone.
+    /// First appearance, and any reload (e.g. a realtime `activity.updated` or `kudos.changed`).
+    /// What it learns reaches the feed: the fresh card, or that the Activity is gone.
     func load() async {
+        async let recent = recentKudosPage()
         do {
             let detail = try await loadDetail(id)
             phase = .loaded(detail)
@@ -44,22 +63,75 @@ final class ActivityDetailStore {
             phase = .unavailable
             changes.publish(.deleted(id))
         } catch {
-            guard detail == nil else { return }
-            phase = .failed(message: ActivityDetailMessages.message(for: error))
+            if detail == nil {
+                phase = .failed(message: ActivityDetailMessages.message(for: error))
+            }
+        }
+        if let givers = await recent {
+            recentKudos = givers
         }
     }
 
     /// A comment gained or lost on the thread (ADR-034 §6): the count reaches the feed card.
     func commentCountChanged(by delta: Int) {
-        guard case .loaded(var detail) = phase else { return }
-        detail.engagement.commentCount = max(0, detail.engagement.commentCount + delta)
-        phase = .loaded(detail)
-        changes.publish(.engagement(id, detail.engagement))
+        setEngagement { $0.commentCount = max(0, $0.commentCount + delta) }
     }
 
     /// "Réessayer" after an error.
     func retry() async {
         phase = .loading
         await load()
+    }
+
+    // MARK: Kudos (ADR-034 §1)
+
+    /// The viewer cannot give kudos to their own Activity: the button is hidden there.
+    var showsKudosButton: Bool {
+        detail.map { !$0.viewerIsAuthor } ?? false
+    }
+
+    /// Optimistic, like `FeedStore.toggleKudos`: the count changes at once, then takes the
+    /// server's answer, or rolls back with a notice. Each step reaches the feed card. Taps while
+    /// a request is in flight are ignored.
+    func toggleKudos() async {
+        guard !kudosInFlight, let current = detail, !current.viewerIsAuthor else { return }
+        let previous = current.engagement
+        let optimistic = previous.togglingKudos()
+        setEngagement { $0 = optimistic }
+        kudosInFlight = true
+        defer { kudosInFlight = false }
+
+        do {
+            let state = try await setKudos(optimistic.viewerHasKudoed, activityId: id)
+            setEngagement {
+                $0.kudosCount = state.kudosCount
+                $0.viewerHasKudoed = state.viewerHasKudoed
+            }
+            if let givers = await recentKudosPage() {
+                recentKudos = givers
+            }
+        } catch {
+            setEngagement { $0 = previous }
+            kudosNotice = ActivityDetailMessages.kudosFailed(error)
+        }
+    }
+
+    /// The sheet listing every giver, opened from the kudos row.
+    func makeKudosListStore() -> KudosListStore {
+        KudosListStore(activityId: id, loadKudos: loadKudos)
+    }
+
+    /// Nil when the row could not be loaded: what is shown stays.
+    private func recentKudosPage() async -> [KudosGiver]? {
+        let page = try? await loadKudos(id, limit: Self.recentKudosLimit)
+        return page.map { Array($0.givers.prefix(Self.recentKudosLimit)) }
+    }
+
+    /// Changes the loaded detail's counts and tells the feed (ADR-033 §7).
+    private func setEngagement(_ change: (inout ActivityEngagement) -> Void) {
+        guard var detail else { return }
+        change(&detail.engagement)
+        phase = .loaded(detail)
+        changes.publish(.engagement(id, detail.engagement))
     }
 }

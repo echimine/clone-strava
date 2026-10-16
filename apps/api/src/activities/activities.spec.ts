@@ -29,6 +29,7 @@ import { ensureTestDatabaseMigrated, TEST_DATABASE_URL, TEST_REDIS_URL } from ".
 import { SessionGuard } from "../auth/session.guard.js";
 import { GlobalExceptionFilter } from "../common/global-exception.filter.js";
 import { FeedAssembler } from "../feed/feed-assembler.js";
+import { AthleteIdentities } from "../identities/athlete-identities.js";
 import { ActivitiesController } from "./activities.controller.js";
 
 /** In-memory bucket: S3 is the only third-party service faked here (ADR-024 §2). */
@@ -160,6 +161,7 @@ describe("/v1/activities (integration)", () => {
       providers: [
         SessionGuard,
         FeedAssembler,
+        AthleteIdentities,
         {
           provide: AuthService,
           useValue: {

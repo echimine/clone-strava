@@ -72,6 +72,7 @@ final class Di {
     private let importRepository: APIActivityImportRepository
     private let feedRepository: APIFeedRepository
     private let activityDetailRepository: APIActivityDetailRepository
+    private let activityKudosRepository: APIActivityKudosRepository
     private let itineraryRouter: MapboxDirectionsRouter
     private let itineraryRepository: APIItineraryRepository
     private let itineraryCache: GRDBItineraryCache
@@ -109,6 +110,7 @@ final class Di {
         importRepository = APIActivityImportRepository(apiClient: apiClient)
         feedRepository = APIFeedRepository(apiClient: apiClient)
         activityDetailRepository = APIActivityDetailRepository(apiClient: apiClient)
+        activityKudosRepository = APIActivityKudosRepository(apiClient: apiClient)
         itineraryRouter = MapboxDirectionsRouter(accessToken: configuration.mapboxItinerariesToken)
         itineraryRepository = APIItineraryRepository(apiClient: apiClient)
         itineraryCache = GRDBItineraryCache(database: database)
@@ -219,6 +221,8 @@ final class Di {
         ActivityDetailStore(
             id: id,
             loadDetail: LoadActivityDetail(repository: activityDetailRepository),
+            loadKudos: LoadKudosList(repository: activityKudosRepository),
+            setKudos: SetActivityKudos(repository: activityKudosRepository),
             changes: activityChanges
         )
     }

@@ -26,6 +26,7 @@ struct ActivityDetailPage: View {
             .navigationTitle(store.detail.map { ActivityFormatters.sportLabel($0.sport) } ?? "")
             .navigationBarTitleDisplayMode(.inline)
             .task { await store.load() }
+            .toast($store.kudosNotice)
             .toast($comments.toast)
             .accessibilityIdentifier("activityDetail")
     }
@@ -53,11 +54,15 @@ struct ActivityDetailPage: View {
             }
         case .loaded(let detail):
             ScrollViewReader { proxy in
-                ActivityDetailContent(detail: detail, comments: comments)
-                    .scrollDismissesKeyboard(.interactively)
-                    .safeAreaInset(edge: .bottom, spacing: 0) { ActivityCommentComposer(store: comments) }
-                    .onChange(of: comments.isComposerFocused, initial: true) { scrollToComments(proxy) }
-                    .onChange(of: comments.comments.count) { scrollToComments(proxy) }
+                ActivityDetailContent(detail: detail) {
+                    ActivityKudosSection(store: store, engagement: detail.engagement)
+                    ActivityCommentsSection(store: comments)
+                    Color.clear.frame(height: 1).id(ActivityCommentsSection.endAnchor)
+                }
+                .scrollDismissesKeyboard(.interactively)
+                .safeAreaInset(edge: .bottom, spacing: 0) { ActivityCommentComposer(store: comments) }
+                .onChange(of: comments.isComposerFocused, initial: true) { scrollToComments(proxy) }
+                .onChange(of: comments.comments.count) { scrollToComments(proxy) }
             }
         }
     }
@@ -70,10 +75,11 @@ struct ActivityDetailPage: View {
     }
 }
 
-/// The loaded Activity: map, header, title and description, stats grid, then the comments.
-struct ActivityDetailContent: View {
+/// The loaded Activity: map, header, title and description, stats grid, then the engagement
+/// blocks under the stats (ADR-034 §6).
+struct ActivityDetailContent<Engagement: View>: View {
     let detail: ActivityDetail
-    var comments: ActivityCommentsStore?
+    @ViewBuilder let engagement: () -> Engagement
 
     private let columns = [GridItem(.flexible(), alignment: .leading), GridItem(.flexible(), alignment: .leading)]
 
@@ -98,10 +104,7 @@ struct ActivityDetailContent: View {
                     if let stats = detail.stats {
                         statsGrid(ActivityStatItem.items(for: stats, sport: detail.sport))
                     }
-                    if let comments {
-                        ActivityCommentsSection(store: comments)
-                        Color.clear.frame(height: 1).id(ActivityCommentsSection.endAnchor)
-                    }
+                    engagement()
                 }
                 .padding(.horizontal, Theme.spacing)
             }
@@ -162,6 +165,20 @@ private struct PreviewActivityDetailRepository: ActivityDetailRepository {
     }
 }
 
+private struct PreviewActivityKudosRepository: ActivityKudosRepository {
+    func kudos(activityId: ActivityID, cursor: String?, limit: Int) async throws(ActivityDetailError) -> KudosPage {
+        let names = ["Léo Bernard", "Inès Petit", "Hugo Moreau", "Chloé Laurent", "Lucas Simon", "Emma Roux"]
+        let givers = names.enumerated().map { index, name in
+            KudosGiver(athlete: ActivityAuthor(id: "\(index)", displayName: name, avatarURL: nil), givenAt: .now)
+        }
+        return KudosPage(givers: Array(givers.prefix(limit)), nextCursor: nil)
+    }
+
+    func setKudos(_ given: Bool, activityId: ActivityID) async throws(ActivityDetailError) -> KudosState {
+        KudosState(kudosCount: given ? 7 : 6, viewerHasKudoed: given)
+    }
+}
+
 #Preview {
     NavigationStack {
         ActivityDetailPage(
@@ -170,6 +187,8 @@ private struct PreviewActivityDetailRepository: ActivityDetailRepository {
                 ActivityDetailStore(
                     id: id,
                     loadDetail: LoadActivityDetail(repository: PreviewActivityDetailRepository()),
+                    loadKudos: LoadKudosList(repository: PreviewActivityKudosRepository()),
+                    setKudos: SetActivityKudos(repository: PreviewActivityKudosRepository()),
                     changes: ActivityChanges()
                 )
             },
