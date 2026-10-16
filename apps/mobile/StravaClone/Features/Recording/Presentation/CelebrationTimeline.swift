@@ -16,17 +16,17 @@ struct CelebrationFrame: Equatable, Sendable {
     let milestone: CelebrationMilestone
 }
 
-/// The celebration's timing (ADR-032 §5): about 3 s, fixed whatever the distance. The trace
+/// The celebration's timing (ADR-032 §5): 10 s, fixed whatever the distance. The trace
 /// draws, the stats count up from a little after the start, a haptic marks the end of each, then
 /// the trace shrinks into the mini-map's place and the form appears at `duration`.
 /// Pure: the background (the Mapbox map, or the no-map sketch) reads `traceProgress`.
 enum CelebrationTimeline {
-    static let traceDrawnAt: TimeInterval = 1.5
-    static let countStartsAt: TimeInterval = 0.4
-    static let countedAt: TimeInterval = 2.3
+    static let traceDrawnAt: TimeInterval = 6.5
+    static let countStartsAt: TimeInterval = 0.7
+    static let countedAt: TimeInterval = 7.3
     /// The form appears; the shrink into the mini-map runs during `settleDuration` before it.
-    static let duration: TimeInterval = 3.0
-    static let settleDuration: TimeInterval = 0.5
+    static let duration: TimeInterval = 10
+    static let settleDuration: TimeInterval = 0.8
     static var settlesAt: TimeInterval { duration - settleDuration }
 
     /// `elapsed` is the time since the celebration appeared.

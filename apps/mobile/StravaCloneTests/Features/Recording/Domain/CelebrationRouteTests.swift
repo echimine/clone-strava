@@ -78,7 +78,7 @@ struct CelebrationRouteTests {
         #expect(CelebrationRoute(trace: [corner[0]]).followZoom == CelebrationRoute.followZooms.upperBound)
     }
 
-    /// ADR-032 §5, #83: a 52 km ride plays in the same ~3 s as a 1.8 km run: at the moment the
+    /// ADR-032 §5, #83: a 52 km ride plays in the same 10 s as a 1.8 km run: at the moment the
     /// timeline marks the trace drawn, both heads are on their finish.
     @Test func aLongOutingIsDrawnInTheSameTimeAsAShortOne() throws {
         let drawn = CelebrationTimeline.frame(at: CelebrationTimeline.traceDrawnAt).traceProgress

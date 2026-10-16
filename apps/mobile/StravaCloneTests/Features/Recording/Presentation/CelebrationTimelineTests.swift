@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import StravaClone
 
-/// ADR-032 §5: about 3 s, fixed whatever the distance. The trace draws, the stats count up,
+/// ADR-032 §5: 10 s, fixed whatever the distance. The trace draws, the stats count up,
 /// a haptic at the end of the draw then at the end of the count, then the form appears.
 struct CelebrationTimelineTests {
     @Test func atTheStartNothingIsDrawnNorCounted() {
@@ -37,8 +37,10 @@ struct CelebrationTimelineTests {
         #expect(abs(CelebrationTimeline.frame(at: middle).countProgress - 0.875) < 1e-9)
     }
 
-    @Test func theSequenceLastsAboutThreeSecondsThenTheFormAppears() {
-        #expect(CelebrationTimeline.duration >= 2.5 && CelebrationTimeline.duration <= 3.5)
+    /// Decided on an iPhone: 3 s went by too fast, the trace has time to be followed.
+    @Test func theSequenceLastsTenSecondsThenTheFormAppears() {
+        #expect(CelebrationTimeline.duration == 10)
+        #expect(CelebrationTimeline.traceDrawnAt >= 6)
         #expect(CelebrationTimeline.traceDrawnAt < CelebrationTimeline.countedAt)
         #expect(CelebrationTimeline.countedAt < CelebrationTimeline.duration)
 
