@@ -6,6 +6,7 @@ import {
   clearRateLimitCounters,
   ensureTestDatabaseMigrated,
   TEST_DATABASE_URL,
+  TEST_EMAIL_LOGO_URL,
   type TestAuthApp,
 } from "./test-auth-app.js";
 
@@ -79,6 +80,8 @@ describe("Better Auth email sign-up/sign-in (ADR-022)", () => {
       // rendered HTML and calling the real `GET /api/auth/verify-email`
       // endpoint end-to-end.
       const sentHtml = sendAuthEmailSpy.mock.calls[0]?.[0]?.html;
+      // ADR-032 §2: the header wordmark loads from the configured public URL.
+      expect(sentHtml).toContain(`src="${TEST_EMAIL_LOGO_URL}"`);
       const urlMatch = /href="([^"]*\/verify-email\?[^"]+)"/.exec(sentHtml ?? "");
       expect(urlMatch).not.toBeNull();
       const verifyUrl = new URL(urlMatch?.[1]?.replace(/&amp;/g, "&") ?? "");

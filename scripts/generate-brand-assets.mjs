@@ -10,6 +10,7 @@ import sharp from "sharp";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const brand = join(root, "packages/ui/src/brand");
 const appIcon = join(root, "apps/mobile/StravaClone/Assets.xcassets/AppIcon.appiconset");
+const admin = join(root, "apps/admin");
 
 const ORANGE = "#FC5200"; // Theme.accent
 const DARK = "#121212";
@@ -26,10 +27,12 @@ const targets = [
   { out: join(appIcon, "AppIcon-light.png"), svg: "nervo-symbol.svg", size: 1024, ground: ORANGE, mark: WHITE },
   { out: join(appIcon, "AppIcon-dark.png"), svg: "nervo-symbol.svg", size: 1024, ground: DARK, mark: ORANGE },
   { out: join(appIcon, "AppIcon-tinted.png"), svg: "nervo-symbol.svg", size: 1024, ground: TINTED_GROUND, mark: TINTED_MARK },
-  // Admin favicon (#80): white symbol on an orange rounded tile.
-  { out: join(brand, "png/nervo-favicon.png"), svg: "nervo-symbol.svg", size: 64, ground: ORANGE, mark: WHITE, radius: tileRadius(64) },
+  // Admin favicon (#80): white symbol on an orange rounded tile, served through Next's
+  // `app/icon.png` convention. The orange tile reads on light and dark tabs alike.
+  { out: join(admin, "src/app/icon.png"), svg: "nervo-symbol.svg", size: 64, ground: ORANGE, mark: WHITE, radius: tileRadius(64) },
   // Email header (#80): white wordmark on orange, 2x for retina; email clients do not render SVG.
-  { out: join(brand, "png/nervo-wordmark-email.png"), svg: "nervo-wordmark.svg", width: 558, ground: ORANGE, mark: WHITE },
+  // Hosted by the admin at /brand/nervo-wordmark-email.png, which the login proxy lets through.
+  { out: join(admin, "public/brand/nervo-wordmark-email.png"), svg: "nervo-wordmark.svg", width: 558, ground: ORANGE, mark: WHITE },
 ];
 
 /** The master's root `viewBox` as [x, y, width, height]. */

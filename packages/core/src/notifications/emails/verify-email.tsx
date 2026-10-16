@@ -1,53 +1,30 @@
-import {
-  Body,
-  Button,
-  Container,
-  Head,
-  Heading,
-  Html,
-  Preview,
-  Text,
-} from "@react-email/components";
+import { Heading, Text } from "@react-email/components";
 import { render } from "@react-email/render";
+import { EmailButton, EmailLayout, PREVIEW_LOGO_URL } from "./email-layout.js";
 
 export interface VerifyEmailProps {
   url: string;
+  /** Absolute URL of the header wordmark PNG (ADR-032 §2). */
+  logoUrl: string;
 }
 
 /** Signup verification email (ADR-023). */
-export function VerifyEmail({ url }: VerifyEmailProps) {
+export function VerifyEmail({ url, logoUrl }: VerifyEmailProps) {
   return (
-    <Html lang="en">
-      <Head />
-      <Preview>Verify your Nervo account</Preview>
-      <Body style={{ fontFamily: "sans-serif", backgroundColor: "#f6f6f6" }}>
-        <Container style={{ backgroundColor: "#ffffff", padding: "32px", borderRadius: "8px" }}>
-          <Heading as="h1">Nervo</Heading>
-          <Text>Confirm your email address to finish creating your account.</Text>
-          <Button
-            href={url}
-            style={{
-              backgroundColor: "#fc4c02",
-              color: "#ffffff",
-              padding: "12px 20px",
-              borderRadius: "4px",
-              textDecoration: "none",
-              boxSizing: "border-box",
-            }}
-          >
-            Verify email
-          </Button>
-          <Text style={{ color: "#666666", fontSize: "12px" }}>
-            If you didn't create this account, you can ignore this email.
-          </Text>
-        </Container>
-      </Body>
-    </Html>
+    <EmailLayout preview="Verify your Nervo account" logoUrl={logoUrl}>
+      <Heading as="h1">Nervo</Heading>
+      <Text>Confirm your email address to finish creating your account.</Text>
+      <EmailButton href={url}>Verify email</EmailButton>
+      <Text style={{ color: "#666666", fontSize: "12px" }}>
+        If you didn't create this account, you can ignore this email.
+      </Text>
+    </EmailLayout>
   );
 }
 
 VerifyEmail.PreviewProps = {
   url: "https://api.strava.echimine.fr/api/auth/verify-email?token=preview",
+  logoUrl: PREVIEW_LOGO_URL,
 } satisfies VerifyEmailProps;
 
 export async function renderVerifyEmail(props: VerifyEmailProps): Promise<string> {
