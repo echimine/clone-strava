@@ -37,7 +37,7 @@ The decisions below were made in a grilling session. The logo and the splash wer
 
 ### 3. Motion stack: native SwiftUI, no animation library
 
-- Splash and celebration use SwiftUI only: `Shape.trim`, `KeyframeAnimator` and `PhaseAnimator` (iOS 17), `.sensoryFeedback`. For the map, the Mapbox Maps SDK v11 already in the app handles the camera (viewport animations) and the trace line.
+- Splash and celebration use SwiftUI only: `Shape.trim`, `KeyframeAnimator` and `PhaseAnimator` (iOS 17), `.sensoryFeedback`. For the map, the Mapbox Maps SDK v11 already in the app handles the camera (viewport animations) and the trace line. *Amended (spec #76 implementation)*: the splash uses none of these animation APIs. A SwiftUI `Canvas` draws each frame (the N's path cut with `trimmedPath`, the N-shaped window erased with the `.destinationOut` blend mode), driven by a `CADisplayLink` clock. A pure timeline turns the time on screen into a frame, so the sequence is unit-tested, and the clock counts the frames actually shown, so a busy main thread at launch pauses the draw instead of skipping it.
 - **Lottie and Rive are rejected**: they add a dependency and need an After Effects or Rive source file that nobody produces. The celebration must draw the athlete's real trace on the real map, which neither library can do. **Revisit** if a motion designer joins and delivers source files.
 
 ### 4. Animated splash: "dive into the N"
@@ -112,5 +112,5 @@ Exporting the celebration as a video or story, replaying it, sound, personal rec
 
 ## Links
 
-- **Amends**: [ADR-031](ADR-031-live-recording-on-ios.md) (§11 the finish screen opens with the celebration)
-- **Related**: [ADR-006](ADR-006-mobile-stack.md), [ADR-007](ADR-007-mobile-architecture.md), [ADR-023](ADR-023-transactional-email-resend.md), [ADR-030](ADR-030-itineraries-on-ios.md)
+- **Amends**: [ADR-022](ADR-022-authentication-better-auth.md) (§1 the TOTP issuer becomes Nervo), [ADR-023](ADR-023-transactional-email-resend.md) (§1 the sender name becomes Nervo), [ADR-031](ADR-031-live-recording-on-ios.md) (§11 the finish screen opens with the celebration)
+- **Related**: [ADR-006](ADR-006-mobile-stack.md), [ADR-007](ADR-007-mobile-architecture.md), [ADR-030](ADR-030-itineraries-on-ios.md)
