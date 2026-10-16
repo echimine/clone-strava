@@ -25,7 +25,7 @@ export function applyGlobalPrefix(app: INestApplication): void {
  */
 export function createOpenApiDocument(app: INestApplication): OpenAPIObject {
   const config = new DocumentBuilder()
-    .setTitle("Clone Strava API")
+    .setTitle("Nervo API")
     .setDescription("REST API for the mobile app and the backoffice (ADR-009).")
     .setVersion("1")
     // 3.1: nullable fields (`z.nullable()`) are `anyOf [..., null]`, which swift-openapi-generator reads (ADR-029).

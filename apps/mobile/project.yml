@@ -74,7 +74,7 @@ targets:
     info:
       path: StravaClone/Info.plist
       properties:
-        CFBundleDisplayName: StravaClone
+        CFBundleDisplayName: Nervo
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}
@@ -83,19 +83,19 @@ targets:
         # `fetch` + the permitted identifier: the BGAppRefreshTask that empties the sync queue (ADR-031 §14).
         UIBackgroundModes: [location, fetch]
         BGTaskSchedulerPermittedIdentifiers: [fr.echimine.stravaclone.sync-queue]
-        NSLocationWhenInUseUsageDescription: "StravaClone utilise votre position pour l'afficher sur la carte et enregistrer le tracé de vos activités, y compris écran verrouillé."
+        NSLocationWhenInUseUsageDescription: "Nervo utilise votre position pour l'afficher sur la carte et enregistrer le tracé de vos activités, y compris écran verrouillé."
         # Temporary full accuracy asked at Start when only the approximate location is allowed (ADR-031 §2).
         NSLocationTemporaryUsageDescriptionDictionary:
           Recording: "La position précise est nécessaire pour mesurer la distance de votre activité."
         # Core Motion for the automatic Pause of a run, asked when the switch is turned on (ADR-031 §4).
-        NSMotionUsageDescription: "StravaClone détecte quand vous vous arrêtez de courir pour mettre l'enregistrement en pause automatiquement."
+        NSMotionUsageDescription: "Nervo détecte quand vous vous arrêtez de courir pour mettre l'enregistrement en pause automatiquement."
         # Live Activity of the Recording on the lock screen and in the Dynamic Island (ADR-031 §9).
         NSSupportsLiveActivities: true
         # Debug on a physical iPhone reaches the dev API on the Mac (http://<mac>.local, Secrets.xcconfig):
         # plain HTTP is allowed on the local network only, and iOS asks for local network access.
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
-        NSLocalNetworkUsageDescription: "StravaClone se connecte au serveur de développement sur votre réseau local."
+        NSLocalNetworkUsageDescription: "Nervo se connecte au serveur de développement sur votre réseau local."
         # Values injected from Config/Base.xcconfig (+ optional Secrets.xcconfig), read by AppConfiguration (App/Di.swift).
         APIBaseURL: $(API_BASE_URL)
         RealtimeURL: $(REALTIME_URL)
@@ -170,7 +170,7 @@ targets:
     info:
       path: StravaCloneWidget/Info.plist
       properties:
-        CFBundleDisplayName: StravaClone
+        CFBundleDisplayName: Nervo
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:

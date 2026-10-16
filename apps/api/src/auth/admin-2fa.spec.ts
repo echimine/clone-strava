@@ -141,6 +141,8 @@ describe("AdminGuard + twoFactor plugin lifecycle (ADR-022 §5)", () => {
     const secretMatch = /secret=([^&]+)/.exec(enableBody.totpURI);
     const secret = secretMatch?.[1] ? decodeURIComponent(secretMatch[1]) : null;
     expect(secret).toBeTruthy();
+    // The authenticator app shows the Nervo brand (ADR-032 §1).
+    expect(new URL(enableBody.totpURI).searchParams.get("issuer")).toBe("Nervo");
 
     // Still blocked: `enableTwoFactor` alone doesn't flip `twoFactorEnabled`
     // -- verifying the generated code does (Better Auth's own onboarding
