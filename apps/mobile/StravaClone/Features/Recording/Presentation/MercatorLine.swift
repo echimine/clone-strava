@@ -66,22 +66,29 @@ struct MercatorLine: Sendable {
     }
 
     private static func distance(_ p: MercatorPoint, toSegment a: MercatorPoint, _ b: MercatorPoint) -> Double {
+        p.distance(to: projection(of: p, ontoSegment: a, b))
+    }
+
+    /// The point of the segment `a`–`b` closest to `p`.
+    static func projection(of p: MercatorPoint, ontoSegment a: MercatorPoint, _ b: MercatorPoint) -> MercatorPoint {
         let dx = b.x - a.x, dy = b.y - a.y
         let squared = dx * dx + dy * dy
         let t = squared > 0 ? min(max(((p.x - a.x) * dx + (p.y - a.y) * dy) / squared, 0), 1) : 0
-        return p.distance(to: MercatorPoint(x: a.x + dx * t, y: a.y + dy * t))
+        return MercatorPoint(x: a.x + dx * t, y: a.y + dy * t)
     }
 
-    func coordinate(at progress: Double) -> Coordinate? {
+    /// The point at `progress` (0...1, clamped) of the length, and the index of the point that
+    /// ends its segment. Nil without any point; the only point, at index 0, without a length.
+    func position(at progress: Double) -> (point: MercatorPoint, segmentEnd: Int)? {
         guard let first = points.first else { return nil }
-        guard points.count >= 2, length > 0 else { return Self.unproject(first) }
+        guard points.count >= 2, length > 0 else { return (first, 0) }
         let along = min(max(progress, 0), 1) * length
         let segment = (1..<points.count).first(where: { cumulative[$0] >= along }) ?? points.count - 1
         let from = points[segment - 1]
         let to = points[segment]
         let segmentLength = cumulative[segment] - cumulative[segment - 1]
         let t = segmentLength > 0 ? (along - cumulative[segment - 1]) / segmentLength : 0
-        return Self.unproject(MercatorPoint(x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t))
+        return (MercatorPoint(x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t), segment)
     }
 
     static func project(_ coordinate: Coordinate) -> MercatorPoint {

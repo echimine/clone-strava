@@ -65,6 +65,30 @@ struct CelebrationRouteTests {
         expectClose(try #require(route.cameraCenter(at: 1)), corner[2])
     }
 
+    /// ADR-032 §5: the camera follows the head, not a share of the simplified path. A GPS
+    /// zigzag lengthens the drawn trace without moving it on: a camera at the same share of the
+    /// straightened path would run 170 m ahead of the head here. It stays within the zigzag's
+    /// width of the head instead.
+    @Test func theCameraStaysOnTheHeadAlongAZigzag() throws {
+        // 500 m north in 50 legs zigzagging 30 m sideways, then 500 m straight north.
+        let zigzag = (0...50).map { leg in
+            Coordinate(latitude: 45 + Double(leg) * 0.00009, longitude: 4.8 + (leg.isMultiple(of: 2) ? 0 : 0.00038))
+        }
+        let straight = (1...50).map { leg in
+            Coordinate(latitude: 45.0045 + Double(leg) * 0.00009, longitude: 4.8)
+        }
+        let route = CelebrationRoute(trace: zigzag + straight)
+        #expect(route.cameraPath.count == 2)
+
+        for step in 0...100 {
+            let progress = Double(step) / 100
+            let head = try #require(route.head(at: progress))
+            let camera = try #require(route.cameraCenter(at: progress))
+
+            #expect(head.distance(to: camera).meters <= 31, "at \(progress)")
+        }
+    }
+
     /// The camera follows from high enough to show most of the outing (and to look over the
     /// slopes around a valley): a 52 km ride, a 16 × 10 km box, from zoom ~10.46; a short loop
     /// no closer than the neighbourhood.

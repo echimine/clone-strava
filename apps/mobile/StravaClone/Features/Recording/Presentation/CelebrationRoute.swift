@@ -14,19 +14,19 @@ struct CelebrationRoute: Sendable {
     /// without the GPS wiggles that would shake a camera following the head.
     let cameraPath: [Coordinate]
     private let line: MercatorLine
-    private let cameraLine: MercatorLine
+    /// The indices in `trace` of the camera path's points.
+    private let cameraIndices: [Int]
 
     init(trace: [Coordinate]) {
         self.trace = trace
         line = MercatorLine(trace)
-        let kept = line.simplified(tolerance: line.extent * Self.cameraTolerance)
-        cameraPath = kept.map { trace[$0] }
-        cameraLine = MercatorLine(cameraPath)
+        cameraIndices = line.simplified(tolerance: line.extent * Self.cameraTolerance)
+        cameraPath = cameraIndices.map { trace[$0] }
     }
 
     /// The tip of the drawn trace at `progress` (0...1, clamped). Nil without any point.
     func head(at progress: Double) -> Coordinate? {
-        line.coordinate(at: progress)
+        line.position(at: progress).map { MercatorLine.unproject($0.point) }
     }
 
     /// Zoom levels the follow camera stays within: from a whole region down to a neighbourhood.
@@ -47,9 +47,20 @@ struct CelebrationRoute: Sendable {
         return min(max(zoom, Self.followZooms.lowerBound), Self.followZooms.upperBound)
     }
 
-    /// Where the camera looks at `progress`: the same share of the simplified path, so it
-    /// stays close to the head without its wiggles.
+    /// Where the camera looks at `progress`: the head brought onto the simplified path's leg
+    /// that straightens the head's stretch of trace. It stays within the simplification's
+    /// tolerance of the head, wiggles or not, and meets it at each of the path's turns, so it
+    /// never jumps from one leg to the next.
     func cameraCenter(at progress: Double) -> Coordinate? {
-        cameraLine.coordinate(at: progress)
+        guard let head = line.position(at: progress) else { return nil }
+        guard let legEnd = cameraIndices.firstIndex(where: { $0 >= head.segmentEnd }), legEnd > 0 else {
+            return MercatorLine.unproject(head.point)
+        }
+        let onLeg = MercatorLine.projection(
+            of: head.point,
+            ontoSegment: line.points[cameraIndices[legEnd - 1]],
+            line.points[cameraIndices[legEnd]]
+        )
+        return MercatorLine.unproject(onLeg)
     }
 }
