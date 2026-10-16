@@ -63,7 +63,7 @@ struct FeedView<TopContent: View>: View {
                 LazyVStack(spacing: Theme.spacing) {
                     Color.clear.frame(height: 0).id(Self.topID)
                     // ADR-031 §14: the Activities not yet on the server, always on top.
-                    ForEach(store.localCards) { card in
+                    ForEach(store.localCards, id: \.rowID) { card in
                         LocalActivityCardView(
                             card: card,
                             onDelete: { Task { await store.deleteLocalActivity(card.id) } },
@@ -101,6 +101,12 @@ struct FeedView<TopContent: View>: View {
     }
 
     private static var topID: String { "feed.top" }
+}
+
+private extension LocalActivityCard {
+    /// The post the server returns for this Activity has the same UUID: under one id,
+    /// `LazyVStack` kept showing this card's view in its place, stuck on "Traitement…".
+    var rowID: String { "local-\(id)" }
 }
 
 extension FeedView where TopContent == EmptyView {

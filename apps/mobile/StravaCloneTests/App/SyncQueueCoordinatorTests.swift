@@ -51,14 +51,14 @@ extension ActivitySenderTests {
             }
         }
 
-        private func routeTheWholeChain(online: Locked<Bool> = Locked(true)) {
+        private func routeTheWholeChain(online: Locked<Bool> = Locked(true), status: String = "processed") {
             let harness = harness
             ActivitySenderHarness.route { step in
                 guard online.value else { return .offline }
                 switch step {
                 case "create": return harness.created()
                 case "upload": return .status(200)
-                case "detail": return harness.detail("processed")
+                case "detail": return harness.detail(status)
                 default: return harness.completed()
                 }
             }
@@ -66,7 +66,7 @@ extension ActivitySenderTests {
 
         @Test func afterSaveTheChainStartsUnderABackgroundTask() async throws {
             try await harness.saveRecordedActivity()
-            routeTheWholeChain()
+            routeTheWholeChain(status: "processing")
 
             await makeCoordinator().activitySaved()
 
@@ -74,10 +74,23 @@ extension ActivitySenderTests {
             #expect(try await harness.store.activity(harness.id)?.state == .processing)
         }
 
+        /// Seen in prod: the worker processed the Activity and its `activity.processed` event
+        /// arrived before the app stored `processing` from the `complete` answer, so the event
+        /// found nothing to track. The Activity is checked once the chain is sent.
+        @Test func anActivityProcessedBeforeTheCompleteAnswerIsWipedAfterSave() async throws {
+            try await harness.saveRecordedActivity()
+            routeTheWholeChain()
+
+            await makeCoordinator().activitySaved()
+
+            #expect(feedReloads.value == 1)
+            #expect(try await harness.store.activity(harness.id) == nil)
+        }
+
         @Test func savedOfflineTheActivityLeavesWhenTheNetworkComesBack() async throws {
             try await harness.saveRecordedActivity()
             let online = Locked(false)
-            routeTheWholeChain(online: online)
+            routeTheWholeChain(online: online, status: "processing")
             let coordinator = makeCoordinator()
             await coordinator.activitySaved()
             #expect(try await harness.store.activity(harness.id)?.state == .recorded)
@@ -87,6 +100,15 @@ extension ActivitySenderTests {
 
             #expect(try await harness.store.activity(harness.id)?.state == .processing)
             #expect(itineraryWakeUps.value == 1)
+        }
+
+        @Test func aPullToRefreshTracksOnceTheQueueIsSent() async throws {
+            try await harness.saveRecordedActivity()
+            routeTheWholeChain()
+
+            await makeCoordinator().pullToRefresh()
+
+            #expect(try await harness.store.activity(harness.id) == nil)
         }
 
         @Test func theCurrentNetworkStateIsNotAComeback() async throws {
@@ -135,9 +157,8 @@ extension ActivitySenderTests {
             try await harness.saveRecordedActivity()
             routeTheWholeChain()
             let coordinator = makeCoordinator(feedReloads: false)
-            await coordinator.activitySaved()
 
-            await coordinator.trackProcessing()
+            await coordinator.activitySaved()
 
             #expect(feedReloads.value == 1)
             #expect(try await harness.store.activity(harness.id)?.state == .processing)
