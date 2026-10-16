@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { OnEvent } from "@nestjs/event-emitter";
 import {
+  ACTIVITY_DELETED,
   ACTIVITY_FAILED,
   ACTIVITY_IMPORT_COMPLETED,
   ACTIVITY_IMPORT_FAILED,
@@ -12,6 +13,7 @@ import {
   type RealtimePublisher,
 } from "@repo/realtime";
 import {
+  ACTIVITY_DELETED_EVENT,
   ACTIVITY_FAILED_EVENT,
   ACTIVITY_IMPORT_COMPLETED_EVENT,
   ACTIVITY_IMPORT_FAILED_EVENT,
@@ -19,6 +21,7 @@ import {
   ITINERARY_DELETED_EVENT,
   ITINERARY_SAVED_EVENT,
   SEGMENTS_EFFORTS_MATCHED_EVENT,
+  type ActivityDeletedEvent,
   type ActivityFailedEvent,
   type ActivityImportCompletedEvent,
   type ActivityImportFailedEvent,
@@ -40,6 +43,7 @@ import { REALTIME_PUBLISHER } from "../realtime.constants.js";
  * |----------------------------------|-------------------------------|
  * | `activities.activity.processed`  | `activity.processed`          |
  * | `activities.activity.failed`     | `activity.failed`             |
+ * | `activities.activity.deleted`    | `activity.deleted`            |
  * | `segments.efforts.matched`       | `activity.segments_matched`   |
  * | `activities.import.completed`    | `activity_import.completed`   |
  * | `activities.import.failed`       | `activity_import.failed`      |
@@ -76,6 +80,16 @@ export class RealtimeBridge {
         activityId: event.activityId,
         status: "failed",
         at: new Date().toISOString(),
+      }),
+    );
+  }
+
+  /** ADR-033 §8: the author's other devices drop the card and the open detail. */
+  @OnEvent(ACTIVITY_DELETED_EVENT, { async: true })
+  async onActivityDeleted(event: ActivityDeletedEvent): Promise<void> {
+    await this.forward(ACTIVITY_DELETED_EVENT, event.userId, () =>
+      this.publisher.publishRealtimeEvent([userTopic(event.userId)], ACTIVITY_DELETED, {
+        activityId: event.activityId,
       }),
     );
   }

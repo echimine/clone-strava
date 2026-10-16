@@ -108,7 +108,7 @@ export class ActivitiesService {
     return this.getOwnActivityUseCase.execute(userId, activityId);
   }
 
-  /** The author deletes an activity still `pending` or `failed` (ADR-031 §13). */
+  /** The author deletes their activity unless it is `processing` (ADR-031 §13, ADR-033 §6). */
   delete(userId: string, activityId: string): Promise<void> {
     return this.deleteActivityUseCase.execute(userId, activityId);
   }

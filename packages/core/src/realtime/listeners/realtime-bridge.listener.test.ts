@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  ACTIVITY_DELETED,
   ACTIVITY_FAILED,
   ACTIVITY_IMPORT_COMPLETED,
   ACTIVITY_IMPORT_FAILED,
@@ -49,6 +50,17 @@ describe("RealtimeBridge", () => {
     const [topics, type] = publisher.publishRealtimeEvent.mock.calls[0] as [string[], string];
     expect(topics).toEqual([userTopic("user_1")]);
     expect(type).toBe(ACTIVITY_FAILED);
+  });
+
+  it("forwards activities.activity.deleted as activity.deleted on the author's topic, id only", async () => {
+    const publisher = createFakePublisher();
+    const bridge = new RealtimeBridge(publisher);
+
+    await bridge.onActivityDeleted({ activityId: "act_1", userId: "user_1" });
+
+    expect(publisher.publishRealtimeEvent).toHaveBeenCalledExactlyOnceWith([userTopic("user_1")], ACTIVITY_DELETED, {
+      activityId: "act_1",
+    });
   });
 
   it("forwards segments.efforts.matched as activity.segments_matched", async () => {

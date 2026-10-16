@@ -8,6 +8,8 @@ import { z } from "zod";
 export const ACTIVITY_PROCESSED = "activity.processed";
 export const ACTIVITY_FAILED = "activity.failed";
 export const ACTIVITY_SEGMENTS_MATCHED = "activity.segments_matched";
+/** The author deleted the activity (ADR-033 §8). */
+export const ACTIVITY_DELETED = "activity.deleted";
 /** File imports (ADR-028 §10). */
 export const ACTIVITY_IMPORT_COMPLETED = "activity_import.completed";
 export const ACTIVITY_IMPORT_FAILED = "activity_import.failed";
@@ -19,6 +21,7 @@ export const mobileEventTypeSchema = z.enum([
   ACTIVITY_PROCESSED,
   ACTIVITY_FAILED,
   ACTIVITY_SEGMENTS_MATCHED,
+  ACTIVITY_DELETED,
   ACTIVITY_IMPORT_COMPLETED,
   ACTIVITY_IMPORT_FAILED,
   ITINERARY_SAVED,
@@ -52,6 +55,12 @@ export const activitySegmentsMatchedDataSchema = z.object({
 export type ActivitySegmentsMatchedData = z.infer<
   typeof activitySegmentsMatchedDataSchema
 >;
+
+/** The app drops the card and switches an open detail to its unavailable state. */
+export const activityDeletedDataSchema = z.object({
+  activityId: z.string(),
+});
+export type ActivityDeletedData = z.infer<typeof activityDeletedDataSchema>;
 
 /** `activityId`: the created activity (`imported`) or the existing one (`duplicate`). */
 export const activityImportCompletedDataSchema = z.object({
@@ -92,6 +101,7 @@ export const mobileEventDataSchemas = {
   [ACTIVITY_PROCESSED]: activityProcessedDataSchema,
   [ACTIVITY_FAILED]: activityFailedDataSchema,
   [ACTIVITY_SEGMENTS_MATCHED]: activitySegmentsMatchedDataSchema,
+  [ACTIVITY_DELETED]: activityDeletedDataSchema,
   [ACTIVITY_IMPORT_COMPLETED]: activityImportCompletedDataSchema,
   [ACTIVITY_IMPORT_FAILED]: activityImportFailedDataSchema,
   [ITINERARY_SAVED]: itinerarySavedDataSchema,
@@ -102,6 +112,7 @@ export type MobileEventData =
   | ActivityProcessedData
   | ActivityFailedData
   | ActivitySegmentsMatchedData
+  | ActivityDeletedData
   | ActivityImportCompletedData
   | ActivityImportFailedData
   | ItinerarySavedData
