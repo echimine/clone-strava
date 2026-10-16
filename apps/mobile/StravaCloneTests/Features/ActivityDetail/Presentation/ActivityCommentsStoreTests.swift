@@ -14,7 +14,7 @@ struct ActivityCommentsStoreTests {
     ) -> ActivityCommentsStore {
         ActivityCommentsStore(
             request: ActivityDetailRequest(id: activityId),
-            useCases: ActivityCommentUseCases(repository: repository),
+            repository: repository,
             viewer: { repository.author },
             onCountChange: onCountChange
         )

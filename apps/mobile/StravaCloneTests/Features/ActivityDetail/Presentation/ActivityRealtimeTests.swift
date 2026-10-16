@@ -23,6 +23,8 @@ struct ActivityRealtimeTests {
             loadKudos: LoadKudosList(repository: kudos),
             setKudos: SetActivityKudos(repository: kudos),
             changes: ActivityChanges(),
+            updateActivity: UpdateActivity(repository: repository),
+            deleter: .over(repository),
             events: events
         )
         await store.load()
@@ -102,6 +104,8 @@ struct ActivityRealtimeTests {
             loadKudos: LoadKudosList(repository: kudos),
             setKudos: SetActivityKudos(repository: kudos),
             changes: changes,
+            updateActivity: UpdateActivity(repository: repository),
+            deleter: .over(repository, changes: changes),
             events: events
         )
         await store.load()

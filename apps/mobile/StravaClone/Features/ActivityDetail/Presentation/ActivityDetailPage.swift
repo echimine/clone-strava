@@ -229,16 +229,31 @@ private struct PreviewActivityLiveEventSource: ActivityLiveEventSource {
         ActivityDetailPage(
             request: ActivityDetailRequest(id: ActivityID()),
             makeStore: { id in
-                ActivityDetailStore(
+                let changes = ActivityChanges()
+                return ActivityDetailStore(
                     id: id,
                     loadDetail: LoadActivityDetail(repository: PreviewActivityDetailRepository()),
                     loadKudos: LoadKudosList(repository: PreviewActivityKudosRepository()),
                     setKudos: SetActivityKudos(repository: PreviewActivityKudosRepository()),
-                    changes: ActivityChanges()
+                    changes: changes,
+                    updateActivity: UpdateActivity(repository: PreviewActivityDetailRepository()),
+                    deleter: ActivityDeleter(
+                        deleteActivity: DeleteActivity(repository: PreviewActivityDetailRepository()),
+                        changes: changes
+                    )
                 )
             },
             makeCommentsStore: { request, detail in
-                .forDetail(detail, request: request, useCases: ActivityCommentUseCases(repository: PreviewActivityCommentRepository()))
+                let repository = PreviewActivityCommentRepository()
+                return .forDetail(
+                    detail,
+                    request: request,
+                    loadComments: LoadActivityComments(repository: repository),
+                    loadComment: LoadActivityComment(repository: repository),
+                    addComment: AddActivityComment(repository: repository),
+                    editComment: EditActivityComment(repository: repository),
+                    deleteComment: DeleteActivityComment(repository: repository)
+                )
             },
             liveEvents: PreviewActivityLiveEventSource()
         )

@@ -9,11 +9,6 @@ struct APIActivityKudosRepository: ActivityKudosRepository {
 
     let apiClient: APIClient
 
-    private struct ErrorEnvelope: Decodable {
-        struct Body: Decodable { let code: String }
-        let error: Body
-    }
-
     func kudos(activityId: ActivityID, cursor: String?, limit: Int) async throws(ActivityDetailError) -> KudosPage {
         var query = [URLQueryItem(name: "limit", value: String(limit))]
         if let cursor {
@@ -48,16 +43,7 @@ struct APIActivityKudosRepository: ActivityKudosRepository {
         do {
             return try await operation()
         } catch {
-            switch error {
-            case .offline: throw .offline
-            case .unauthorized: throw .unauthorized
-            case .http(404, _): throw .notFound
-            case .http(_, let body):
-                let code = body.flatMap { try? JSONDecoder().decode(ErrorEnvelope.self, from: $0) }?.error.code
-                throw .server(code: code)
-            case .decoding: throw .server(code: nil)
-            case .transport: throw .network
-            }
+            throw ActivityDetailError(error)
         }
     }
 }

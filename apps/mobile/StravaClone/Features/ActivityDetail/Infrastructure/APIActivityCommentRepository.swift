@@ -8,11 +8,6 @@ struct APIActivityCommentRepository: ActivityCommentRepository {
 
     let apiClient: APIClient
 
-    private struct ErrorEnvelope: Decodable {
-        struct Body: Decodable { let code: String }
-        let error: Body
-    }
-
     private func path(_ activityId: ActivityID, _ id: UUID? = nil) -> String {
         let base = "/v1/activities/\(activityId)/comments"
         return id.map { "\(base)/\($0.uuidString.lowercased())" } ?? base
@@ -82,16 +77,7 @@ struct APIActivityCommentRepository: ActivityCommentRepository {
         do {
             return try await request()
         } catch {
-            switch error {
-            case .offline: throw .offline
-            case .unauthorized: throw .unauthorized
-            case .http(404, _): throw .notFound
-            case .http(_, let body):
-                let code = body.flatMap { try? JSONDecoder().decode(ErrorEnvelope.self, from: $0) }?.error.code
-                throw .server(code: code)
-            case .decoding: throw .server(code: nil)
-            case .transport: throw .network
-            }
+            throw ActivityCommentError(error)
         }
     }
 }

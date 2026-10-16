@@ -17,7 +17,9 @@ struct ActivityDetailStoreTests {
             loadDetail: LoadActivityDetail(repository: repository),
             loadKudos: LoadKudosList(repository: kudos),
             setKudos: SetActivityKudos(repository: kudos),
-            changes: changes
+            changes: changes,
+            updateActivity: UpdateActivity(repository: repository),
+            deleter: .over(repository, changes: changes)
         )
     }
 

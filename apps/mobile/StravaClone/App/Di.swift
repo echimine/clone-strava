@@ -230,8 +230,9 @@ final class Di {
             loadKudos: LoadKudosList(repository: activityKudosRepository),
             setKudos: SetActivityKudos(repository: activityKudosRepository),
             changes: activityChanges,
-            events: RealtimeActivityEventSource(client: webSocketClient),
-            deleter: activityDeleter
+            updateActivity: UpdateActivity(repository: activityDetailRepository),
+            deleter: activityDeleter,
+            events: RealtimeActivityEventSource(channel: webSocketClient)
         )
     }
 
@@ -255,17 +256,22 @@ final class Di {
         return ReloadUpdatedActivities(
             loadDetail: LoadActivityDetail(repository: activityDetailRepository),
             changes: activityChanges,
-            events: RealtimeActivityEventSource(client: webSocketClient),
+            events: RealtimeActivityEventSource(channel: webSocketClient),
             isViewersOwn: { feed.canManage($0) }
         )
     }
 
     /// The comment thread of a detail (ADR-034 §6), wired to that detail's count.
     func makeActivityCommentsStore(request: ActivityDetailRequest, detail: ActivityDetailStore) -> ActivityCommentsStore {
-        .forDetail(
+        let repository = APIActivityCommentRepository(apiClient: apiClient)
+        return .forDetail(
             detail,
             request: request,
-            useCases: ActivityCommentUseCases(repository: APIActivityCommentRepository(apiClient: apiClient))
+            loadComments: LoadActivityComments(repository: repository),
+            loadComment: LoadActivityComment(repository: repository),
+            addComment: AddActivityComment(repository: repository),
+            editComment: EditActivityComment(repository: repository),
+            deleteComment: DeleteActivityComment(repository: repository)
         )
     }
 

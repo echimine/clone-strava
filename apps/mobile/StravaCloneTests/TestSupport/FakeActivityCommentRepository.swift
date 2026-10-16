@@ -110,6 +110,44 @@ final class FakeActivityCommentRepository: ActivityCommentRepository, @unchecked
     }
 }
 
+extension ActivityCommentsStore {
+    /// A thread over a fake repository, every use case on it.
+    convenience init(
+        request: ActivityDetailRequest,
+        repository: FakeActivityCommentRepository,
+        viewer: @escaping @MainActor () -> ActivityAuthor,
+        onCountChange: @escaping @MainActor (Int) -> Void
+    ) {
+        self.init(
+            request: request,
+            loadComments: LoadActivityComments(repository: repository),
+            loadComment: LoadActivityComment(repository: repository),
+            addComment: AddActivityComment(repository: repository),
+            editComment: EditActivityComment(repository: repository),
+            deleteComment: DeleteActivityComment(repository: repository),
+            viewer: viewer,
+            onCountChange: onCountChange
+        )
+    }
+
+    /// `detail`'s thread over a fake repository, as the app shell wires it.
+    static func forDetail(
+        _ detail: ActivityDetailStore,
+        request: ActivityDetailRequest,
+        repository: FakeActivityCommentRepository
+    ) -> ActivityCommentsStore {
+        .forDetail(
+            detail,
+            request: request,
+            loadComments: LoadActivityComments(repository: repository),
+            loadComment: LoadActivityComment(repository: repository),
+            addComment: AddActivityComment(repository: repository),
+            editComment: EditActivityComment(repository: repository),
+            deleteComment: DeleteActivityComment(repository: repository)
+        )
+    }
+}
+
 extension ActivityComment {
     static func fixture(
         id: UUID = UUID(),

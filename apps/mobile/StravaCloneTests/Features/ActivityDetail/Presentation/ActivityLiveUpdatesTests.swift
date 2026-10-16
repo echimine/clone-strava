@@ -29,12 +29,14 @@ struct ActivityLiveUpdatesTests {
             loadDetail: LoadActivityDetail(repository: details),
             loadKudos: LoadKudosList(repository: kudos),
             setKudos: SetActivityKudos(repository: kudos),
-            changes: ActivityChanges()
+            changes: ActivityChanges(),
+            updateActivity: UpdateActivity(repository: details),
+            deleter: .over(details)
         )
         let comments = ActivityCommentsStore.forDetail(
             detail,
             request: ActivityDetailRequest(id: id),
-            useCases: ActivityCommentUseCases(repository: commentsRepository)
+            repository: commentsRepository
         )
         await detail.load()
         await comments.load()
