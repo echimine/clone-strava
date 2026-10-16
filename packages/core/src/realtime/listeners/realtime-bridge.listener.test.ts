@@ -7,8 +7,13 @@ import {
   ACTIVITY_PROCESSED,
   ACTIVITY_SEGMENTS_MATCHED,
   ACTIVITY_UPDATED,
+  COMMENT_CREATED,
+  COMMENT_DELETED,
+  COMMENT_UPDATED,
   ITINERARY_DELETED,
   ITINERARY_SAVED,
+  KUDOS_CHANGED,
+  activityTopic,
   userTopic,
 } from "@repo/realtime";
 import type { RealtimePublisher } from "@repo/realtime";
@@ -53,26 +58,59 @@ describe("RealtimeBridge", () => {
     expect(type).toBe(ACTIVITY_FAILED);
   });
 
-  it("forwards activities.activity.deleted as activity.deleted on the author's topic, id only", async () => {
+  it("forwards activities.activity.deleted as activity.deleted on the author's and the activity's topics, id only", async () => {
     const publisher = createFakePublisher();
     const bridge = new RealtimeBridge(publisher);
 
     await bridge.onActivityDeleted({ activityId: "act_1", userId: "user_1" });
 
-    expect(publisher.publishRealtimeEvent).toHaveBeenCalledExactlyOnceWith([userTopic("user_1")], ACTIVITY_DELETED, {
-      activityId: "act_1",
-    });
+    expect(publisher.publishRealtimeEvent).toHaveBeenCalledExactlyOnceWith(
+      [userTopic("user_1"), activityTopic("act_1")],
+      ACTIVITY_DELETED,
+      { activityId: "act_1" },
+    );
   });
 
-  it("forwards activities.activity.updated as activity.updated on the author's topic, with the changed fields", async () => {
+  it("forwards activities.activity.updated as activity.updated on the author's and the activity's topics, with the changed fields", async () => {
     const publisher = createFakePublisher();
     const bridge = new RealtimeBridge(publisher);
 
     await bridge.onActivityUpdated({ activityId: "act_1", userId: "user_1", changedFields: ["title", "sportTypeCode"] });
 
-    expect(publisher.publishRealtimeEvent).toHaveBeenCalledExactlyOnceWith([userTopic("user_1")], ACTIVITY_UPDATED, {
+    expect(publisher.publishRealtimeEvent).toHaveBeenCalledExactlyOnceWith(
+      [userTopic("user_1"), activityTopic("act_1")],
+      ACTIVITY_UPDATED,
+      { activityId: "act_1", changedFields: ["title", "sportTypeCode"] },
+    );
+  });
+
+  it.each([
+    ["engagement.comment.added", "onCommentAdded", COMMENT_CREATED],
+    ["engagement.comment.edited", "onCommentEdited", COMMENT_UPDATED],
+    ["engagement.comment.deleted", "onCommentDeleted", COMMENT_DELETED],
+  ] as const)("forwards %s through %s on the activity's topic only, ids only", async (_event, handler, type) => {
+    const publisher = createFakePublisher();
+    const bridge = new RealtimeBridge(publisher);
+
+    await bridge[handler]({ commentId: "com_1", activityId: "act_1", userId: "user_1" });
+
+    expect(publisher.publishRealtimeEvent).toHaveBeenCalledExactlyOnceWith([activityTopic("act_1")], type, {
       activityId: "act_1",
-      changedFields: ["title", "sportTypeCode"],
+      commentId: "com_1",
+    });
+  });
+
+  it.each([
+    ["engagement.kudos.given", "onKudosGiven"],
+    ["engagement.kudos.removed", "onKudosRemoved"],
+  ] as const)("forwards %s as kudos.changed on the activity's topic, activity id only", async (_event, handler) => {
+    const publisher = createFakePublisher();
+    const bridge = new RealtimeBridge(publisher);
+
+    await bridge[handler]({ activityId: "act_1", userId: "user_1" });
+
+    expect(publisher.publishRealtimeEvent).toHaveBeenCalledExactlyOnceWith([activityTopic("act_1")], KUDOS_CHANGED, {
+      activityId: "act_1",
     });
   });
 

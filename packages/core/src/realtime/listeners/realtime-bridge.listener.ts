@@ -8,8 +8,13 @@ import {
   ACTIVITY_PROCESSED,
   ACTIVITY_SEGMENTS_MATCHED,
   ACTIVITY_UPDATED,
+  COMMENT_CREATED,
+  COMMENT_DELETED,
+  COMMENT_UPDATED,
   ITINERARY_DELETED,
   ITINERARY_SAVED,
+  KUDOS_CHANGED,
+  activityTopic,
   userTopic,
   type RealtimePublisher,
 } from "@repo/realtime";
@@ -20,8 +25,13 @@ import {
   ACTIVITY_IMPORT_FAILED_EVENT,
   ACTIVITY_PROCESSED_EVENT,
   ACTIVITY_UPDATED_EVENT,
+  COMMENT_ADDED_EVENT,
+  COMMENT_DELETED_EVENT,
+  COMMENT_EDITED_EVENT,
   ITINERARY_DELETED_EVENT,
   ITINERARY_SAVED_EVENT,
+  KUDOS_GIVEN_EVENT,
+  KUDOS_REMOVED_EVENT,
   SEGMENTS_EFFORTS_MATCHED_EVENT,
   type ActivityDeletedEvent,
   type ActivityFailedEvent,
@@ -29,8 +39,10 @@ import {
   type ActivityImportFailedEvent,
   type ActivityProcessedEvent,
   type ActivityUpdatedEvent,
+  type CommentEvent,
   type ItineraryDeletedEvent,
   type ItinerarySavedEvent,
+  type KudosEvent,
   type SegmentsEffortsMatchedEvent,
 } from "@repo/contracts";
 import { REALTIME_PUBLISHER } from "../realtime.constants.js";
@@ -42,17 +54,24 @@ import { REALTIME_PUBLISHER } from "../realtime.constants.js";
  * forwarding table (allow-list) from internal event name to mobile event
  * type, topics and minimal payload:
  *
- * | Domain event                    | Mobile event                 |
- * |----------------------------------|-------------------------------|
- * | `activities.activity.processed`  | `activity.processed`          |
- * | `activities.activity.failed`     | `activity.failed`             |
- * | `activities.activity.updated`    | `activity.updated`            |
- * | `activities.activity.deleted`    | `activity.deleted`            |
- * | `segments.efforts.matched`       | `activity.segments_matched`   |
- * | `activities.import.completed`    | `activity_import.completed`   |
- * | `activities.import.failed`       | `activity_import.failed`      |
- * | `itineraries.itinerary.saved`    | `itinerary.saved`             |
- * | `itineraries.itinerary.deleted`  | `itinerary.deleted`           |
+ * | Domain event                     | Mobile event                | Topics                         |
+ * |----------------------------------|-----------------------------|--------------------------------|
+ * | `activities.activity.processed`  | `activity.processed`        | `user:{userId}`                |
+ * | `activities.activity.failed`     | `activity.failed`           | `user:{userId}`                |
+ * | `activities.activity.updated`    | `activity.updated`          | `user:{userId}`, `activity:{id}` |
+ * | `activities.activity.deleted`    | `activity.deleted`          | `user:{userId}`, `activity:{id}` |
+ * | `segments.efforts.matched`       | `activity.segments_matched` | `user:{userId}`                |
+ * | `activities.import.completed`    | `activity_import.completed` | `user:{userId}`                |
+ * | `activities.import.failed`       | `activity_import.failed`    | `user:{userId}`                |
+ * | `itineraries.itinerary.saved`    | `itinerary.saved`           | `user:{userId}`                |
+ * | `itineraries.itinerary.deleted`  | `itinerary.deleted`         | `user:{userId}`                |
+ * | `engagement.comment.added`       | `comment.created`           | `activity:{id}`                |
+ * | `engagement.comment.edited`      | `comment.updated`           | `activity:{id}`                |
+ * | `engagement.comment.deleted`     | `comment.deleted`           | `activity:{id}`                |
+ * | `engagement.kudos.given/removed` | `kudos.changed`             | `activity:{id}`                |
+ *
+ * `activity:{id}` reaches everyone with the Activity's detail open
+ * (subscription grant, ADR-034 §5).
  *
  * An event absent from this table never reaches a client (ADR-021 §4).
  *
@@ -88,25 +107,64 @@ export class RealtimeBridge {
     );
   }
 
-  /** ADR-033 §8: the author's other devices reload the card and the open detail. */
+  /**
+   * ADR-033 §8: the author's other devices reload the card and the open detail;
+   * ADR-034 §5: so does every other viewer with the detail open.
+   */
   @OnEvent(ACTIVITY_UPDATED_EVENT, { async: true })
   async onActivityUpdated(event: ActivityUpdatedEvent): Promise<void> {
     await this.forward(ACTIVITY_UPDATED_EVENT, event.userId, () =>
-      this.publisher.publishRealtimeEvent([userTopic(event.userId)], ACTIVITY_UPDATED, {
-        activityId: event.activityId,
-        changedFields: event.changedFields,
-      }),
+      this.publisher.publishRealtimeEvent(
+        [userTopic(event.userId), activityTopic(event.activityId)],
+        ACTIVITY_UPDATED,
+        { activityId: event.activityId, changedFields: event.changedFields },
+      ),
     );
   }
 
-  /** ADR-033 §8: the author's other devices drop the card and the open detail. */
+  /**
+   * ADR-033 §8: the author's other devices drop the card and the open detail;
+   * ADR-034 §5: every other viewer's open detail becomes unavailable.
+   */
   @OnEvent(ACTIVITY_DELETED_EVENT, { async: true })
   async onActivityDeleted(event: ActivityDeletedEvent): Promise<void> {
     await this.forward(ACTIVITY_DELETED_EVENT, event.userId, () =>
-      this.publisher.publishRealtimeEvent([userTopic(event.userId)], ACTIVITY_DELETED, {
-        activityId: event.activityId,
-      }),
+      this.publisher.publishRealtimeEvent(
+        [userTopic(event.userId), activityTopic(event.activityId)],
+        ACTIVITY_DELETED,
+        { activityId: event.activityId },
+      ),
     );
+  }
+
+  /** ADR-034 §5: viewers with the detail open fetch the new comment. */
+  @OnEvent(COMMENT_ADDED_EVENT, { async: true })
+  async onCommentAdded(event: CommentEvent): Promise<void> {
+    await this.forwardComment(COMMENT_ADDED_EVENT, COMMENT_CREATED, event);
+  }
+
+  /** ADR-034 §5: viewers with the detail open fetch the edited comment. */
+  @OnEvent(COMMENT_EDITED_EVENT, { async: true })
+  async onCommentEdited(event: CommentEvent): Promise<void> {
+    await this.forwardComment(COMMENT_EDITED_EVENT, COMMENT_UPDATED, event);
+  }
+
+  /** ADR-034 §5: viewers with the detail open remove the comment. */
+  @OnEvent(COMMENT_DELETED_EVENT, { async: true })
+  async onCommentDeleted(event: CommentEvent): Promise<void> {
+    await this.forwardComment(COMMENT_DELETED_EVENT, COMMENT_DELETED, event);
+  }
+
+  /** ADR-034 §5: viewers with the detail open reload its engagement. */
+  @OnEvent(KUDOS_GIVEN_EVENT, { async: true })
+  async onKudosGiven(event: KudosEvent): Promise<void> {
+    await this.forwardKudos(KUDOS_GIVEN_EVENT, event);
+  }
+
+  /** ADR-034 §5. */
+  @OnEvent(KUDOS_REMOVED_EVENT, { async: true })
+  async onKudosRemoved(event: KudosEvent): Promise<void> {
+    await this.forwardKudos(KUDOS_REMOVED_EVENT, event);
   }
 
   @OnEvent(SEGMENTS_EFFORTS_MATCHED_EVENT, { async: true })
@@ -167,6 +225,27 @@ export class RealtimeBridge {
     await this.forward(ITINERARY_DELETED_EVENT, event.userId, () =>
       this.publisher.publishRealtimeEvent([userTopic(event.userId)], ITINERARY_DELETED, {
         itineraryId: event.itineraryId,
+      }),
+    );
+  }
+
+  private async forwardComment(
+    eventName: string,
+    type: typeof COMMENT_CREATED | typeof COMMENT_UPDATED | typeof COMMENT_DELETED,
+    event: CommentEvent,
+  ): Promise<void> {
+    await this.forward(eventName, event.userId, () =>
+      this.publisher.publishRealtimeEvent([activityTopic(event.activityId)], type, {
+        activityId: event.activityId,
+        commentId: event.commentId,
+      }),
+    );
+  }
+
+  private async forwardKudos(eventName: string, event: KudosEvent): Promise<void> {
+    await this.forward(eventName, event.userId, () =>
+      this.publisher.publishRealtimeEvent([activityTopic(event.activityId)], KUDOS_CHANGED, {
+        activityId: event.activityId,
       }),
     );
   }

@@ -1,8 +1,10 @@
 import jwt from "jsonwebtoken";
 import {
+  REALTIME_GRANT_AUDIENCE,
   REALTIME_TOKEN_ALGORITHM,
   REALTIME_TOKEN_AUDIENCE,
   REALTIME_TOKEN_ISSUER,
+  realtimeGrantClaimsSchema,
   realtimeTokenClaimsSchema,
   type RealtimeTokenClaims,
 } from "@repo/realtime";
@@ -36,6 +38,29 @@ export function verifyRealtimeToken(
     return result.data;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Verifies a subscription grant locally (ADR-034 §5): signature, algorithm,
+ * issuer, grant audience and expiration, then that it was issued for exactly
+ * `topic` and to the connection's user. Never throws.
+ */
+export function verifySubscriptionGrant(
+  grant: string,
+  secret: string,
+  request: { topic: string; userId: string },
+): boolean {
+  try {
+    const payload = jwt.verify(grant, secret, {
+      algorithms: [REALTIME_TOKEN_ALGORITHM],
+      issuer: REALTIME_TOKEN_ISSUER,
+      audience: REALTIME_GRANT_AUDIENCE,
+    });
+    const result = realtimeGrantClaimsSchema.safeParse(payload);
+    return result.success && result.data.topic === request.topic && result.data.sub === request.userId;
+  } catch {
+    return false;
   }
 }
 

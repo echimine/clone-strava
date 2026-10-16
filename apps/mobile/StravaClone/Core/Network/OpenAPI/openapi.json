@@ -1090,6 +1090,43 @@
         ]
       }
     },
+    "/v1/realtime/grants": {
+      "post": {
+        "operationId": "RealtimeGrantsController_grant",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RealtimeGrantRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RealtimeGrantResponseDto_Output"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`activity_not_found`: the Activity is not visible"
+          },
+          "422": {
+            "description": "`validation_error`: not an `activity:{uuid}` topic"
+          }
+        },
+        "tags": [
+          "RealtimeGrants"
+        ]
+      }
+    },
     "/v1/webhooks/revenuecat": {
       "post": {
         "operationId": "RevenueCatWebhookController_handle",
@@ -2599,6 +2636,36 @@
         "required": [
           "name"
         ]
+      },
+      "RealtimeGrantRequestDto": {
+        "type": "object",
+        "properties": {
+          "topic": {
+            "type": "string",
+            "pattern": "^activity:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          }
+        },
+        "required": [
+          "topic"
+        ]
+      },
+      "RealtimeGrantResponseDto_Output": {
+        "type": "object",
+        "properties": {
+          "grant": {
+            "type": "string"
+          },
+          "expiresInS": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "grant",
+          "expiresInS"
+        ],
+        "additionalProperties": false
       },
       "RevenueCatWebhookBodyDto": {
         "type": "object",

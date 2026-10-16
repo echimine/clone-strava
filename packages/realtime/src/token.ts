@@ -21,3 +21,21 @@ export const realtimeTokenClaimsSchema = z.object({
   topics: z.array(z.string()),
 });
 export type RealtimeTokenClaims = z.infer<typeof realtimeTokenClaimsSchema>;
+
+/**
+ * Subscription grant (ADR-034 §5): a per-topic JWT the API signs with the
+ * same secret and issuer once it has checked the user may receive `topic`.
+ * Its distinct audience means a grant can never open a connection, and a
+ * connection token can never stand in for a grant.
+ */
+export const REALTIME_GRANT_AUDIENCE = "clone-strava-realtime-grant";
+
+/** Grant lifetime, in seconds. Only checked when subscribing. */
+export const REALTIME_GRANT_TTL_SECONDS = 60;
+
+/** Claims carried by a subscription grant, beyond the standard `iss`/`aud`/`exp`. */
+export const realtimeGrantClaimsSchema = z.object({
+  sub: z.string(),
+  topic: z.string(),
+});
+export type RealtimeGrantClaims = z.infer<typeof realtimeGrantClaimsSchema>;
