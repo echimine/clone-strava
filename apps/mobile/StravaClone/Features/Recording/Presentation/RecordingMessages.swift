@@ -27,7 +27,9 @@ enum RecordingMessages {
         switch blocker {
         case .tooShort(let minimum):
             let minutes = Int(minimum.components.seconds) / 60
-            return "Une activité \(article(sport)) doit durer au moins \(minutes) min pour être enregistrée."
+            return "Une activité \(article(sport)) doit durer au moins \(minutes) min en mouvement pour être enregistrée."
+        case .notFarEnough(let minimum):
+            return "Une activité \(article(sport)) doit faire au moins \(Int(minimum.meters)) m pour être enregistrée."
         case .notEnoughPoints:
             return "Pas assez de positions GPS pour enregistrer cette activité."
         }

@@ -85,6 +85,7 @@ Body (Zod schema in `packages/contracts`): `id`, `sportTypeCode`, `title`, `desc
 | Existing `id`, same user, activity already `processing` / `processed` | `200` + activity, without URL |
 | Existing `id`, other user | `409` |
 | Invalid data (inactive sport type, `endedAt` ≤ `startedAt`, duration below the sport's minimum) | `422` with field details |
+| *Amended (2026-10-16, [ADR-031](ADR-031-live-recording-on-ios.md) §11)*: provisional `movingTimeS` below the sport's `min_duration_s`, or provisional `distanceM` below its `min_distance_m` (sports that track distance), when sent | `422` with field details |
 
 **Upload URL**: pre-signed `PUT`, valid for **15 minutes**, key `activities/{userId}/{activityId}/trace.json.gz`, enforced content type.
 

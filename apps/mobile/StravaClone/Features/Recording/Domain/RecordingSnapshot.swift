@@ -53,22 +53,25 @@ struct RecordingSnapshot: Equatable, Sendable {
 
     /// Why the Activity cannot be saved yet (ADR-031 §11), `nil` when it can.
     var saveBlocker: RecordingSaveBlocker? {
-        RecordingSaveBlocker(recording: recording, pointCount: pointCount)
+        RecordingSaveBlocker(recording: recording, pointCount: pointCount, distance: distance)
     }
 }
 
-/// ADR-031 §11: below the sport's minimum duration or with fewer than 2 points, Save is
-/// disabled with an explanation. The minimum distance is ignored, as on the server.
+/// ADR-031 §11: below the sport's minimum time in motion (the timer, Pauses out) or minimum
+/// distance, or with fewer than 2 points, Save is disabled with an explanation. The server
+/// refuses the same Activities.
 enum RecordingSaveBlocker: Equatable, Sendable {
     case tooShort(minimum: Duration)
+    case notFarEnough(minimum: Distance)
     case notEnoughPoints
 
-    init?(recording: Recording, pointCount: Int) {
+    init?(recording: Recording, pointCount: Int, distance: Distance) {
         let end = recording.endedAt ?? recording.currentPauseStartedAt ?? .distantFuture
-        let duration = end.timeIntervalSince(recording.startedAt)
-        let minimum = recording.sport.minimumDuration
-        if duration < Double(minimum.components.seconds) {
-            self = .tooShort(minimum: minimum)
+        let sport = recording.sport
+        if recording.elapsed(at: end) < sport.minimumDuration {
+            self = .tooShort(minimum: sport.minimumDuration)
+        } else if distance < sport.minimumDistance {
+            self = .notFarEnough(minimum: sport.minimumDistance)
         } else if pointCount < 2 {
             self = .notEnoughPoints
         } else {

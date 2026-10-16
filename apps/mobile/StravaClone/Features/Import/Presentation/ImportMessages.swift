@@ -11,6 +11,7 @@ enum ImportMessages {
         case "empty_track": "Le fichier ne contient aucun point exploitable."
         case "too_many_points": "Le fichier est trop long pour être importé."
         case "invalid_duration": "L'activité est trop courte pour ce sport."
+        case "invalid_distance": "La distance de l'activité est trop courte pour ce sport."
         case "unknown_sport": "Le sport n'a pas pu être détecté. Choisissez-le pour réessayer."
         case "file_missing": "Le fichier n'a pas pu être envoyé. Réessayez."
         case "file_too_large": "Le fichier dépasse 25 Mo."

@@ -41,8 +41,16 @@ enum RecordingSport: String, CaseIterable, Codable, Sendable {
         self == .ride
     }
 
-    /// `sports.min_duration_s` (ADR-031 §11): shorter, the Activity cannot be saved.
+    /// `sports.min_duration_s` (ADR-031 §11): less time in motion, the Activity cannot be saved.
     var minimumDuration: Duration {
         self == .hike ? .seconds(300) : .seconds(60)
+    }
+
+    /// `sports.min_distance_m` (ADR-031 §11): shorter, the Activity cannot be saved.
+    var minimumDistance: Distance {
+        switch self {
+        case .run, .walk: Distance(meters: 100)
+        case .ride, .hike: Distance(meters: 200)
+        }
     }
 }

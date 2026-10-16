@@ -156,7 +156,7 @@ Use case steps:
 3. **SHA-256** of the content.
 4. **Exact duplicate** (§6, step 1): an `imported` import of the same user with the same hash: status `duplicate`, `activity_id` = that import's activity. End.
 5. **Parse** according to the format (§5) into the **normalized trace** of ADR-019 §3 (versioned schema in `packages/contracts`) plus the file metadata (start, end, sport, name). *Amended by [ADR-031](ADR-031-live-recording-on-ios.md)*: the importer writes trace v2, with an empty `pauses`; `trkseg` breaks and FIT timer stops are not turned into Pauses.
-6. **Validate** (Zod on the normalized trace, then rules): at least 2 timestamped points with coordinates, `endedAt` > `startedAt`, duration above the sport minimum. Otherwise permanent failure (§7).
+6. **Validate** (Zod on the normalized trace, then rules): at least 2 timestamped points with coordinates, `endedAt` > `startedAt`, duration above the sport minimum. Otherwise permanent failure (§7). *Amended (2026-10-16, [ADR-031](ADR-031-live-recording-on-ios.md) §11)*: the moving time and distance the worker will compute (cleaned trace, `computeMetrics`) are also checked: moving time below `min_duration_s` fails with `invalid_duration`, distance below `min_distance_m` with `invalid_distance` (GPS sports only).
 7. **Overlap duplicate** (§6, step 2): an existing activity of the same user overlapping in time: status `duplicate`. End.
 8. **Resolve** sport, title and visibility (§5 "Metadata").
 9. **Write the trace** `activities/{userId}/{activityId}/trace.json.gz` in the bucket (the ADR-019 key). An idempotent `PUT`: a replay overwrites it with identical content.
@@ -211,7 +211,7 @@ Same policy as ADR-019 §6:
 | Technical (database, bucket, Redis) | Retry, **5 in total**, exponential backoff (30 s → 8 min) |
 | Invalid file | **Immediate permanent failure** (`UnrecoverableError`), no retry |
 
-Error codes (`activity_import.error`): `invalid_file` (unreadable, corrupt FIT CRC, malformed XML), `unsupported_format`, `no_timestamps`, `no_gps_data`, `empty_track`, `too_many_points`, `invalid_duration`, `unknown_sport`, `processing_error` (technical retries exhausted).
+Error codes (`activity_import.error`): `invalid_file` (unreadable, corrupt FIT CRC, malformed XML), `unsupported_format`, `no_timestamps`, `no_gps_data`, `empty_track`, `too_many_points`, `invalid_duration`, `invalid_distance` (*added 2026-10-16*), `unknown_sport`, `processing_error` (technical retries exhausted).
 
 On permanent failure: status `failed`, `error`, `processed_at`; domain event `activities.import.failed`; analytics `activity_import_failed` (`format`, `error`). Reprocessing: `POST /v1/admin/activity-imports/:id/reprocess` (back to `processing`, re-enqueue).
 
