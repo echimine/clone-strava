@@ -52,6 +52,11 @@ final class ActivityCommentsStore {
     @ObservationIgnored private let useCases: ActivityCommentUseCases
     @ObservationIgnored private let viewer: @MainActor () -> ActivityAuthor
     @ObservationIgnored private let onCountChange: @MainActor (Int) -> Void
+    /// My edits whose `comment.updated` echo has not come back yet, with the text sent.
+    @ObservationIgnored private var myEditEchoes: [UUID: String] = [:]
+    /// Comments the count no longer includes: removed here (my deletes, so their echo too), or
+    /// found gone before they were ever counted.
+    @ObservationIgnored private var countedDeletions: Set<UUID> = []
 
     /// - Parameters:
     ///   - request: from the card's comment button (`showsComments`), the composer starts focused.
@@ -124,38 +129,53 @@ final class ActivityCommentsStore {
         index(of: id) != nil
     }
 
-    /// A comment fetched after a `comment.created` / `comment.updated`: inserted in
-    /// chronological order, or replacing the shown one. A comment still being sent or failed is
-    /// left to its own `POST`.
-    func receive(_ comment: ActivityComment) {
-        if let index = index(of: comment.id) {
-            guard comments[index].status == .sent, comments[index].comment != comment else { return }
-            comments[index].comment = comment
-            return
-        }
-        let position = comments.firstIndex { $0.status == .sent && $0.comment.createdAt > comment.createdAt }
-            ?? comments.firstIndex { $0.status != .sent }
-            ?? comments.endIndex
-        comments.insert(Row(comment: comment, status: .sent), at: position)
-        onCountChange(1)
-    }
-
-    /// A `comment.created` / `comment.updated` about a comment not known in that state: fetched,
-    /// then shown; gone meanwhile (`404`), it is removed.
-    func refresh(_ id: UUID) async {
+    /// `comment.created`: a comment not known yet is fetched, then inserted in chronological
+    /// order and counted. Known already (the echo of my send), nothing to do.
+    func created(_ id: UUID) async {
+        guard !knows(id) else { return }
         do {
-            receive(try await useCases.comment(id, on: activityId))
+            let comment = try await useCases.comment(id, on: activityId)
+            guard !knows(id) else { return }
+            let position = comments.firstIndex { $0.status == .sent && $0.comment.createdAt > comment.createdAt }
+                ?? comments.firstIndex { $0.status != .sent }
+                ?? comments.endIndex
+            comments.insert(Row(comment: comment, status: .sent), at: position)
+            onCountChange(1)
         } catch .notFound {
-            remove(id)
+            // Deleted meanwhile: never counted, so its `comment.deleted` must not count it out.
+            countedDeletions.insert(id)
         } catch {
             // Missed: the next catch-up (reconnection, new appearance) brings it.
         }
     }
 
-    /// A `comment.deleted`, or a `404` on fetching it.
-    func remove(_ id: UUID) {
-        guard let index = index(of: id), comments[index].status == .sent else { return }
+    /// `comment.updated`: a shown comment is fetched again and replaced. It never changes the
+    /// count: one not loaded (an older page) is ignored, and so is the echo of my own edit, whose
+    /// text the thread already shows. A comment still being sent is left to its `POST`.
+    func updated(_ id: UUID) async {
+        guard let row = row(id), row.status == .sent else { return }
+        if let sentBody = myEditEchoes.removeValue(forKey: id), row.comment.body == sentBody { return }
+        do {
+            let comment = try await useCases.comment(id, on: activityId)
+            guard let index = index(of: id), comments[index].status == .sent else { return }
+            comments[index].comment = comment
+        } catch .notFound {
+            deleted(id)
+        } catch {
+            // Missed: the next catch-up (reconnection, new appearance) brings it.
+        }
+    }
+
+    /// `comment.deleted`, or a `404` on fetching it: one comment less, shown or not (an older
+    /// page). Counted once: not again for the echo of my own delete.
+    func deleted(_ id: UUID) {
+        guard let index = index(of: id) else {
+            if countedDeletions.insert(id).inserted { onCountChange(-1) }
+            return
+        }
+        guard comments[index].status == .sent else { return }
         comments.remove(at: index)
+        countedDeletions.insert(id)
         onCountChange(-1)
         if editing == id { cancelEditing() }
         if pendingDeletion?.id == id { pendingDeletion = nil }
@@ -222,11 +242,13 @@ final class ActivityCommentsStore {
         let previous = comments[index].comment
         comments[index].comment.body = body
         comments[index].comment.updatedAt = .now
+        myEditEchoes[id] = body
         do {
             let stored = try await useCases.edit(id, body: body, on: activityId)
             guard let index = self.index(of: id) else { return }
             comments[index].comment = stored
         } catch {
+            myEditEchoes[id] = nil
             guard let index = self.index(of: id) else { return }
             comments[index].comment = previous
             toast = ActivityCommentMessages.editFailed
@@ -245,11 +267,13 @@ final class ActivityCommentsStore {
         pendingDeletion = nil
         guard let index = index(of: comment.id) else { return }
         let removed = comments.remove(at: index)
+        countedDeletions.insert(comment.id)
         onCountChange(-1)
         do {
             try await useCases.delete(comment.id, on: activityId)
         } catch {
             guard self.index(of: comment.id) == nil else { return }
+            countedDeletions.remove(comment.id)
             comments.insert(removed, at: min(index, comments.count))
             onCountChange(1)
             toast = ActivityCommentMessages.deleteFailed
