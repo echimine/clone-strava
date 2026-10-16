@@ -53,18 +53,20 @@ The decisions below were made in a grilling session. The logo and the splash wer
 ### 5. End-of-Recording celebration (amends ADR-031 §11)
 
 - **When**: on arrival on the finish screen, only for a Recording made live with GPS. It never plays for imported Activities. It is skipped below **500 m or 2 min**. Those thresholds are constants, to be tuned after real outings, and are separate from the sport's `min_duration_s`, which only gates Save.
-- **Sequence (about 3 s, fixed whatever the distance)**:
+- **Sequence (10 s, fixed whatever the distance)**. Decided on an iPhone on 2026-10-16: the first cut lasted about 3 s and went by too fast. The trace draws in about 6.5 s, the stats count from 0.7 s to 7.3 s, the camera pulls back over about 2.7 s, and the shrink into the mini-map takes the last 0.8 s:
   1. the map fills the screen, pitched in 3D with terrain;
   2. the trace draws itself while the camera follows its head, then the camera pulls back to frame the whole outing;
   3. the stats count up to their final values;
   4. haptics punctuate the end of the draw and the end of the count;
   5. the map then shrinks into the mini-map's place, and the form (title, visibility, buttons) appears.
 - **Skip**: one tap jumps to the end state. There is no replay in v1.
+- **Reduce Motion**: the celebration is skipped, and the finish screen shows at once.
 - **Fallbacks**:
-  - **2D**: a top-down camera, used when terrain is slow or when Reduce Motion is on. Under Reduce Motion, the counters also show their final values at once.
+  - **2D**: a top-down camera, used when terrain is slow to load.
   - **No map**: if the map style is not ready within about 1 s (typically no network at the end of an outing), the trace draws on a plain brand background (`PolylineSketch` + `trim`), with the same counters and haptics.
 - **Sound**: none. An app sound would interrupt or duck the athlete's music or podcast, and `AVAudioSession` handling is not worth it.
 - The finish screen's rules (Save, Resume, Delete, title, visibility, too-short check) are unchanged. The celebration only precedes them.
+- **Debug preview**: in Debug builds only, the Profile tab links to a preview screen that replays the splash and the celebration on a fictional outing, so both can be checked on a device without a cold launch or a real outing. It is absent from Release builds.
 
 ### 6. Out of scope
 
