@@ -67,4 +67,25 @@ struct FeedStoreActivityDetailTests {
         #expect(store.posts.map(\.id) == [edited.id, commented.id])
         #expect(store.posts.first == renamed)
     }
+
+    /// ADR-033 §1: the long-press menu ("Modifier") is only on my processed cards, never on
+    /// another athlete's card or on a local card.
+    @Test func onlyMyProcessedCardsHaveTheManageMenu() async {
+        let repository = FakeFeedRepository()
+        let mine = ActivityPost.fixture(viewerIsAuthor: true)
+        let theirs = ActivityPost.fixture(viewerIsAuthor: false)
+        repository.pages[nil] = .success(FeedPage(posts: [mine, theirs], nextCursor: nil))
+        let local = FakeLocalActivityFeedSource()
+        let card = LocalActivityCard.fixture(status: .processing, state: .processing)
+        let store = makeStore(repository, local: local)
+        local.send([card])
+        let observation = Task { await store.observeLocalActivities() }
+        while store.localCards.isEmpty { await Task.yield() }
+        await store.refresh()
+
+        #expect(store.canManage(mine.id))
+        #expect(!store.canManage(theirs.id))
+        #expect(!store.canManage(card.id))
+        observation.cancel()
+    }
 }

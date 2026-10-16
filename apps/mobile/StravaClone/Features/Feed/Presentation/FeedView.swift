@@ -2,10 +2,12 @@ import SwiftUI
 
 /// Home tab: the activity feed (ADR-029). Knows nothing of other features (ADR-007 rule 5):
 /// the app shell passes the "+" action, the content shown above the feed (e.g. the import
-/// banner) and `openActivity`, the Activity detail pushed in this tab's stack (ADR-033 §1).
+/// banner), `openActivity`, the Activity detail pushed in this tab's stack, and `editActivity`,
+/// "Modifier" in the context menu of my processed cards (ADR-033 §1).
 struct FeedView<TopContent: View, ActivityDestination: View>: View {
     @Bindable var store: FeedStore
     var onImportActivity: () -> Void = {}
+    var editActivity: ((ActivityID) -> Void)?
     @ViewBuilder var openActivity: (ActivityDetailRequest) -> ActivityDestination
     @ViewBuilder var topContent: () -> TopContent
 
@@ -91,6 +93,12 @@ struct FeedView<TopContent: View, ActivityDestination: View>: View {
                         .contentShape(.rect(cornerRadius: 20))
                         .onTapGesture { store.open(post.id) }
                         .accessibilityAction(named: Text("Ouvrir l'activité")) { store.open(post.id) }
+                        // Long press on one of my cards; none on other athletes' cards.
+                        .contextMenu {
+                            if let editActivity, store.canManage(post.id) {
+                                ActivityManageButtons(onEdit: { editActivity(post.id) })
+                            }
+                        }
                         .task { await store.loadMoreIfNeeded(currentPost: post) }
                     }
                     if store.isLoadingMore {
