@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { processingStatusSchema, visibilitySchema } from "../common/enums.js";
 import { sportTypeCodeSchema } from "../sports/sport-type.js";
+import { feedActivityMapSchema, feedAuthorSchema, feedEngagementSchema } from "./feed.js";
 
 /** Provisional values computed by the app (ADR-019 §1): compared, never trusted, by the worker. */
 export const provisionalActivityValuesSchema = z.object({
@@ -84,25 +85,35 @@ export const activityStatsSchema = z.object({
   maxSpeedMs: z.number().nullable(),
   avgHeartRate: z.number().int().nullable(),
   maxHeartRate: z.number().int().nullable(),
+  calories: z.number().int().nullable(),
 });
 export type ActivityStats = z.infer<typeof activityStatsSchema>;
 
 /**
- * `GET /v1/activities/:id` response (ADR-031 §13): author only, whatever
- * the state. `stats` holds the official values once `processed`, null
- * before; `processingError` is present only once `failed`.
+ * `GET /v1/activities/:id` response (ADR-033 §2, amends ADR-031 §13): any
+ * viewer who can see the Activity. The author gets it in any state, others
+ * only once `processed`. `stats` holds the official values once
+ * `processed`, null before; `processingError` is present only once
+ * `failed`. Author and engagement are assembled like a feed card (ADR-029 §2).
  */
 export const activityDetailSchema = z.object({
   id: z.uuid(),
-  sportTypeCode: sportTypeCodeSchema,
   title: z.string(),
   // Optional rather than nullable: @nestjs/swagger reads a top-level `type: ["string", "null"]` as an array.
   description: z.string().optional(),
+  sportTypeCode: sportTypeCodeSchema,
   startedAt: z.iso.datetime(),
   endedAt: z.iso.datetime(),
   visibility: visibilitySchema,
   processingStatus: processingStatusSchema,
   processingError: activityProcessingErrorCodeSchema.optional(),
+  // Optional for the same reason as `description`: absent until the place is known.
+  locationName: z.string().optional(),
   stats: activityStatsSchema.nullable(),
+  map: feedActivityMapSchema.nullable(),
+  author: feedAuthorSchema,
+  engagement: feedEngagementSchema,
+  viewerIsAuthor: z.boolean(),
+  updatedAt: z.iso.datetime(),
 });
 export type ActivityDetail = z.infer<typeof activityDetailSchema>;

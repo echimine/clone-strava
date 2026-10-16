@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { SocialService } from "../../social/index.js";
 import { ActivityRepository } from "../repositories/activity.repository.js";
-import type { ActivityRecord } from "../domain/activity-record.js";
+import { toActivityRecord, type ActivityRecord } from "../domain/activity-record.js";
 
 /**
  * An activity as seen by a viewer (ADR-029, ADR-017 visibility): the owner
@@ -17,28 +17,26 @@ export class GetVisibleActivityUseCase {
   ) {}
 
   async execute(viewerId: string, activityId: string): Promise<ActivityRecord | null> {
+    const row = await this.findRow(viewerId, activityId);
+    return row ? toActivityRecord(row) : null;
+  }
+
+  /** The full `activity` row under the same rules, for this module's own use cases (ADR-033 §2). */
+  async findRow(viewerId: string, activityId: string) {
     const row = await this.activities.findById(activityId);
     if (!row) {
       return null;
     }
-    const record: ActivityRecord = {
-      id: row.id,
-      userId: row.userId,
-      sportTypeCode: row.sportTypeCode,
-      visibility: row.visibility,
-      processingStatus: row.processingStatus,
-      startedAt: row.startedAt,
-    };
     if (row.userId === viewerId) {
-      return record;
+      return row;
     }
     if (row.processingStatus !== "processed" || row.visibility === "private") {
       return null;
     }
     if (row.visibility === "followers") {
       const followees = await this.social.getFolloweeIds(viewerId);
-      return followees.includes(row.userId) ? record : null;
+      return followees.includes(row.userId) ? row : null;
     }
-    return record;
+    return row;
   }
 }

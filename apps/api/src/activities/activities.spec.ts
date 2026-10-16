@@ -20,12 +20,15 @@ import {
 import { ActivitiesModule, ActivitiesService, PermanentProcessingError } from "@repo/core/activities";
 import { AnalyticsModule } from "@repo/core/analytics";
 import { AuthService } from "@repo/core/auth";
+import { EngagementModule } from "@repo/core/engagement";
 import { GeocodingModule } from "@repo/core/geocoding";
 import { CoreInfrastructureModule, DATABASE, type Database } from "@repo/core/infrastructure";
 import { StorageModule, StorageService } from "@repo/core/storage";
+import { UsersModule } from "@repo/core/users";
 import { ensureTestDatabaseMigrated, TEST_DATABASE_URL, TEST_REDIS_URL } from "../auth/test-auth-app.js";
 import { SessionGuard } from "../auth/session.guard.js";
 import { GlobalExceptionFilter } from "../common/global-exception.filter.js";
+import { FeedAssembler } from "../feed/feed-assembler.js";
 import { ActivitiesController } from "./activities.controller.js";
 
 /** In-memory bucket: S3 is the only third-party service faked here (ADR-024 §2). */
@@ -152,10 +155,13 @@ describe("/v1/activities (integration)", () => {
         GeocodingModule.forRoot({}),
         EventEmitterModule.forRoot({ wildcard: true, delimiter: "." }),
         ActivitiesModule,
+        EngagementModule,
+        UsersModule,
       ],
       controllers: [ActivitiesController],
       providers: [
         SessionGuard,
+        FeedAssembler,
         {
           provide: AuthService,
           useValue: {
@@ -171,6 +177,7 @@ describe("/v1/activities (integration)", () => {
                   }
                 : null;
             },
+            getPublicIdentities: async () => [],
           },
         },
         { provide: APP_PIPE, useClass: ZodValidationPipe },
@@ -324,7 +331,7 @@ describe("/v1/activities (integration)", () => {
       });
     });
 
-    it("answers 404 to another athlete, even for a processed activity", async () => {
+    it("answers 404 to another athlete for a followers activity without follow (ADR-033 §2)", async () => {
       const id = await processedActivity();
       expect((await get(id, userB)).status).toBe(404);
       expect((await get(randomUUID())).status).toBe(404);

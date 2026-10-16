@@ -1309,15 +1309,15 @@
             "format": "uuid",
             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
           },
-          "sportTypeCode": {
-            "type": "string",
-            "minLength": 1
-          },
           "title": {
             "type": "string"
           },
           "description": {
             "type": "string"
+          },
+          "sportTypeCode": {
+            "type": "string",
+            "minLength": 1
           },
           "startedAt": {
             "type": "string",
@@ -1353,6 +1353,9 @@
               "empty_trace",
               "processing_error"
             ]
+          },
+          "locationName": {
+            "type": "string"
           },
           "stats": {
             "type": [
@@ -1415,6 +1418,14 @@
                 ],
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
+              },
+              "calories": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
               }
             },
             "required": [
@@ -1425,20 +1436,104 @@
               "avgSpeedMs",
               "maxSpeedMs",
               "avgHeartRate",
-              "maxHeartRate"
+              "maxHeartRate",
+              "calories"
             ],
             "additionalProperties": false
+          },
+          "map": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "polyline": {
+                "type": "string",
+                "minLength": 1
+              },
+              "precision": {
+                "type": "number",
+                "const": 5
+              }
+            },
+            "required": [
+              "polyline",
+              "precision"
+            ],
+            "additionalProperties": false
+          },
+          "author": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "displayName": {
+                "type": "string"
+              },
+              "avatarUrl": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "displayName",
+              "avatarUrl"
+            ],
+            "additionalProperties": false
+          },
+          "engagement": {
+            "type": "object",
+            "properties": {
+              "kudosCount": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "commentCount": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "viewerHasKudoed": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "kudosCount",
+              "commentCount",
+              "viewerHasKudoed"
+            ],
+            "additionalProperties": false
+          },
+          "viewerIsAuthor": {
+            "type": "boolean"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
           }
         },
         "required": [
           "id",
-          "sportTypeCode",
           "title",
+          "sportTypeCode",
           "startedAt",
           "endedAt",
           "visibility",
           "processingStatus",
-          "stats"
+          "stats",
+          "map",
+          "author",
+          "engagement",
+          "viewerIsAuthor",
+          "updatedAt"
         ],
         "additionalProperties": false
       },

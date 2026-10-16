@@ -1,6 +1,5 @@
 import { Injectable } from "@nestjs/common";
 import type {
-  ActivityDetail,
   ActivityImport,
   CreateActivityImportRequest,
   CreateActivityRequest,
@@ -30,8 +29,9 @@ import {
 import { ReprocessActivityImportUseCase } from "./use-cases/reprocess-activity-import.use-case.js";
 import { GetFeedPageUseCase } from "./use-cases/get-feed-page.use-case.js";
 import { GetVisibleActivityUseCase } from "./use-cases/get-visible-activity.use-case.js";
-import { GetOwnActivityUseCase } from "./use-cases/get-own-activity.use-case.js";
+import { GetActivityDetailUseCase } from "./use-cases/get-activity-detail.use-case.js";
 import { DeleteActivityUseCase } from "./use-cases/delete-activity.use-case.js";
+import type { ActivityDetailRecord } from "./domain/activity-detail.js";
 import type { ActivityRecord } from "./domain/activity-record.js";
 import type { FeedActivityPage } from "./domain/feed-activity.js";
 
@@ -57,7 +57,7 @@ export class ActivitiesService {
     private readonly reprocessActivityImportUseCase: ReprocessActivityImportUseCase,
     private readonly getFeedPageUseCase: GetFeedPageUseCase,
     private readonly getVisibleActivityUseCase: GetVisibleActivityUseCase,
-    private readonly getOwnActivityUseCase: GetOwnActivityUseCase,
+    private readonly getActivityDetailUseCase: GetActivityDetailUseCase,
     private readonly deleteActivityUseCase: DeleteActivityUseCase,
   ) {}
 
@@ -103,9 +103,12 @@ export class ActivitiesService {
     return this.getVisibleActivityUseCase.execute(viewerId, activityId);
   }
 
-  /** The author's own activity, whatever its state; `404` for anyone else (ADR-031 §13). */
-  getOwn(userId: string, activityId: string): Promise<ActivityDetail> {
-    return this.getOwnActivityUseCase.execute(userId, activityId);
+  /**
+   * The detail of an activity `viewerId` may see (ADR-033 §2): the author's in any state, others'
+   * once processed; `404 activity_not_found` otherwise. The caller adds author and engagement.
+   */
+  getDetail(viewerId: string, activityId: string): Promise<ActivityDetailRecord> {
+    return this.getActivityDetailUseCase.execute(viewerId, activityId);
   }
 
   /** The author deletes an activity still `pending` or `failed` (ADR-031 §13). */
