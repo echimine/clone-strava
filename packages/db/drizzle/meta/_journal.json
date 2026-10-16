@@ -71,6 +71,13 @@
       "when": 1792183654690,
       "tag": "0009_activity_stats_computed_for_sport",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792184349736,
+      "tag": "0010_kudos_activity_created_at",
+      "breakpoints": true
     }
   ]
 }

@@ -5,11 +5,13 @@ import { ListCommentsUseCase } from "./use-cases/list-comments.use-case.js";
 import { GetCommentUseCase } from "./use-cases/get-comment.use-case.js";
 import { EditCommentUseCase } from "./use-cases/edit-comment.use-case.js";
 import { DeleteCommentUseCase } from "./use-cases/delete-comment.use-case.js";
+import { ListKudosUseCase } from "./use-cases/list-kudos.use-case.js";
 import { GetEngagementCountsUseCase } from "./use-cases/get-engagement-counts.use-case.js";
 import { KudosRepository } from "./repositories/kudos.repository.js";
 import type { CommentPage, CommentView } from "./domain/comment-view.js";
 import type { EngagementCounts } from "./domain/engagement-counts.js";
 import type { KudosState } from "./domain/kudos-state.js";
+import type { KudosPage } from "./domain/kudos-view.js";
 
 /**
  * Public facade of the `engagement` module (ADR-021 §1: layer 3, may
@@ -19,6 +21,7 @@ import type { KudosState } from "./domain/kudos-state.js";
 export class EngagementService {
   constructor(
     private readonly giveKudosUseCase: GiveKudosUseCase,
+    private readonly listKudosUseCase: ListKudosUseCase,
     private readonly addCommentUseCase: AddCommentUseCase,
     private readonly listCommentsUseCase: ListCommentsUseCase,
     private readonly getCommentUseCase: GetCommentUseCase,
@@ -34,6 +37,11 @@ export class EngagementService {
 
   removeKudos(userId: string, activityId: string): Promise<KudosState> {
     return this.giveKudosUseCase.remove(userId, activityId);
+  }
+
+  /** `GET /v1/activities/:id/kudos` (ADR-034 §1): most recent first, keyset pages. */
+  listKudos(viewerId: string, activityId: string, query: { cursor?: string; limit: number }): Promise<KudosPage> {
+    return this.listKudosUseCase.execute(viewerId, activityId, query);
   }
 
   /** Batch read (ADR-029): which of `activityIds` the viewer gave kudos to. */

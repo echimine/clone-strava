@@ -20,6 +20,7 @@ import { ensureTestDatabaseMigrated, TEST_DATABASE_URL, TEST_REDIS_URL } from ".
 import { SessionGuard } from "../auth/session.guard.js";
 import { GlobalExceptionFilter } from "../common/global-exception.filter.js";
 import { CommentAssembler } from "./comment-assembler.js";
+import { AthleteIdentities } from "../identities/athlete-identities.js";
 import { CommentsController } from "./comments.controller.js";
 
 /**
@@ -109,6 +110,7 @@ describe("/v1/activities/:id/comments (integration)", () => {
       providers: [
         SessionGuard,
         CommentAssembler,
+        AthleteIdentities,
         {
           provide: AuthService,
           useValue: {
