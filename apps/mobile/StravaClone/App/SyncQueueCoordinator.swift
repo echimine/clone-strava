@@ -38,8 +38,10 @@ private final class BackgroundTaskBox {
 /// wiped.
 ///
 /// Triggers: right after Save, return to the foreground, network back, feed pull-to-refresh
-/// (all but Save skip the backoff delay); tracking on return to the foreground, each realtime
-/// (re)connection and `activity.processed` / `activity.failed`.
+/// (all but Save skip the backoff delay); tracking after each of them, each realtime
+/// (re)connection and `activity.processed` / `activity.failed`. The worker is fast enough for
+/// that event to arrive before the `complete` answer, while nothing is in `processing` yet:
+/// tracking once the queue is sent catches the Activity all the same.
 @MainActor
 final class SyncQueueCoordinator {
     nonisolated static let activityEvents: Set<String> = ["activity.processed", "activity.failed"]
@@ -67,18 +69,19 @@ final class SyncQueueCoordinator {
         self.backgroundTasks = backgroundTasks
     }
 
-    /// Right after Save: the whole chain starts at once, under a background task.
+    /// Right after Save: the whole chain starts at once, under a background task, then the
+    /// Activity is checked.
     func activitySaved() async {
         await backgroundTasks.run("activity-upload") {
             await activitySender.send()
         }
+        await trackProcessing()
     }
 
     /// Return to the foreground (and sign-in): everything pending is sent, then the
     /// Activities in `processing` are checked.
     func appBecameActive() async {
         await drain()
-        await trackProcessing()
     }
 
     func pullToRefresh() async {
@@ -151,10 +154,12 @@ final class SyncQueueCoordinator {
         }
     }
 
+    /// Everything pending is sent, then the Activities in `processing` are checked.
     private func drain() async {
         await backgroundTasks.run("sync-queue") {
             await activitySender.send(ignoringBackoff: true)
             await sendItineraryChanges()
         }
+        await trackProcessing()
     }
 }

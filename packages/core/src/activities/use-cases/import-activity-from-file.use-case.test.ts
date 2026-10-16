@@ -74,7 +74,9 @@ function setup(options: { file?: Uint8Array; row?: Partial<ActivityImportRow> } 
   };
   const sports = {
     findByCode: vi.fn(async (code: string) =>
-      ["run", "ride"].includes(code) ? { code, isActive: true, minDurationS: 60 } : undefined,
+      ["run", "ride"].includes(code)
+        ? { code, isActive: true, usesGps: true, minDurationS: 60, minDistanceM: code === "ride" ? 200 : 100 }
+        : undefined,
     ),
   };
   const users = {
@@ -209,6 +211,21 @@ describe("ImportActivityFromFileUseCase", () => {
     ["a file without times", gpx([{ lat: 1, lon: 1 }, { lat: 2, lon: 2 }]), "no_timestamps"],
     ["an unknown sport", gpx([{ lat: 1, lon: 1, time: "2026-06-01T06:00:00Z" }, { lat: 1.01, lon: 1, time: "2026-06-01T06:10:00Z" }], "other"), "unknown_sport"],
     ["a too short activity", gpx([{ lat: 1, lon: 1, time: "2026-06-01T06:00:00Z" }, { lat: 1.0001, lon: 1, time: "2026-06-01T06:00:30Z" }]), "invalid_duration"],
+    [
+      "10 minutes without moving",
+      gpx(Array.from({ length: 11 }, (_, i) => ({ lat: 1, lon: 1, time: new Date(Date.UTC(2026, 5, 1, 6, i)).toISOString() }))),
+      "invalid_duration",
+    ],
+    [
+      "a distance below the sport's minimum",
+      // 90 s in motion (0.67 m/s), 60 m in all.
+      gpx([
+        { lat: 1, lon: 1, time: "2026-06-01T06:00:00Z" },
+        { lat: 1.00018, lon: 1, time: "2026-06-01T06:00:30Z" },
+        { lat: 1.00054, lon: 1, time: "2026-06-01T06:01:30Z" },
+      ]),
+      "invalid_distance",
+    ],
   ])("fails permanently on %s", async (_label, file, code) => {
     ctx = setup({ file });
     await expect(ctx.useCase.execute(job)).rejects.toBeInstanceOf(PermanentProcessingError);

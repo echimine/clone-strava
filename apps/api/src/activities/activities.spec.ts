@@ -252,6 +252,8 @@ describe("/v1/activities (integration)", () => {
         () => ({ startedAt: "2026-10-01T08:00:00.000Z", endedAt: "2026-10-01T08:00:59.000Z" }),
         "endedAt",
       ],
+      ["a moving time below the sport's minimum", () => ({ movingTimeS: 59 }), "movingTimeS"],
+      ["a distance below the sport's minimum", () => ({ distanceM: 99.9 }), "distanceM"],
     ])("refuses %s (422) and creates nothing", async (_case, overrides, field) => {
       const id = randomUUID();
       const response = await call("", userA, { body: body(id, overrides()) });
@@ -260,6 +262,14 @@ describe("/v1/activities (integration)", () => {
       expect(error.code).toBe("validation_error");
       expect(error.details?.map((detail) => detail.field)).toEqual([field]);
       expect(await sql("select id from activities.activity where id = $1", [id])).toEqual([]);
+    });
+
+    it.each([
+      ["right at the sport's minimums", { movingTimeS: 60, distanceM: 100 }],
+      ["without provisional values", { movingTimeS: undefined, distanceM: undefined, elapsedTimeS: undefined }],
+    ])("accepts an activity %s (201)", async (_case, overrides) => {
+      const response = await call("", userA, { body: body(randomUUID(), overrides) });
+      expect(response.status).toBe(201);
     });
   });
 

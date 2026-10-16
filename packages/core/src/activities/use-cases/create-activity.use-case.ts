@@ -65,7 +65,11 @@ export class CreateActivityUseCase {
     };
   }
 
-  /** ADR-019 §1 `422`: active sport, duration at least the sport's minimum (`endedAt > startedAt` is in the contract). */
+  /**
+   * ADR-019 §1 `422`: active sport, duration at least the sport's minimum (`endedAt > startedAt`
+   * is in the contract); the provisional moving time and distance, when sent, at least the
+   * sport's minimums too (ADR-031 §11).
+   */
   private async validate(request: CreateActivityRequest): Promise<void> {
     const sport = await this.sports.findByCode(request.sportTypeCode);
     if (!sport || !sport.isActive) {
@@ -74,6 +78,12 @@ export class CreateActivityUseCase {
     const durationS = (Date.parse(request.endedAt) - Date.parse(request.startedAt)) / 1000;
     if (durationS < sport.minDurationS) {
       throw invalid("endedAt", `The activity must last at least ${sport.minDurationS} s`);
+    }
+    if (request.movingTimeS !== undefined && request.movingTimeS < sport.minDurationS) {
+      throw invalid("movingTimeS", `The activity must last at least ${sport.minDurationS} s in motion`);
+    }
+    if (sport.tracksDistance && request.distanceM !== undefined && request.distanceM < sport.minDistanceM) {
+      throw invalid("distanceM", `The activity must cover at least ${sport.minDistanceM} m`);
     }
   }
 

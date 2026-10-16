@@ -28,6 +28,8 @@ import {
   type ActivityImportRow,
 } from "../repositories/activity-import.repository.js";
 import { PermanentProcessingError } from "../domain/processing-error.js";
+import { cleanTrace, MAX_TRACE_ACCURACY_M, maxPlausibleSpeedMs } from "../domain/clean-trace.js";
+import { computeMetrics } from "../domain/compute-metrics.js";
 import { defaultActivityTitle } from "../domain/import/default-title.js";
 import { DUPLICATE_OVERLAP_RATIO, overlapRatio } from "../domain/import/overlap.js";
 import { mapFileSportToCode } from "../domain/import/sport-mapping.js";
@@ -107,6 +109,22 @@ export class ImportActivityFromFileUseCase {
     }
     if ((endedAt.getTime() - startedAt.getTime()) / 1000 < sport.minDurationS) {
       return this.fail(row, "invalid_duration", job, sha256);
+    }
+    // The sport's minimums on what the worker will compute (ADR-031 §11): moving time, and
+    // distance when it comes from GPS (a pool swim file has none).
+    const metrics = computeMetrics(
+      cleanTrace(trace.points, {
+        maxAccuracyM: MAX_TRACE_ACCURACY_M,
+        maxSpeedMs: maxPlausibleSpeedMs(sport.code),
+        pauses: trace.pauses,
+      }),
+      { pauses: trace.pauses },
+    );
+    if (metrics.movingTimeS < sport.minDurationS) {
+      return this.fail(row, "invalid_duration", job, sha256);
+    }
+    if (sport.usesGps && metrics.distanceM < sport.minDistanceM) {
+      return this.fail(row, "invalid_distance", job, sha256);
     }
     const defaults = await this.users.getActivityDefaults(row.userId);
 

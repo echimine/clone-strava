@@ -26,6 +26,7 @@ export const activityImportErrorCodeSchema = z.enum([
   "empty_track",
   "too_many_points",
   "invalid_duration",
+  "invalid_distance",
   "unknown_sport",
   "processing_error",
 ]);
