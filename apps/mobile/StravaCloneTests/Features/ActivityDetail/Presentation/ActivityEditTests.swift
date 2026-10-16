@@ -162,6 +162,16 @@ struct ActivityEditTests {
         #expect(!form.canSave)
     }
 
+    /// Any active sport (ADR-033 §4): the seed's, in its `display_order`; a sport the app does
+    /// not know stays selectable on the Activity that has it.
+    @Test func thePickerOffersEveryActiveSport() {
+        let form = ActivityEditor.Form(detail: previous)
+        #expect(form.sports.map(\.code) == ["run", "ride", "swim", "walk", "hike"])
+
+        let unknown = ActivityEditor.Form(detail: ActivityDetail.fixture(sport: .other("kayak")))
+        #expect(unknown.sports.map(\.code) == ["run", "ride", "swim", "walk", "hike", "kayak"])
+    }
+
     /// An emptied description is cleared on the server (ADR-033 §4).
     @Test func anEmptiedDescriptionIsCleared() {
         var form = ActivityEditor.Form(detail: ActivityDetail.fixture(description: "Belle boucle"))

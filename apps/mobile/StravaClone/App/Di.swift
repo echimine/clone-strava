@@ -249,12 +249,14 @@ final class Di {
     )
 
     /// The feed's cards follow `activity.updated` and `activity.deleted` on the owner's topic
-    /// (ADR-033 §8).
+    /// (ADR-033 §8): the viewer's own cards only, those with the "Modifier" menu.
     func makeReloadUpdatedActivities() -> ReloadUpdatedActivities {
-        ReloadUpdatedActivities(
+        let feed = feedStore
+        return ReloadUpdatedActivities(
             loadDetail: LoadActivityDetail(repository: activityDetailRepository),
             changes: activityChanges,
-            events: RealtimeActivityEventSource(client: webSocketClient)
+            events: RealtimeActivityEventSource(client: webSocketClient),
+            isViewersOwn: { feed.canManage($0) }
         )
     }
 
