@@ -47,7 +47,7 @@ The decisions below were made in a grilling session. The logo and the splash wer
   1. the white N draws itself in about 0.6 s;
   2. the N becomes a window onto the app: it is cut out of the orange layer and scales up until the layer is gone, then the layer fades out (about 0.55 s).
 - **Tied to the session**: the reveal starts when the draw has finished **and** `AuthStore` has left `checkingSession`, whichever comes later. If the session is still unknown after the draw, the N pulses gently until it is known. The app is never revealed before the signed-in or signed-out root is decided.
-- **Reduce Motion**: the N appears at once, then a plain 0.3 s fade.
+- **Reduce Motion**: the N appears at once, then a plain 0.3 s fade. *Amended (spec #76 implementation)*: the N is there from the splash's first frame, and the fade starts as soon as the session is known, since there is no draw to wait for.
 - No haptic, no wordmark, no sound. The splash is not shown again when the app comes back from the background.
 
 ### 5. End-of-Recording celebration (amends ADR-031 §11)

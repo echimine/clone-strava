@@ -3,8 +3,9 @@ import SwiftUI
 /// The "dive into the N" splash (ADR-032 §4), laid over `RootView` on a cold launch. Its first
 /// frame is the launch screen's plain orange; the white N draws itself, pulses while the
 /// session is unknown, then becomes a window cut out of the orange layer that grows until the
-/// app shows through. Timing lives in `SplashTimeline`, on the clock of the frames shown
-/// (`SplashClock`).
+/// app shows through. Under Reduce Motion, the N is there at once and the splash fades out as
+/// soon as the session is known. Timing lives in `SplashTimeline`, on the clock of the frames
+/// shown (`SplashClock`).
 struct SplashView: View {
     /// UI tests launch with this argument to skip the splash.
     static let disablingArgument = "-uiTestDisableSplash"
