@@ -303,6 +303,44 @@
           "Activities"
         ]
       },
+      "patch": {
+        "operationId": "ActivitiesController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateActivityRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivityDetailDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Activities"
+        ]
+      },
       "delete": {
         "operationId": "ActivitiesController_remove",
         "parameters": [
@@ -1748,6 +1786,35 @@
           "updatedAt"
         ],
         "additionalProperties": false
+      },
+      "UpdateActivityRequestDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 10000
+          },
+          "sportTypeCode": {
+            "type": "string",
+            "minLength": 1
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "public",
+              "followers",
+              "private"
+            ]
+          }
+        }
       },
       "RenewUploadUrlResponseDto_Output": {
         "type": "object",
