@@ -200,6 +200,9 @@ targets:
       - path: ../../packages/contracts/fixtures/traces
         type: folder
         buildPhase: resources
+      # Master SVG of the Nervo symbol (ADR-032 §2), the reference NervoMark is checked against.
+      - path: ../../packages/ui/src/brand/nervo-symbol.svg
+        buildPhase: resources
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
