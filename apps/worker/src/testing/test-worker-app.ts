@@ -13,7 +13,9 @@ import { runMigrations } from "@repo/db/migrate";
 import { ActivitiesProcessorModule } from "../processors/activities/activities.module.js";
 
 /** Local-dev/test infrastructure (`docker-compose.dev.yml`, ADR-024 §3). */
-export const TEST_DATABASE_URL = "postgres://strava:strava@127.0.0.1:5432/strava";
+/** Overridable so parallel worktrees can each use their own database. */
+export const TEST_DATABASE_URL =
+  process.env.TEST_DATABASE_URL ?? "postgres://strava:strava@127.0.0.1:5432/strava";
 export const TEST_REDIS_URL = "redis://127.0.0.1:6379";
 
 /**
