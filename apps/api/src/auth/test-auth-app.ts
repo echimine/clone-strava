@@ -136,18 +136,17 @@ export async function ensureTestDatabaseMigrated(): Promise<void> {
   await runMigrations(TEST_DATABASE_URL);
 }
 
-// Better Auth's `customRules` (create-auth-instance.ts) key the rate
-// limiter by `${ip}|${path}` -- confirmed by inspecting the actual keys
-// written to the dev Redis during manual testing -- so every spec file in
-// this suite shares the same budget (all requests come from this process,
-// same loopback IP). Every spec that hits `/api/auth/sign-up/email` or
-// `/sign-in/email` outside its own dedicated rate-limiting test must clear
-// these first, or an earlier spec file's (or an earlier run's) leftover
-// count can make an unrelated assertion fail with 429.
-const RATE_LIMIT_KEYS = ["127.0.0.1|/sign-up/email", "127.0.0.1|/sign-in/email"];
-
-export async function clearRateLimitCounters(): Promise<void> {
+// Better Auth's rate limiter keys counters by `${ip}|${path}` -- confirmed
+// by inspecting the actual keys written to the dev Redis -- and every
+// request from this process comes from the same loopback IP (127.0.0.1).
+// Only `auth-flows.spec.ts`'s rate-limiting tests use that budget: any other
+// spec that signs up/in sends its own `x-forwarded-for` (resolved by
+// `ipAddress.ipAddressHeaders`) so parallel spec files never eat into it.
+// Each spec clears its own IP's counters first, so a previous run within
+// the rate-limit windows can't make an unrelated assertion fail with 429.
+export async function clearRateLimitCounters(ip = "127.0.0.1"): Promise<void> {
   const redis = new Redis(TEST_REDIS_URL);
-  await redis.del(...RATE_LIMIT_KEYS);
+  const paths = ["/sign-up/email", "/sign-in/email", "/two-factor/enable", "/two-factor/verify-totp"];
+  await redis.del(...paths.map((path) => `${ip}|${path}`));
   await redis.quit();
 }
