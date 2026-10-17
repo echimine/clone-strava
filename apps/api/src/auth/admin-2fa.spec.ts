@@ -18,18 +18,20 @@ import {
  * table + `user.two_factor_enabled` column, `packages/db/drizzle/0003_
  * little_blink.sql`) and Redis -- no mocking of Better Auth itself.
  */
+/** Documentation range (RFC 5737), distinct from the 127.0.0.1 fallback. */
+const CLIENT_IP = "198.51.100.22";
+const JSON_HEADERS = { "content-type": "application/json", "x-forwarded-for": CLIENT_IP };
+
 describe("AdminGuard + twoFactor plugin lifecycle (ADR-022 §5)", () => {
   let testApp: TestAuthApp;
   let dbPool: ReturnType<typeof createDb>["pool"];
 
   beforeAll(async () => {
     await ensureTestDatabaseMigrated();
-    // This suite makes < 5 sign-up/sign-in calls total, well under either
-    // `customRules` max -- but a prior spec file (or a prior full run) can
-    // leave the shared IP-keyed counter close to or past that max, so it's
-    // still cleared here rather than assumed clean (see `clearRateLimitCounters`'s
-    // own doc comment).
-    await clearRateLimitCounters();
+    // Its own client IP: `auth-flows.spec.ts` runs in parallel and counts
+    // on the 127.0.0.1 rate-limit budget. Cleared so back-to-back runs
+    // within the rate-limit windows start from zero.
+    await clearRateLimitCounters(CLIENT_IP);
     testApp = await bootstrapTestAuthApp({ withAdminRoute: true });
     dbPool = createDb(TEST_DATABASE_URL).pool;
   });
@@ -97,7 +99,7 @@ describe("AdminGuard + twoFactor plugin lifecycle (ADR-022 §5)", () => {
     // 1. Sign up an ordinary user.
     const signUpResponse = await fetch(`${testApp.baseUrl}/api/auth/sign-up/email`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: JSON_HEADERS,
       body: JSON.stringify({ email, password, name: "Admin 2FA Lifecycle" }),
     });
     expect(signUpResponse.status).toBe(200);
@@ -113,7 +115,7 @@ describe("AdminGuard + twoFactor plugin lifecycle (ADR-022 §5)", () => {
     // 3. Sign in as the now-admin user.
     const signInResponse = await fetch(`${testApp.baseUrl}/api/auth/sign-in/email`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: JSON_HEADERS,
       body: JSON.stringify({ email, password }),
     });
     expect(signInResponse.status).toBe(200);
@@ -133,7 +135,7 @@ describe("AdminGuard + twoFactor plugin lifecycle (ADR-022 §5)", () => {
     const authClient = new URL(`${testApp.baseUrl}/api/auth/two-factor/enable`);
     const enableResponse = await fetch(authClient, {
       method: "POST",
-      headers: { "content-type": "application/json", cookie: cookie! },
+      headers: { ...JSON_HEADERS, cookie: cookie! },
       body: JSON.stringify({ password }),
     });
     expect(enableResponse.status).toBe(200);
@@ -156,7 +158,7 @@ describe("AdminGuard + twoFactor plugin lifecycle (ADR-022 §5)", () => {
     const code = await computeTotpCode(secret!);
     const verifyResponse = await fetch(`${testApp.baseUrl}/api/auth/two-factor/verify-totp`, {
       method: "POST",
-      headers: { "content-type": "application/json", cookie: cookie! },
+      headers: { ...JSON_HEADERS, cookie: cookie! },
       body: JSON.stringify({ code }),
     });
     expect(verifyResponse.status).toBe(200);
@@ -186,12 +188,12 @@ describe("AdminGuard + twoFactor plugin lifecycle (ADR-022 §5)", () => {
 
     await fetch(`${testApp.baseUrl}/api/auth/sign-up/email`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: JSON_HEADERS,
       body: JSON.stringify({ email, password, name: "Non Admin" }),
     });
     const signInResponse = await fetch(`${testApp.baseUrl}/api/auth/sign-in/email`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: JSON_HEADERS,
       body: JSON.stringify({ email, password }),
     });
     const cookie = signInResponse.headers.get("set-cookie")?.split(";")[0];
