@@ -55,6 +55,10 @@ final class Di {
     let activitySender: ActivitySender
     /// `defaultVisibility` of `GET /v1/me`, for the finish screen (ADR-031 §11, §13).
     let defaultVisibility: DefaultVisibilityCache
+    /// What the Activity detail changes, applied by the feed (ADR-033 §7).
+    let activityChanges = ActivityChanges()
+    /// The open detail's `activity:{id}` subscription (ADR-034 §5).
+    let activityLiveEvents: any ActivityLiveEventSource
 
     private let recordingService: RecordingService
     /// Lock screen and Dynamic Island of the Recording (ADR-031 §9).
@@ -69,6 +73,8 @@ final class Di {
     private let authService: AuthService
     private let importRepository: APIActivityImportRepository
     private let feedRepository: APIFeedRepository
+    private let activityDetailRepository: APIActivityDetailRepository
+    private let activityKudosRepository: APIActivityKudosRepository
     private let itineraryRouter: MapboxDirectionsRouter
     private let itineraryRepository: APIItineraryRepository
     private let itineraryCache: GRDBItineraryCache
@@ -103,8 +109,14 @@ final class Di {
             client: webSocketClient,
             tokenProvider: RealtimeTokenProvider(apiClient: apiClient)
         )
+        let grants = RealtimeGrantProvider(apiClient: apiClient)
+        activityLiveEvents = RealtimeActivityLiveEventSource(channel: webSocketClient) { topic in
+            try await grants.grant(topic: topic)
+        }
         importRepository = APIActivityImportRepository(apiClient: apiClient)
         feedRepository = APIFeedRepository(apiClient: apiClient)
+        activityDetailRepository = APIActivityDetailRepository(apiClient: apiClient)
+        activityKudosRepository = APIActivityKudosRepository(apiClient: apiClient)
         itineraryRouter = MapboxDirectionsRouter(accessToken: configuration.mapboxItinerariesToken)
         itineraryRepository = APIItineraryRepository(apiClient: apiClient)
         itineraryCache = GRDBItineraryCache(database: database)
@@ -138,6 +150,7 @@ final class Di {
         toggleKudos: ToggleKudos(repository: feedRepository),
         events: RealtimeFeedEventSource(client: webSocketClient),
         localActivities: LocalActivityFeed(store: localActivities, sender: activitySender),
+        activityChanges: activityChanges,
         onPullToRefresh: { [weak self] in await self?.syncCoordinator.pullToRefresh() }
     )
 
@@ -207,6 +220,59 @@ final class Di {
 
     func makeFeedStore() -> FeedStore {
         feedStore
+    }
+
+    /// The detail pushed from a feed card (ADR-033 §3).
+    func makeActivityDetailStore(id: ActivityID) -> ActivityDetailStore {
+        ActivityDetailStore(
+            id: id,
+            loadDetail: LoadActivityDetail(repository: activityDetailRepository),
+            loadKudos: LoadKudosList(repository: activityKudosRepository),
+            setKudos: SetActivityKudos(repository: activityKudosRepository),
+            changes: activityChanges,
+            updateActivity: UpdateActivity(repository: activityDetailRepository),
+            deleter: activityDeleter,
+            events: RealtimeActivityEventSource(channel: webSocketClient)
+        )
+    }
+
+    /// "Supprimer" from a feed card or a detail (ADR-033 §7): its toast shows over the feed.
+    private(set) lazy var activityDeleter = ActivityDeleter(
+        deleteActivity: DeleteActivity(repository: activityDetailRepository),
+        changes: activityChanges
+    )
+
+    /// "Modifier" in a feed card's context menu (ADR-033 §1, §7): its sheet shows over the feed.
+    private(set) lazy var feedActivityEditor = ActivityEditor(
+        loadDetail: LoadActivityDetail(repository: activityDetailRepository),
+        updateActivity: UpdateActivity(repository: activityDetailRepository),
+        changes: activityChanges
+    )
+
+    /// The feed's cards follow `activity.updated` and `activity.deleted` on the owner's topic
+    /// (ADR-033 §8): the viewer's own cards only, those with the "Modifier" menu.
+    func makeReloadUpdatedActivities() -> ReloadUpdatedActivities {
+        let feed = feedStore
+        return ReloadUpdatedActivities(
+            loadDetail: LoadActivityDetail(repository: activityDetailRepository),
+            changes: activityChanges,
+            events: RealtimeActivityEventSource(channel: webSocketClient),
+            isViewersOwn: { feed.canManage($0) }
+        )
+    }
+
+    /// The comment thread of a detail (ADR-034 §6), wired to that detail's count.
+    func makeActivityCommentsStore(request: ActivityDetailRequest, detail: ActivityDetailStore) -> ActivityCommentsStore {
+        let repository = APIActivityCommentRepository(apiClient: apiClient)
+        return .forDetail(
+            detail,
+            request: request,
+            loadComments: LoadActivityComments(repository: repository),
+            loadComment: LoadActivityComment(repository: repository),
+            addComment: AddActivityComment(repository: repository),
+            editComment: EditActivityComment(repository: repository),
+            deleteComment: DeleteActivityComment(repository: repository)
+        )
     }
 
     /// - Parameter id: the new Itinerary's, generated by its save store: links the events.

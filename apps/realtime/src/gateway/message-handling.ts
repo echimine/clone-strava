@@ -21,13 +21,27 @@ export function recordMessageAndCheckQuota(state: ConnectionState, now: number):
 
 export type SubResult = "ok" | "forbidden" | "limit";
 
+/** Checks a subscription grant for `topic` and the connection's user (ADR-034 §5). */
+export type GrantVerifier = (grant: string, topic: string, userId: string) => boolean;
+
+const noGrantAccepted: GrantVerifier = () => false;
+
 /**
- * Applies a `sub` message (ADR-010 §4): only topics present in the token are
- * accepted, and only up to `MAX_TOPICS_PER_CONNECTION` (ADR-010 §9).
+ * Applies a `sub` message (ADR-010 §4): a topic is accepted when it is in the
+ * token, or when `grant` verifies for it (ADR-034 §5), and only up to
+ * `MAX_TOPICS_PER_CONNECTION` (ADR-010 §9).
  * Idempotent: re-subscribing to an already-subscribed topic always succeeds.
  */
-export function handleSubMessage(state: ConnectionState, topic: string): SubResult {
-  if (!state.claims.topics.includes(topic)) {
+export function handleSubMessage(
+  state: ConnectionState,
+  topic: string,
+  grant?: string,
+  verifyGrant: GrantVerifier = noGrantAccepted,
+): SubResult {
+  const allowed =
+    state.claims.topics.includes(topic) ||
+    (grant !== undefined && verifyGrant(grant, topic, state.claims.sub));
+  if (!allowed) {
     return "forbidden";
   }
   if (!state.topics.has(topic) && state.topics.size >= MAX_TOPICS_PER_CONNECTION) {
@@ -51,10 +65,15 @@ export type HandledMessage =
 export function handleClientMessage(
   state: ConnectionState,
   message: ClientMessage,
+  verifyGrant: GrantVerifier = noGrantAccepted,
 ): HandledMessage {
   switch (message.a) {
     case "sub":
-      return { kind: "sub", topic: message.topic, result: handleSubMessage(state, message.topic) };
+      return {
+        kind: "sub",
+        topic: message.topic,
+        result: handleSubMessage(state, message.topic, message.grant, verifyGrant),
+      };
     case "unsub":
       handleUnsubMessage(state, message.topic);
       return { kind: "unsub", topic: message.topic };

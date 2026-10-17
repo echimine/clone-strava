@@ -1,15 +1,22 @@
 import SwiftUI
 
 /// Home tab: the activity feed (ADR-029). Knows nothing of other features (ADR-007 rule 5):
-/// the app shell passes the "+" action and the content shown above the feed (e.g. the
-/// import banner).
-struct FeedView<TopContent: View>: View {
+/// the app shell passes the "+" action, the content shown above the feed (e.g. the import
+/// banner), `openActivity`, the Activity detail pushed in this tab's stack, and `editActivity`
+/// and `deleteActivity` (once confirmed), "Modifier" and "Supprimer" in the context menu of my
+/// processed cards (ADR-033 §1, §7).
+struct FeedView<TopContent: View, ActivityDestination: View>: View {
     @Bindable var store: FeedStore
     var onImportActivity: () -> Void = {}
+    var editActivity: ((ActivityID) -> Void)?
+    var deleteActivity: ((ActivityID) -> Void)?
+    @ViewBuilder var openActivity: (ActivityDetailRequest) -> ActivityDestination
     @ViewBuilder var topContent: () -> TopContent
+    /// "Supprimer" on a card, waiting for its confirmation.
+    @State private var deletionCandidate: ActivityID?
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $store.path) {
             content
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Color(.systemGroupedBackground))
@@ -24,6 +31,10 @@ struct FeedView<TopContent: View>: View {
                 ) {
                     Button("OK", role: .cancel) {}
                 }
+                .navigationDestination(for: ActivityDetailRequest.self) { request in
+                    openActivity(request)
+                }
+                .activityDeleteConfirmation($deletionCandidate) { id in deleteActivity?(id) }
         }
     }
 
@@ -80,15 +91,30 @@ struct FeedView<TopContent: View>: View {
                         ActivityCard(
                             post: post,
                             onToggleKudos: { Task { await store.toggleKudos(on: post.id) } },
-                            // TODO(ADR-029): open the comments screen once it exists.
-                            onComments: {}
+                            onComments: { store.open(post.id, showingComments: true) }
                         )
+                        // ADR-033 §1: a tap outside the card's buttons opens the detail (the
+                        // buttons keep their own action).
+                        .contentShape(.rect(cornerRadius: 20))
+                        .onTapGesture { store.open(post.id) }
+                        .accessibilityAction(named: Text("Ouvrir l'activité")) { store.open(post.id) }
+                        // Long press on one of my cards; none on other athletes' cards.
+                        .contextMenu {
+                            if let editActivity, store.canManage(post.id) {
+                                ActivityManageButtons(
+                                    onEdit: { editActivity(post.id) },
+                                    onDelete: { deletionCandidate = post.id }
+                                )
+                            }
+                        }
                         .task { await store.loadMoreIfNeeded(currentPost: post) }
                     }
                     if store.isLoadingMore {
                         ProgressView().padding()
                     }
                 }
+                // ADR-033 §7: a deleted card leaves with an animation (and comes back with one).
+                .animation(.default, value: store.posts.map(\.id))
                 .padding(.horizontal, Theme.spacing)
                 .padding(.vertical, 8)
             }
@@ -109,9 +135,9 @@ private extension LocalActivityCard {
     var rowID: String { "local-\(id)" }
 }
 
-extension FeedView where TopContent == EmptyView {
+extension FeedView where TopContent == EmptyView, ActivityDestination == EmptyView {
     init(store: FeedStore, onImportActivity: @escaping () -> Void = {}) {
-        self.init(store: store, onImportActivity: onImportActivity) { EmptyView() }
+        self.init(store: store, onImportActivity: onImportActivity, openActivity: { _ in EmptyView() }) { EmptyView() }
     }
 }
 

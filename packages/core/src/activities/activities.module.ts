@@ -22,10 +22,14 @@ import { ImportActivityFromFileUseCase } from "./use-cases/import-activity-from-
 import { ReprocessActivityImportUseCase } from "./use-cases/reprocess-activity-import.use-case.js";
 import { GetFeedPageUseCase } from "./use-cases/get-feed-page.use-case.js";
 import { GetVisibleActivityUseCase } from "./use-cases/get-visible-activity.use-case.js";
-import { GetOwnActivityUseCase } from "./use-cases/get-own-activity.use-case.js";
+import { GetActivityDetailUseCase } from "./use-cases/get-activity-detail.use-case.js";
 import { DeleteActivityUseCase } from "./use-cases/delete-activity.use-case.js";
+import { UpdateActivityUseCase } from "./use-cases/update-activity.use-case.js";
+import { ReprocessActivityUseCase } from "./use-cases/reprocess-activity.use-case.js";
+import { OfficialValuesService } from "./services/official-values.js";
 import { ImportRateLimiter } from "./services/import-rate-limiter.js";
 import { ImportJobEnqueuer } from "./services/import-job-enqueuer.js";
+import { ReprocessJobEnqueuer } from "./services/reprocess-job-enqueuer.js";
 import { ActivitiesService } from "./activities.service.js";
 
 /**
@@ -54,6 +58,7 @@ import { ActivitiesService } from "./activities.service.js";
     ActivityImportRepository,
     ImportRateLimiter,
     ImportJobEnqueuer,
+    ReprocessJobEnqueuer,
     CreateActivityImportUseCase,
     RequestImportUploadUrlUseCase,
     CompleteActivityImportUseCase,
@@ -62,8 +67,11 @@ import { ActivitiesService } from "./activities.service.js";
     ReprocessActivityImportUseCase,
     GetFeedPageUseCase,
     GetVisibleActivityUseCase,
-    GetOwnActivityUseCase,
+    GetActivityDetailUseCase,
     DeleteActivityUseCase,
+    UpdateActivityUseCase,
+    ReprocessActivityUseCase,
+    OfficialValuesService,
     ActivitiesService,
   ],
   exports: [ActivitiesService],

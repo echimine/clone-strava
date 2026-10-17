@@ -5,9 +5,11 @@ import {
   ACTIVITIES_QUEUE_NAME,
   MATCH_SEGMENTS_JOB_NAME,
   PROCESS_ACTIVITY_JOB_NAME,
+  REPROCESS_ACTIVITY_JOB_NAME,
   SEGMENTS_QUEUE_NAME,
   matchSegmentsJobId,
   processActivityJobSchema,
+  reprocessActivityJobSchema,
 } from "@repo/contracts";
 import { ActivitiesService, PermanentProcessingError } from "@repo/core/activities";
 
@@ -35,6 +37,9 @@ export class ProcessActivityProcessor extends WorkerHost {
     switch (job.name) {
       case PROCESS_ACTIVITY_JOB_NAME:
         await this.processActivity(job);
+        return;
+      case REPROCESS_ACTIVITY_JOB_NAME:
+        await this.reprocessActivity(job);
         return;
       case RECONCILE_ACTIVITIES_JOB_NAME:
         await this.reconcile();
@@ -80,9 +85,37 @@ export class ProcessActivityProcessor extends WorkerHost {
     );
   }
 
-  /** Last technical attempt failed: the activity becomes `failed` / `processing_error` (ADR-019 §6). */
+  /**
+   * Silent reprocessing after a sport change (ADR-033 §5): the Activity stays `processed`. A
+   * permanent failure (unusable trace) is not retried; the old values stay either way.
+   */
+  private async reprocessActivity(job: Job): Promise<void> {
+    const data = reprocessActivityJobSchema.parse(job.data);
+    this.logger.log({ activityId: data.activityId, requestId: data.requestId }, "Reprocessing activity");
+    try {
+      await this.activitiesService.reprocess(data);
+    } catch (error) {
+      if (error instanceof PermanentProcessingError) {
+        throw new UnrecoverableError(error.message);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Last attempt failed. `process-activity`: the activity becomes `failed` / `processing_error`
+   * (ADR-019 §6). `reprocess-activity`: the old values stay, the error is only logged (ADR-033 §5).
+   */
   @OnWorkerEvent("failed")
   async onFailed(job: Job | undefined, error: Error): Promise<void> {
+    if (job?.name === REPROCESS_ACTIVITY_JOB_NAME) {
+      if (error.name === "UnrecoverableError" || job.attemptsMade >= (job.opts.attempts ?? 1)) {
+        this.logger.error(
+          `Reprocessing of activity ${String(job.data?.activityId)} gave up, old values kept: ${error.message}`,
+        );
+      }
+      return;
+    }
     if (!job || job.name !== PROCESS_ACTIVITY_JOB_NAME || error.name === "UnrecoverableError") {
       return;
     }

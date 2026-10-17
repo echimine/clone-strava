@@ -21,7 +21,11 @@ export const kudos = engagementSchema.table(
       .references(() => activity.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [primaryKey({ columns: [table.userId, table.activityId] })],
+  (table) => [
+    primaryKey({ columns: [table.userId, table.activityId] }),
+    // ADR-034 §1: an activity's kudos list, keyset on `created_at desc, user_id desc`.
+    index("kudos_activity_created_at_idx").on(table.activityId, table.createdAt.desc(), table.userId.desc()),
+  ],
 );
 
 export const comment = engagementSchema.table(
@@ -36,6 +40,8 @@ export const comment = engagementSchema.table(
       .references(() => user.id, { onDelete: "cascade" }),
     body: text("body").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    /** Set on each edit (ADR-034 §2); null for a comment never edited. */
+    updatedAt: timestamp("updated_at", { withTimezone: true }),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
   },
   (table) => [

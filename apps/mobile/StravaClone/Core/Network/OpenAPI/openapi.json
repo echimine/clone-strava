@@ -303,6 +303,44 @@
           "Activities"
         ]
       },
+      "patch": {
+        "operationId": "ActivitiesController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateActivityRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivityDetailDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Activities"
+        ]
+      },
       "delete": {
         "operationId": "ActivitiesController_remove",
         "parameters": [
@@ -529,6 +567,55 @@
       }
     },
     "/v1/activities/{id}/kudos": {
+      "get": {
+        "operationId": "KudosController_list",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minLength": 1,
+              "maxLength": 200,
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListKudosResponseDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Kudos"
+        ]
+      },
       "put": {
         "operationId": "KudosController_give",
         "parameters": [
@@ -583,6 +670,218 @@
         },
         "tags": [
           "Kudos"
+        ]
+      }
+    },
+    "/v1/activities/{id}/comments": {
+      "get": {
+        "operationId": "CommentsController_list",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "before",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minLength": 1,
+              "maxLength": 200,
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "default": 50,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListCommentsResponseDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Comments"
+        ]
+      },
+      "post": {
+        "operationId": "CommentsController_add",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCommentRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Replayed by the same author: nothing written",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommentDto_Output"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommentDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Comments"
+        ]
+      }
+    },
+    "/v1/activities/{id}/comments/{commentId}": {
+      "get": {
+        "operationId": "CommentsController_getOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "commentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommentDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Comments"
+        ]
+      },
+      "patch": {
+        "operationId": "CommentsController_edit",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "commentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCommentRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommentDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Comments"
+        ]
+      },
+      "delete": {
+        "operationId": "CommentsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "commentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted, or already deleted"
+          }
+        },
+        "tags": [
+          "Comments"
         ]
       }
     },
@@ -837,6 +1136,43 @@
         },
         "tags": [
           "RealtimeToken"
+        ]
+      }
+    },
+    "/v1/realtime/grants": {
+      "post": {
+        "operationId": "RealtimeGrantsController_grant",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RealtimeGrantRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RealtimeGrantResponseDto_Output"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`activity_not_found`: the Activity is not visible"
+          },
+          "422": {
+            "description": "`validation_error`: not an `activity:{uuid}` topic"
+          }
+        },
+        "tags": [
+          "RealtimeGrants"
         ]
       }
     },
@@ -1309,15 +1645,15 @@
             "format": "uuid",
             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
           },
-          "sportTypeCode": {
-            "type": "string",
-            "minLength": 1
-          },
           "title": {
             "type": "string"
           },
           "description": {
             "type": "string"
+          },
+          "sportTypeCode": {
+            "type": "string",
+            "minLength": 1
           },
           "startedAt": {
             "type": "string",
@@ -1353,6 +1689,9 @@
               "empty_trace",
               "processing_error"
             ]
+          },
+          "locationName": {
+            "type": "string"
           },
           "stats": {
             "type": [
@@ -1415,6 +1754,14 @@
                 ],
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
+              },
+              "calories": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
               }
             },
             "required": [
@@ -1425,22 +1772,135 @@
               "avgSpeedMs",
               "maxSpeedMs",
               "avgHeartRate",
-              "maxHeartRate"
+              "maxHeartRate",
+              "calories"
             ],
             "additionalProperties": false
+          },
+          "map": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "polyline": {
+                "type": "string",
+                "minLength": 1
+              },
+              "precision": {
+                "type": "number",
+                "const": 5
+              }
+            },
+            "required": [
+              "polyline",
+              "precision"
+            ],
+            "additionalProperties": false
+          },
+          "author": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "displayName": {
+                "type": "string"
+              },
+              "avatarUrl": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "displayName",
+              "avatarUrl"
+            ],
+            "additionalProperties": false
+          },
+          "engagement": {
+            "type": "object",
+            "properties": {
+              "kudosCount": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "commentCount": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "viewerHasKudoed": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "kudosCount",
+              "commentCount",
+              "viewerHasKudoed"
+            ],
+            "additionalProperties": false
+          },
+          "viewerIsAuthor": {
+            "type": "boolean"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
           }
         },
         "required": [
           "id",
-          "sportTypeCode",
           "title",
+          "sportTypeCode",
           "startedAt",
           "endedAt",
           "visibility",
           "processingStatus",
-          "stats"
+          "stats",
+          "map",
+          "author",
+          "engagement",
+          "viewerIsAuthor",
+          "updatedAt"
         ],
         "additionalProperties": false
+      },
+      "UpdateActivityRequestDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 10000
+          },
+          "sportTypeCode": {
+            "type": "string",
+            "minLength": 1
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "public",
+              "followers",
+              "private"
+            ]
+          }
+        }
       },
       "RenewUploadUrlResponseDto_Output": {
         "type": "object",
@@ -1559,6 +2019,66 @@
           "sizeBytes"
         ]
       },
+      "ListKudosResponseDto_Output": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "athlete": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "displayName": {
+                      "type": "string"
+                    },
+                    "avatarUrl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "displayName",
+                    "avatarUrl"
+                  ],
+                  "additionalProperties": false
+                },
+                "givenAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                }
+              },
+              "required": [
+                "athlete",
+                "givenAt"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "additionalProperties": false
+      },
       "KudosResponseDto_Output": {
         "type": "object",
         "properties": {
@@ -1582,6 +2102,192 @@
           "viewerHasKudoed"
         ],
         "additionalProperties": false
+      },
+      "ListCommentsResponseDto_Output": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "body": {
+                  "type": "string"
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                },
+                "updatedAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                },
+                "author": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "displayName": {
+                      "type": "string"
+                    },
+                    "avatarUrl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "displayName",
+                    "avatarUrl"
+                  ],
+                  "additionalProperties": false
+                },
+                "viewerCanEdit": {
+                  "type": "boolean"
+                },
+                "viewerCanDelete": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "id",
+                "body",
+                "createdAt",
+                "updatedAt",
+                "author",
+                "viewerCanEdit",
+                "viewerCanDelete"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "previousCursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          }
+        },
+        "required": [
+          "items",
+          "previousCursor"
+        ],
+        "additionalProperties": false
+      },
+      "CommentDto_Output": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "body": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "updatedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "author": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "displayName": {
+                "type": "string"
+              },
+              "avatarUrl": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "displayName",
+              "avatarUrl"
+            ],
+            "additionalProperties": false
+          },
+          "viewerCanEdit": {
+            "type": "boolean"
+          },
+          "viewerCanDelete": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "body",
+          "createdAt",
+          "updatedAt",
+          "author",
+          "viewerCanEdit",
+          "viewerCanDelete"
+        ],
+        "additionalProperties": false
+      },
+      "CreateCommentRequestDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "id",
+          "body"
+        ]
+      },
+      "UpdateCommentRequestDto": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "body"
+        ]
       },
       "ItineraryMetricsPreviewRequestDto": {
         "type": "object",
@@ -2039,6 +2745,36 @@
         "required": [
           "name"
         ]
+      },
+      "RealtimeGrantRequestDto": {
+        "type": "object",
+        "properties": {
+          "topic": {
+            "type": "string",
+            "pattern": "^activity:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          }
+        },
+        "required": [
+          "topic"
+        ]
+      },
+      "RealtimeGrantResponseDto_Output": {
+        "type": "object",
+        "properties": {
+          "grant": {
+            "type": "string"
+          },
+          "expiresInS": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "grant",
+          "expiresInS"
+        ],
+        "additionalProperties": false
       },
       "RevenueCatWebhookBodyDto": {
         "type": "object",

@@ -87,6 +87,28 @@ export class ActivityRepository {
   }
 
   /**
+   * ADR-033 §5 reconciliation: processed activities whose official values were computed for
+   * another sport than their current one (a `reprocess-activity` lost or still to run).
+   */
+  findWithValuesForAnotherSport(limit = 100) {
+    return this.db
+      .select({
+        id: schema.activity.id,
+        userId: schema.activity.userId,
+        updatedAt: schema.activity.updatedAt,
+      })
+      .from(schema.activity)
+      .innerJoin(schema.activityStats, eq(schema.activityStats.activityId, schema.activity.id))
+      .where(
+        and(
+          eq(schema.activity.processingStatus, "processed"),
+          sql`${schema.activityStats.computedForSportTypeCode} is distinct from ${schema.activity.sportTypeCode}`,
+        ),
+      )
+      .limit(limit);
+  }
+
+  /**
    * The user's activities whose time interval intersects `[startedAt,
    * endedAt]`, failed ones excluded (ADR-028 §6). Uses
    * `activity_user_started_at_idx`; the overlap ratio is computed by the caller.
@@ -136,18 +158,43 @@ export class ActivityRepository {
   }
 
   /**
-   * Hard delete (ADR-017, ADR-031 §13) of an activity still `pending` or `failed`, in one
-   * statement so a concurrent `complete` cannot slip in between; `false` otherwise. Its
-   * dependent rows cascade.
+   * Hard delete (ADR-017, ADR-031 §13, ADR-033 §6) of an activity the worker is not writing
+   * (`pending`, `failed` or `processed`), in one statement so a concurrent `complete` cannot
+   * slip in between; `false` otherwise. Stats, track, kudos, comments and segment efforts
+   * cascade; `activity_import.activity_id` is set to null.
    */
-  async deleteIfPendingOrFailed(id: string): Promise<boolean> {
+  async deleteUnlessProcessing(id: string): Promise<boolean> {
     const deleted = await this.db
       .delete(schema.activity)
-      .where(
-        and(eq(schema.activity.id, id), inArray(schema.activity.processingStatus, ["pending", "failed"])),
-      )
+      .where(and(eq(schema.activity.id, id), ne(schema.activity.processingStatus, "processing")))
       .returning({ id: schema.activity.id });
     return deleted.length > 0;
+  }
+
+  /**
+   * The author's edit (ADR-033 §4): one `UPDATE` that also sets `updated_at`, only while the
+   * activity is `processed`; last write wins. The updated row, or `undefined` if it is gone or
+   * no longer `processed`.
+   */
+  async updateIfProcessed(
+    id: string,
+    values: Partial<Pick<typeof schema.activity.$inferInsert, "title" | "description" | "sportTypeCode" | "visibility">>,
+  ) {
+    const [row] = await this.db
+      .update(schema.activity)
+      .set({ ...values, updatedAt: new Date() })
+      .where(and(eq(schema.activity.id, id), eq(schema.activity.processingStatus, "processed")))
+      .returning();
+    return row;
+  }
+
+  /**
+   * Reads and locks the row until the end of `tx` (ADR-033 §5): a concurrent edit waits, so a
+   * reprocessing that sees the sport it computed for writes values that match it.
+   */
+  async findForUpdate(id: string, tx: DbExecutor) {
+    const [row] = await tx.select().from(schema.activity).where(eq(schema.activity.id, id)).for("update");
+    return row;
   }
 
   async incrementAttempts(id: string): Promise<void> {

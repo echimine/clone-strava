@@ -43,6 +43,15 @@ describe("parseClientMessage", () => {
     });
   });
 
+  it("parses a sub message carrying a subscription grant (ADR-034 §5)", () => {
+    const result = parseClientMessage(JSON.stringify({ a: "sub", topic: "activity:42", grant: "g.r.ant" }));
+
+    expect(result).toEqual({
+      success: true,
+      message: { a: "sub", topic: "activity:42", grant: "g.r.ant" },
+    });
+  });
+
   it("parses a valid ping message", () => {
     const result = parseClientMessage(JSON.stringify({ a: "ping" }));
 

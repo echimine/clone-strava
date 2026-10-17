@@ -75,6 +75,8 @@ export const activity = activitiesSchema.table(
     processingAttempts: integer("processing_attempts").notNull().default(0),
     processedAt: timestamp("processed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    // ADR-033 §2, §4 (amends ADR-017): last metadata change; initialised to `created_at`.
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     // ADR-017 "Main indexes": a user's activities, feed.
@@ -99,6 +101,9 @@ export const activityStats = activitiesSchema.table("activity_stats", {
   avgHeartRate: integer("avg_heart_rate"),
   maxHeartRate: integer("max_heart_rate"),
   calories: integer("calories"),
+  // ADR-033 §5 (amends ADR-017): the sport these official values were computed for; differs
+  // from `activity.sport_type_code` until `reprocess-activity` has run after a sport change.
+  computedForSportTypeCode: text("computed_for_sport_type_code").references(() => sportType.code),
 });
 
 export const activityTrack = activitiesSchema.table(

@@ -15,6 +15,12 @@ struct StravaCloneApp: App {
                 recordingStore: di.makeRecordingStore(),
                 importStore: di.makeImportStore(),
                 feedStore: di.makeFeedStore(),
+                makeActivityDetailStore: { [di] id in di.makeActivityDetailStore(id: id) },
+                makeActivityCommentsStore: { [di] request, detail in di.makeActivityCommentsStore(request: request, detail: detail) },
+                feedActivityEditor: di.feedActivityEditor,
+                activityDeleter: di.activityDeleter,
+                reloadUpdatedActivities: di.makeReloadUpdatedActivities(),
+                activityLiveEvents: di.activityLiveEvents,
                 realtimeService: di.realtimeService,
                 makeItineraryEditorStore: di.makeItineraryEditorStore,
                 makeItinerarySaveStore: di.makeItinerarySaveStore,
@@ -49,6 +55,18 @@ struct RootView: View {
     @State var recordingStore: RecordingStore
     @State var importStore: ImportStore
     @State var feedStore: FeedStore
+    /// Details pushed from the feed's cards (ADR-033 §1).
+    let makeActivityDetailStore: @MainActor (ActivityID) -> ActivityDetailStore
+    /// Their comment threads (ADR-034 §6).
+    let makeActivityCommentsStore: @MainActor (ActivityDetailRequest, ActivityDetailStore) -> ActivityCommentsStore
+    /// "Modifier" in the context menu of my feed cards (ADR-033 §1).
+    @State var feedActivityEditor: ActivityEditor
+    /// "Supprimer" in that menu and in a detail's "⋯" (ADR-033 §7); its toast shows over the feed.
+    @State var activityDeleter: ActivityDeleter
+    /// The feed's cards follow `activity.updated` and `activity.deleted` (ADR-033 §8).
+    let reloadUpdatedActivities: ReloadUpdatedActivities
+    /// What happens to an open detail elsewhere (ADR-034 §5).
+    let activityLiveEvents: any ActivityLiveEventSource
     let realtimeService: RealtimeService
     let makeItineraryEditorStore: @MainActor (ItinerarySport, ItineraryID, AnalyticsEvent.EditorSource) -> ItineraryEditorStore
     let makeItinerarySaveStore: @MainActor () -> ItinerarySaveStore
@@ -102,7 +120,20 @@ struct RootView: View {
                     }
             case .signedIn:
                 TabView(selection: $selectedTab) {
-                    FeedView(store: feedStore, onImportActivity: importStore.startImport) {
+                    FeedView(
+                        store: feedStore,
+                        onImportActivity: importStore.startImport,
+                        editActivity: { [feedActivityEditor] id in Task { await feedActivityEditor.edit(id: id) } },
+                        deleteActivity: { [activityDeleter] id in Task { await activityDeleter.delete(id) } },
+                        openActivity: { request in
+                            ActivityDetailPage(
+                                request: request,
+                                makeStore: makeActivityDetailStore,
+                                makeCommentsStore: makeActivityCommentsStore,
+                                liveEvents: activityLiveEvents
+                            )
+                        }
+                    ) {
                         if let banner = importStore.banner {
                             ImportStatusBanner(
                                 banner: banner,
@@ -113,6 +144,8 @@ struct RootView: View {
                         }
                     }
                     .animation(.default, value: importStore.banner)
+                    .activityEditing(feedActivityEditor)
+                    .toast($activityDeleter.toast)
                     .fileImporter(
                         isPresented: $importStore.isPickingFile,
                         allowedContentTypes: ImportFileTypes.all,
@@ -229,6 +262,12 @@ struct RootView: View {
                 connections: realtimeService.connections(),
                 events: realtimeService.events()
             )
+        }
+        // ADR-033 §8: an edit made elsewhere, or the official values recomputed after a sport
+        // change, reach the feed's card.
+        .task(id: realtimeUserId) {
+            guard realtimeUserId != nil else { return }
+            await reloadUpdatedActivities.run()
         }
         // ADR-030 §9: what another device saves or deletes shows here live.
         .task(id: realtimeUserId) {

@@ -1,13 +1,14 @@
 import { Injectable } from "@nestjs/common";
 import type {
-  ActivityDetail,
   ActivityImport,
   CreateActivityImportRequest,
   CreateActivityRequest,
+  UpdateActivityRequest,
   ImportActivityJob,
   ListActivityImportsQuery,
   ListActivityImportsResponse,
   ProcessActivityJob,
+  ReprocessActivityJob,
   UploadUrlResponse,
 } from "@repo/contracts";
 import { CreateActivityUseCase, type CreateActivityResult } from "./use-cases/create-activity.use-case.js";
@@ -30,8 +31,11 @@ import {
 import { ReprocessActivityImportUseCase } from "./use-cases/reprocess-activity-import.use-case.js";
 import { GetFeedPageUseCase } from "./use-cases/get-feed-page.use-case.js";
 import { GetVisibleActivityUseCase } from "./use-cases/get-visible-activity.use-case.js";
-import { GetOwnActivityUseCase } from "./use-cases/get-own-activity.use-case.js";
+import { GetActivityDetailUseCase } from "./use-cases/get-activity-detail.use-case.js";
 import { DeleteActivityUseCase } from "./use-cases/delete-activity.use-case.js";
+import { UpdateActivityUseCase } from "./use-cases/update-activity.use-case.js";
+import { ReprocessActivityUseCase } from "./use-cases/reprocess-activity.use-case.js";
+import type { ActivityDetailRecord } from "./domain/activity-detail.js";
 import type { ActivityRecord } from "./domain/activity-record.js";
 import type { FeedActivityPage } from "./domain/feed-activity.js";
 
@@ -57,8 +61,10 @@ export class ActivitiesService {
     private readonly reprocessActivityImportUseCase: ReprocessActivityImportUseCase,
     private readonly getFeedPageUseCase: GetFeedPageUseCase,
     private readonly getVisibleActivityUseCase: GetVisibleActivityUseCase,
-    private readonly getOwnActivityUseCase: GetOwnActivityUseCase,
+    private readonly getActivityDetailUseCase: GetActivityDetailUseCase,
     private readonly deleteActivityUseCase: DeleteActivityUseCase,
+    private readonly updateActivityUseCase: UpdateActivityUseCase,
+    private readonly reprocessActivityUseCase: ReprocessActivityUseCase,
   ) {}
 
   create(userId: string, request: CreateActivityRequest): Promise<CreateActivityResult> {
@@ -83,6 +89,11 @@ export class ActivitiesService {
     return this.processActivityUseCase.markTechnicalFailure(job);
   }
 
+  /** Called by `apps/worker`'s `reprocess-activity` processor after a sport change (ADR-033 §5). */
+  reprocess(job: ReprocessActivityJob): Promise<void> {
+    return this.reprocessActivityUseCase.execute(job);
+  }
+
   /** Called by `apps/worker`'s reconciliation schedule (ADR-019 §7). */
   reconcileStuck(): Promise<number> {
     return this.reconcileStuckActivitiesUseCase.execute();
@@ -103,12 +114,24 @@ export class ActivitiesService {
     return this.getVisibleActivityUseCase.execute(viewerId, activityId);
   }
 
-  /** The author's own activity, whatever its state; `404` for anyone else (ADR-031 §13). */
-  getOwn(userId: string, activityId: string): Promise<ActivityDetail> {
-    return this.getOwnActivityUseCase.execute(userId, activityId);
+  /**
+   * The detail of an activity `viewerId` may see (ADR-033 §2): the author's in any state, others'
+   * once processed; `404 activity_not_found` otherwise. The caller adds author and engagement.
+   */
+  getDetail(viewerId: string, activityId: string): Promise<ActivityDetailRecord> {
+    return this.getActivityDetailUseCase.execute(viewerId, activityId);
   }
 
-  /** The author deletes an activity still `pending` or `failed` (ADR-031 §13). */
+  /**
+   * The author edits their processed activity (ADR-033 §4) and gets its detail back. The caller
+   * adds author and engagement, as for `getDetail`.
+   */
+  async update(userId: string, activityId: string, request: UpdateActivityRequest): Promise<ActivityDetailRecord> {
+    await this.updateActivityUseCase.execute(userId, activityId, request);
+    return this.getActivityDetailUseCase.execute(userId, activityId);
+  }
+
+  /** The author deletes their activity unless it is `processing` (ADR-031 §13, ADR-033 §6). */
   delete(userId: string, activityId: string): Promise<void> {
     return this.deleteActivityUseCase.execute(userId, activityId);
   }

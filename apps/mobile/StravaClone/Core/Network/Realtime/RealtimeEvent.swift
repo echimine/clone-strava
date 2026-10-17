@@ -39,6 +39,15 @@ enum RealtimeControlMessage {
         encode(["a": "sub", "topic": topic])
     }
 
+    /// A topic outside the connection token, with its grant (`POST /v1/realtime/grants`, ADR-034 §5).
+    static func subscribe(topic: String, grant: String) -> String {
+        encode(["a": "sub", "topic": topic, "grant": grant])
+    }
+
+    static func unsubscribe(topic: String) -> String {
+        encode(["a": "unsub", "topic": topic])
+    }
+
     static let ping = encode(["a": "ping"])
 
     private static func encode(_ object: [String: String]) -> String {
@@ -72,4 +81,10 @@ struct RealtimeEventDeduplicator {
 /// `user:{userId}` topic (ADR-010 §4), the only one granted by the realtime token in the MVP.
 func realtimeUserTopic(_ userId: String) -> String {
     "user:\(userId)"
+}
+
+/// `activity:{id}` topic (ADR-034 §5): an open detail, subscribed with a grant. The id is
+/// lowercase, as the API stores it: the gateway compares topics exactly.
+func realtimeActivityTopic(_ id: ActivityID) -> String {
+    "activity:\(id)"
 }

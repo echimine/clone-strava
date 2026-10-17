@@ -37,7 +37,9 @@ class TestAdminController {
  * mocked in every test that boots this app, so `sendAuthEmail` never
  * actually reaches Resend from here.
  */
-export const TEST_DATABASE_URL = "postgres://strava:strava@127.0.0.1:5432/strava";
+/** Overridable so parallel worktrees can each use their own database. */
+export const TEST_DATABASE_URL =
+  process.env.TEST_DATABASE_URL ?? "postgres://strava:strava@127.0.0.1:5432/strava";
 export const TEST_REDIS_URL = "redis://127.0.0.1:6379";
 /** Backoffice origin of the test app: trusted by Better Auth, host of the email wordmark. */
 export const TEST_ADMIN_ORIGIN = "https://admin.test";

@@ -1,21 +1,45 @@
-import { Controller, Delete, Param, ParseUUIDPipe, Put, UseGuards } from "@nestjs/common";
+import { Controller, Delete, Get, Param, ParseUUIDPipe, Put, Query, UseGuards } from "@nestjs/common";
 import { createZodDto, ZodResponse } from "nestjs-zod";
-import { kudosResponseSchema, type KudosResponse } from "@repo/contracts";
+import {
+  kudosResponseSchema,
+  listKudosQuerySchema,
+  listKudosResponseSchema,
+  type KudosResponse,
+  type ListKudosResponse,
+} from "@repo/contracts";
 import { EngagementService } from "@repo/core/engagement";
 import { CurrentUser } from "../auth/current-user.decorator.js";
 import { SessionGuard, type AuthenticatedUser } from "../auth/session.guard.js";
+import { KudosAssembler } from "./kudos-assembler.js";
 
 class KudosResponseDto extends createZodDto(kudosResponseSchema) {}
+class ListKudosQueryDto extends createZodDto(listKudosQuerySchema) {}
+class ListKudosResponseDto extends createZodDto(listKudosResponseSchema) {}
 
 /**
- * `/v1/activities/:id/kudos` (ADR-029): idempotent give (`PUT`) and remove
- * (`DELETE`), both returning the authoritative count. `404` when the
- * activity is not visible, `422 cannot_kudos_own_activity`.
+ * `/v1/activities/:id/kudos`: who gave kudos (ADR-034 §1), idempotent give
+ * (`PUT`) and remove (`DELETE`), both returning the authoritative count
+ * (ADR-029). `404 activity_not_found` when the activity is not visible,
+ * `422 cannot_kudos_own_activity`.
  */
 @Controller("activities/:id/kudos")
 @UseGuards(SessionGuard)
 export class KudosController {
-  constructor(private readonly engagement: EngagementService) {}
+  constructor(
+    private readonly engagement: EngagementService,
+    private readonly assembler: KudosAssembler,
+  ) {}
+
+  /** Most recent first, keyset pages; a cursor this server did not produce is `422 invalid_cursor`. */
+  @Get()
+  @ZodResponse({ status: 200, type: ListKudosResponseDto })
+  async list(
+    @Param("id", ParseUUIDPipe) activityId: string,
+    @Query() query: ListKudosQueryDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<ListKudosResponse> {
+    return this.assembler.assemble(await this.engagement.listKudos(user.userId, activityId, query));
+  }
 
   @Put()
   @ZodResponse({ status: 200, type: KudosResponseDto })

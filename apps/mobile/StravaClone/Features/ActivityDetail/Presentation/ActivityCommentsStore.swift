@@ -1,0 +1,310 @@
+import Foundation
+import Observation
+
+/// The comment thread under an Activity's detail (ADR-034 §6).
+@Observable
+@MainActor
+final class ActivityCommentsStore {
+    /// A comment as the thread shows it.
+    struct Row: Identifiable, Equatable {
+        enum Status: Equatable {
+            case sent
+            /// Greyed, "Envoi…".
+            case sending
+            /// "Échec · Réessayer", the text kept.
+            case failed
+        }
+
+        var comment: ActivityComment
+        var status: Status
+
+        var id: UUID { comment.id }
+
+        /// The long-press menu: what the API lets the viewer do, once the comment is sent.
+        var actions: [CommentAction] {
+            guard status == .sent else { return [] }
+            return (comment.viewerCanEdit ? [.edit] : []) + (comment.viewerCanDelete ? [.delete] : [])
+        }
+    }
+
+    /// "Modifier" or "Supprimer" in a comment's menu.
+    enum CommentAction: Hashable {
+        case edit
+        case delete
+    }
+
+    let activityId: ActivityID
+    /// Oldest first.
+    private(set) var comments: [Row] = []
+    private var previousCursor: String?
+    /// Nothing could be loaded: "Réessayer".
+    private(set) var loadFailed = false
+    /// The composer's text.
+    var draft = ""
+    /// The comment "Modification… ✕" is about: sending issues its `PATCH`.
+    private(set) var editing: UUID?
+    var isComposerFocused: Bool
+    /// Asked by "Supprimer", before the `DELETE`.
+    var pendingDeletion: ActivityComment?
+    /// Why an edit or a delete went back.
+    var toast: String?
+
+    @ObservationIgnored private let loadComments: LoadActivityComments
+    @ObservationIgnored private let loadComment: LoadActivityComment
+    @ObservationIgnored private let addComment: AddActivityComment
+    @ObservationIgnored private let editComment: EditActivityComment
+    @ObservationIgnored private let deleteComment: DeleteActivityComment
+    @ObservationIgnored private let viewer: @MainActor () -> ActivityAuthor
+    @ObservationIgnored private let onCountChange: @MainActor (Int) -> Void
+    /// My edits whose `comment.updated` echo has not come back yet, with the text sent.
+    @ObservationIgnored private var myEditEchoes: [UUID: String] = [:]
+    /// Comments the count no longer includes: removed here (my deletes, so their echo too), or
+    /// found gone before they were ever counted.
+    @ObservationIgnored private var countedDeletions: Set<UUID> = []
+
+    /// - Parameters:
+    ///   - request: from the card's comment button (`showsComments`), the composer starts focused.
+    ///   - viewer: the author shown on a comment being sent.
+    ///   - onCountChange: each comment the thread gains or loses (sent, deleted, rolled back).
+    init(
+        request: ActivityDetailRequest,
+        loadComments: LoadActivityComments,
+        loadComment: LoadActivityComment,
+        addComment: AddActivityComment,
+        editComment: EditActivityComment,
+        deleteComment: DeleteActivityComment,
+        viewer: @escaping @MainActor () -> ActivityAuthor,
+        onCountChange: @escaping @MainActor (Int) -> Void
+    ) {
+        activityId = request.id
+        isComposerFocused = request.showsComments
+        self.loadComments = loadComments
+        self.loadComment = loadComment
+        self.addComment = addComment
+        self.editComment = editComment
+        self.deleteComment = deleteComment
+        self.viewer = viewer
+        self.onCountChange = onCountChange
+    }
+
+    /// The thread of `detail`'s screen: its count changes reach the detail, and from there the
+    /// feed card (ADR-033 §7).
+    static func forDetail(
+        _ detail: ActivityDetailStore,
+        request: ActivityDetailRequest,
+        loadComments: LoadActivityComments,
+        loadComment: LoadActivityComment,
+        addComment: AddActivityComment,
+        editComment: EditActivityComment,
+        deleteComment: DeleteActivityComment
+    ) -> ActivityCommentsStore {
+        ActivityCommentsStore(
+            request: request,
+            loadComments: loadComments,
+            loadComment: loadComment,
+            addComment: addComment,
+            editComment: editComment,
+            deleteComment: deleteComment,
+            viewer: { [weak detail] in
+                // The API does not give the viewer's own identity to the detail: the Activity's
+                // author is the viewer when they wrote it, otherwise "Vous" until the answer.
+                guard let loaded = detail?.detail, loaded.viewerIsAuthor else {
+                    return ActivityAuthor(id: "", displayName: ActivityCommentMessages.you, avatarURL: nil)
+                }
+                return loaded.author
+            },
+            onCountChange: { [weak detail] delta in detail?.commentCountChanged(by: delta) }
+        )
+    }
+
+    /// "Voir les commentaires précédents".
+    var hasPreviousComments: Bool { previousCursor != nil }
+
+    /// The newest page, on each appearance and on any catch-up (realtime reconnection): the
+    /// comments not sent yet stay, last.
+    func load() async {
+        do {
+            let page = try await loadComments(activityId)
+            let unsent = comments.filter { $0.status != .sent && !page.items.map(\.id).contains($0.id) }
+            comments = page.items.map { Row(comment: $0, status: .sent) } + unsent
+            previousCursor = page.previousCursor
+            loadFailed = false
+        } catch {
+            loadFailed = comments.isEmpty
+        }
+    }
+
+    func loadPrevious() async {
+        guard let cursor = previousCursor,
+              let page = try? await loadComments(activityId, before: cursor) else { return }
+        let older = page.items.filter { !knows($0.id) }.map { Row(comment: $0, status: .sent) }
+        comments.insert(contentsOf: older, at: 0)
+        previousCursor = page.previousCursor
+    }
+
+    // MARK: Comments from elsewhere (ADR-034 §5: realtime `comment.*` events)
+
+    /// Shown already, in any state: a `comment.created` about it is the echo of a send.
+    func knows(_ id: UUID) -> Bool {
+        index(of: id) != nil
+    }
+
+    /// `comment.created`: a comment not known yet is fetched, then inserted in chronological
+    /// order and counted. Known already (the echo of my send), nothing to do.
+    func created(_ id: UUID) async {
+        guard !knows(id) else { return }
+        do {
+            let comment = try await loadComment(id, on: activityId)
+            guard !knows(id) else { return }
+            let position = comments.firstIndex { $0.status == .sent && $0.comment.createdAt > comment.createdAt }
+                ?? comments.firstIndex { $0.status != .sent }
+                ?? comments.endIndex
+            comments.insert(Row(comment: comment, status: .sent), at: position)
+            onCountChange(1)
+        } catch .notFound {
+            // Deleted meanwhile: never counted, so its `comment.deleted` must not count it out.
+            countedDeletions.insert(id)
+        } catch {
+            // Missed: the next catch-up (reconnection, new appearance) brings it.
+        }
+    }
+
+    /// `comment.updated`: a shown comment is fetched again and replaced. It never changes the
+    /// count: one not loaded (an older page) is ignored, and so is the echo of my own edit, whose
+    /// text the thread already shows. A comment still being sent is left to its `POST`.
+    func updated(_ id: UUID) async {
+        guard let row = row(id), row.status == .sent else { return }
+        if let sentBody = myEditEchoes.removeValue(forKey: id), row.comment.body == sentBody { return }
+        do {
+            let comment = try await loadComment(id, on: activityId)
+            guard let index = index(of: id), comments[index].status == .sent else { return }
+            comments[index].comment = comment
+        } catch .notFound {
+            deleted(id)
+        } catch {
+            // Missed: the next catch-up (reconnection, new appearance) brings it.
+        }
+    }
+
+    /// `comment.deleted`, or a `404` on fetching it: one comment less, shown or not (an older
+    /// page). Counted once: not again for the echo of my own delete.
+    func deleted(_ id: UUID) {
+        guard let index = index(of: id) else {
+            if countedDeletions.insert(id).inserted { onCountChange(-1) }
+            return
+        }
+        guard comments[index].status == .sent else { return }
+        comments.remove(at: index)
+        countedDeletions.insert(id)
+        onCountChange(-1)
+        if editing == id { cancelEditing() }
+        if pendingDeletion?.id == id { pendingDeletion = nil }
+    }
+
+    /// Sends the composer's text: a new comment shows at once under its app-generated id; an
+    /// edit replaces the text at once.
+    func send() async {
+        guard let body = ActivityComment.sendableBody(draft) else { return }
+        draft = ""
+        if let id = editing {
+            editing = nil
+            await edit(id, body: body)
+            return
+        }
+        let comment = ActivityComment(
+            id: UUID(),
+            body: body,
+            createdAt: .now,
+            updatedAt: nil,
+            author: viewer(),
+            viewerCanEdit: true,
+            viewerCanDelete: true
+        )
+        comments.append(Row(comment: comment, status: .sending))
+        await post(comment)
+    }
+
+    /// "Réessayer" on a failed send: the same `POST`, same id and text.
+    func retry(_ id: UUID) async {
+        guard let index = index(of: id), comments[index].status == .failed else { return }
+        comments[index].status = .sending
+        await post(comments[index].comment)
+    }
+
+    private func post(_ comment: ActivityComment) async {
+        do {
+            let stored = try await addComment(comment.id, body: comment.body, on: activityId)
+            guard let index = index(of: comment.id) else { return }
+            comments[index] = Row(comment: stored, status: .sent)
+            onCountChange(1)
+        } catch {
+            guard let index = index(of: comment.id) else { return }
+            comments[index].status = .failed
+        }
+    }
+
+    /// "Modifier": the text goes into the composer, under the "Modification…" banner.
+    func startEditing(_ id: UUID) {
+        guard let row = row(id), row.actions.contains(.edit) else { return }
+        editing = id
+        draft = row.comment.body
+        isComposerFocused = true
+    }
+
+    /// "✕" on the banner.
+    func cancelEditing() {
+        editing = nil
+        draft = ""
+    }
+
+    private func edit(_ id: UUID, body: String) async {
+        guard let index = index(of: id), comments[index].comment.body != body else { return }
+        let previous = comments[index].comment
+        comments[index].comment.body = body
+        comments[index].comment.updatedAt = .now
+        myEditEchoes[id] = body
+        do {
+            let stored = try await editComment(id, body: body, on: activityId)
+            guard let index = self.index(of: id) else { return }
+            comments[index].comment = stored
+        } catch {
+            myEditEchoes[id] = nil
+            guard let index = self.index(of: id) else { return }
+            comments[index].comment = previous
+            toast = ActivityCommentMessages.editFailed
+        }
+    }
+
+    /// "Supprimer": asks for confirmation first.
+    func requestDeletion(_ id: UUID) {
+        guard let row = row(id), row.actions.contains(.delete) else { return }
+        pendingDeletion = row.comment
+    }
+
+    /// The confirmation's "Supprimer": gone at once, back in place if the `DELETE` fails.
+    func confirmDeletion() async {
+        guard let comment = pendingDeletion else { return }
+        pendingDeletion = nil
+        guard let index = index(of: comment.id) else { return }
+        let removed = comments.remove(at: index)
+        countedDeletions.insert(comment.id)
+        onCountChange(-1)
+        do {
+            try await deleteComment(comment.id, on: activityId)
+        } catch {
+            guard self.index(of: comment.id) == nil else { return }
+            countedDeletions.remove(comment.id)
+            comments.insert(removed, at: min(index, comments.count))
+            onCountChange(1)
+            toast = ActivityCommentMessages.deleteFailed
+        }
+    }
+
+    private func row(_ id: UUID) -> Row? {
+        comments.first { $0.id == id }
+    }
+
+    private func index(of id: UUID) -> Int? {
+        comments.firstIndex { $0.id == id }
+    }
+}

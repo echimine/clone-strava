@@ -20,8 +20,12 @@ import {
 import { CONFIG, type RealtimeEnv } from "../config/env.js";
 import { REDIS_CLIENT } from "../redis/redis.module.js";
 import { createConnectionState, type ConnectionState } from "./connection-state.js";
-import { extractBearerToken, verifyRealtimeToken } from "./token-verifier.js";
-import { handleClientMessage, recordMessageAndCheckQuota } from "./message-handling.js";
+import { extractBearerToken, verifyRealtimeToken, verifySubscriptionGrant } from "./token-verifier.js";
+import {
+  handleClientMessage,
+  recordMessageAndCheckQuota,
+  type GrantVerifier,
+} from "./message-handling.js";
 import {
   CLOSE_HEARTBEAT_TIMEOUT,
   HEARTBEAT_CHECK_INTERVAL_MS,
@@ -168,7 +172,7 @@ export class GatewayService implements OnModuleInit, BeforeApplicationShutdown {
       return;
     }
 
-    const handled = handleClientMessage(state, parsed.message);
+    const handled = handleClientMessage(state, parsed.message, this.verifyGrant);
     switch (handled.kind) {
       case "sub":
         if (handled.result === "ok") {
@@ -186,6 +190,10 @@ export class GatewayService implements OnModuleInit, BeforeApplicationShutdown {
         break;
     }
   }
+
+  /** Subscription grants are verified locally, like the connection token (ADR-034 §5). */
+  private readonly verifyGrant: GrantVerifier = (grant, topic, userId) =>
+    verifySubscriptionGrant(grant, this.config.REALTIME_TOKEN_SECRET, { topic, userId });
 
   private send(ws: WebSocket, message: Record<string, unknown>): void {
     if (ws.readyState === WebSocket.OPEN) {

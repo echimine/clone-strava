@@ -3,6 +3,8 @@ import Observation
 
 /// State of the Home feed (ADR-029): first load and pull-to-refresh, infinite scroll,
 /// optimistic kudos, and reload when one of the user's activities finishes processing.
+/// Processed cards open the Activity detail, and follow what it publishes on the Core change
+/// stream (ADR-033 §1, §7).
 @Observable
 @MainActor
 final class FeedStore {
@@ -35,12 +37,20 @@ final class FeedStore {
     @ObservationIgnored private let localActivities: (any LocalActivityFeedSource)?
     /// Bumped to bring the list back to its top (after Save, ADR-031 §11).
     private(set) var scrollToTopRequest = 0
+    /// Navigation of the Home tab: the Activity details opened from the feed.
+    var path: [ActivityDetailRequest] = []
+    /// Applies the change stream for the store's lifetime, even while a detail covers the feed.
+    @ObservationIgnored private var changeObservation: Task<Void, Never>?
+    /// The cards a `.deleted` change removed since the last refresh, with their place, for a
+    /// deletion the server turns down (`.restored`).
+    @ObservationIgnored private var removedPosts: [ActivityID: (index: Int, post: ActivityPost)] = [:]
 
     init(
         loadFeed: LoadFeed,
         toggleKudos: ToggleKudos,
         events: any FeedEventSource,
         localActivities: (any LocalActivityFeedSource)? = nil,
+        activityChanges: ActivityChanges? = nil,
         onPullToRefresh: @escaping @MainActor () async -> Void = {}
     ) {
         self.loadFeed = loadFeed
@@ -48,6 +58,18 @@ final class FeedStore {
         self.events = events
         self.localActivities = localActivities
         self.onPullToRefresh = onPullToRefresh
+        // Subscribed here, not in a view task: a pushed detail would cancel the feed's tasks.
+        if let changes = activityChanges?.subscribe() {
+            changeObservation = Task { [weak self] in
+                for await change in changes {
+                    self?.apply(change)
+                }
+            }
+        }
+    }
+
+    deinit {
+        changeObservation?.cancel()
     }
 
     /// Always on top (ADR-031 §14); a local card whose UUID the server already returned is dropped.
@@ -62,9 +84,42 @@ final class FeedStore {
     func reset() {
         refreshGeneration += 1
         posts = []
+        removedPosts = [:]
         nextCursor = nil
         phase = .idle
         notice = nil
+        path = []
+    }
+
+    /// Tap on a card outside its buttons, or its comment button: only a processed card, one the
+    /// server returned, opens the detail; local cards are not tappable (ADR-033 §1).
+    func open(_ id: ActivityID, showingComments: Bool = false) {
+        guard posts.contains(where: { $0.id == id }) else { return }
+        path.append(ActivityDetailRequest(id: id, showsComments: showingComments))
+    }
+
+    /// Long press (ADR-033 §1): the "Modifier" menu is only on my processed cards, the ones the
+    /// server returned; local cards keep their own menu.
+    func canManage(_ id: ActivityID) -> Bool {
+        posts.first { $0.id == id }?.viewerIsAuthor == true
+    }
+
+    /// A change made away from the feed (ADR-033 §7). Activities the feed does not show are
+    /// ignored: the change stream never adds a card, it only puts back one it removed.
+    func apply(_ change: ActivityChange) {
+        switch change {
+        case .updated(let post):
+            guard let index = posts.firstIndex(where: { $0.id == post.id }) else { return }
+            posts[index] = post
+        case .deleted(let id):
+            guard let index = posts.firstIndex(where: { $0.id == id }) else { return }
+            removedPosts[id] = (index, posts.remove(at: index))
+        case .restored(let id):
+            guard let removed = removedPosts.removeValue(forKey: id), !posts.contains(where: { $0.id == id }) else { return }
+            posts.insert(removed.post, at: min(removed.index, posts.count))
+        case .engagement(let id, let engagement):
+            update(id) { $0 = engagement }
+        }
     }
 
     /// First appearance: loads once.
@@ -99,6 +154,7 @@ final class FeedStore {
             let page = try await loadFeed()
             guard generation == refreshGeneration else { return false }
             posts = page.posts
+            removedPosts = [:]
             nextCursor = page.nextCursor
             phase = .loaded
             return true

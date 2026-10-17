@@ -10,6 +10,8 @@ import { activityImportErrorCodeSchema } from "./import.js";
  */
 export const ACTIVITY_PROCESSED_EVENT = "activities.activity.processed";
 export const ACTIVITY_FAILED_EVENT = "activities.activity.failed";
+/** The author deleted the activity, emitted after the commit (ADR-033 §6). */
+export const ACTIVITY_DELETED_EVENT = "activities.activity.deleted";
 
 /** Minimal payload (ADR-021 §3: "identifiers and what the listeners need"). */
 export const activityProcessedEventSchema = z.object({
@@ -27,6 +29,29 @@ export const activityFailedEventSchema = z.object({
   requestId: requestIdFieldSchema,
 });
 export type ActivityFailedEvent = z.infer<typeof activityFailedEventSchema>;
+
+/** The author edited the activity (ADR-033 §4), emitted after the commit. */
+export const ACTIVITY_UPDATED_EVENT = "activities.activity.updated";
+
+/**
+ * What changed in an `activities.activity.updated` event: the edited fields (ADR-033 §4, names
+ * of `updateActivityRequestSchema`), or `stats` once a reprocessing lands (ADR-033 §5).
+ */
+export const activityChangedFieldSchema = z.enum(["title", "description", "sportTypeCode", "visibility", "stats"]);
+export type ActivityChangedField = z.infer<typeof activityChangedFieldSchema>;
+
+export const activityUpdatedEventSchema = z.object({
+  activityId: z.uuid(),
+  userId: z.uuid(),
+  changedFields: z.array(activityChangedFieldSchema).min(1),
+});
+export type ActivityUpdatedEvent = z.infer<typeof activityUpdatedEventSchema>;
+
+export const activityDeletedEventSchema = z.object({
+  activityId: z.uuid(),
+  userId: z.uuid(),
+});
+export type ActivityDeletedEvent = z.infer<typeof activityDeletedEventSchema>;
 
 /** Emitted after the `import-activity` commit (ADR-028 §4 step 11, §10). */
 export const ACTIVITY_IMPORT_COMPLETED_EVENT = "activities.import.completed";
