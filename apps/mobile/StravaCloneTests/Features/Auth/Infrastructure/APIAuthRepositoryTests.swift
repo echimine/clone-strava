@@ -17,43 +17,107 @@ struct APIAuthRepositoryTests {
         return (APIAuthRepository(apiClient: apiClient, authSession: authSession), authSession)
     }
 
-    @Test func signInStoresBearerTokenFromResponseHeader() async throws {
+    /// Better Auth's emailOTP send route (ADR-035 §2): `type` is always "sign-in", which also
+    /// signs up.
+    @Test func sendSignInCodePostsTheEmailWithTheSignInType() async throws {
+        let (repository, authSession) = makeRepository()
+        defer { authSession.clear() }
+
+        URLProtocolStub.handler = { request in
+            #expect(request.httpMethod == "POST")
+            #expect(request.url?.path == "/api/auth/email-otp/send-verification-otp")
+            let json = try request.jsonBody()
+            #expect(json == ["email": "a@b.com", "type": "sign-in"])
+            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, Data(#"{"success":true}"#.utf8))
+        }
+
+        try await repository.sendSignInCode(email: "a@b.com")
+    }
+
+    @Test func signInWithACodeSendsTheNameAndStoresTheBearerToken() async throws {
         let (repository, authSession) = makeRepository()
         authSession.clear()
         defer { authSession.clear() }
 
         URLProtocolStub.handler = { request in
+            #expect(request.httpMethod == "POST")
+            #expect(request.url?.path == "/api/auth/sign-in/email-otp")
+            let json = try request.jsonBody()
+            #expect(json == ["email": "a@b.com", "otp": "123456", "name": "Ada Lovelace"])
             let response = HTTPURLResponse(
                 url: request.url!,
                 statusCode: 200,
                 httpVersion: nil,
                 headerFields: ["set-auth-token": "token-123", "Content-Type": "application/json"]
             )!
-            let body = #"{"user":{"id":"u1","email":"a@b.com","name":"Ada"}}"#.data(using: .utf8)!
-            return (response, body)
+            let body = #"{"token":"raw","user":{"id":"u1","email":"a@b.com","name":"Ada Lovelace"}}"#
+            return (response, Data(body.utf8))
         }
 
-        let user = try await repository.signIn(email: "a@b.com", password: "secret")
+        let user = try await repository.signIn(email: "a@b.com", code: "123456", name: "Ada Lovelace")
 
-        #expect(user == AuthUser(id: "u1", email: "a@b.com", name: "Ada"))
+        #expect(user == AuthUser(id: "u1", email: "a@b.com", name: "Ada Lovelace"))
         #expect(authSession.token() == "token-123")
     }
 
-    @Test func signInWithWrongCredentialsMapsToInvalidCredentials() async throws {
+    /// "Se connecter" may have just created the account (ADR-035 §1): the response's
+    /// `user.createdAt` tells.
+    @Test func signInReadsWhenTheAccountWasCreated() async throws {
         let (repository, authSession) = makeRepository()
         defer { authSession.clear() }
 
         URLProtocolStub.handler = { request in
-            let response = HTTPURLResponse(url: request.url!, statusCode: 401, httpVersion: nil, headerFields: nil)!
-            return (response, Data())
+            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            let body = #"{"token":"raw","user":{"id":"u1","email":"a@b.com","name":"Ada","createdAt":"2026-11-02T08:15:30.250Z"}}"#
+            return (response, Data(body.utf8))
         }
 
-        await #expect(throws: AuthError.invalidCredentials) {
-            try await repository.signIn(email: "a@b.com", password: "wrong")
+        let user = try await repository.signIn(email: "a@b.com", code: "123456", name: nil)
+
+        #expect(user.createdAt == Date(timeIntervalSince1970: 1_793_607_330.25))
+    }
+
+    /// Better Auth only uses `name` when the code creates the account: none is sent unless given.
+    @Test func signInWithACodeLeavesTheNameOutWhenThereIsNone() async throws {
+        let (repository, authSession) = makeRepository()
+        defer { authSession.clear() }
+
+        URLProtocolStub.handler = { request in
+            let json = try request.jsonBody()
+            #expect(json == ["email": "a@b.com", "otp": "123456"])
+            let response = HTTPURLResponse(
+                url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["set-auth-token": "token-1"]
+            )!
+            return (response, Data(#"{"user":{"id":"u1","email":"a@b.com","name":""}}"#.utf8))
+        }
+
+        _ = try await repository.signIn(email: "a@b.com", code: "123456", name: nil)
+    }
+
+    /// Better Auth's emailOTP answers (`dist/plugins/email-otp/error-codes.mjs`), and its rate limit.
+    @Test(arguments: [
+        (400, #"{"code":"INVALID_OTP","message":"Invalid OTP"}"#, AuthError.invalidCode),
+        (400, #"{"code":"OTP_EXPIRED","message":"OTP expired"}"#, AuthError.codeExpired),
+        (403, #"{"code":"TOO_MANY_ATTEMPTS","message":"Too many attempts"}"#, AuthError.tooManyAttempts),
+        (429, "", AuthError.rateLimited),
+        (400, #"{"code":"INVALID_EMAIL","message":"Invalid email"}"#, AuthError.server(message: "Invalid email")),
+    ])
+    func signInWithACodeMapsTheServerErrors(status: Int, body: String, expected: AuthError) async throws {
+        let (repository, authSession) = makeRepository()
+        defer { authSession.clear() }
+
+        URLProtocolStub.handler = { request in
+            let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!
+            return (response, Data(body.utf8))
+        }
+
+        await #expect(throws: expected) {
+            try await repository.signIn(email: "a@b.com", code: "000001", name: nil)
         }
     }
 
-    @Test func signInRateLimitedMapsToRateLimited() async throws {
+    @Test func sendSignInCodeRateLimitedMapsToRateLimited() async throws {
         let (repository, authSession) = makeRepository()
         defer { authSession.clear() }
 
@@ -62,39 +126,7 @@ struct APIAuthRepositoryTests {
             return (response, Data())
         }
 
-        await #expect(throws: AuthError.rateLimited) {
-            try await repository.signIn(email: "a@b.com", password: "secret")
-        }
-    }
-
-    @Test func signUpWithExistingEmailMapsToEmailAlreadyInUse() async throws {
-        let (repository, authSession) = makeRepository()
-        defer { authSession.clear() }
-
-        URLProtocolStub.handler = { request in
-            let response = HTTPURLResponse(url: request.url!, statusCode: 422, httpVersion: nil, headerFields: nil)!
-            let body = #"{"code":"USER_ALREADY_EXISTS","message":"User already exists."}"#.data(using: .utf8)!
-            return (response, body)
-        }
-
-        await #expect(throws: AuthError.emailAlreadyInUse) {
-            try await repository.signUp(email: "a@b.com", password: "secret", name: "Ada")
-        }
-    }
-
-    @Test func signUpWithUnmappedServerErrorSurfacesItsMessage() async throws {
-        let (repository, authSession) = makeRepository()
-        defer { authSession.clear() }
-
-        URLProtocolStub.handler = { request in
-            let response = HTTPURLResponse(url: request.url!, statusCode: 400, httpVersion: nil, headerFields: nil)!
-            let body = #"{"code":"PASSWORD_TOO_SHORT","message":"Password too short"}"#.data(using: .utf8)!
-            return (response, body)
-        }
-
-        await #expect(throws: AuthError.server(message: "Password too short")) {
-            try await repository.signUp(email: "a@b.com", password: "x", name: "Ada")
-        }
+        await #expect(throws: AuthError.rateLimited) { try await repository.sendSignInCode(email: "a@b.com") }
     }
 
     @Test func signInWithGoogleSendsProviderAndIdToken() async throws {
@@ -150,7 +182,7 @@ struct APIAuthRepositoryTests {
         #expect(authSession.token() == "new-token")
     }
 
-    @Test func currentUserWithoutASessionIsInvalidCredentials() async throws {
+    @Test func currentUserWithoutASessionIsNotSignedIn() async throws {
         let (repository, authSession) = makeRepository()
         defer { authSession.clear() }
 
@@ -159,7 +191,7 @@ struct APIAuthRepositoryTests {
             return (response, Data("null".utf8))
         }
 
-        await #expect(throws: AuthError.invalidCredentials) { try await repository.currentUser() }
+        await #expect(throws: AuthError.notSignedIn) { try await repository.currentUser() }
     }
 }
 
@@ -179,5 +211,11 @@ private extension URLRequest {
             data.append(buffer, count: read)
         }
         return data
+    }
+
+    /// The request's JSON object body, string values only (the auth bodies have no others).
+    func jsonBody() throws -> [String: String] {
+        let body = try #require(httpBodyStreamAsData() ?? httpBody)
+        return try #require(try JSONSerialization.jsonObject(with: body) as? [String: String])
     }
 }

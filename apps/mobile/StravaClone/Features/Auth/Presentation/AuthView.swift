@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Shown once signed in (ADR-022): who is connected, and a way to sign out.
-/// The non-authenticated flow is `AuthFlowView`, shown instead of the TabView by `RootView`.
+/// Signed out, `RootView` shows the account screen (`AccountView`) instead of the TabView.
 struct AuthView: View {
     @State var store: AuthStore
 

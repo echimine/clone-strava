@@ -1,5 +1,8 @@
 import { Injectable } from "@nestjs/common";
+import type { OnboardingAnswersRequest } from "@repo/contracts";
 import { GetUserSummariesUseCase } from "./use-cases/get-user-summaries.use-case.js";
+import { SubmitOnboardingAnswersUseCase } from "./use-cases/submit-onboarding-answers.use-case.js";
+import type { ActiveSportCatalog } from "./domain/active-sport-catalog.js";
 import type { UserSummary } from "./domain/user-summary.js";
 import { UserProfileRepository } from "./repositories/user-profile.repository.js";
 import {
@@ -16,6 +19,7 @@ export class UsersService {
   constructor(
     private readonly getUserSummaries: GetUserSummariesUseCase,
     private readonly userProfiles: UserProfileRepository,
+    private readonly submitOnboarding: SubmitOnboardingAnswersUseCase,
   ) {}
 
   /** Batch read (ADR-021 §2 rule 6), e.g. for feed authors or a profile screen. */
@@ -39,5 +43,18 @@ export class UsersService {
       defaultVisibility: profile.defaultVisibility,
       privacyZoneRadiusM: profile.privacyZoneRadiusM,
     };
+  }
+
+  /**
+   * The Onboarding answers fill the empty profile fields (ADR-035 §4, §5).
+   * `sportCatalog` says which sport codes are active: `users` depends on no
+   * module (ADR-021 §2), so the composing app supplies it.
+   */
+  submitOnboardingAnswers(
+    userId: string,
+    answers: OnboardingAnswersRequest,
+    sportCatalog: ActiveSportCatalog,
+  ): Promise<void> {
+    return this.submitOnboarding.execute(userId, answers, sportCatalog);
   }
 }

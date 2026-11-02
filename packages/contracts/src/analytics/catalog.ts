@@ -18,6 +18,9 @@ export const ANALYTICS_EVENTS = {
   ITINERARY_RENAMED: "itinerary_renamed",
   ITINERARY_DELETED: "itinerary_deleted",
   ITINERARY_SAVE_FAILED: "itinerary_save_failed",
+  /** Account and Onboarding funnel, emitted by the API (ADR-035 §8). */
+  USER_SIGNED_UP: "user_signed_up",
+  ONBOARDING_ANSWERS_RECEIVED: "onboarding_answers_received",
 } as const;
 export type AnalyticsEventName = (typeof ANALYTICS_EVENTS)[keyof typeof ANALYTICS_EVENTS];
 
@@ -78,6 +81,24 @@ export const itinerarySaveFailedPropertiesSchema = z.object({
 });
 export type ItinerarySaveFailedProperties = z.infer<typeof itinerarySaveFailedPropertiesSchema>;
 
+/**
+ * `user_signed_up`: how the account was created (ADR-035 §8), sent by the
+ * Better Auth hook at its creation, never on a later sign-in. Never the
+ * email, its domain or the name.
+ */
+export const userSignedUpPropertiesSchema = z.object({
+  method: z.enum(["google", "email_code"]),
+});
+export type UserSignedUpProperties = z.infer<typeof userSignedUpPropertiesSchema>;
+
+/**
+ * `onboarding_answers_received`: on the `204` of `PUT /v1/me/onboarding-answers`
+ * when something was filled (ADR-035 §8). No property: never a name, birth
+ * date, age or gender.
+ */
+export const onboardingAnswersReceivedPropertiesSchema = z.object({});
+export type OnboardingAnswersReceivedProperties = z.infer<typeof onboardingAnswersReceivedPropertiesSchema>;
+
 /** Payload schema for a given catalog event, keyed by its name. */
 export const analyticsEventPropertiesSchemas = {
   [ANALYTICS_EVENTS.ACTIVITY_PROCESSED]: activityProcessedPropertiesSchema,
@@ -89,4 +110,6 @@ export const analyticsEventPropertiesSchemas = {
   [ANALYTICS_EVENTS.ITINERARY_RENAMED]: itineraryRefPropertiesSchema,
   [ANALYTICS_EVENTS.ITINERARY_DELETED]: itineraryRefPropertiesSchema,
   [ANALYTICS_EVENTS.ITINERARY_SAVE_FAILED]: itinerarySaveFailedPropertiesSchema,
+  [ANALYTICS_EVENTS.USER_SIGNED_UP]: userSignedUpPropertiesSchema,
+  [ANALYTICS_EVENTS.ONBOARDING_ANSWERS_RECEIVED]: onboardingAnswersReceivedPropertiesSchema,
 } as const satisfies Record<AnalyticsEventName, z.ZodType>;

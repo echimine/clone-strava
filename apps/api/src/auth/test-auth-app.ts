@@ -5,6 +5,7 @@ import { Controller, Get, RequestMethod, UseGuards } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import type { INestApplication } from "@nestjs/common";
 import { APP_FILTER } from "@nestjs/core";
+import { AnalyticsModule } from "@repo/core/analytics";
 import { CoreInfrastructureModule } from "@repo/core/infrastructure";
 import { AuthModule as CoreAuthModule, AUTH_INSTANCE } from "@repo/core/auth";
 import { NotificationsService } from "@repo/core/notifications";
@@ -30,6 +31,15 @@ class TestAdminController {
   }
 }
 
+/** Stand-in for any app route (`/v1/me`, activities…): `SessionGuard` alone. */
+@Controller("app-route")
+@UseGuards(SessionGuard)
+class TestAppRouteController {
+  @Get()
+  ping(): { status: "ok" } {
+    return { status: "ok" };
+  }
+}
 
 /**
  * Local-dev/test-only endpoints (`docker-compose.dev.yml`, ADR-018 §8).
@@ -64,13 +74,22 @@ export interface TestAuthApp {
  * one test that needs a real send.
  */
 export async function bootstrapTestAuthApp(
-  options: { mockNotifications?: boolean; withAdminRoute?: boolean } = {},
+  options: {
+    mockNotifications?: boolean;
+    withAdminRoute?: boolean;
+    /** Off to boot the production rule: password sign-up closed (ADR-035 §2). */
+    allowPasswordSignUp?: boolean;
+    /** Turns on the dev Sign-in code helpers (ADR-035 §2). */
+    devSignInCodes?: boolean;
+  } = {},
 ): Promise<TestAuthApp> {
-  const { mockNotifications = true, withAdminRoute = false } = options;
+  const { mockNotifications = true, withAdminRoute = false, allowPasswordSignUp = true, devSignInCodes = false } = options;
 
   const moduleBuilder = Test.createTestingModule({
     imports: [
       CoreInfrastructureModule.forRoot({ databaseUrl: TEST_DATABASE_URL, redisUrl: TEST_REDIS_URL }),
+      // No API key: `capture` sends nothing; specs spy on it (ADR-035 §8).
+      AnalyticsModule.forRoot({}),
       CoreAuthModule.forRoot({
         secret: "test-secret-at-least-32-characters-long-0",
         baseUrl: "http://127.0.0.1:0",
@@ -79,9 +98,11 @@ export async function bootstrapTestAuthApp(
         googleClientId: "test-google-client-id",
         googleClientSecret: "test-google-client-secret",
         resendApiKey: "re_test_dummy_key_never_sent",
+        allowPasswordSignUp,
+        devSignInCodes,
       }),
     ],
-    controllers: withAdminRoute ? [TestAdminController] : [],
+    controllers: withAdminRoute ? [TestAdminController, TestAppRouteController] : [],
     // `SessionGuard`/`AdminGuard` are declared directly in this top-level
     // testing module (not a nested `TestAdminModule`) so they can inject
     // `AuthService`/`AUTH_INSTANCE` straight from the sibling
@@ -146,7 +167,14 @@ export async function ensureTestDatabaseMigrated(): Promise<void> {
 // the rate-limit windows can't make an unrelated assertion fail with 429.
 export async function clearRateLimitCounters(ip = "127.0.0.1"): Promise<void> {
   const redis = new Redis(TEST_REDIS_URL);
-  const paths = ["/sign-up/email", "/sign-in/email", "/two-factor/enable", "/two-factor/verify-totp"];
+  const paths = [
+    "/sign-up/email",
+    "/sign-in/email",
+    "/two-factor/enable",
+    "/two-factor/verify-totp",
+    "/email-otp/send-verification-otp",
+    "/sign-in/email-otp",
+  ];
   await redis.del(...paths.map((path) => `${ip}|${path}`));
   await redis.quit();
 }

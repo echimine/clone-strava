@@ -32,8 +32,17 @@ private final class BackgroundTaskBox {
     }
 }
 
-/// The queue coordinator of ADR-031 §14: wakes `ActivitySender` and the Itinerary changes on
-/// the shared triggers, so no feature imports another. It also follows the Activities in
+/// A feature's queue the coordinator wakes besides the Activities' (ADR-031 §14), seen through
+/// its three actions: `send` what is pending without the backoff delay, `stop` the pass in
+/// flight when iOS takes the background time back, `clear` it at sign-out.
+struct QueuedSender {
+    var send: @MainActor () async -> Void
+    var stop: @MainActor @Sendable () -> Void = {}
+    var clear: @MainActor () async -> Void = {}
+}
+
+/// The queue coordinator of ADR-031 §14: wakes `ActivitySender`, the Itinerary changes and the
+/// Onboarding answers (ADR-035 §5) on the shared triggers, so no feature imports another. It also follows the Activities in
 /// `processing`: once processed, the feed reloads its first page, then the local Activity is
 /// wiped.
 ///
@@ -48,23 +57,22 @@ final class SyncQueueCoordinator {
 
     private let activitySender: ActivitySender
     private let localActivities: GRDBLocalActivityStore
-    private let sendItineraryChanges: @MainActor () async -> Void
-    private let stopItineraryChanges: @MainActor @Sendable () -> Void
+    /// The Itinerary changes, then the Onboarding answers: sent in this order.
+    private let queues: [QueuedSender]
     private let reloadFeed: @MainActor () async -> Bool
     private let backgroundTasks: any BackgroundTaskRunning
 
     init(
         activitySender: ActivitySender,
         localActivities: GRDBLocalActivityStore,
-        sendItineraryChanges: @escaping @MainActor () async -> Void,
-        stopItineraryChanges: @escaping @MainActor @Sendable () -> Void = {},
+        itineraryChanges: QueuedSender,
+        onboardingAnswers: QueuedSender = QueuedSender(send: {}),
         reloadFeed: @escaping @MainActor () async -> Bool,
         backgroundTasks: any BackgroundTaskRunning = UIKitBackgroundTasks()
     ) {
         self.activitySender = activitySender
         self.localActivities = localActivities
-        self.sendItineraryChanges = sendItineraryChanges
-        self.stopItineraryChanges = stopItineraryChanges
+        self.queues = [itineraryChanges, onboardingAnswers]
         self.reloadFeed = reloadFeed
         self.backgroundTasks = backgroundTasks
     }
@@ -101,9 +109,13 @@ final class SyncQueueCoordinator {
         (try? await localActivities.unsentCount()) ?? 0
     }
 
-    /// Sign-out, once confirmed: the local Activities and their queued steps are wiped.
+    /// Sign-out, once confirmed: the local Activities and their queued steps are wiped, and the
+    /// Onboarding answers with their operation (ADR-035 §5).
     func signOut() async {
         await activitySender.clear()
+        for queue in queues {
+            await queue.clear()
+        }
     }
 
     /// While signed in and in the foreground: sends when the network comes back, tracks on each
@@ -135,21 +147,23 @@ final class SyncQueueCoordinator {
         }
     }
 
-    /// The `BGAppRefreshTask` (ADR-031 §14): everything pending is sent, Activities then
-    /// Itinerary changes, already within iOS's background time. Cancelling the caller (the
+    /// The `BGAppRefreshTask` (ADR-031 §14): everything pending is sent, Activities, Itinerary
+    /// changes then Onboarding answers, already within iOS's background time. Cancelling the caller (the
     /// task's expiration) stops the passes in flight; each operation stays at its step.
     func backgroundRefresh() async {
         let activitySender = activitySender
-        let stopItineraryChanges = stopItineraryChanges
+        let stops = queues.map(\.stop)
         await withTaskCancellationHandler {
             guard !Task.isCancelled else { return }
             await activitySender.send(ignoringBackoff: true)
-            guard !Task.isCancelled else { return }
-            await sendItineraryChanges()
+            for queue in queues {
+                guard !Task.isCancelled else { return }
+                await queue.send()
+            }
         } onCancel: {
             Task { @MainActor in
                 activitySender.cancelPass()
-                stopItineraryChanges()
+                stops.forEach { $0() }
             }
         }
     }
@@ -158,7 +172,9 @@ final class SyncQueueCoordinator {
     private func drain() async {
         await backgroundTasks.run("sync-queue") {
             await activitySender.send(ignoringBackoff: true)
-            await sendItineraryChanges()
+            for queue in queues {
+                await queue.send()
+            }
         }
         await trackProcessing()
     }

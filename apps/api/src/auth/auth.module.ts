@@ -19,6 +19,8 @@ const coreAuthModule = CoreAuthModule.forRoot({
   googleClientId: config.GOOGLE_CLIENT_ID,
   googleClientSecret: config.GOOGLE_CLIENT_SECRET,
   resendApiKey: config.RESEND_API_KEY,
+  // ADR-035 §2: dev Sign-in code helpers, only with `NODE_ENV=development` (the `dev` script).
+  devSignInCodes: config.NODE_ENV === "development",
 });
 
 /**

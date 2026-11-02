@@ -25,6 +25,13 @@ import { boolean, integer, pgEnum, pgTable, text, timestamp, uuid } from "drizzl
 /** `user.role` (ADR-017, ADR-009 admin guard). */
 export const userRoleEnum = pgEnum("user_role", ["user", "admin"]);
 
+/**
+ * `session.authMethod` (ADR-035 §3): how the session was opened. Only
+ * `password_2fa` carries admin rights; `null` (sessions opened before the
+ * column, or by an unknown path) counts as weak.
+ */
+export const sessionAuthMethodEnum = pgEnum("session_auth_method", ["password_2fa", "password", "email_otp", "google"]);
+
 export const user = pgTable("user", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: text("name").notNull(),
@@ -53,6 +60,8 @@ export const session = pgTable("session", {
   userAgent: text("user_agent"),
   // Admin plugin: which admin is impersonating this session, if any.
   impersonatedBy: uuid("impersonated_by").references(() => user.id, { onDelete: "set null" }),
+  // ADR-035 §3: set by `databaseHooks.session.create.before`, never by the client.
+  authMethod: sessionAuthMethodEnum("auth_method"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

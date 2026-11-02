@@ -12,6 +12,9 @@ struct StravaCloneApp: App {
         WindowGroup {
             RootView(
                 authStore: di.makeAuthStore(),
+                consentStore: di.makeMeasurementConsentStore(),
+                makeOnboardingStore: di.makeOnboardingStore,
+                makePaywallStore: di.makePaywallStore,
                 recordingStore: di.makeRecordingStore(),
                 importStore: di.makeImportStore(),
                 feedStore: di.makeFeedStore(),
@@ -48,10 +51,18 @@ struct StravaCloneApp: App {
     }
 }
 
-/// Gates the app behind the auth flow (ADR-022): the TabView is only reachable once
-/// signed in. Session is checked once at launch (`AuthStore.restoreSession`).
+/// Gates the app behind the Welcome and its account screen (ADR-022, ADR-035): the TabView is only
+/// reachable once signed in. Session is checked once at launch (`AuthStore.restoreSession`).
 struct RootView: View {
     @State var authStore: AuthStore
+    /// The Measurement consent (ADR-035 §8): the Welcome's sheet, the Profile tab's switch.
+    @State var consentStore: MeasurementConsentStore
+    /// "Créer un compte" on the Welcome: the Onboarding, resumed from its draft (ADR-035 §1, §5).
+    /// With an action, the Onboarding that "Se connecter" opened on a new account, ended by it.
+    let makeOnboardingStore: @MainActor ((@MainActor () -> Void)?) -> OnboardingStore
+    /// The Paywall after the sign-in that ends the Onboarding (ADR-035 §6), ended by its action;
+    /// told whether that sign-in created the account.
+    let makePaywallStore: @MainActor (Bool, @escaping @MainActor () -> Void) -> PaywallStore
     @State var recordingStore: RecordingStore
     @State var importStore: ImportStore
     @State var feedStore: FeedStore
@@ -111,13 +122,48 @@ struct RootView: View {
             case .checkingSession:
                 ProgressView()
             case .signedOut:
-                AuthFlowView(store: authStore)
+                WelcomeView(
+                    consent: consentStore,
+                    isRevealed: !isSplashPresented,
+                    viewed: authStore.welcomeViewed,
+                    opened: { [authStore] entry in
+                        if entry == .createAccount { authStore.onboardingStarted() }
+                    }
+                ) { entry, back in
+                    switch entry {
+                    case .createAccount:
+                        OnboardingView(store: makeOnboardingStore(nil), leave: back, accountScreen: createAccountScreen)
+                    case .signIn:
+                        AccountView(mode: .signIn, authStore: authStore, onBack: back)
+                    }
+                }
                     .onAppear {
                         feedStore.reset()
                         defaultVisibility.clear()
                         // ADR-030 §8: the Itinerary cache does not outlive the session.
                         Task { await itinerarySynchronizer.signOut() }
                     }
+            case .onboarding:
+                // ADR-035 §1: "Se connecter" has just created the account.
+                OnboardingView(
+                    store: makeOnboardingStore { [authStore] in authStore.finishOnboarding() },
+                    accountScreen: createAccountScreen
+                )
+            case .paywall(let user):
+                // ADR-035 §6: once, then the notification priming screen or home.
+                PaywallView(
+                    store: makePaywallStore(authStore.isNewAccount) { [authStore] in
+                        Task { await authStore.finishPaywall() }
+                    },
+                    firstName: user.firstName
+                )
+            case .notificationPrimer:
+                // ADR-035 §7: only while iOS has not asked yet, then home.
+                NotificationPrimerView(
+                    isRequesting: authStore.isRequestingNotifications,
+                    enable: { Task { await authStore.enableNotifications() } },
+                    later: authStore.deferNotifications
+                )
             case .signedIn:
                 TabView(selection: $selectedTab) {
                     FeedView(
@@ -184,7 +230,7 @@ struct RootView: View {
                     )
                     .tabItem { Label("Enregistrer", systemImage: "record.circle") }
                     .tag(AppTab.record)
-                    ProfileView(store: authStore, signOutWarning: {
+                    ProfileView(store: authStore, consent: consentStore, signOutWarning: {
                         // ADR-031 §10, §14: one confirmation for all that a sign-out loses.
                         SignOutWarning.message(
                             recordingInProgress: await recordingStore.signOutWarning() != nil,
@@ -274,6 +320,12 @@ struct RootView: View {
             guard realtimeUserId != nil else { return }
             await itinerarySynchronizer.applyRemoteChanges()
         }
+    }
+
+    /// The Onboarding's last screen (ADR-035 §1): the account screen in creation mode, which
+    /// names the account "Prénom Nom" if the code creates it.
+    private func createAccountScreen(name: String, back: @escaping () -> Void) -> AccountView {
+        AccountView(mode: .createAccount, authStore: authStore, name: name, onBack: back)
     }
 
     /// After Save (ADR-031 §11): the Home tab at the top of the feed, and the Activity leaves

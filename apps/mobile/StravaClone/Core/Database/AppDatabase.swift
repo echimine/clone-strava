@@ -162,6 +162,23 @@ final class AppDatabase: Sendable {
                 table.add(column: "return_point_progress_m", .double)
             }
         }
+        // ADR-035 §5: the Onboarding draft (one row at most, `id` = 1), the only local copy of the
+        // Onboarding answers, with the screen reached. Values are the contract's
+        // (`onboardingAnswersRequestSchema`): `birth_date` as `YYYY-MM-DD`, `sport_codes` and
+        // `goals` as JSON arrays in the order picked.
+        migrator.registerMigration("onboarding_draft_v1") { db in
+            try db.create(table: "onboarding_draft") { table in
+                table.primaryKey("id", .integer).check { $0 == 1 }
+                table.column("step", .text).notNull()
+                table.column("first_name", .text).notNull()
+                table.column("last_name", .text).notNull()
+                table.column("birth_date", .text)
+                table.column("gender", .text)
+                table.column("sport_codes", .jsonText).notNull()
+                table.column("goals", .jsonText).notNull()
+                table.column("level", .text)
+            }
+        }
         return migrator
     }
 }

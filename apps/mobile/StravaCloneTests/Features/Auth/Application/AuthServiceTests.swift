@@ -9,23 +9,17 @@ struct AuthServiceTests {
         return (service, repository, googleAuthProvider)
     }
 
-    @Test func signUpUpdatesCurrentUser() async throws {
+    @Test func signInWithACodeUpdatesCurrentUser() async throws {
         let (service, repository, _) = makeService()
         let expected = AuthUser(id: "1", email: "a@b.com", name: "Ada")
-        repository.signUpHandler = { _, _, _ in expected }
+        repository.signInHandler = { email, code, name in
+            #expect(email == "a@b.com")
+            #expect(code == "123456")
+            #expect(name == "Ada")
+            return expected
+        }
 
-        let user = try await service.signUp(email: "a@b.com", password: "secret", name: "Ada")
-
-        #expect(user == expected)
-        #expect(await service.currentUser == expected)
-    }
-
-    @Test func signInUpdatesCurrentUser() async throws {
-        let (service, repository, _) = makeService()
-        let expected = AuthUser(id: "1", email: "a@b.com", name: "Ada")
-        repository.signInHandler = { _, _ in expected }
-
-        let user = try await service.signIn(email: "a@b.com", password: "secret")
+        let user = try await service.signIn(email: "a@b.com", code: "123456", name: "Ada")
 
         #expect(user == expected)
         #expect(await service.currentUser == expected)
@@ -48,8 +42,8 @@ struct AuthServiceTests {
 
     @Test func signOutClearsCurrentUser() async throws {
         let (service, repository, _) = makeService()
-        repository.signInHandler = { _, _ in AuthUser(id: "1", email: "a@b.com", name: "Ada") }
-        _ = try await service.signIn(email: "a@b.com", password: "secret")
+        repository.signInHandler = { _, _, _ in AuthUser(id: "1", email: "a@b.com", name: "Ada") }
+        _ = try await service.signIn(email: "a@b.com", code: "123456", name: nil)
 
         let signOutCalled = Locked(false)
         repository.signOutHandler = { signOutCalled.value = true }
@@ -61,7 +55,7 @@ struct AuthServiceTests {
 
     @Test func restoreSessionReturnsNilWhenRepositoryThrows() async throws {
         let (service, repository, _) = makeService()
-        repository.currentUserHandler = { () throws(AuthError) in throw AuthError.invalidCredentials }
+        repository.currentUserHandler = { () throws(AuthError) in throw AuthError.notSignedIn }
 
         let user = await service.restoreSession()
 

@@ -5,6 +5,11 @@ import Foundation
 /// ADR-030 §10; the API sends the lifecycle ones. Properties are rounded and never hold a
 /// coordinate: `AnalyticsValue` has no floating-point case. `itineraryId` is the id the app
 /// generates, the one the API events carry too.
+///
+/// The getting-started funnel (Welcome, Onboarding, account, Paywall, notification priming;
+/// ADR-035 §8) never carries a name, an email or its domain, a birth date or an age, or a
+/// gender. Lists are sent as joined strings. Its property types live in
+/// `AnalyticsEvent+GettingStarted.swift`.
 enum AnalyticsEvent: Equatable, Sendable {
     /// The editor creates a new Itinerary, or reopens a saved one ("Modifier").
     enum EditorMode: String, Sendable {
@@ -36,6 +41,37 @@ enum AnalyticsEvent: Equatable, Sendable {
     /// "Créer" or "Modifier" offline: "Connexion requise".
     case itineraryOfflineEditBlocked(action: EditorMode)
 
+    /// The Welcome is on screen with the Measurement consent answered.
+    case welcomeViewed
+    /// "Créer un compte" on the Welcome.
+    case onboardingStarted
+    /// Each screen of the Onboarding; `resumed` on the first screen after a resumed draft.
+    case onboardingStepViewed(step: OnboardingScreen, resumed: Bool)
+    /// "Créer mon compte": codes sorted and joined, `goalsCount` 0 when the goals were skipped.
+    case onboardingCompleted(sportCodes: [String], goals: [String], level: String)
+    case authScreenViewed(entry: AuthEntry)
+    /// "Continuer avec Google", or "Continuer" under the email.
+    case authMethodChosen(method: AuthMethod)
+    case authGoogleCancelled
+    /// A Sign-in code was sent; `resend` for "Recevoir un nouveau code".
+    case emailCodeRequested(resend: Bool)
+    case emailCodeFailed(reason: CodeFailure)
+    /// A session exists. `isNewAccount` also when "Se connecter" created the account.
+    case signedIn(method: AuthMethod, isNewAccount: Bool)
+    case paywallViewed(layout: PaywallVariant, isNewAccount: Bool)
+    /// Left without being shown: its offers could not be loaded.
+    case paywallSkipped(reason: PaywallSkipReason)
+    /// "Démarrer l'essai".
+    case paywallTrialTapped(layout: PaywallVariant, period: TrialPeriod)
+    /// "Passer" / "Non merci".
+    case paywallDismissed(layout: PaywallVariant)
+    /// Nervo's notification priming screen is shown.
+    case notificationPromptViewed
+    /// The answer in iOS's own prompt, never a step skipped.
+    case notificationPermissionAnswered(granted: Bool)
+    /// "Plus tard" on the priming screen.
+    case notificationPermissionDeferred
+
     var name: String {
         switch self {
         case .itineraryEditorOpened: "itinerary_editor_opened"
@@ -45,6 +81,23 @@ enum AnalyticsEvent: Equatable, Sendable {
         case .itineraryListViewed: "itinerary_list_viewed"
         case .itineraryViewed: "itinerary_viewed"
         case .itineraryOfflineEditBlocked: "itinerary_offline_edit_blocked"
+        case .welcomeViewed: "welcome_viewed"
+        case .onboardingStarted: "onboarding_started"
+        case .onboardingStepViewed: "onboarding_step_viewed"
+        case .onboardingCompleted: "onboarding_completed"
+        case .authScreenViewed: "auth_screen_viewed"
+        case .authMethodChosen: "auth_method_chosen"
+        case .authGoogleCancelled: "auth_google_cancelled"
+        case .emailCodeRequested: "email_code_requested"
+        case .emailCodeFailed: "email_code_failed"
+        case .signedIn: "signed_in"
+        case .paywallViewed: "paywall_viewed"
+        case .paywallSkipped: "paywall_skipped"
+        case .paywallTrialTapped: "paywall_trial_tapped"
+        case .paywallDismissed: "paywall_dismissed"
+        case .notificationPromptViewed: "notification_prompt_viewed"
+        case .notificationPermissionAnswered: "notification_permission_answered"
+        case .notificationPermissionDeferred: "notification_permission_deferred"
         }
     }
 
@@ -68,6 +121,38 @@ enum AnalyticsEvent: Equatable, Sendable {
             ["itineraryId": .string(id), "source": .string(source.rawValue), "offline": .bool(offline)]
         case .itineraryOfflineEditBlocked(let action):
             ["action": .string(action.rawValue)]
+        case .welcomeViewed, .onboardingStarted, .authGoogleCancelled, .notificationPromptViewed,
+             .notificationPermissionDeferred:
+            [:]
+        case .onboardingStepViewed(let step, let resumed):
+            ["step": .string(step.rawValue), "resumed": .bool(resumed)]
+        case .onboardingCompleted(let sportCodes, let goals, let level):
+            [
+                "sportCodes": .string(sportCodes.sorted().joined(separator: ",")),
+                "goals": .string(goals.sorted().joined(separator: ",")),
+                "goalsCount": .int(goals.count),
+                "level": .string(level),
+            ]
+        case .authScreenViewed(let entry):
+            ["entry": .string(entry.rawValue)]
+        case .authMethodChosen(let method):
+            ["method": .string(method.rawValue)]
+        case .emailCodeRequested(let resend):
+            ["resend": .bool(resend)]
+        case .emailCodeFailed(let reason):
+            ["reason": .string(reason.rawValue)]
+        case .signedIn(let method, let isNewAccount):
+            ["method": .string(method.rawValue), "isNewAccount": .bool(isNewAccount)]
+        case .paywallViewed(let layout, let isNewAccount):
+            ["layout": .string(layout.rawValue), "isNewAccount": .bool(isNewAccount)]
+        case .paywallSkipped(let reason):
+            ["reason": .string(reason.rawValue)]
+        case .paywallTrialTapped(let layout, let period):
+            ["layout": .string(layout.rawValue), "period": .string(period.rawValue)]
+        case .paywallDismissed(let layout):
+            ["layout": .string(layout.rawValue)]
+        case .notificationPermissionAnswered(let granted):
+            ["granted": .bool(granted)]
         }
     }
 }

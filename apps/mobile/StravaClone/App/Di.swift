@@ -47,12 +47,18 @@ final class Di {
     /// Full resync of the Itinerary cache and its queue of changes (ADR-030 §8), triggered by
     /// the app shell.
     let itinerarySynchronizer: ItinerarySynchronizer
-    /// Product events (ADR-015): PostHog, opted out until a consent screen exists; nothing
-    /// without a key.
+    /// Product events (ADR-015): PostHog, opted out until the Measurement consent is accepted
+    /// (ADR-035 §8); nothing without a key.
     let analytics: any AnalyticsClient
+    /// The Measurement consent, kept on this phone (ADR-035 §8).
+    let consentPreferences: any MeasurementConsentPreferences
     /// Saved Activities until processed (ADR-031 §14, §15) and their sender.
     let localActivities: GRDBLocalActivityStore
     let activitySender: ActivitySender
+    /// The Onboarding answers, sent once a session exists (ADR-035 §5).
+    let onboardingAnswersSender: OnboardingAnswersSender
+    /// The Paywall's offers (ADR-035 §6): unwired until RevenueCat replaces this adapter (ADR-014).
+    let subscriptionService: any SubscriptionService
     /// `defaultVisibility` of `GET /v1/me`, for the finish screen (ADR-031 §11, §13).
     let defaultVisibility: DefaultVisibilityCache
     /// What the Activity detail changes, applied by the feed (ADR-033 §7).
@@ -89,8 +95,14 @@ final class Di {
         locationProvider = CoreLocationProvider()
         locationPermission = LocationPermissionService()
 
-        // TODO(ADR-014): configure RevenueCat behind a SubscriptionService port (Features/Paywall).
-        analytics = PostHogAnalyticsClient.make(projectToken: configuration.postHogAPIKey) ?? NoAnalyticsClient()
+        // ADR-035 §6: hard-coded offers, layout C, nothing sold. A RevenueCat adapter (ADR-014)
+        // will fill the same types from the current offering.
+        subscriptionService = UnwiredSubscriptionService()
+        consentPreferences = UserDefaultsMeasurementConsentPreferences()
+        analytics = PostHogAnalyticsClient.make(
+            projectToken: configuration.postHogAPIKey,
+            isOptedIn: consentPreferences.consent == .accepted
+        ) ?? NoAnalyticsClient()
         // TODO(ADR-022): Apple Sign-In — blocked on a paid Apple Developer Program membership.
         // TODO(ADR-022 §5): admin 2FA — credential-only, backoffice web, not applicable to mobile.
 
@@ -141,6 +153,12 @@ final class Di {
             store: localActivities,
             sessionRefresher: APISessionRefresher(apiClient: apiClient, authSession: authSession)
         )
+        onboardingAnswersSender = OnboardingAnswersSender(
+            server: APIOnboardingAnswersServer(apiClient: apiClient),
+            drafts: GRDBOnboardingDraftRepository(database: database),
+            queue: GRDBOnboardingSubmissionQueue(database: database),
+            sessionRefresher: APISessionRefresher(apiClient: apiClient, authSession: authSession)
+        )
         defaultVisibility = DefaultVisibilityCache(apiClient: apiClient)
     }
 
@@ -158,8 +176,15 @@ final class Di {
     private(set) lazy var syncCoordinator: SyncQueueCoordinator = SyncQueueCoordinator(
         activitySender: activitySender,
         localActivities: localActivities,
-        sendItineraryChanges: { [itinerarySynchronizer] in await itinerarySynchronizer.sendPendingChanges() },
-        stopItineraryChanges: { [itinerarySynchronizer] in itinerarySynchronizer.stopSendingChanges() },
+        itineraryChanges: QueuedSender(
+            send: { [itinerarySynchronizer] in await itinerarySynchronizer.sendPendingChanges() },
+            stop: { [itinerarySynchronizer] in itinerarySynchronizer.stopSendingChanges() }
+        ),
+        onboardingAnswers: QueuedSender(
+            send: { [onboardingAnswersSender] in await onboardingAnswersSender.send(ignoringBackoff: true) },
+            stop: { [onboardingAnswersSender] in onboardingAnswersSender.cancelPass() },
+            clear: { [onboardingAnswersSender] in await onboardingAnswersSender.clear() }
+        ),
         reloadFeed: { [weak self] in await self?.feedStore.refresh() ?? false }
     )
 
@@ -215,7 +240,39 @@ final class Di {
     }
 
     func makeAuthStore() -> AuthStore {
-        AuthStore(service: authService)
+        let onboardingAnswersSender = onboardingAnswersSender
+        return AuthStore(
+            service: authService,
+            analytics: analytics,
+            submitOnboardingAnswers: { await onboardingAnswersSender.submit() },
+            notificationPermission: UserNotificationsPermission()
+        )
+    }
+
+    /// One for the app: the Welcome's sheet and the Profile tab's switch (ADR-035 §8).
+    func makeMeasurementConsentStore() -> MeasurementConsentStore {
+        let authService = authService
+        return MeasurementConsentStore(
+            preferences: consentPreferences,
+            analytics: analytics,
+            signedInUserID: { await authService.currentUser?.id }
+        )
+    }
+
+    /// A new one for each "Créer un compte": it resumes the draft (ADR-035 §5). With
+    /// `finishWithSession`, the Onboarding that "Se connecter" opened on a new account (§1).
+    func makeOnboardingStore(finishWithSession: (@MainActor () -> Void)? = nil) -> OnboardingStore {
+        OnboardingStore(
+            drafts: GRDBOnboardingDraftRepository(database: database),
+            analytics: analytics,
+            finishWithSession: finishWithSession
+        )
+    }
+
+    /// The Paywall shown right after the sign-in that ends the Onboarding (ADR-035 §6).
+    /// - Parameter isNewAccount: that sign-in created the account, for its events (§8).
+    func makePaywallStore(isNewAccount: Bool, finish: @escaping @MainActor () -> Void) -> PaywallStore {
+        PaywallStore(service: subscriptionService, analytics: analytics, isNewAccount: isNewAccount, finish: finish)
     }
 
     func makeFeedStore() -> FeedStore {

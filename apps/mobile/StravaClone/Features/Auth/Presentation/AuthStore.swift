@@ -1,105 +1,172 @@
 import Foundation
 import Observation
 
+/// Who is signed in, for the whole app (ADR-022): `RootView` shows the Welcome, the Onboarding,
+/// the Paywall, the notification priming screen or the TabView from `state`. Signing in itself happens on the account screen, in
+/// `SignInStore`. The analytics identity follows the session (ADR-035 §8): `identify` as soon as
+/// one exists, `reset()` at sign-out.
+///
+/// After a sign-in (ADR-035 §1, §5, §6): at the end of the Onboarding, the Onboarding answers are
+/// sent, after `identify`, and the flow goes on to the Paywall without waiting for them. "Se
+/// connecter" on an account it has just created goes through the Onboarding (and so the Paywall)
+/// first; an existing account never does. After the Paywall comes the notification priming
+/// screen, only while iOS has not asked yet (§7). A restored session always goes home: neither
+/// the Paywall nor the priming screen is resumed.
+///
+/// It sends the funnel events around the session (§8): `welcome_viewed`, `onboarding_started`,
+/// `signed_in` right after `identify`, and those of the priming screen.
 @Observable
 @MainActor
 final class AuthStore {
     enum State: Equatable {
         case checkingSession
         case signedOut
+        /// Signed in by "Se connecter" on an account it has just created: the Onboarding, from
+        /// its first question, before the home screen.
+        case onboarding(AuthUser)
+        /// Right after the sign-in that ends the Onboarding (ADR-035 §6): the Paywall, once.
+        case paywall(AuthUser)
+        /// After that Paywall, while iOS has not asked for the notification permission yet
+        /// (ADR-035 §7): Nervo's priming screen, once.
+        case notificationPrimer(AuthUser)
         case signedIn(AuthUser)
     }
 
-    enum FormError: Equatable {
-        case invalidCredentials
-        case emailAlreadyInUse
-        case rateLimited
-        case offline
-        /// A server-provided message (AuthError.server) or a Google-specific failure —
-        /// shown verbatim rather than folded into a generic "something went wrong".
-        case message(String)
+    private(set) var state = State.checkingSession
+    /// iOS's prompt is open: a second tap on "Activer les notifications" does nothing.
+    private(set) var isRequestingNotifications = false
+    /// The last sign-in created the account (`AuthUser.isNewAccount`), for the Paywall's events.
+    private(set) var isNewAccount = false
 
-        init(_ error: AuthError) {
-            switch error {
-            case .invalidCredentials: self = .invalidCredentials
-            case .emailAlreadyInUse: self = .emailAlreadyInUse
-            case .rateLimited: self = .rateLimited
-            case .server(let message): self = .message(message)
-            case .network(.offline): self = .offline
-            case .network(let apiError): self = .message(FormError.describe(apiError))
-            case .googleSignInFailed(let message): self = .message("Google : \(message)")
-            case .googleSignInCancelled: self = .message("") // never surfaced, see run(_:)
-            }
-        }
+    @ObservationIgnored private let service: AuthService
+    @ObservationIgnored private let analytics: any AnalyticsClient
+    /// The account screen's clock (the 30 s before "Recevoir un nouveau code").
+    @ObservationIgnored private let sleep: @Sendable (Duration) async throws -> Void
+    /// Sends the Onboarding answers of the draft (ADR-035 §5); never awaited by the flow.
+    @ObservationIgnored private let submitOnboardingAnswers: @MainActor () async -> Void
+    /// Whether the priming screen follows the Paywall, and the system prompt it opens.
+    @ObservationIgnored private let notificationPermission: any NotificationPermission
+    @ObservationIgnored private let now: @Sendable () -> Date
 
-        /// A short, non-technical description of a lower-level network failure — the
-        /// cases that don't have a server message to show (transport error, decoding
-        /// failure, an unmapped HTTP status).
-        private static func describe(_ error: APIError) -> String {
-            switch error {
-            case .offline: "Pas de connexion internet."
-            case .unauthorized: "Session expirée, reconnectez-vous."
-            case .decoding: "Réponse du serveur illisible."
-            case .transport: "Impossible de joindre le serveur."
-            case .http(let status, _): "Erreur serveur (code \(status))."
-            }
+    init(
+        service: AuthService,
+        analytics: any AnalyticsClient = NoAnalyticsClient(),
+        sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) },
+        submitOnboardingAnswers: @escaping @MainActor () async -> Void = {},
+        notificationPermission: any NotificationPermission = SettledNotificationPermission(),
+        now: @escaping @Sendable () -> Date = Date.init
+    ) {
+        self.service = service
+        self.analytics = analytics
+        self.sleep = sleep
+        self.submitOnboardingAnswers = submitOnboardingAnswers
+        self.notificationPermission = notificationPermission
+        self.now = now
+    }
+
+    /// The account screen's store; a sign-in there signs the app in.
+    func makeSignInStore(entry: SignInEntry = .signIn) -> SignInStore {
+        SignInStore(service: service, entry: entry, analytics: analytics, sleep: sleep) { [weak self] user, method in
+            self?.signedIn(user, entry: entry, method: method)
         }
     }
 
-    private(set) var state = State.checkingSession
-    private(set) var formError: FormError?
-    private(set) var isSubmitting = false
+    /// The Welcome is on screen with the Measurement consent answered: on the first launch,
+    /// right after "Accepter", since nothing is sent before.
+    func welcomeViewed() {
+        analytics.capture(.welcomeViewed)
+    }
 
-    @ObservationIgnored private let service: AuthService
+    /// "Créer un compte" on the Welcome.
+    func onboardingStarted() {
+        analytics.capture(.onboardingStarted)
+    }
 
-    init(service: AuthService) {
-        self.service = service
+    /// "Créer mon compte" at the end of the Onboarding that "Se connecter" opened: the session
+    /// exists already, so the answers are sent straight away, then the Paywall.
+    func finishOnboarding() {
+        guard case .onboarding(let user) = state else { return }
+        startSubmittingOnboardingAnswers()
+        state = .paywall(user)
+    }
+
+    /// The Paywall is left (trial tapped, skipped, or offers unavailable): the priming screen if
+    /// iOS has not asked for the notification permission yet, else silently the home screen.
+    func finishPaywall() async {
+        guard case .paywall = state else { return }
+        let status = await notificationPermission.status()
+        guard case .paywall(let user) = state else { return }
+        guard status == .notDetermined else {
+            state = .signedIn(user)
+            return
+        }
+        state = .notificationPrimer(user)
+        analytics.capture(.notificationPromptViewed)
+    }
+
+    /// "Activer les notifications" on the priming screen: iOS's prompt, then home, whatever the
+    /// answer.
+    func enableNotifications() async {
+        guard case .notificationPrimer = state, !isRequestingNotifications else { return }
+        isRequestingNotifications = true
+        defer { isRequestingNotifications = false }
+        let granted = await notificationPermission.requestAuthorization()
+        analytics.capture(.notificationPermissionAnswered(granted: granted))
+        guard case .notificationPrimer(let user) = state else { return }
+        state = .signedIn(user)
+    }
+
+    /// "Plus tard": home, without spending iOS's one-time prompt. Nothing asks again.
+    func deferNotifications() {
+        guard case .notificationPrimer(let user) = state, !isRequestingNotifications else { return }
+        analytics.capture(.notificationPermissionDeferred)
+        state = .signedIn(user)
     }
 
     func restoreSession() async {
         if let user = await service.restoreSession() {
+            analytics.identify(userId: user.id)
             state = .signedIn(user)
         } else {
             state = .signedOut
         }
     }
 
-    func signUp(email: String, password: String, name: String) async {
-        await run { try await self.service.signUp(email: email, password: password, name: name) }
-    }
-
-    func signIn(email: String, password: String) async {
-        await run { try await self.service.signIn(email: email, password: password) }
-    }
-
-    func signInWithGoogle() async {
-        await run(
-            { try await self.service.signInWithGoogle() },
-            // Cancelling the Google sheet is a no-op, not an error to surface.
-            suppressing: .googleSignInCancelled
-        )
-    }
-
     func signOut() async {
         await service.signOut()
+        analytics.reset()
         state = .signedOut
     }
 
-    private func run(
-        _ action: @escaping () async throws -> AuthUser,
-        suppressing suppressed: AuthError? = nil
-    ) async {
-        isSubmitting = true
-        formError = nil
-        defer { isSubmitting = false }
-        do {
-            state = .signedIn(try await action())
-        } catch let error as AuthError {
-            if error != suppressed {
-                formError = FormError(error)
-            }
-        } catch {
-            formError = .message(String(describing: error))
+    private func signedIn(_ user: AuthUser, entry: SignInEntry, method: AnalyticsEvent.AuthMethod) {
+        analytics.identify(userId: user.id)
+        isNewAccount = user.isNewAccount(at: now())
+        analytics.capture(.signedIn(method: method, isNewAccount: isNewAccount))
+        switch entry {
+        case .onboarding:
+            startSubmittingOnboardingAnswers()
+            state = .paywall(user)
+        case .signIn where isNewAccount:
+            state = .onboarding(user)
+        case .signIn:
+            state = .signedIn(user)
         }
+    }
+
+    private func startSubmittingOnboardingAnswers() {
+        Task { await submitOnboardingAnswers() }
+    }
+}
+
+/// Where the account screen was opened from (ADR-035 §1).
+enum SignInEntry: Equatable, Sendable {
+    /// "Se connecter" on the Welcome.
+    case signIn
+    /// The end of the Onboarding: `name` ("Prénom Nom") names the account if the code creates it
+    /// (ADR-035 §2).
+    case onboarding(name: String)
+
+    var accountName: String? {
+        if case .onboarding(let name) = self, !name.isEmpty { name } else { nil }
     }
 }

@@ -5,6 +5,7 @@ import { Test } from "@nestjs/testing";
 import { ZodSerializerInterceptor, ZodValidationPipe } from "nestjs-zod";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { MeResponse } from "@repo/contracts";
+import { AnalyticsModule } from "@repo/core/analytics";
 import { AuthService } from "@repo/core/auth";
 import { CoreInfrastructureModule, DATABASE, type Database } from "@repo/core/infrastructure";
 import { SubscriptionsService } from "@repo/core/subscriptions";
@@ -40,6 +41,8 @@ describe("GET /v1/me (integration)", () => {
     const moduleRef = await Test.createTestingModule({
       imports: [
         CoreInfrastructureModule.forRoot({ databaseUrl: TEST_DATABASE_URL, redisUrl: TEST_REDIS_URL }),
+        // Global in every app; `users` sends `onboarding_answers_received` (ADR-035 §8).
+        AnalyticsModule.forRoot({}),
         UsersModule,
       ],
       controllers: [MeController],
