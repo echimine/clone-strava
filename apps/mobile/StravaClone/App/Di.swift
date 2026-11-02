@@ -47,9 +47,11 @@ final class Di {
     /// Full resync of the Itinerary cache and its queue of changes (ADR-030 §8), triggered by
     /// the app shell.
     let itinerarySynchronizer: ItinerarySynchronizer
-    /// Product events (ADR-015): PostHog, opted out until a consent screen exists; nothing
-    /// without a key.
+    /// Product events (ADR-015): PostHog, opted out until the Measurement consent is accepted
+    /// (ADR-035 §8); nothing without a key.
     let analytics: any AnalyticsClient
+    /// The Measurement consent, kept on this phone (ADR-035 §8).
+    let consentPreferences: any MeasurementConsentPreferences
     /// Saved Activities until processed (ADR-031 §14, §15) and their sender.
     let localActivities: GRDBLocalActivityStore
     let activitySender: ActivitySender
@@ -90,7 +92,11 @@ final class Di {
         locationPermission = LocationPermissionService()
 
         // TODO(ADR-014): configure RevenueCat behind a SubscriptionService port (Features/Paywall).
-        analytics = PostHogAnalyticsClient.make(projectToken: configuration.postHogAPIKey) ?? NoAnalyticsClient()
+        consentPreferences = UserDefaultsMeasurementConsentPreferences()
+        analytics = PostHogAnalyticsClient.make(
+            projectToken: configuration.postHogAPIKey,
+            isOptedIn: consentPreferences.consent == .accepted
+        ) ?? NoAnalyticsClient()
         // TODO(ADR-022): Apple Sign-In — blocked on a paid Apple Developer Program membership.
         // TODO(ADR-022 §5): admin 2FA — credential-only, backoffice web, not applicable to mobile.
 
@@ -215,7 +221,17 @@ final class Di {
     }
 
     func makeAuthStore() -> AuthStore {
-        AuthStore(service: authService)
+        AuthStore(service: authService, analytics: analytics)
+    }
+
+    /// One for the app: the Welcome's sheet and the Profile tab's switch (ADR-035 §8).
+    func makeMeasurementConsentStore() -> MeasurementConsentStore {
+        let authService = authService
+        return MeasurementConsentStore(
+            preferences: consentPreferences,
+            analytics: analytics,
+            signedInUserID: { await authService.currentUser?.id }
+        )
     }
 
     func makeFeedStore() -> FeedStore {

@@ -123,7 +123,7 @@ struct SignInCodeView: View {
 
         if store.codeProblem == .noLongerValid {
             button
-                .buttonStyle(AuthPrimaryButtonStyle())
+                .buttonStyle(PrimaryButtonStyle())
                 .padding(.top, 20)
         } else {
             HStack(spacing: 12) {

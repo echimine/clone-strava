@@ -12,6 +12,10 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         if ProcessInfo.processInfo.arguments.contains("-uiTestResetAuth") {
             AuthSession().clear()
         }
+        // `-uiTestResetMeasurementConsent`: a first launch again, so the consent sheet opens.
+        if ProcessInfo.processInfo.arguments.contains("-uiTestResetMeasurementConsent") {
+            UserDefaultsMeasurementConsentPreferences().forget()
+        }
         do {
             di = try Di.live()
         } catch {

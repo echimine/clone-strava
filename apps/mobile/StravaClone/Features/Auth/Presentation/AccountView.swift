@@ -9,11 +9,14 @@ struct AccountView: View {
     }
 
     let mode: Mode
+    /// The email step's back chevron, to the screen that opened this one (the Welcome).
+    var onBack: (() -> Void)?
     @State private var store: SignInStore
 
     /// `name` is passed to the account if the code creates it (filled by the Onboarding).
-    init(mode: Mode, authStore: AuthStore, name: String? = nil) {
+    init(mode: Mode, authStore: AuthStore, name: String? = nil, onBack: (() -> Void)? = nil) {
         self.mode = mode
+        self.onBack = onBack
         _store = State(initialValue: authStore.makeSignInStore(name: name))
     }
 
@@ -21,7 +24,7 @@ struct AccountView: View {
         Group {
             switch store.step {
             case .email:
-                AccountEmailStep(mode: mode, store: store)
+                AccountEmailStep(mode: mode, store: store, onBack: onBack)
                     .transition(.move(edge: .leading))
             case .code(let email):
                 SignInCodeView(email: email, store: store)
@@ -37,6 +40,7 @@ struct AccountView: View {
 private struct AccountEmailStep: View {
     let mode: AccountView.Mode
     @Bindable var store: SignInStore
+    let onBack: (() -> Void)?
 
     @FocusState private var isEmailFocused: Bool
 
@@ -77,6 +81,23 @@ private struct AccountEmailStep: View {
         }
         .scrollDismissesKeyboard(.interactively)
         .safeAreaInset(edge: .bottom) { legalFooter }
+        .overlay(alignment: .topLeading) {
+            if let onBack {
+                Button(action: onBack) {
+                    Image(systemName: "chevron.left")
+                        .font(.body.weight(.bold))
+                        .foregroundStyle(.primary)
+                        .frame(width: 44, height: 44)
+                        .background(Circle().fill(Color(.secondarySystemFill)))
+                }
+                .buttonStyle(.plain)
+                .disabled(store.isSendingCode || store.isSigningInWithGoogle)
+                .accessibilityLabel("Retour")
+                .accessibilityIdentifier("account.back")
+                .padding(.horizontal, 24)
+                .padding(.top, 16)
+            }
+        }
     }
 
     private var subtitle: String {
@@ -159,7 +180,7 @@ private struct AccountEmailStep: View {
                 }
             }
         }
-        .buttonStyle(AuthPrimaryButtonStyle())
+        .buttonStyle(PrimaryButtonStyle())
         .disabled(!store.canSendCode)
         .accessibilityLabel(store.isSendingCode ? "Envoi du code en cours" : "Continuer")
         .accessibilityIdentifier("account.continue")
@@ -178,21 +199,6 @@ private struct AccountEmailStep: View {
         .padding(.vertical, 12)
         .frame(maxWidth: .infinity)
         .background(Color(.systemBackground))
-    }
-}
-
-/// The screens' main button: a full-width Nervo orange capsule, paler while disabled.
-struct AuthPrimaryButtonStyle: ButtonStyle {
-    @Environment(\.isEnabled) private var isEnabled
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 19, weight: .bold))
-            .foregroundStyle(.white)
-            .frame(maxWidth: .infinity, minHeight: 54)
-            .background(Capsule().fill(Theme.accent.opacity(isEnabled ? 1 : 0.3)))
-            .opacity(configuration.isPressed ? 0.85 : 1)
-            .contentShape(Capsule())
     }
 }
 
