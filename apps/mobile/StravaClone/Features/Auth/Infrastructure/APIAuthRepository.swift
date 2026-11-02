@@ -1,21 +1,23 @@
 import Foundation
 
-/// `APIClient` adapter of `AuthRepository` (ADR-022): talks to Better Auth's native
+/// `APIClient` adapter of `AuthRepository` (ADR-022, ADR-035 §2): talks to Better Auth's native
 /// endpoints under `/api/auth/*` (outside the `/v1` prefix), stores the bearer token
 /// Better Auth returns in the `set-auth-token` response header.
 struct APIAuthRepository: AuthRepository {
     let apiClient: APIClient
     let authSession: AuthSession
 
-    private struct SignUpBody: Encodable {
+    private struct SendSignInCodeBody: Encodable {
         let email: String
-        let password: String
-        let name: String
+        /// emailOTP has no separate sign-up type: a "sign-in" code also creates the account.
+        let type = "sign-in"
     }
 
-    private struct SignInBody: Encodable {
+    private struct SignInCodeBody: Encodable {
         let email: String
-        let password: String
+        let otp: String
+        /// Left out of the JSON when `nil` (synthesized `encodeIfPresent`).
+        let name: String?
     }
 
     private struct SignInSocialBody: Encodable {
@@ -34,25 +36,26 @@ struct APIAuthRepository: AuthRepository {
         let name: String
     }
 
-    func signUp(email: String, password: String, name: String) async throws(AuthError) -> AuthUser {
+    func sendSignInCode(email: String) async throws(AuthError) {
         do {
-            return try await performAuthRequest(
-                path: "/api/auth/sign-up/email",
-                body: SignUpBody(email: email, password: password, name: name)
+            let _: NoContent = try await apiClient.send(
+                method: "POST",
+                path: "/api/auth/email-otp/send-verification-otp",
+                body: SendSignInCodeBody(email: email)
             )
         } catch {
-            // `performAuthRequest` only ever throws `AuthError` (see its doc comment).
-            throw error as! AuthError
+            throw mapError(error)
         }
     }
 
-    func signIn(email: String, password: String) async throws(AuthError) -> AuthUser {
+    func signIn(email: String, code: String, name: String?) async throws(AuthError) -> AuthUser {
         do {
             return try await performAuthRequest(
-                path: "/api/auth/sign-in/email",
-                body: SignInBody(email: email, password: password)
+                path: "/api/auth/sign-in/email-otp",
+                body: SignInCodeBody(email: email, otp: code, name: name)
             )
         } catch {
+            // `performAuthRequest` only ever throws `AuthError` (see its doc comment).
             throw error as! AuthError
         }
     }
@@ -82,7 +85,7 @@ struct APIAuthRepository: AuthRepository {
             if let user = try await endpoint.user(as: RemoteUser.self) {
                 result = .success(AuthUser(id: user.id, email: user.email, name: user.name))
             } else {
-                result = .failure(.invalidCredentials)
+                result = .failure(.notSignedIn)
             }
         } catch {
             result = .failure(mapError(error))
@@ -92,8 +95,8 @@ struct APIAuthRepository: AuthRepository {
 
     // Untyped `throws`, not `throws(AuthError)`: Swift 6.4's typed-throws SILGen crashes
     // on a generic function (here, `Body: Encodable`) that maps a caught error to a
-    // different typed-throws error. Callers (signUp/signIn/signInWithGoogle, all
-    // non-generic) re-throw as `AuthError` themselves, where typed throws is safe.
+    // different typed-throws error. Callers (signIn/signInWithGoogle, both non-generic)
+    // re-throw as `AuthError` themselves, where typed throws is safe.
     private func performAuthRequest<Body: Encodable>(path: String, body: Body) async throws -> AuthUser {
         do {
             let (response, http): (UserResponse, HTTPURLResponse) =
@@ -116,20 +119,21 @@ struct APIAuthRepository: AuthRepository {
     private func mapError(_ error: APIError) -> AuthError {
         switch error {
         case .unauthorized:
-            return .invalidCredentials
+            return .notSignedIn
         case let .http(status: 429, body: _):
             return .rateLimited
         case let .http(status: _, body: body):
             let server = body.flatMap { try? JSONDecoder().decode(ServerErrorBody.self, from: $0) }
             switch server?.code {
-            case "USER_ALREADY_EXISTS", "USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL":
-                return .emailAlreadyInUse
-            case "INVALID_EMAIL_OR_PASSWORD", "INVALID_PASSWORD", "USER_NOT_FOUND":
-                return .invalidCredentials
+            case "INVALID_OTP":
+                return .invalidCode
+            case "OTP_EXPIRED":
+                return .codeExpired
+            case "TOO_MANY_ATTEMPTS":
+                return .tooManyAttempts
             default:
-                // Any other server-side rejection (password too short/long, invalid
-                // email shape the client-side regex missed, etc.): surface the server's
-                // own message rather than guessing — see AuthError.server's doc comment.
+                // Any other server-side rejection: surface the server's own message rather
+                // than guessing — see AuthError.server's doc comment.
                 return .server(message: server?.message ?? "Une erreur est survenue (code \(errorStatus(error)))")
             }
         default:

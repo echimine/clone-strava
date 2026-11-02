@@ -1,6 +1,8 @@
 import Foundation
 import Observation
 
+/// Who is signed in, for the whole app (ADR-022): `RootView` shows the account screen or the
+/// TabView from `state`. Signing in itself happens on the account screen, in `SignInStore`.
 @Observable
 @MainActor
 final class AuthStore {
@@ -10,50 +12,23 @@ final class AuthStore {
         case signedIn(AuthUser)
     }
 
-    enum FormError: Equatable {
-        case invalidCredentials
-        case emailAlreadyInUse
-        case rateLimited
-        case offline
-        /// A server-provided message (AuthError.server) or a Google-specific failure —
-        /// shown verbatim rather than folded into a generic "something went wrong".
-        case message(String)
-
-        init(_ error: AuthError) {
-            switch error {
-            case .invalidCredentials: self = .invalidCredentials
-            case .emailAlreadyInUse: self = .emailAlreadyInUse
-            case .rateLimited: self = .rateLimited
-            case .server(let message): self = .message(message)
-            case .network(.offline): self = .offline
-            case .network(let apiError): self = .message(FormError.describe(apiError))
-            case .googleSignInFailed(let message): self = .message("Google : \(message)")
-            case .googleSignInCancelled: self = .message("") // never surfaced, see run(_:)
-            }
-        }
-
-        /// A short, non-technical description of a lower-level network failure — the
-        /// cases that don't have a server message to show (transport error, decoding
-        /// failure, an unmapped HTTP status).
-        private static func describe(_ error: APIError) -> String {
-            switch error {
-            case .offline: "Pas de connexion internet."
-            case .unauthorized: "Session expirée, reconnectez-vous."
-            case .decoding: "Réponse du serveur illisible."
-            case .transport: "Impossible de joindre le serveur."
-            case .http(let status, _): "Erreur serveur (code \(status))."
-            }
-        }
-    }
-
     private(set) var state = State.checkingSession
-    private(set) var formError: FormError?
-    private(set) var isSubmitting = false
 
     @ObservationIgnored private let service: AuthService
+    /// The account screen's clock (the 30 s before "Recevoir un nouveau code").
+    @ObservationIgnored private let sleep: @Sendable (Duration) async throws -> Void
 
-    init(service: AuthService) {
+    init(service: AuthService, sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) }) {
         self.service = service
+        self.sleep = sleep
+    }
+
+    /// The account screen's store; a sign-in there signs the app in. `name` is the account's
+    /// name if the code creates it (filled by the Onboarding, ADR-035 §2).
+    func makeSignInStore(name: String? = nil) -> SignInStore {
+        SignInStore(service: service, name: name, sleep: sleep) { [weak self] user in
+            self?.state = .signedIn(user)
+        }
     }
 
     func restoreSession() async {
@@ -64,42 +39,8 @@ final class AuthStore {
         }
     }
 
-    func signUp(email: String, password: String, name: String) async {
-        await run { try await self.service.signUp(email: email, password: password, name: name) }
-    }
-
-    func signIn(email: String, password: String) async {
-        await run { try await self.service.signIn(email: email, password: password) }
-    }
-
-    func signInWithGoogle() async {
-        await run(
-            { try await self.service.signInWithGoogle() },
-            // Cancelling the Google sheet is a no-op, not an error to surface.
-            suppressing: .googleSignInCancelled
-        )
-    }
-
     func signOut() async {
         await service.signOut()
         state = .signedOut
-    }
-
-    private func run(
-        _ action: @escaping () async throws -> AuthUser,
-        suppressing suppressed: AuthError? = nil
-    ) async {
-        isSubmitting = true
-        formError = nil
-        defer { isSubmitting = false }
-        do {
-            state = .signedIn(try await action())
-        } catch let error as AuthError {
-            if error != suppressed {
-                formError = FormError(error)
-            }
-        } catch {
-            formError = .message(String(describing: error))
-        }
     }
 }

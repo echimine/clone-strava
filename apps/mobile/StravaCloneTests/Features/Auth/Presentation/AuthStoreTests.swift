@@ -3,57 +3,15 @@ import Testing
 
 @MainActor
 struct AuthStoreTests {
-    private func makeStore() -> (AuthStore, FakeAuthRepository, FakeGoogleAuthProvider) {
+    private func makeStore() -> (AuthStore, FakeAuthRepository) {
         let repository = FakeAuthRepository()
-        let googleAuthProvider = FakeGoogleAuthProvider()
-        let service = AuthService(repository: repository, googleAuthProvider: googleAuthProvider)
-        return (AuthStore(service: service), repository, googleAuthProvider)
-    }
-
-    @Test func signInSuccessTransitionsToSignedIn() async {
-        let (store, repository, _) = makeStore()
-        let user = AuthUser(id: "1", email: "a@b.com", name: "Ada")
-        repository.signInHandler = { _, _ in user }
-
-        await store.signIn(email: "a@b.com", password: "secret")
-
-        #expect(store.state == .signedIn(user))
-        #expect(store.formError == nil)
-        #expect(store.isSubmitting == false)
-    }
-
-    @Test func signInFailurePopulatesFormError() async {
-        let (store, repository, _) = makeStore()
-        repository.signInHandler = { (_: String, _: String) throws(AuthError) in throw AuthError.invalidCredentials }
-
-        await store.signIn(email: "a@b.com", password: "wrong")
-
-        #expect(store.formError == .invalidCredentials)
-        #expect(store.isSubmitting == false)
-        if case .signedIn = store.state { Issue.record("should not be signed in") }
-    }
-
-    @Test func rateLimitedMapsToDedicatedFormError() async {
-        let (store, repository, _) = makeStore()
-        repository.signUpHandler = { (_: String, _: String, _: String) throws(AuthError) in throw AuthError.rateLimited }
-
-        await store.signUp(email: "a@b.com", password: "secret", name: "Ada")
-
-        #expect(store.formError == .rateLimited)
-    }
-
-    @Test func cancelledGoogleSignInIsNotSurfacedAsAnError() async {
-        let (store, _, googleAuthProvider) = makeStore()
-        googleAuthProvider.signInHandler = { () throws(AuthError) in throw AuthError.googleSignInCancelled }
-
-        await store.signInWithGoogle()
-
-        #expect(store.formError == nil)
+        let service = AuthService(repository: repository, googleAuthProvider: FakeGoogleAuthProvider())
+        return (AuthStore(service: service), repository)
     }
 
     @Test func restoreSessionWithNoValidTokenGoesToSignedOut() async {
-        let (store, repository, _) = makeStore()
-        repository.currentUserHandler = { () throws(AuthError) in throw AuthError.invalidCredentials }
+        let (store, repository) = makeStore()
+        repository.currentUserHandler = { () throws(AuthError) in throw AuthError.notSignedIn }
 
         await store.restoreSession()
 
@@ -61,7 +19,7 @@ struct AuthStoreTests {
     }
 
     @Test func restoreSessionWithValidTokenGoesToSignedIn() async {
-        let (store, repository, _) = makeStore()
+        let (store, repository) = makeStore()
         let user = AuthUser(id: "1", email: "a@b.com", name: "Ada")
         repository.currentUserHandler = { user }
 
@@ -71,9 +29,9 @@ struct AuthStoreTests {
     }
 
     @Test func signOutReturnsToSignedOut() async {
-        let (store, repository, _) = makeStore()
-        repository.signInHandler = { _, _ in AuthUser(id: "1", email: "a@b.com", name: "Ada") }
-        await store.signIn(email: "a@b.com", password: "secret")
+        let (store, repository) = makeStore()
+        repository.currentUserHandler = { AuthUser(id: "1", email: "a@b.com", name: "Ada") }
+        await store.restoreSession()
 
         repository.signOutHandler = {}
         await store.signOut()
