@@ -11,6 +11,9 @@ export type AuthenticatedUser = AuthSession;
  * and the `Authorization: Bearer` token (iOS, via the `bearer` plugin),
  * since both flow through the same session lookup inside
  * `auth.api.getSession`.
+ *
+ * `request.user.authMethod` carries how the session was opened (ADR-035
+ * §3), read by `AdminGuard`; this guard accepts every method.
  */
 @Injectable()
 export class SessionGuard implements CanActivate {
