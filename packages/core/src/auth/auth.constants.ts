@@ -20,4 +20,16 @@ export interface AuthModuleOptions {
   googleClientId: string;
   googleClientSecret: string;
   resendApiKey: string;
+  /**
+   * Keeps `POST /api/auth/sign-up/email` open. Password sign-up is closed
+   * everywhere (ADR-035 §2) except in the API's test instance, whose
+   * password-based specs create their accounts this way.
+   */
+  allowPasswordSignUp?: boolean;
+  /**
+   * The process's `NODE_ENV`. Only `"development"` turns on the dev
+   * Sign-in code helpers (ADR-035 §2): codes written to the logs, fixed
+   * code `000000` for `@stravaclone.test` addresses.
+   */
+  nodeEnv?: string;
 }

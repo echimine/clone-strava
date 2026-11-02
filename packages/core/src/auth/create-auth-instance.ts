@@ -1,17 +1,23 @@
+import { Logger } from "@nestjs/common";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { admin, bearer, twoFactor } from "better-auth/plugins";
+import { admin, bearer, emailOTP, twoFactor } from "better-auth/plugins";
 import { schema, type Database } from "@repo/db";
 import {
   emailWordmarkUrl,
   NotificationsService,
   renderAdminOtpEmail,
   renderResetPasswordEmail,
+  renderSignInCodeEmail,
   renderVerifyEmail,
 } from "../notifications/index.js";
 import type { Redis } from "../infrastructure/index.js";
 import { createAuthSecondaryStorage } from "./auth-secondary-storage.js";
 import type { AuthModuleOptions } from "./auth.constants.js";
+
+/** Dev-only addresses that get the fixed Sign-in code, without any email (ADR-035 §2). */
+const DEV_FIXED_CODE_DOMAIN = "@stravaclone.test";
+const DEV_FIXED_CODE = "000000";
 
 /**
  * Builds the Better Auth instance (ADR-021 §1, ADR-009 §3): `drizzleAdapter`
@@ -32,6 +38,10 @@ export function createAuthInstance(
   options: AuthModuleOptions,
 ) {
   const logoUrl = emailWordmarkUrl(options.adminOrigin);
+  const isDevelopment = options.nodeEnv === "development";
+  const logger = new Logger("Auth");
+  const hasDevFixedCode = (email: string) =>
+    isDevelopment && email.toLowerCase().endsWith(DEV_FIXED_CODE_DOMAIN);
   return betterAuth({
     // The full `@repo/db` schema is passed (not just the four auth
     // tables): the adapter only looks up the models it needs by name, and
@@ -58,6 +68,10 @@ export function createAuthInstance(
     },
     emailAndPassword: {
       enabled: true,
+      // ADR-035 §2: no password in the app. Password sign-in stays for the
+      // backoffice and admin 2FA; only the API's test instance signs up
+      // with a password.
+      disableSignUp: !options.allowPasswordSignUp,
       // ADR-022/ADR-023: sent through the `notifications` platform module
       // (Resend), never throws (logs only) per NotificationsService's own
       // contract.
@@ -110,6 +124,31 @@ export function createAuthInstance(
     plugins: [
       admin(),
       bearer(),
+      // ADR-035 §2: sign-in and sign-up by Sign-in code. Plugin defaults
+      // kept (6 digits, 5 min, 3 attempts, 3 requests / 60 s per IP on its
+      // paths); the first valid code creates the account.
+      emailOTP({
+        resendStrategy: "rotate",
+        storeOTP: "hashed",
+        // `undefined` falls back to the plugin's random 6-digit code.
+        generateOTP: ({ email }) => (hasDevFixedCode(email) ? DEV_FIXED_CODE : undefined),
+        sendVerificationOTP: async ({ email, otp, type }) => {
+          if (isDevelopment) {
+            logger.log(`Sign-in code (${type}) for ${email}: ${otp}`);
+          }
+          if (hasDevFixedCode(email)) {
+            return;
+          }
+          const html = await renderSignInCodeEmail({ otp, logoUrl });
+          await notifications.sendAuthEmail({
+            to: email,
+            subject: "Votre code de connexion Nervo",
+            html,
+            // No `user` here (the account may not exist yet), ADR-035 §2.
+            idempotencyKey: `sign-in-code/${email}-${otp}`,
+          });
+        },
+      }),
       // ADR-022 §5: 2FA mandatory for admins. Adds `user.twoFactorEnabled`,
       // checked directly by `AdminGuard` — no separate "2FA required" flag.
       twoFactor({
