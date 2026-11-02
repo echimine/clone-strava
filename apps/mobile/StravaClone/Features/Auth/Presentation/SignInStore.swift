@@ -3,6 +3,10 @@ import Observation
 
 /// The account screen and its Sign-in code screen (ADR-035 §1, §2): Google, or an email that
 /// receives a 6-digit code. Made by `AuthStore.makeSignInStore(entry:)`, which it signs in.
+///
+/// It sends the account screen's part of the getting-started funnel (ADR-035 §8):
+/// `auth_screen_viewed`, `auth_method_chosen`, `auth_google_cancelled`, `email_code_requested`
+/// and `email_code_failed`; `AuthStore` sends `signed_in`.
 @Observable
 @MainActor
 final class SignInStore {
@@ -52,43 +56,54 @@ final class SignInStore {
     @ObservationIgnored private var countdown: Task<Void, Never>?
 
     @ObservationIgnored private let service: AuthService
-    @ObservationIgnored private let name: String?
+    @ObservationIgnored private let entry: SignInEntry
+    @ObservationIgnored private let analytics: any AnalyticsClient
     @ObservationIgnored private let sleep: @Sendable (Duration) async throws -> Void
-    @ObservationIgnored private let onSignedIn: @MainActor (AuthUser) -> Void
+    @ObservationIgnored private let onSignedIn: @MainActor (AuthUser, AnalyticsEvent.AuthMethod) -> Void
 
     init(
         service: AuthService,
-        name: String?,
+        entry: SignInEntry,
+        analytics: any AnalyticsClient,
         sleep: @escaping @Sendable (Duration) async throws -> Void,
-        onSignedIn: @escaping @MainActor (AuthUser) -> Void
+        onSignedIn: @escaping @MainActor (AuthUser, AnalyticsEvent.AuthMethod) -> Void
     ) {
         self.service = service
-        self.name = name
+        self.entry = entry
+        self.analytics = analytics
         self.sleep = sleep
         self.onSignedIn = onSignedIn
+    }
+
+    /// The account screen is on screen.
+    func viewed() {
+        analytics.capture(.authScreenViewed(entry: entry.analyticsEntry))
     }
 
     /// "Continuer" on the account screen.
     func sendCode() async {
         guard case .email = step, canSendCode else { return }
-        await requestCode(for: trimmedEmail)
+        analytics.capture(.authMethodChosen(method: .email))
+        await requestCode(for: trimmedEmail, resend: false)
     }
 
     /// "Recevoir un nouveau code": the previous code is replaced by a new one (`rotate`).
     func resendCode() async {
         guard case .code(let email) = step, canResendCode else { return }
-        await requestCode(for: email)
+        await requestCode(for: email, resend: true)
     }
 
     /// "Continuer avec Google". Closing Google's sheet is a no-op, not an error to show.
     func signInWithGoogle() async {
         guard canUseGoogle else { return }
+        analytics.capture(.authMethodChosen(method: .google))
         isSigningInWithGoogle = true
         formError = nil
         defer { isSigningInWithGoogle = false }
         do throws(AuthError) {
-            onSignedIn(try await service.signInWithGoogle())
+            onSignedIn(try await service.signInWithGoogle(), .google)
         } catch .googleSignInCancelled {
+            analytics.capture(.authGoogleCancelled)
         } catch {
             formError = FormError(error)
         }
@@ -102,12 +117,13 @@ final class SignInStore {
         stopCountdown()
     }
 
-    private func requestCode(for email: String) async {
+    private func requestCode(for email: String, resend: Bool) async {
         isSendingCode = true
         formError = nil
         defer { isSendingCode = false }
         do throws(AuthError) {
             try await service.sendSignInCode(email: email)
+            analytics.capture(.emailCodeRequested(resend: resend))
             step = .code(email: email)
             resetCode()
             startCountdown()
@@ -155,7 +171,7 @@ final class SignInStore {
         Task {
             defer { isVerifyingCode = false }
             do throws(AuthError) {
-                onSignedIn(try await service.signIn(email: email, code: code, name: name))
+                onSignedIn(try await service.signIn(email: email, code: code, name: entry.accountName), .email)
             } catch {
                 codeRejected(error)
             }
@@ -170,6 +186,9 @@ final class SignInStore {
 
     private func codeRejected(_ error: AuthError) {
         code = ""
+        if let reason = AnalyticsEvent.CodeFailure(error) {
+            analytics.capture(.emailCodeFailed(reason: reason))
+        }
         switch error {
         case .invalidCode:
             failedAttempts += 1
@@ -196,5 +215,27 @@ final class SignInStore {
 
     private var trimmedEmail: String {
         email.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
+private extension SignInEntry {
+    var analyticsEntry: AnalyticsEvent.AuthEntry {
+        switch self {
+        case .signIn: .signIn
+        case .onboarding: .create
+        }
+    }
+}
+
+private extension AnalyticsEvent.CodeFailure {
+    /// `nil` for a refusal that says nothing about the code (rate limit, server message).
+    init?(_ error: AuthError) {
+        switch error {
+        case .invalidCode: self = .incorrect
+        case .codeExpired: self = .expired
+        case .tooManyAttempts: self = .tooManyAttempts
+        case .network: self = .network
+        default: return nil
+        }
     }
 }

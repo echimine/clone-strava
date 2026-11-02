@@ -258,12 +258,17 @@ final class Di {
     /// A new one for each "Créer un compte": it resumes the draft (ADR-035 §5). With
     /// `finishWithSession`, the Onboarding that "Se connecter" opened on a new account (§1).
     func makeOnboardingStore(finishWithSession: (@MainActor () -> Void)? = nil) -> OnboardingStore {
-        OnboardingStore(drafts: GRDBOnboardingDraftRepository(database: database), finishWithSession: finishWithSession)
+        OnboardingStore(
+            drafts: GRDBOnboardingDraftRepository(database: database),
+            analytics: analytics,
+            finishWithSession: finishWithSession
+        )
     }
 
     /// The Paywall shown right after the sign-in that ends the Onboarding (ADR-035 §6).
-    func makePaywallStore(finish: @escaping @MainActor () -> Void) -> PaywallStore {
-        PaywallStore(service: subscriptionService, finish: finish)
+    /// - Parameter isNewAccount: that sign-in created the account, for its events (§8).
+    func makePaywallStore(isNewAccount: Bool, finish: @escaping @MainActor () -> Void) -> PaywallStore {
+        PaywallStore(service: subscriptionService, analytics: analytics, isNewAccount: isNewAccount, finish: finish)
     }
 
     func makeFeedStore() -> FeedStore {
