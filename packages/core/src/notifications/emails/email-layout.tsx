@@ -23,6 +23,8 @@ export function emailWordmarkUrl(adminOrigin: string): string {
 export interface EmailLayoutProps extends BrandedEmailProps {
   preview: string;
   children: ReactNode;
+  /** Language of the email body, English unless the email says otherwise. */
+  lang?: "en" | "fr";
 }
 
 /**
@@ -30,9 +32,9 @@ export interface EmailLayoutProps extends BrandedEmailProps {
  * wordmark, then a white card. The wordmark is a hosted PNG since email
  * clients do not render SVG (ADR-032 §2).
  */
-export function EmailLayout({ preview, logoUrl, children }: EmailLayoutProps) {
+export function EmailLayout({ preview, logoUrl, children, lang = "en" }: EmailLayoutProps) {
   return (
-    <Html lang="en">
+    <Html lang={lang}>
       <Head />
       <Preview>{preview}</Preview>
       <Body style={{ fontFamily: "sans-serif", backgroundColor: "#f6f6f6" }}>
