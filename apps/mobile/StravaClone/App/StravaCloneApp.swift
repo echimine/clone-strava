@@ -14,6 +14,7 @@ struct StravaCloneApp: App {
                 authStore: di.makeAuthStore(),
                 consentStore: di.makeMeasurementConsentStore(),
                 makeOnboardingStore: di.makeOnboardingStore,
+                makePaywallStore: di.makePaywallStore,
                 recordingStore: di.makeRecordingStore(),
                 importStore: di.makeImportStore(),
                 feedStore: di.makeFeedStore(),
@@ -59,6 +60,8 @@ struct RootView: View {
     /// "Créer un compte" on the Welcome: the Onboarding, resumed from its draft (ADR-035 §1, §5).
     /// With an action, the Onboarding that "Se connecter" opened on a new account, ended by it.
     let makeOnboardingStore: @MainActor ((@MainActor () -> Void)?) -> OnboardingStore
+    /// The Paywall after the sign-in that ends the Onboarding (ADR-035 §6), ended by its action.
+    let makePaywallStore: @MainActor (@escaping @MainActor () -> Void) -> PaywallStore
     @State var recordingStore: RecordingStore
     @State var importStore: ImportStore
     @State var feedStore: FeedStore
@@ -135,6 +138,12 @@ struct RootView: View {
             case .onboarding:
                 // ADR-035 §1: "Se connecter" has just created the account.
                 OnboardingView(store: makeOnboardingStore { [authStore] in authStore.finishOnboarding() }, authStore: authStore)
+            case .paywall(let user):
+                // ADR-035 §6: once, then home (#131 will put the notification prompt in between).
+                PaywallView(
+                    store: makePaywallStore { [authStore] in authStore.finishPaywall() },
+                    firstName: user.name.split(separator: " ").first.map(String.init) ?? ""
+                )
             case .signedIn:
                 TabView(selection: $selectedTab) {
                     FeedView(

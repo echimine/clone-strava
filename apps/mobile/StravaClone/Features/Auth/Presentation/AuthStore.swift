@@ -1,14 +1,16 @@
 import Foundation
 import Observation
 
-/// Who is signed in, for the whole app (ADR-022): `RootView` shows the Welcome, the Onboarding
-/// or the TabView from `state`. Signing in itself happens on the account screen, in
+/// Who is signed in, for the whole app (ADR-022): `RootView` shows the Welcome, the Onboarding,
+/// the Paywall or the TabView from `state`. Signing in itself happens on the account screen, in
 /// `SignInStore`. The analytics identity follows the session (ADR-035 §8): `identify` as soon as
 /// one exists, `reset()` at sign-out.
 ///
-/// After a sign-in (ADR-035 §1, §5): at the end of the Onboarding, the Onboarding answers are
-/// sent, after `identify`, and the flow goes on without waiting for them. "Se connecter" on an
-/// account it has just created goes through the Onboarding first; an existing account never does.
+/// After a sign-in (ADR-035 §1, §5, §6): at the end of the Onboarding, the Onboarding answers are
+/// sent, after `identify`, and the flow goes on to the Paywall without waiting for them. "Se
+/// connecter" on an account it has just created goes through the Onboarding (and so the Paywall)
+/// first; an existing account never does. A restored session always goes home: the Paywall is
+/// not resumed.
 @Observable
 @MainActor
 final class AuthStore {
@@ -18,6 +20,8 @@ final class AuthStore {
         /// Signed in by "Se connecter" on an account it has just created: the Onboarding, from
         /// its first question, before the home screen.
         case onboarding(AuthUser)
+        /// Right after the sign-in that ends the Onboarding (ADR-035 §6): the Paywall, once.
+        case paywall(AuthUser)
         case signedIn(AuthUser)
     }
 
@@ -53,10 +57,16 @@ final class AuthStore {
     }
 
     /// "Créer mon compte" at the end of the Onboarding that "Se connecter" opened: the session
-    /// exists already, so the answers are sent straight away.
+    /// exists already, so the answers are sent straight away, then the Paywall.
     func finishOnboarding() {
         guard case .onboarding(let user) = state else { return }
         startSubmittingOnboardingAnswers()
+        state = .paywall(user)
+    }
+
+    /// The Paywall is left (trial tapped, skipped, or offers unavailable): the home screen.
+    func finishPaywall() {
+        guard case .paywall(let user) = state else { return }
         state = .signedIn(user)
     }
 
@@ -80,7 +90,7 @@ final class AuthStore {
         switch entry {
         case .onboarding:
             startSubmittingOnboardingAnswers()
-            state = .signedIn(user)
+            state = .paywall(user)
         case .signIn where user.isNewAccount(at: now()):
             state = .onboarding(user)
         case .signIn:

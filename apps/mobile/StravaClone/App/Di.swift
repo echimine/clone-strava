@@ -57,6 +57,8 @@ final class Di {
     let activitySender: ActivitySender
     /// The Onboarding answers, sent once a session exists (ADR-035 §5).
     let onboardingAnswersSender: OnboardingAnswersSender
+    /// The Paywall's offers (ADR-035 §6): unwired until RevenueCat replaces this adapter (ADR-014).
+    let subscriptionService: any SubscriptionService
     /// `defaultVisibility` of `GET /v1/me`, for the finish screen (ADR-031 §11, §13).
     let defaultVisibility: DefaultVisibilityCache
     /// What the Activity detail changes, applied by the feed (ADR-033 §7).
@@ -93,7 +95,9 @@ final class Di {
         locationProvider = CoreLocationProvider()
         locationPermission = LocationPermissionService()
 
-        // TODO(ADR-014): configure RevenueCat behind a SubscriptionService port (Features/Paywall).
+        // ADR-035 §6: hard-coded offers, layout C, nothing sold. A RevenueCat adapter (ADR-014)
+        // will fill the same types from the current offering.
+        subscriptionService = UnwiredSubscriptionService()
         consentPreferences = UserDefaultsMeasurementConsentPreferences()
         analytics = PostHogAnalyticsClient.make(
             projectToken: configuration.postHogAPIKey,
@@ -254,6 +258,11 @@ final class Di {
     /// `finishWithSession`, the Onboarding that "Se connecter" opened on a new account (§1).
     func makeOnboardingStore(finishWithSession: (@MainActor () -> Void)? = nil) -> OnboardingStore {
         OnboardingStore(drafts: GRDBOnboardingDraftRepository(database: database), finishWithSession: finishWithSession)
+    }
+
+    /// The Paywall shown right after the sign-in that ends the Onboarding (ADR-035 §6).
+    func makePaywallStore(finish: @escaping @MainActor () -> Void) -> PaywallStore {
+        PaywallStore(service: subscriptionService, finish: finish)
     }
 
     func makeFeedStore() -> FeedStore {
