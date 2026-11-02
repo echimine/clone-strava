@@ -2,7 +2,9 @@ import { Logger } from "@nestjs/common";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { admin, bearer, emailOTP, twoFactor } from "better-auth/plugins";
+import { ANALYTICS_EVENTS } from "@repo/contracts";
 import { schema, type Database } from "@repo/db";
+import type { AnalyticsService } from "../analytics/index.js";
 import {
   emailWordmarkUrl,
   NotificationsService,
@@ -14,7 +16,7 @@ import {
 import type { Redis } from "../infrastructure/index.js";
 import { createAuthSecondaryStorage } from "./auth-secondary-storage.js";
 import type { AuthModuleOptions } from "./auth.constants.js";
-import { sessionAuthMethodFor } from "./domain/session-auth-method.js";
+import { sessionAuthMethodFor, signUpMethodFor } from "./domain/session-auth-method.js";
 
 /** Dev-only addresses that get the fixed Sign-in code, without any email (ADR-035 §2). */
 const DEV_FIXED_CODE_DOMAIN = "@stravaclone.test";
@@ -36,6 +38,7 @@ export function createAuthInstance(
   db: Database,
   redis: Redis,
   notifications: NotificationsService,
+  analytics: AnalyticsService,
   options: AuthModuleOptions,
 ) {
   const logoUrl = emailWordmarkUrl(options.adminOrigin);
@@ -191,6 +194,16 @@ export function createAuthInstance(
         },
       },
       user: {
+        create: {
+          // ADR-035 §8: `user_signed_up` at the account's creation only, by
+          // Sign-in code or Google; a later sign-in creates no user.
+          after: async (user, ctx) => {
+            const method = signUpMethodFor(ctx);
+            if (method) {
+              analytics.capture(ANALYTICS_EVENTS.USER_SIGNED_UP, user.id, { method });
+            }
+          },
+        },
         update: {
           after: async () => {
             // Intentionally empty (see comment above).

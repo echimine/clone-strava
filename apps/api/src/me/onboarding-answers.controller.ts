@@ -1,7 +1,8 @@
 import { Body, Controller, HttpCode, HttpStatus, Put, UnprocessableEntityException, UseGuards } from "@nestjs/common";
 import { ApiResponse } from "@nestjs/swagger";
 import { createZodDto } from "nestjs-zod";
-import { onboardingAnswersRequestSchema } from "@repo/contracts";
+import { ANALYTICS_EVENTS, onboardingAnswersRequestSchema } from "@repo/contracts";
+import { AnalyticsService } from "@repo/core/analytics";
 import { SportsService } from "@repo/core/sports";
 import { UsersService } from "@repo/core/users";
 import { CurrentUser } from "../auth/current-user.decorator.js";
@@ -16,12 +17,14 @@ export class OnboardingAnswersController {
   constructor(
     private readonly sportsService: SportsService,
     private readonly usersService: UsersService,
+    private readonly analytics: AnalyticsService,
   ) {}
 
   /**
    * Fills only what the profile leaves empty, sports only if the athlete has
    * none: `204` for every valid request, even when nothing is written. `422`
    * for invalid answers, an age under 15, or an unknown or inactive sport.
+   * `onboarding_answers_received` only when something was filled (ADR-035 §8).
    */
   @Put()
   @HttpCode(HttpStatus.NO_CONTENT)
@@ -37,6 +40,8 @@ export class OnboardingAnswersController {
         details: [{ field: "sportCodes", message }],
       });
     }
-    await this.usersService.submitOnboardingAnswers(user.userId, body);
+    if (await this.usersService.submitOnboardingAnswers(user.userId, body)) {
+      this.analytics.capture(ANALYTICS_EVENTS.ONBOARDING_ANSWERS_RECEIVED, user.userId, {});
+    }
   }
 }

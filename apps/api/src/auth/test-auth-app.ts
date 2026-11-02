@@ -5,6 +5,7 @@ import { Controller, Get, RequestMethod, UseGuards } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import type { INestApplication } from "@nestjs/common";
 import { APP_FILTER } from "@nestjs/core";
+import { AnalyticsModule } from "@repo/core/analytics";
 import { CoreInfrastructureModule } from "@repo/core/infrastructure";
 import { AuthModule as CoreAuthModule, AUTH_INSTANCE } from "@repo/core/auth";
 import { NotificationsService } from "@repo/core/notifications";
@@ -87,6 +88,8 @@ export async function bootstrapTestAuthApp(
   const moduleBuilder = Test.createTestingModule({
     imports: [
       CoreInfrastructureModule.forRoot({ databaseUrl: TEST_DATABASE_URL, redisUrl: TEST_REDIS_URL }),
+      // No API key: `capture` sends nothing; specs spy on it (ADR-035 §8).
+      AnalyticsModule.forRoot({}),
       CoreAuthModule.forRoot({
         secret: "test-secret-at-least-32-characters-long-0",
         baseUrl: "http://127.0.0.1:0",

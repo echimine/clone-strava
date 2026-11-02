@@ -1,5 +1,6 @@
 import { Module, type DynamicModule } from "@nestjs/common";
 import type { Database } from "@repo/db";
+import { AnalyticsService } from "../analytics/index.js";
 import { DATABASE, REDIS, type Redis } from "../infrastructure/index.js";
 import { NotificationsModule, NotificationsService } from "../notifications/index.js";
 import { AUTH_INSTANCE, type AuthModuleOptions } from "./auth.constants.js";
@@ -41,9 +42,11 @@ export class AuthModule {
             db: Database,
             redis: Redis,
             notifications: NotificationsService,
+            analytics: AnalyticsService,
             opts: AuthModuleOptions,
-          ) => createAuthInstance(db, redis, notifications, opts),
-          inject: [DATABASE, REDIS, NotificationsService, AUTH_MODULE_OPTIONS],
+          ) => createAuthInstance(db, redis, notifications, analytics, opts),
+          // `AnalyticsService` comes from the global `AnalyticsModule` each app registers.
+          inject: [DATABASE, REDIS, NotificationsService, AnalyticsService, AUTH_MODULE_OPTIONS],
         },
         AuthUserRepository,
         AuthService,

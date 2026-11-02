@@ -29,3 +29,23 @@ export function sessionAuthMethodFor(route: AuthEndpointRoute | null | undefined
   if (path === "/callback/:id" && route?.params?.id === "google") return "google";
   return null;
 }
+
+/** How an account was created, as `user_signed_up` tells it (ADR-035 §8). */
+export type SignUpMethod = "google" | "email_code";
+
+/**
+ * Maps the Better Auth endpoint that creates an account to its
+ * `user_signed_up` method: the Sign-in code or Google. Any other path
+ * (password sign-up of the backoffice and the tests, admin creation…)
+ * gives `null`: no event.
+ */
+export function signUpMethodFor(route: AuthEndpointRoute | null | undefined): SignUpMethod | null {
+  switch (sessionAuthMethodFor(route)) {
+    case "email_otp":
+      return "email_code";
+    case "google":
+      return "google";
+    default:
+      return null;
+  }
+}
