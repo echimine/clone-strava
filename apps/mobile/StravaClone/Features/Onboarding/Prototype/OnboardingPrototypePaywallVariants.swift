@@ -1,86 +1,132 @@
 #if DEBUG
 import SwiftUI
 
-// PROTOTYPE — throwaway (see OnboardingPrototypePaywall.swift). Three structurally different
-// Paywalls fed by the same `ProtoPaywallContext`:
-// A « Avantages »: orange hero, perks list, stacked plan rows, « Passer » under the button (Strava).
-// B « Essai expliqué »: trial timeline (today → reminder → first payment), one price, segmented plan.
-// C « Gratuit vs Premium »: dark screen, Free / Premium comparison table, plans side by side.
+// PROTOTYPE — throwaway (see OnboardingPrototypePaywall.swift). Three proven paywall patterns,
+// fed by the same `ProtoPaywallContext`, to A/B test with RevenueCat Experiments:
+// A « Frise de l'essai »: trial timeline (Blinkist, +23 % trials; also Strava + Runna, Fitbit),
+//   yearly offer only, monthly behind « Voir toutes les offres » (Mojo, +15-20 % yearly).
+// B « Personnalisé »: title and perks from the Onboarding answers, plans side by side (Bevel).
+// C « Gratuit vs Premium »: Free / Premium comparison table (Any Distance, AllTrails).
 
-// MARK: - A « Avantages »
+// MARK: - A « Frise de l'essai »
 
 struct ProtoPaywallA: View {
     let c: ProtoPaywallContext
 
+    @State private var showsAllOffers = false
+
+    private var trialDays: Int { c.selected.trialDays ?? 0 }
+
+    private struct Step: Identifiable {
+        let when: String, symbol: String, title: String, detail: String
+        var isDone = false
+        var id: String { when }
+    }
+
+    private var steps: [Step] {
+        [
+            Step(when: "C'est fait", symbol: "checkmark", title: "Votre compte est créé",
+                 detail: "Votre profil est prêt avec vos sports et vos objectifs.", isDone: true),
+            Step(when: "Aujourd'hui", symbol: "lock.open.fill", title: "Tout Premium se débloque",
+                 detail: ProtoPaywallCopy.perks.map(\.title).joined(separator: ", ") + "."),
+            Step(when: "Jour \(trialDays - 5)", symbol: "bell.fill", title: "On vous prévient",
+                 detail: "Une notification 5 jours avant la fin de l'essai, pour décider sans surprise."),
+            Step(when: "Jour \(trialDays)", symbol: "star.fill", title: "Votre abonnement commence",
+                 detail: "Premier paiement de \(c.selected.formattedPrice). Résiliez avant et vous ne payez rien."),
+        ]
+    }
+
     var body: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                hero
-                VStack(alignment: .leading, spacing: 18) {
-                    ForEach(ProtoPaywallCopy.perks) { perk in
-                        HStack(alignment: .top, spacing: 14) {
-                            Image(systemName: perk.symbol).font(.body.weight(.semibold))
-                                .foregroundStyle(Theme.accent)
-                                .frame(width: 40, height: 40)
-                                .background(RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .fill(Theme.accent.opacity(0.12)))
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(perk.title).font(.body.weight(.semibold))
-                                Text(perk.detail).font(.subheadline).foregroundStyle(.secondary)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                        }
+        VStack(spacing: 0) {
+            HStack {
+                Spacer()
+                Button("Passer", action: c.skip).font(.body.weight(.semibold)).foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, Theme.spacing).frame(height: 44)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 26) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("NERVO PREMIUM").font(.caption.weight(.heavy)).tracking(1.2).foregroundStyle(Theme.accent)
+                        Text(trialDays > 0 ? "Essayez Premium gratuitement pendant \(trialDays) jours" : "Passez à Premium")
+                            .font(.system(size: 30, weight: .bold)).tracking(-0.4)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(steps) { step in stepRow(step, isLast: step.id == steps.last?.id) }
+                    }
+
+                    offers
+                    ProtoPaywallLegal(c: c)
+                }
+                .padding(.horizontal, Theme.spacing).padding(.bottom, 24)
+            }
+
+            VStack(spacing: 6) {
+                ProtoPrimaryButton(title: c.isBusy ? "…" : "Commencer mon essai gratuit", isEnabled: !c.isBusy, action: c.startTrial)
+                Label("Aucun paiement aujourd'hui", systemImage: "checkmark.shield.fill")
+                    .font(.footnote.weight(.medium)).foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, Theme.spacing).padding(.top, 10).padding(.bottom, 6)
+        }
+    }
+
+    /// The yearly offer alone, anchored to its monthly price; the others one tap away.
+    @ViewBuilder
+    private var offers: some View {
+        if showsAllOffers {
+            VStack(spacing: 10) {
+                ForEach(c.offering.offers) { offer in ProtoPlanRow(c: c, offer: offer) }
+            }
+            .transition(.opacity.combined(with: .move(edge: .top)))
+        } else {
+            VStack(spacing: 8) {
+                VStack(spacing: 2) {
+                    Text("\(c.selected.trialDays.map { "\($0) jours gratuits, puis " } ?? "")\(c.selected.formattedPrice) / \(c.selected.shortPeriod)")
+                        .font(.headline)
+                    if c.selected.period == .year {
+                        Text("soit \(c.selected.monthlyPrice) par mois").font(.subheadline).foregroundStyle(.secondary)
                     }
                 }
-                .padding(.horizontal, Theme.spacing).padding(.top, 24)
+                Button("Voir toutes les offres") { withAnimation(.snappy) { showsAllOffers = true } }
+                    .font(.subheadline.weight(.semibold)).foregroundStyle(Theme.accent)
+            }
+            .frame(maxWidth: .infinity)
+        }
+    }
 
-                VStack(spacing: 10) {
-                    ForEach(c.offering.offers) { offer in planRow(offer) }
+    private func stepRow(_ step: Step, isLast: Bool) -> some View {
+        HStack(alignment: .top, spacing: 14) {
+            VStack(spacing: 0) {
+                Image(systemName: step.symbol).font(.subheadline.weight(.bold))
+                    .foregroundStyle(step.isDone ? Theme.accent : .white)
+                    .frame(width: 36, height: 36)
+                    .background(Circle().fill(step.isDone ? Theme.accent.opacity(0.15) : Theme.accent))
+                if !isLast {
+                    Rectangle().fill(Theme.accent.opacity(0.3)).frame(width: 4).frame(maxHeight: .infinity)
                 }
-                .padding(.horizontal, Theme.spacing).padding(.top, 28)
-
-                ProtoPaywallLegal(c: c)
-                    .padding(.horizontal, Theme.spacing).padding(.vertical, 24)
             }
-        }
-        .ignoresSafeArea(edges: .top)
-        .safeAreaInset(edge: .bottom) {
-            VStack(spacing: 4) {
-                ProtoPrimaryButton(title: c.isBusy ? "…" : "Démarrer l'essai gratuit", isEnabled: !c.isBusy, action: c.startTrial)
-                Button("Passer", action: c.skip)
-                    .font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
-                    .frame(minHeight: 40)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(step.when.uppercased()).font(.caption.weight(.heavy)).tracking(0.8)
+                    .foregroundStyle(step.isDone ? .secondary : Theme.accent)
+                Text(step.title).font(.body.weight(.semibold))
+                Text(step.detail).font(.subheadline).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(.horizontal, Theme.spacing).padding(.top, 10)
-            .background(.bar)
+            .padding(.bottom, isLast ? 0 : 20)
         }
     }
+}
 
-    private var hero: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
-                NervoMark().stroke(.white, style: NervoMark.strokeStyle(forSide: 28)).frame(width: 28, height: 28)
-                Text("PREMIUM").font(.caption.weight(.heavy)).tracking(1.5)
-                    .padding(.horizontal, 8).padding(.vertical, 4)
-                    .background(Capsule().fill(.white.opacity(0.22)))
-            }
-            Text(c.firstName.isEmpty ? "Essayez Nervo Premium" : "\(c.firstName), essayez Nervo Premium")
-                .font(.system(size: 30, weight: .bold)).tracking(-0.4)
-                .fixedSize(horizontal: false, vertical: true)
-            if let days = c.selected.trialDays {
-                Text("\(days) jours offerts, sans engagement. Résiliable à tout moment.")
-                    .font(.callout).opacity(0.9)
-            }
-        }
-        .foregroundStyle(.white)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, Theme.spacing).padding(.top, 80).padding(.bottom, 28)
-        .background(LinearGradient(colors: [Theme.accent, Theme.accent.opacity(0.75)], startPoint: .top, endPoint: .bottom))
-    }
+/// A selectable plan row with its radio, price and yearly saving.
+struct ProtoPlanRow: View {
+    let c: ProtoPaywallContext
+    let offer: ProtoSubscriptionOffer
 
-    private func planRow(_ offer: ProtoSubscriptionOffer) -> some View {
+    var body: some View {
         let isSelected = offer == c.selected
-        return Button { c.select(offer) } label: {
+        Button { c.select(offer) } label: {
             HStack(spacing: 14) {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle").font(.title2)
                     .foregroundStyle(isSelected ? Theme.accent : Color(.systemGray3))
@@ -110,98 +156,139 @@ struct ProtoPaywallA: View {
     }
 }
 
-// MARK: - B « Essai expliqué »
+// MARK: - B « Personnalisé »
 
 struct ProtoPaywallB: View {
     let c: ProtoPaywallContext
 
-    private var trialDays: Int { c.selected.trialDays ?? 0 }
-
-    private var steps: [(when: String, symbol: String, title: String, detail: String)] {
-        [
-            ("Aujourd'hui", "lock.open.fill", "Tout Premium se débloque",
-             "Itinéraires sur mesure, classements complets, analyse de vos progrès, cartes hors ligne et suivi en direct."),
-            ("Jour \(trialDays - 5)", "bell.fill", "On vous prévient",
-             "Un rappel 5 jours avant la fin de l'essai, pour décider sans surprise."),
-            ("Jour \(trialDays)", "star.fill", "Votre abonnement commence",
-             "Premier paiement de \(c.selected.formattedPrice). Résiliez avant et vous ne payez rien."),
-        ]
+    /// Spoken to the first goal picked in the Onboarding.
+    private var title: String {
+        switch c.goals.first {
+        case .compete: "Visez le haut des classements"
+        case .explore: "Partez à la découverte"
+        case .health: "Suivez vos progrès de près"
+        case .people: "Partagez chaque sortie, en toute sérénité"
+        case .event: "Préparez votre objectif"
+        case .habit: "Gardez le rythme"
+        case nil: "Allez plus loin avec Premium"
+        }
     }
+
+    private var subtitle: String {
+        var parts: [String] = []
+        if !c.sports.isEmpty { parts.append(c.sports.map { ActivityFormatters.sportLabel($0).lowercased() }.joined(separator: ", ")) }
+        if let level = c.level { parts.append("niveau \(level.rawValue.lowercased())") }
+        return parts.isEmpty ? "Nervo Premium, pensé pour votre pratique." : "Nervo Premium, pensé pour vous : \(parts.joined(separator: " · "))."
+    }
+
+    /// At most two, the ones matching the most goals: tag more and « Pour vous » means nothing.
+    private var forYou: [ProtoPerk] {
+        let goals = Set(c.goals)
+        let matching = ProtoPaywallCopy.perks
+            .map { (perk: $0, score: $0.goals.intersection(goals).count) }
+            .filter { $0.score > 0 }
+        return Array(matching.sorted { $0.score > $1.score }.prefix(2).map(\.perk))
+    }
+    private var others: [ProtoPerk] { ProtoPaywallCopy.perks.filter { perk in !forYou.contains { $0.id == perk.id } } }
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Button("Passer", action: c.skip).font(.body.weight(.semibold)).foregroundStyle(.secondary)
-                Spacer()
-            }
-            .padding(.horizontal, Theme.spacing).frame(height: 44)
-
-            ScrollView {
-                VStack(alignment: .leading, spacing: 28) {
-                    Text("Comment fonctionne votre essai gratuit")
-                        .font(.system(size: 30, weight: .bold)).tracking(-0.4)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 22) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(title).font(.system(size: 30, weight: .bold)).tracking(-0.4)
                         .fixedSize(horizontal: false, vertical: true)
-
-                    VStack(alignment: .leading, spacing: 0) {
-                        ForEach(steps.indices, id: \.self) { index in
-                            stepRow(steps[index], isLast: index == steps.count - 1)
-                        }
-                    }
-
-                    VStack(spacing: 14) {
-                        Picker("Formule", selection: Binding(get: { c.selected }, set: c.select)) {
-                            ForEach(c.offering.offers) { offer in
-                                if offer.period == .year, let savings = c.offering.yearlySavingsPercent {
-                                    Text("\(offer.title) −\(savings) %").tag(offer)
-                                } else {
-                                    Text(offer.title).tag(offer)
-                                }
-                            }
-                        }
-                        .pickerStyle(.segmented)
-
-                        VStack(spacing: 2) {
-                            Text("\(c.selected.trialDays.map { "\($0) jours gratuits, puis " } ?? "")\(c.selected.formattedPrice) / \(c.selected.shortPeriod)")
-                                .font(.headline)
-                            if c.selected.period == .year {
-                                Text("soit \(c.selected.monthlyPrice) par mois").font(.subheadline).foregroundStyle(.secondary)
-                            }
-                        }
-                        .contentTransition(.numericText())
-                    }
-
-                    ProtoPaywallLegal(c: c)
+                    Text(subtitle).font(.callout).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                .padding(.horizontal, Theme.spacing).padding(.bottom, 24)
-            }
+                .padding(.trailing, 36)
 
-            VStack(spacing: 6) {
-                ProtoPrimaryButton(title: c.isBusy ? "…" : "Démarrer mes \(trialDays) jours gratuits", isEnabled: !c.isBusy, action: c.startTrial)
-                Label("Aucun paiement aujourd'hui", systemImage: "checkmark.shield.fill")
-                    .font(.footnote.weight(.medium)).foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 16) {
+                    ForEach(forYou) { perk in perkRow(perk, isForYou: true) }
+                    if !forYou.isEmpty, !others.isEmpty {
+                        Text("ET AUSSI").font(.caption.weight(.heavy)).tracking(1).foregroundStyle(.secondary)
+                            .padding(.top, 4)
+                    }
+                    ForEach(others) { perk in perkRow(perk, isForYou: false) }
+                }
+
+                ProtoPaywallLegal(c: c)
             }
-            .padding(.horizontal, Theme.spacing).padding(.top, 10).padding(.bottom, 6)
+            .padding(.horizontal, Theme.spacing).padding(.top, 16).padding(.bottom, 24)
+        }
+        .overlay(alignment: .topTrailing) {
+            Button(action: c.skip) {
+                Image(systemName: "xmark").font(.subheadline.weight(.bold)).foregroundStyle(.secondary)
+                    .frame(width: 32, height: 32).background(Circle().fill(Color(.secondarySystemBackground)))
+            }
+            .accessibilityLabel("Passer")
+            .padding(.trailing, Theme.spacing).padding(.top, 12)
+        }
+        .safeAreaInset(edge: .bottom) {
+            VStack(spacing: 12) {
+                HStack(spacing: 10) {
+                    ForEach(c.offering.offers) { offer in planCard(offer) }
+                }
+                ProtoPrimaryButton(title: c.isBusy ? "…" : (c.selected.trialDays.map { "Essayer gratuitement \($0) jours" } ?? "S'abonner"),
+                                   isEnabled: !c.isBusy, action: c.startTrial)
+            }
+            .padding(.horizontal, Theme.spacing).padding(.top, 12).padding(.bottom, 6)
+            .background(.bar)
         }
     }
 
-    private func stepRow(_ step: (when: String, symbol: String, title: String, detail: String), isLast: Bool) -> some View {
+    private func perkRow(_ perk: ProtoPerk, isForYou: Bool) -> some View {
         HStack(alignment: .top, spacing: 14) {
-            VStack(spacing: 0) {
-                Image(systemName: step.symbol).font(.subheadline.weight(.bold)).foregroundStyle(.white)
-                    .frame(width: 36, height: 36)
-                    .background(Circle().fill(Theme.accent))
-                if !isLast {
-                    Rectangle().fill(Theme.accent.opacity(0.3)).frame(width: 4).frame(maxHeight: .infinity)
+            Image(systemName: perk.symbol).font(.body.weight(.semibold))
+                .foregroundStyle(isForYou ? .white : Theme.accent)
+                .frame(width: 40, height: 40)
+                .background(RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(isForYou ? Theme.accent : Theme.accent.opacity(0.12)))
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(perk.title).font(.body.weight(.semibold))
+                    if isForYou {
+                        Text("Pour vous").font(.caption2.weight(.bold)).foregroundStyle(Theme.accent)
+                            .padding(.horizontal, 6).padding(.vertical, 2)
+                            .background(Capsule().fill(Theme.accent.opacity(0.12)))
+                    }
                 }
-            }
-            VStack(alignment: .leading, spacing: 3) {
-                Text(step.when.uppercased()).font(.caption.weight(.heavy)).tracking(0.8).foregroundStyle(Theme.accent)
-                Text(step.title).font(.body.weight(.semibold))
-                Text(step.detail).font(.subheadline).foregroundStyle(.secondary)
+                Text(perk.detail).font(.subheadline).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(.bottom, isLast ? 0 : 22)
         }
+    }
+
+    private func planCard(_ offer: ProtoSubscriptionOffer) -> some View {
+        let isSelected = offer == c.selected
+        return Button { c.select(offer) } label: {
+            VStack(alignment: .leading, spacing: 3) {
+                HStack {
+                    Text(offer.title).font(.subheadline.weight(.bold))
+                    Spacer()
+                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                        .foregroundStyle(isSelected ? Theme.accent : Color(.systemGray3))
+                }
+                Text("\(offer.formattedPrice) / \(offer.shortPeriod)").font(.subheadline.weight(.semibold))
+                Text(offer.period == .year ? "soit \(offer.monthlyPrice) / mois" : "sans engagement")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color(.systemBackground)))
+            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(isSelected ? Theme.accent : Color(.systemGray4), lineWidth: isSelected ? 2 : 1))
+            .overlay(alignment: .topLeading) {
+                if offer.period == .year, let savings = c.offering.yearlySavingsPercent {
+                    Text("−\(savings) %").font(.caption2.weight(.heavy)).foregroundStyle(.white)
+                        .padding(.horizontal, 7).padding(.vertical, 3)
+                        .background(Capsule().fill(Theme.accent))
+                        .offset(x: 10, y: -9)
+                }
+            }
+            .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+        .buttonStyle(ProtoPressStyle())
+        .foregroundStyle(.primary)
     }
 }
 

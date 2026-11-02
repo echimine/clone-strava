@@ -103,6 +103,19 @@ final class ProtoAnswers {
     var birthIsValid: Bool { (age ?? 0) >= ProtoCopy.minimumAge }
     var isTooYoung: Bool { birthDate != nil && !birthIsValid }
 
+    /// Answers of a made-up athlete, when the prototype opens past the questions (`-protoStage`).
+    static func demo() -> ProtoAnswers {
+        let answers = ProtoAnswers()
+        answers.firstName = "Camille"
+        answers.lastName = "Martin"
+        answers.birthDate = Calendar.current.date(byAdding: .year, value: -32, to: .now)
+        answers.gender = .woman
+        answers.sports = [.run, .ride]
+        answers.goals = [.event, .explore]
+        answers.level = .intermediate
+        return answers
+    }
+
     func toggle(_ sport: SportType) {
         if let index = sports.firstIndex(of: sport) { sports.remove(at: index) } else { sports.append(sport) }
     }
@@ -141,7 +154,8 @@ struct OnboardingPrototypeView: View {
     }
 
     @AppStorage("prototype.onboarding.variant") private var variantKey = Variant.a.rawValue
-    @State private var answers = ProtoAnswers()
+    @State private var answers = UserDefaults.standard.string(forKey: "protoStage").map { ["account", "paywall", "notifications"].contains($0) } == true
+        ? ProtoAnswers.demo() : ProtoAnswers()
     /// Questions, then « ce que vous pouvez faire », then the personalised loading screen.
     /// Then the account (stub) and the Paywall (#110), then the notifications permission (stub).
     enum Stage: String { case questions, showcase, personalizing, account, paywall, notifications }
@@ -171,8 +185,8 @@ struct OnboardingPrototypeView: View {
             case .personalizing: ProtoPersonalizing(answers: answers) { advance() }
             case .account: ProtoAccountStub(signedIn: advance, restart: restart)
             case .paywall:
-                ProtoPaywall(answers: answers, variant: paywallVariant,
-                             service: ProtoUnwiredSubscriptionService(mode: offeringMode)) { outcome in
+                ProtoPaywall(answers: answers,
+                             service: ProtoUnwiredSubscriptionService(mode: offeringMode, layout: paywallVariant)) { outcome in
                     answers.paywallEvents.append(outcome)
                     advance()
                 }
@@ -241,6 +255,7 @@ struct OnboardingPrototypeView: View {
             let all = ProtoPaywallVariant.allCases
             let index = (all.firstIndex(of: paywallVariant)! + step + all.count) % all.count
             paywallKey = all[index].rawValue
+            paywallRunID = UUID()
             return
         }
         let all = Variant.allCases

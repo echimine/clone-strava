@@ -4,8 +4,10 @@ import SwiftUI
 // PROTOTYPE — throwaway, never merged to main (wayfinder ticket « Design du Paywall non branché »,
 // #110). Question: what does the unwired Paywall look like, and where does the
 // `SubscriptionService` port sit so that plugging RevenueCat in later does not change the screen?
-// Three structurally different variants (OnboardingPrototypePaywallVariants.swift), switchable
-// from the floating pill once on the Paywall stage. Launch straight on it:
+// The variants are proven paywall patterns, meant to be A/B tested with RevenueCat Experiments
+// (ADR-016: the Paywall is only ever tested there): each group gets an offering whose metadata
+// `layout` picks the variant (ADR-014). Here the pill plays RevenueCat's part. Variants in
+// OnboardingPrototypePaywallVariants.swift. Launch straight on it:
 // `xcrun simctl launch booted fr.echimine.stravaclone -prototypeOnboarding -protoStage paywall`.
 
 // MARK: - Port (ADR-014: `Features/Paywall/Domain` in the real code)
@@ -48,6 +50,9 @@ struct ProtoSubscriptionOffer: Identifiable, Hashable, Sendable {
 
 struct ProtoPaywallOffering: Sendable {
     let offers: [ProtoSubscriptionOffer]
+    /// Offering metadata `layout` (ADR-014): which variant to draw, set per experiment group.
+    /// Unknown or missing: the default variant.
+    let layout: ProtoPaywallVariant
     /// Pre-selected and badged; RevenueCat offering metadata in the real code (ADR-014).
     let recommendedID: String
 
@@ -74,23 +79,26 @@ enum ProtoOfferingMode: String, CaseIterable {
 /// The adapter of the « Paywall non branché » spec: hard-coded offers, no purchase.
 struct ProtoUnwiredSubscriptionService: ProtoSubscriptionService {
     var mode: ProtoOfferingMode = .ok
+    /// Stands in for the experiment group RevenueCat would assign.
+    var layout: ProtoPaywallVariant = .a
 
-    static let offering = ProtoPaywallOffering(
-        offers: [
-            ProtoSubscriptionOffer(id: "nervo_premium_yearly", period: .year, price: Decimal(string: "59.99")!, currencyCode: "EUR", trialDays: 30),
-            ProtoSubscriptionOffer(id: "nervo_premium_monthly", period: .month, price: Decimal(string: "9.99")!, currencyCode: "EUR", trialDays: 30),
-        ],
-        recommendedID: "nervo_premium_yearly"
-    )
+    private var offering: ProtoPaywallOffering {
+        ProtoPaywallOffering(offers: Self.offers, layout: layout, recommendedID: "nervo_premium_yearly")
+    }
+
+    static let offers = [
+        ProtoSubscriptionOffer(id: "nervo_premium_yearly", period: .year, price: Decimal(string: "59.99")!, currencyCode: "EUR", trialDays: 30),
+        ProtoSubscriptionOffer(id: "nervo_premium_monthly", period: .month, price: Decimal(string: "9.99")!, currencyCode: "EUR", trialDays: 30),
+    ]
 
     struct Unavailable: Error {}
 
     func paywallOffering() async throws -> ProtoPaywallOffering {
         switch mode {
-        case .ok: return Self.offering
+        case .ok: return offering
         case .slow:
             try await Task.sleep(for: .seconds(2.5))
-            return Self.offering
+            return offering
         case .unavailable:
             try await Task.sleep(for: .seconds(1))
             throw Unavailable()
@@ -114,21 +122,28 @@ struct ProtoPerk: Identifiable {
     let symbol: String
     let title: String
     let detail: String
+    /// The Onboarding goals this perk answers (variant B puts them first, tagged « Pour vous »).
+    let goals: Set<ProtoGoal>
     var id: String { title }
 }
 
 enum ProtoPaywallCopy {
     static let perks: [ProtoPerk] = [
         ProtoPerk(symbol: "map.fill", title: "Itinéraires sur mesure",
-                  detail: "Un parcours tracé depuis chez vous, selon la distance et le dénivelé voulus."),
+                  detail: "Un parcours tracé depuis chez vous, selon la distance et le dénivelé voulus.",
+                  goals: [.explore]),
         ProtoPerk(symbol: "trophy.fill", title: "Classements complets",
-                  detail: "Tous les classements de segments, filtrés par âge et par genre."),
+                  detail: "Tous les classements de segments, filtrés par âge et par genre.",
+                  goals: [.compete, .event]),
         ProtoPerk(symbol: "chart.line.uptrend.xyaxis", title: "Analyse de vos progrès",
-                  detail: "Tendances, records personnels et comparaison semaine après semaine."),
+                  detail: "Tendances, records personnels et comparaison semaine après semaine.",
+                  goals: [.health, .event, .habit]),
         ProtoPerk(symbol: "arrow.down.circle.fill", title: "Cartes hors ligne",
-                  detail: "Téléchargez vos itinéraires et partez sans réseau."),
+                  detail: "Téléchargez vos itinéraires et partez sans réseau.",
+                  goals: [.explore]),
         ProtoPerk(symbol: "dot.radiowaves.left.and.right", title: "Suivi en direct",
-                  detail: "Vos proches suivent votre position pendant l'effort."),
+                  detail: "Vos proches suivent votre position pendant l'effort.",
+                  goals: [.people, .health]),
     ]
 
     /// Free vs Premium (variant C). `true`: also in the free app.
@@ -153,12 +168,13 @@ enum ProtoPaywallCopy {
 
 // MARK: - Screen: loads the offering through the port, then hands it to a variant
 
-enum ProtoPaywallVariant: String, CaseIterable {
+/// The `layout` values of the offering metadata.
+enum ProtoPaywallVariant: String, CaseIterable, Sendable {
     case a = "A", b = "B", c = "C"
     var name: String {
         switch self {
-        case .a: "Avantages"
-        case .b: "Essai expliqué"
+        case .a: "Frise de l'essai"
+        case .b: "Personnalisé"
         case .c: "Gratuit vs Premium"
         }
     }
@@ -167,6 +183,10 @@ enum ProtoPaywallVariant: String, CaseIterable {
 /// Everything a variant needs: the variants only lay it out.
 struct ProtoPaywallContext {
     let firstName: String
+    /// Onboarding answers, still on the phone at this point (variant B).
+    let goals: [ProtoGoal]
+    let sports: [SportType]
+    let level: ProtoLevel?
     let offering: ProtoPaywallOffering
     let selected: ProtoSubscriptionOffer
     let isBusy: Bool
@@ -179,7 +199,6 @@ struct ProtoPaywallContext {
 
 struct ProtoPaywall: View {
     let answers: ProtoAnswers
-    let variant: ProtoPaywallVariant
     let service: any ProtoSubscriptionService
     /// Continues the journey (notifications permission) with what happened, for the state sheet.
     let finish: (String) -> Void
@@ -228,7 +247,7 @@ struct ProtoPaywall: View {
 
     @ViewBuilder
     private func variantView(_ context: ProtoPaywallContext) -> some View {
-        switch variant {
+        switch context.offering.layout {
         case .a: ProtoPaywallA(c: context)
         case .b: ProtoPaywallB(c: context)
         case .c: ProtoPaywallC(c: context)
@@ -239,6 +258,9 @@ struct ProtoPaywall: View {
         let selected = offering.offers.first { $0.id == selectedID } ?? offering.recommended
         return ProtoPaywallContext(
             firstName: answers.firstName.trimmingCharacters(in: .whitespaces),
+            goals: ProtoGoal.allCases.filter(answers.goals.contains),
+            sports: answers.sports,
+            level: answers.level,
             offering: offering,
             selected: selected,
             isBusy: isBusy,
