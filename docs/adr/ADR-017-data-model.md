@@ -91,7 +91,9 @@ erDiagram
         string country
         string city
         date birth_date
-        string gender
+        enum gender "amended by ADR-035: male, female, non_binary, undisclosed"
+        enum level "ADR-035"
+        enum_array goals "ADR-035"
         float weight_kg
         enum unit_system "metric or imperial"
         enum default_visibility
@@ -224,7 +226,7 @@ erDiagram
 | Module (`packages/core`) | PostgreSQL schema | Tables | Origin |
 |---|---|---|---|
 | `auth` | `public` | `user`, `session`, `account`, `verification` | Slide 09 + Better Auth additions |
-| `users` | `users` | `user_profile` | Slide 09 |
+| `users` | `users` | `user_profile`, `user_sport` | Slide 09 (*amended by [ADR-035](ADR-035-onboarding-sign-in-code-paywall.md)*: `user_sport`) |
 | `social` | `social` | `follow` | Slide 09 |
 | `engagement` | `engagement` | `kudos`, `comment` | Slide 09 (*amended by ADR-021*: split from `social`) |
 | `sports` | `sports` | `sport_type` (reference data, populated by migration) | Slide 09 |
@@ -286,6 +288,7 @@ We **do not copy** products or offerings into our database:
 - *Amended by [ADR-028](ADR-028-activity-import-from-file.md)*: table `activity_import` (import of .gpx/.tcx/.fit files) and column `activity.source` (`recorded` / `imported` / `manual`).
 - *Amended by [ADR-033](ADR-033-activity-detail-edit-delete.md)*: columns `activity.updated_at` (set by `PATCH`) and `activity_stats.computed_for_sport_type_code` (the sport the official values were computed for).
 - *Amended by [ADR-034](ADR-034-activity-engagement-and-live-detail.md)*: column `comment.updated_at` (nullable, set on edit).
+- *Amended by [ADR-035](ADR-035-onboarding-sign-in-code-paywall.md)*: `user_profile.gender` becomes the enum `users.gender` (`male`, `female`, `non_binary`, `undisclosed`); new columns `user_profile.level` (enum `users.athlete_level`) and `user_profile.goals` (`users.goal[]`, `null` ≠ `[]`); new table `users.user_sport (user_id, sport_code, position)` for the athlete's practiced sports, cascading on user deletion.
 
 ## Alternatives Considered
 
@@ -322,5 +325,5 @@ We **do not copy** products or offerings into our database:
 
 ## Links
 
-- **Amended by**: [ADR-019](ADR-019-activity-creation-flow.md) (processing-tracking columns), [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md) (`kudos` and `comment` move to the `engagement` module; one PostgreSQL schema per module), [ADR-028](ADR-028-activity-import-from-file.md) (`activity_import` table, `activity.source`), [ADR-029](ADR-029-activity-feed-and-card.md) (`activity_track.map_polyline`, `location_name`), [ADR-030](ADR-030-itineraries-on-ios.md) (`itineraries` schema: `itinerary`, `itinerary_waypoint`, `itinerary_leg`), [ADR-033](ADR-033-activity-detail-edit-delete.md) (`activity.updated_at`, `activity_stats.computed_for_sport_type_code`), [ADR-034](ADR-034-activity-engagement-and-live-detail.md) (`comment.updated_at`, app-generated comment id)
+- **Amended by**: [ADR-019](ADR-019-activity-creation-flow.md) (processing-tracking columns), [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md) (`kudos` and `comment` move to the `engagement` module; one PostgreSQL schema per module), [ADR-028](ADR-028-activity-import-from-file.md) (`activity_import` table, `activity.source`), [ADR-029](ADR-029-activity-feed-and-card.md) (`activity_track.map_polyline`, `location_name`), [ADR-030](ADR-030-itineraries-on-ios.md) (`itineraries` schema: `itinerary`, `itinerary_waypoint`, `itinerary_leg`), [ADR-033](ADR-033-activity-detail-edit-delete.md) (`activity.updated_at`, `activity_stats.computed_for_sport_type_code`), [ADR-034](ADR-034-activity-engagement-and-live-detail.md) (`comment.updated_at`, app-generated comment id), [ADR-035](ADR-035-onboarding-sign-in-code-paywall.md) (`gender` enum, `level`, `goals`, `users.user_sport`)
 - **Related**: [ADR-003](ADR-003-backend.md) (modules and owned tables), [ADR-008](ADR-008-mobile-offline-sync.md), [ADR-009](ADR-009-backend-api.md), [ADR-011](ADR-011-backend-worker.md), [ADR-014](ADR-014-revenuecat.md), [ADR-022](ADR-022-authentication-better-auth.md) (`admin` plugin on the `role` column)

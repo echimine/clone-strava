@@ -31,10 +31,10 @@ We use **RevenueCat** for in-app purchases, with a **custom SwiftUI paywall**.
 
 **Remotely controlled paywall despite the custom code:**
 - **Prices, durations and trials** come from offerings: changing them does not require a new version.
-- **Offering metadata** (JSON configurable in RevenueCat) drives the display variants coded in the app: title, highlighted selling point, recommended offer, layout variant (`"layout": "A"` or `"B"`).
+- **Offering metadata** (JSON configurable in RevenueCat) drives the display variants coded in the app: title, highlighted selling point, recommended offer, layout variant (`"layout": "A"` or `"B"`). *Amended by [ADR-035](ADR-035-onboarding-sign-in-code-paywall.md) §6*: three layouts, `A` (Strava), `B` (AllTrails) and `C` (Duolingo with a real map, the default).
 - A paywall variant that does not yet exist in the code requires a new version.
 
-**Architecture (ADR-007)**: the paywall is a `Features/Paywall` feature. The RevenueCat SDK stays in `Infrastructure/`, behind a domain protocol (`SubscriptionService`: offers, purchase, restore, status). Other features only know this protocol.
+**Architecture (ADR-007)**: the paywall is a `Features/Paywall` feature. The RevenueCat SDK stays in `Infrastructure/`, behind a domain protocol (`SubscriptionService`: offers, purchase, restore, status). Other features only know this protocol. *Amended by [ADR-035](ADR-035-onboarding-sign-in-code-paywall.md) §6*: until RevenueCat is wired, an **unwired adapter** (hard-coded offers, `layout = C`, no purchase) is created in `Di.swift`; the protocol is `paywallOffering()`, `startTrial(offer)`, `restorePurchases()`. When offers fail to load, the Paywall is skipped without blocking the flow.
 
 ### Backend side
 
@@ -95,4 +95,5 @@ Tests of **prices, durations, trials and paywall variants** go through **Revenue
 
 ## Links
 
+- **Amended by**: [ADR-035](ADR-035-onboarding-sign-in-code-paywall.md) (§6 unwired `SubscriptionService` adapter, layouts `A`/`B`/`C`, Paywall skipped when offers fail to load)
 - **Related**: [ADR-006](ADR-006-mobile-stack.md), [ADR-007](ADR-007-mobile-architecture.md), [ADR-009](ADR-009-backend-api.md), [ADR-011](ADR-011-backend-worker.md), [ADR-015](ADR-015-posthog.md), [ADR-016](ADR-016-experimentation.md), [ADR-023](ADR-023-transactional-email-resend.md) (same webhook secret-header pattern)
