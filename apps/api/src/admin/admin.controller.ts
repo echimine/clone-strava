@@ -1,6 +1,6 @@
 import { Controller, Get, HttpCode, HttpStatus, Param, ParseUUIDPipe, Post, UseGuards } from "@nestjs/common";
 import { createZodDto, ZodSerializerDto } from "nestjs-zod";
-import { activityImportSchema, type ActivityImport } from "@repo/contracts";
+import { activityImportSchema, type ActivityImport, type AdminAccessResponse } from "@repo/contracts";
 import { ActivitiesService } from "@repo/core/activities";
 import { AdminGuard } from "../auth/admin.guard.js";
 import { SessionGuard } from "../auth/session.guard.js";
@@ -20,7 +20,7 @@ export class AdminController {
   constructor(private readonly activitiesService: ActivitiesService) {}
 
   @Get()
-  ping(): { status: "ok" } {
+  ping(): AdminAccessResponse {
     return { status: "ok" };
   }
 

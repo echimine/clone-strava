@@ -1,4 +1,5 @@
 import { CanActivate, type ExecutionContext, ForbiddenException, Injectable } from "@nestjs/common";
+import { ADMIN_ACCESS_ERROR_CODES } from "@repo/contracts";
 import type { Request } from "express";
 import type { AuthenticatedUser } from "./session.guard.js";
 
@@ -27,13 +28,13 @@ export class AdminGuard implements CanActivate {
     }
     if (!request.user.twoFactorEnabled) {
       throw new ForbiddenException({
-        code: "ADMIN_2FA_REQUIRED",
+        code: ADMIN_ACCESS_ERROR_CODES.twoFactorRequired,
         message: "Two-factor authentication is required for admin accounts.",
       });
     }
     if (request.user.authMethod !== "password_2fa") {
       throw new ForbiddenException({
-        code: "ADMIN_STRONG_SESSION_REQUIRED",
+        code: ADMIN_ACCESS_ERROR_CODES.strongSessionRequired,
         message: "Sign in again on the backoffice with your password and second factor.",
       });
     }
