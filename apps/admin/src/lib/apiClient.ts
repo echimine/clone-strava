@@ -1,5 +1,7 @@
-import { apiErrorResponseSchema, type ApiError } from "@repo/contracts";
+import { ADMIN_ACCESS_ERROR_CODES, apiErrorResponseSchema, type ApiError } from "@repo/contracts";
 import type { ZodType, z } from "zod";
+import { signOut } from "@/lib/auth-client";
+import { hardNavigate } from "@/lib/navigation";
 
 /**
  * Single HTTP client to the API (ADR-004, ADR-013).
@@ -7,7 +9,8 @@ import type { ZodType, z } from "zod";
  * Every network call goes through here: base URL (`/api`, same origin,
  * proxied to the NestJS API by `next.config.ts`), credentials, JSON,
  * response validation with the schemas from `@repo/contracts`, and
- * normalized errors. A `401` redirects to `/login`.
+ * normalized errors. A `401` redirects to `/login`; the admin guard's
+ * 2FA refusals lead to the 2FA setup or a new sign-in.
  */
 
 const BASE_URL = "/api";
@@ -63,6 +66,35 @@ async function parseErrorResponse(response: Response): Promise<ApiError> {
 }
 
 /**
+ * Sends the browser where a refused session can be fixed (ADR-013, errors):
+ * - `401`: the sign-in page;
+ * - `ADMIN_2FA_REQUIRED` (ADR-022 §5): the 2FA setup screen;
+ * - `ADMIN_STRONG_SESSION_REQUIRED` (ADR-035 §3): a session opened by a
+ *   Sign-in code or Google cannot become strong, so it is closed first,
+ *   then the sign-in page asks for password + second factor.
+ */
+async function leaveForbiddenSession(status: number, code: string): Promise<void> {
+  if (status === 401) {
+    hardNavigate("/login");
+  } else if (code === ADMIN_ACCESS_ERROR_CODES.twoFactorRequired) {
+    hardNavigate("/two-factor/setup");
+  } else if (code === ADMIN_ACCESS_ERROR_CODES.strongSessionRequired) {
+    await signOut();
+    hardNavigate("/login?reason=strong-session");
+  }
+}
+
+/** Whether `apiClient` is already leaving the page for this error (see `leaveForbiddenSession`). */
+export function isLeavingForbiddenSession(error: unknown): boolean {
+  return (
+    error instanceof ApiClientError &&
+    (error.status === 401 ||
+      error.code === ADMIN_ACCESS_ERROR_CODES.twoFactorRequired ||
+      error.code === ADMIN_ACCESS_ERROR_CODES.strongSessionRequired)
+  );
+}
+
+/**
  * Performs a request against the API and validates the JSON response with
  * `schema`. Throws `ApiClientError` on any non-2xx response; on `401`,
  * redirects to `/login` (client-side only) before throwing.
@@ -85,10 +117,8 @@ export async function apiClient<Schema extends ZodType>(
 
   if (!response.ok) {
     const error = await parseErrorResponse(response);
-    if (response.status === 401 && typeof window !== "undefined") {
-      // Outside React (no router here): hard navigation to the sign-in page (ADR-013, errors).
-      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-      window.location.href = "/login";
+    if (typeof window !== "undefined") {
+      await leaveForbiddenSession(response.status, error.code);
     }
     throw new ApiClientError(response.status, error);
   }
