@@ -64,9 +64,16 @@ export interface TestAuthApp {
  * one test that needs a real send.
  */
 export async function bootstrapTestAuthApp(
-  options: { mockNotifications?: boolean; withAdminRoute?: boolean } = {},
+  options: {
+    mockNotifications?: boolean;
+    withAdminRoute?: boolean;
+    /** Off to boot the production rule: password sign-up closed (ADR-035 §2). */
+    allowPasswordSignUp?: boolean;
+    /** `"development"` turns on the dev Sign-in code helpers (ADR-035 §2). */
+    nodeEnv?: string;
+  } = {},
 ): Promise<TestAuthApp> {
-  const { mockNotifications = true, withAdminRoute = false } = options;
+  const { mockNotifications = true, withAdminRoute = false, allowPasswordSignUp = true, nodeEnv = "test" } = options;
 
   const moduleBuilder = Test.createTestingModule({
     imports: [
@@ -79,6 +86,8 @@ export async function bootstrapTestAuthApp(
         googleClientId: "test-google-client-id",
         googleClientSecret: "test-google-client-secret",
         resendApiKey: "re_test_dummy_key_never_sent",
+        allowPasswordSignUp,
+        nodeEnv,
       }),
     ],
     controllers: withAdminRoute ? [TestAdminController] : [],
