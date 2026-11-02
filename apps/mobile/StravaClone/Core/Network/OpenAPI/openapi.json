@@ -190,6 +190,30 @@
         ]
       }
     },
+    "/v1/me/onboarding-answers": {
+      "put": {
+        "operationId": "OnboardingAnswersController_submit",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OnboardingAnswersRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Answers received"
+          }
+        },
+        "tags": [
+          "OnboardingAnswers"
+        ]
+      }
+    },
     "/v1/feed": {
       "get": {
         "operationId": "FeedController_list",
@@ -1316,6 +1340,76 @@
           "defaultVisibility"
         ],
         "additionalProperties": false
+      },
+      "OnboardingAnswersRequestDto": {
+        "type": "object",
+        "properties": {
+          "firstName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "lastName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "birthDate": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "gender": {
+            "type": "string",
+            "enum": [
+              "male",
+              "female",
+              "non_binary",
+              "undisclosed"
+            ]
+          },
+          "sportCodes": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "goals": {
+            "maxItems": 6,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "compete",
+                "discover_routes",
+                "health",
+                "meet_athletes",
+                "train_for_event",
+                "build_habit"
+              ]
+            }
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "beginner",
+              "intermediate",
+              "advanced",
+              "professional"
+            ]
+          }
+        },
+        "required": [
+          "firstName",
+          "lastName",
+          "birthDate",
+          "gender",
+          "sportCodes",
+          "goals",
+          "level"
+        ]
       },
       "FeedResponseDto_Output": {
         "type": "object",

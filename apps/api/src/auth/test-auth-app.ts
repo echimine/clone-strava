@@ -30,6 +30,15 @@ class TestAdminController {
   }
 }
 
+/** Stand-in for any app route (`/v1/me`, activities…): `SessionGuard` alone. */
+@Controller("app-route")
+@UseGuards(SessionGuard)
+class TestAppRouteController {
+  @Get()
+  ping(): { status: "ok" } {
+    return { status: "ok" };
+  }
+}
 
 /**
  * Local-dev/test-only endpoints (`docker-compose.dev.yml`, ADR-018 §8).
@@ -90,7 +99,7 @@ export async function bootstrapTestAuthApp(
         nodeEnv,
       }),
     ],
-    controllers: withAdminRoute ? [TestAdminController] : [],
+    controllers: withAdminRoute ? [TestAdminController, TestAppRouteController] : [],
     // `SessionGuard`/`AdminGuard` are declared directly in this top-level
     // testing module (not a nested `TestAdminModule`) so they can inject
     // `AuthService`/`AUTH_INSTANCE` straight from the sibling
@@ -155,7 +164,14 @@ export async function ensureTestDatabaseMigrated(): Promise<void> {
 // the rate-limit windows can't make an unrelated assertion fail with 429.
 export async function clearRateLimitCounters(ip = "127.0.0.1"): Promise<void> {
   const redis = new Redis(TEST_REDIS_URL);
-  const paths = ["/sign-up/email", "/sign-in/email", "/two-factor/enable", "/two-factor/verify-totp"];
+  const paths = [
+    "/sign-up/email",
+    "/sign-in/email",
+    "/two-factor/enable",
+    "/two-factor/verify-totp",
+    "/email-otp/send-verification-otp",
+    "/sign-in/email-otp",
+  ];
   await redis.del(...paths.map((path) => `${ip}|${path}`));
   await redis.quit();
 }
