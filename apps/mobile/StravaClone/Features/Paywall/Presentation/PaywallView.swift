@@ -15,7 +15,7 @@ struct PaywallView: View {
     var body: some View {
         ZStack {
             if let offering = store.offering, let selected = store.selected {
-                variant(PaywallVariant(store: store, offering: offering, selected: selected))
+                layout(PaywallContent(store: store, offering: offering, selected: selected))
                     .transition(.opacity)
             } else {
                 ProgressView()
@@ -30,18 +30,19 @@ struct PaywallView: View {
     }
 
     @ViewBuilder
-    private func variant(_ variant: PaywallVariant) -> some View {
-        switch variant.offering.layout {
-        case .a: PaywallLayoutA(variant: variant)
-        case .b: PaywallLayoutB(variant: variant)
-        case .c: PaywallLayoutC(variant: variant, firstName: firstName)
+    private func layout(_ content: PaywallContent) -> some View {
+        switch content.offering.layout {
+        case .a: PaywallLayoutA(content: content)
+        case .b: PaywallLayoutB(content: content)
+        case .c: PaywallLayoutC(content: content, firstName: firstName)
         }
     }
 }
 
-/// What a variant draws and the actions it triggers: the variants only lay it out.
+/// What a layout draws and the actions it triggers: the layouts only lay it out. Not the
+/// analytics `AnalyticsEvent.PaywallVariant` (A, B, C), which `offering.layout` names.
 @MainActor
-struct PaywallVariant {
+struct PaywallContent {
     let store: PaywallStore
     let offering: PaywallOffering
     let selected: SubscriptionOffer
@@ -64,13 +65,13 @@ struct PaywallVariant {
 /// Renewal terms and "Conditions d'utilisation · Confidentialité · Restaurer les achats" under
 /// the button (App Store 3.1.2); the legal texts open in their sheet (ADR-035 §9).
 struct PaywallFooter: View {
-    let variant: PaywallVariant
+    let content: PaywallContent
 
     @State private var opened: LegalDocument?
 
     var body: some View {
         VStack(spacing: 12) {
-            Text(PaywallCopy.renewalTerms(variant.selected))
+            Text(PaywallCopy.renewalTerms(content.selected))
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -80,8 +81,8 @@ struct PaywallFooter: View {
                 Text("·").accessibilityHidden(true)
                 Button("Confidentialité") { opened = .privacyPolicy }
                 Text("·").accessibilityHidden(true)
-                Button("Restaurer les achats") { Task { await variant.store.restorePurchases() } }
-                    .disabled(variant.store.isBusy)
+                Button("Restaurer les achats") { Task { await content.store.restorePurchases() } }
+                    .disabled(content.store.isBusy)
             }
             .font(.caption2.weight(.semibold))
             .foregroundStyle(.secondary)

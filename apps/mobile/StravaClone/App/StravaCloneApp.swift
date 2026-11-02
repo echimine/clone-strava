@@ -132,7 +132,7 @@ struct RootView: View {
                 ) { entry, back in
                     switch entry {
                     case .createAccount:
-                        OnboardingView(store: makeOnboardingStore(nil), authStore: authStore)
+                        OnboardingView(store: makeOnboardingStore(nil), accountScreen: createAccountScreen)
                     case .signIn:
                         AccountView(mode: .signIn, authStore: authStore, onBack: back)
                     }
@@ -145,14 +145,17 @@ struct RootView: View {
                     }
             case .onboarding:
                 // ADR-035 §1: "Se connecter" has just created the account.
-                OnboardingView(store: makeOnboardingStore { [authStore] in authStore.finishOnboarding() }, authStore: authStore)
+                OnboardingView(
+                    store: makeOnboardingStore { [authStore] in authStore.finishOnboarding() },
+                    accountScreen: createAccountScreen
+                )
             case .paywall(let user):
                 // ADR-035 §6: once, then the notification priming screen or home.
                 PaywallView(
                     store: makePaywallStore(authStore.isNewAccount) { [authStore] in
                         Task { await authStore.finishPaywall() }
                     },
-                    firstName: user.name.split(separator: " ").first.map(String.init) ?? ""
+                    firstName: user.firstName
                 )
             case .notificationPrimer:
                 // ADR-035 §7: only while iOS has not asked yet, then home.
@@ -317,6 +320,12 @@ struct RootView: View {
             guard realtimeUserId != nil else { return }
             await itinerarySynchronizer.applyRemoteChanges()
         }
+    }
+
+    /// The Onboarding's last screen (ADR-035 §1): the account screen in creation mode, which
+    /// names the account "Prénom Nom" if the code creates it.
+    private func createAccountScreen(name: String, back: @escaping () -> Void) -> AccountView {
+        AccountView(mode: .createAccount, authStore: authStore, name: name, onBack: back)
     }
 
     /// After Save (ADR-031 §11): the Home tab at the top of the feed, and the Activity leaves

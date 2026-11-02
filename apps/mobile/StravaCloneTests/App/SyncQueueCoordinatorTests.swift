@@ -39,9 +39,11 @@ extension ActivitySenderTests {
             return SyncQueueCoordinator(
                 activitySender: harness.makeSender(),
                 localActivities: harness.store,
-                sendItineraryChanges: { itineraryWakeUps.value += 1 },
-                sendOnboardingAnswers: { onboardingAnswersWakeUps.value += 1 },
-                clearOnboardingAnswers: { onboardingAnswersClears.value += 1 },
+                itineraryChanges: QueuedSender(send: { itineraryWakeUps.value += 1 }),
+                onboardingAnswers: QueuedSender(
+                    send: { onboardingAnswersWakeUps.value += 1 },
+                    clear: { onboardingAnswersClears.value += 1 }
+                ),
                 reloadFeed: {
                     feedReloads.value += 1
                     return succeed

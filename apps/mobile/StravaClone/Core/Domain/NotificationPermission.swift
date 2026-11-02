@@ -11,7 +11,8 @@ enum NotificationAuthorization: Equatable, Sendable {
 
 /// The notification permission, and nothing else (ADR-035 §7): authorization only (alert, sound,
 /// badge), no APNs registration and no token, no provisional authorization. Real push
-/// notifications come later (ADR-006, ADR-011).
+/// notifications come later (ADR-006, ADR-011). A port in `Core/Domain` (ADR-007 rule 5): the
+/// sign-in flow (Auth) reads it, the Notifications feature implements it.
 protocol NotificationPermission: Sendable {
     func status() async -> NotificationAuthorization
     /// Shows iOS's one-time prompt; returns whether the person allowed notifications.

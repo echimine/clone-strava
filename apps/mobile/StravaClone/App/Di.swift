@@ -176,11 +176,15 @@ final class Di {
     private(set) lazy var syncCoordinator: SyncQueueCoordinator = SyncQueueCoordinator(
         activitySender: activitySender,
         localActivities: localActivities,
-        sendItineraryChanges: { [itinerarySynchronizer] in await itinerarySynchronizer.sendPendingChanges() },
-        stopItineraryChanges: { [itinerarySynchronizer] in itinerarySynchronizer.stopSendingChanges() },
-        sendOnboardingAnswers: { [onboardingAnswersSender] in await onboardingAnswersSender.send(ignoringBackoff: true) },
-        stopOnboardingAnswers: { [onboardingAnswersSender] in onboardingAnswersSender.cancelPass() },
-        clearOnboardingAnswers: { [onboardingAnswersSender] in await onboardingAnswersSender.clear() },
+        itineraryChanges: QueuedSender(
+            send: { [itinerarySynchronizer] in await itinerarySynchronizer.sendPendingChanges() },
+            stop: { [itinerarySynchronizer] in itinerarySynchronizer.stopSendingChanges() }
+        ),
+        onboardingAnswers: QueuedSender(
+            send: { [onboardingAnswersSender] in await onboardingAnswersSender.send(ignoringBackoff: true) },
+            stop: { [onboardingAnswersSender] in onboardingAnswersSender.cancelPass() },
+            clear: { [onboardingAnswersSender] in await onboardingAnswersSender.clear() }
+        ),
         reloadFeed: { [weak self] in await self?.feedStore.refresh() ?? false }
     )
 

@@ -2,19 +2,24 @@ import SwiftUI
 
 /// The Onboarding (ADR-035 §1), opened by "Créer un compte" on the Welcome: the six questions,
 /// "Voici ce qui vous attend", the personalised loading, then the account screen in creation
-/// mode with "Prénom Nom". It opens on the screen saved in the draft (§5).
-struct OnboardingView: View {
+/// mode with "Prénom Nom". It opens on the screen saved in the draft (§5). The account screen
+/// belongs to the Auth feature: the App layer builds it (ADR-007 rule 5), from the account's
+/// name and the back action to the last screen.
+struct OnboardingView<AccountScreen: View>: View {
     @State private var store: OnboardingStore
-    let authStore: AuthStore
+    private let accountScreen: (_ name: String, _ back: @escaping () -> Void) -> AccountScreen
 
     /// The draft is read before anything shows, so a resumed Onboarding does not flash its first screen.
     @State private var isLoaded = false
     /// Which way the screens slide: forward to the left, back to the right.
     @State private var isForward = true
 
-    init(store: OnboardingStore, authStore: AuthStore) {
+    init(
+        store: OnboardingStore,
+        @ViewBuilder accountScreen: @escaping (_ name: String, _ back: @escaping () -> Void) -> AccountScreen
+    ) {
         _store = State(initialValue: store)
-        self.authStore = authStore
+        self.accountScreen = accountScreen
     }
 
     var body: some View {
@@ -44,7 +49,7 @@ struct OnboardingView: View {
         case .personalizing:
             OnboardingPersonalizing(answers: store.answers, firstName: store.firstName, createAccount: next)
         case .account:
-            AccountView(mode: .createAccount, authStore: authStore, name: store.accountName, onBack: back)
+            accountScreen(store.accountName, back)
         }
     }
 
@@ -86,8 +91,9 @@ extension AnyTransition {
 #if DEBUG
 #Preview {
     OnboardingView(
-        store: OnboardingStore(drafts: GRDBOnboardingDraftRepository(database: try! AppDatabase.inMemory())),
-        authStore: .preview
-    )
+        store: OnboardingStore(drafts: GRDBOnboardingDraftRepository(database: try! AppDatabase.inMemory()))
+    ) { name, _ in
+        Text("Compte de \(name)")
+    }
 }
 #endif
