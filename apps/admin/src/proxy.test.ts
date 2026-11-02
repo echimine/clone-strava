@@ -13,7 +13,7 @@ describe("proxy matcher", () => {
     expect(unstable_doesMiddlewareMatch({ config, url })).toBe(false);
   });
 
-  it.each(["/", "/activities", "/users/u1"])("still guards the backoffice page %s", (url) => {
+  it.each(["/", "/activities", "/users/u1", "/two-factor/setup"])("still guards the backoffice page %s", (url) => {
     expect(unstable_doesMiddlewareMatch({ config, url })).toBe(true);
   });
 });
