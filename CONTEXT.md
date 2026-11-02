@@ -47,3 +47,37 @@ _Avoid_: Segment, section, step
 **Return path**:
 The path the app works out from the athlete's position to get back onto an Itinerary they left during a Recording. Never part of the Activity. Shown as "Chemin recalculé" in the app.
 _Avoid_: Reroute, detour, route
+
+### Getting started
+
+**Onboarding**:
+The questionnaire a person without an account fills in on the phone before creating their account. Signing in from the Welcome skips it, unless that sign-in has just created the account. An existing account is never asked to go through it.
+_Avoid_: Questionnaire, signup flow, setup wizard
+
+**Sign-in code**:
+The 6-digit code emailed to a person so they can sign in without a password. The same code creates the account when none exists for that address. Valid for a few minutes, and only for a few attempts. Shown as "Code" in the app.
+_Avoid_: OTP, magic code, verification code, password
+
+**Onboarding answers**:
+What a person entered during the Onboarding. They stay on the phone until the account is created, then are sent to the server and removed from the phone once received. Once received, they simply become part of the athlete's profile, filling only what the profile does not already hold: they never overwrite it. Nothing keeps them apart as "answers". Shown as "Réponses d'onboarding" in discussions.
+_Avoid_: Temporary profile, draft profile
+
+**Level**:
+How experienced the athlete says they are in their practice, from beginner to professional. Declared by the athlete, never computed from their Activities. Shown as "Niveau" in the app.
+_Avoid_: Rank, fitness level, skill score
+
+**Goal**:
+Something the athlete expects from Nervo, chosen from a fixed list (for example "discover new routes"). An athlete may have none. Shown as "Objectif" in the app.
+_Avoid_: Target, objective, motivation
+
+**Practiced sports**:
+The sports an athlete says they practice, in the order they picked them. Chosen among the sports the app offers; distinct from that catalogue itself and from the sport of any single Activity. Shown as "Sports pratiqués" in discussions.
+_Avoid_: Favorite sports, preferred sports, interests
+
+**Paywall**:
+The screen offering Premium, shown once at the end of the Onboarding, right after the person signs in (whether the account is new or already existed). It can be skipped.
+_Avoid_: Upsell, subscription screen
+
+**Measurement consent**:
+A person's choice to let Nervo measure how the app is used. Asked on first launch, over the Welcome, before any choice to create an account or sign in; it can be changed later in the settings. Until it is given, nothing about how the app is used leaves the phone, and refusing changes nothing else in the app. Shown as "Mesure d'audience" in the app.
+_Avoid_: Tracking consent, cookies, analytics opt-in

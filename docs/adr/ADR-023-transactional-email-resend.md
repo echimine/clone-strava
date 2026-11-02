@@ -12,6 +12,8 @@ ADR-022 fixed three points in the authentication flow that each need to send an 
 - `emailAndPassword.sendResetPassword` — password reset;
 - `twoFactor.otpOptions.sendOTP` — the admin-only, credential-only OTP second factor.
 
+*Amended by [ADR-035](ADR-035-onboarding-sign-in-code-paywall.md) §2*: a fourth handler, `emailOTP.sendVerificationOTP({ email, otp, type })`, sends the Sign-in code the app signs in and signs up with (template `renderSignInCodeEmail`, idempotency key `sign-in-code/<email>-<otp>` since it receives no `user`). With password sign-up closed, `sendVerificationEmail` only serves the API's test instance.
+
 All three are handlers Better Auth calls with `(user, url/otp, request)` and leaves entirely to the app to implement — Better Auth does not send email itself. This ADR picks the sender behind those three handlers and the minimum deliverability setup so they actually land in the inbox instead of being silently dropped or spam-filtered, which is a real risk in particular for the OTP admin flow (ADR-022 already flagged "admin 2FA depends on outbound email deliverability" as a risk).
 
 This ADR is scoped to transactional email triggered by the backend (`packages/core`, `auth` module). It does not cover marketing email, newsletters, or user-facing product notifications unrelated to auth — those would reuse the same Resend account but are a separate concern (Resend Broadcasts/Contacts, not in scope here).
@@ -171,5 +173,5 @@ This keeps domain verification, webhook wiring and template iteration reproducib
 
 - **Depends on**: [ADR-022](ADR-022-authentication-better-auth.md)
 - **Amends**: [ADR-022](ADR-022-authentication-better-auth.md) (resolves the deferred email-sender choice; mitigates its "admin 2FA depends on outbound email deliverability" risk)
-- **Amended by**: [ADR-032](ADR-032-brand-and-motion-design.md) (§1 sender name, preview and heading become Nervo; §2 email header with the hosted wordmark PNG)
+- **Amended by**: [ADR-032](ADR-032-brand-and-motion-design.md) (§1 sender name, preview and heading become Nervo; §2 email header with the hosted wordmark PNG), [ADR-035](ADR-035-onboarding-sign-in-code-paywall.md) (Sign-in code email)
 - **Related**: [ADR-009](ADR-009-backend-api.md), [ADR-011](ADR-011-backend-worker.md), [ADR-014](ADR-014-revenuecat.md), [ADR-018](ADR-018-docker-vps-deployment.md), [ADR-020](ADR-020-mcp-servers.md) (MCP/skills usage rule), [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md)

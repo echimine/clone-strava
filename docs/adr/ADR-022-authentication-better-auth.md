@@ -44,6 +44,8 @@ export const auth = betterAuth({
 ```
 
 - **Apple is mandatory, not optional, but blocked on an external prerequisite**: an iOS app that offers any third-party sign-in (Google) must also offer Sign in with Apple (App Store Review Guideline 4.8). Setting it up (Services ID, private key, Team ID) requires a **paid Apple Developer Program membership** ($99/year), which does not exist yet as of this ADR's date. **Consequence: Google + email/password sign-in ship first, for development and internal testing only — the app must not be submitted to App Store review until Apple is added**, or Apple will reject it outright for offering Google without Apple. This is tracked as a blocking prerequisite, not a silently-deferred nice-to-have; do not remove this note until Apple is actually wired in.
+*Amended by [ADR-035](ADR-035-onboarding-sign-in-code-paywall.md) §2*: the iOS app has **no password**: it signs in and signs up with Google or an email + 6-digit Sign-in code (`emailOTP` plugin, which creates the account at the first valid code). Password sign-up is closed (`emailAndPassword.disableSignUp: true`, except in the API's test instance); password sign-in stays for the backoffice and admin 2FA.
+
 - Email/password uses Better Auth's built-in account-enumeration protections (generic error messages, dummy operations on invalid requests) — no custom work needed there.
 - Email verification (`emailVerification.sendOnSignUp`) and password reset (`emailAndPassword.sendResetPassword`) need a transactional email sender; the sender itself (provider, templates) is not decided here and can be a follow-up ADR or an implementation detail — this ADR only requires that both handlers are defined before going to production, since Better Auth no-ops silently otherwise. *Amended by [ADR-023](ADR-023-transactional-email-resend.md)*: Resend, on a dedicated `mail.strava.echimine.fr` subdomain, with React Email templates.
 
@@ -122,11 +124,15 @@ rateLimit: {
 },
 ```
 
+*Amended by [ADR-035](ADR-035-onboarding-sign-in-code-paywall.md) §2*: the `emailOTP` plugin's own per-IP rules (3 requests / 60 s) apply to `/email-otp/send-verification-otp` and `/sign-in/email-otp`; nothing limits sends per email address.
+
 `storage: "secondary-storage"` reuses the Redis instance already required by ADR-003/ADR-010/ADR-011, instead of adding a new stateful dependency.
 
 ### 5. Second factor, admins only, credential sign-in only — email OTP or authenticator app, admin's choice
 
 Rather than skipping 2FA entirely at launch, or forcing it on every user, **admin accounts must verify a second factor, and only when they sign in with email/password.** This is a property of Better Auth's `twoFactor` plugin itself, not a workaround: *"2FA can only be enabled for credential (email/password) accounts"* — a Google or Apple sign-in never goes through the credential flow, so it is never asked for the second factor. That lines up with the actual goal: OAuth sign-in already carries whatever authentication strength Google/Apple enforced on their side, so the second factor is only useful — and only offered — where our own password is the sole line of defense.
+
+*Amended by [ADR-035](ADR-035-onboarding-sign-in-code-paywall.md) §3*: Google (and the email Sign-in code) no longer carry admin rights. Only a session opened by **password + second factor** does: a session field `authMethod` (`password_2fa` | `password` | `email_otp` | `google`) is set from the sign-in path, and the admin guard refuses any other session with `ADMIN_STRONG_SESSION_REQUIRED`. An admin can still use the iOS app with a code or Google.
 
 **Both of the `twoFactor` plugin's built-in methods are enabled, and each admin picks one at setup time** — this is not two parallel features to build, `twoFactor` supports both from the same config:
 - **Email OTP** (`otpOptions.sendOTP`): no app to install, one code per sign-in, mailed the same way the password-reset email already is.
@@ -135,7 +141,7 @@ Rather than skipping 2FA entirely at launch, or forcing it on every user, **admi
 Choosing TOTP removes the "admin 2FA depends on outbound email deliverability" failure mode entirely for that admin: sign-in no longer needs a mail to go out at all. An admin who prefers email OTP over installing an authenticator app can still do so — the trade-off (§ Consequences) is theirs to make, not imposed by this ADR. Backup codes (`backupCodeOptions`, generated for either method) remain the recovery path if a phone or inbox is unavailable.
 
 Mechanics:
-- Better Auth does not have a "require 2FA for this role" primitive; enforcement is application-level: a `databaseHooks.user.update.after` hook detects a promotion to `role: "admin"` (via the `admin` plugin, §3) and marks the account as requiring 2FA setup (either method), and the NestJS admin guard refuses backoffice access until `twoFactorEnabled` is `true` for that user — mirroring how the role check itself already works (§3).
+- Better Auth does not have a "require 2FA for this role" primitive; enforcement is application-level: a `databaseHooks.user.update.after` hook detects a promotion to `role: "admin"` (via the `admin` plugin, §3) and marks the account as requiring 2FA setup (either method), and the NestJS admin guard refuses backoffice access until `twoFactorEnabled` is `true` for that user — mirroring how the role check itself already works (§3). *Amended by [ADR-035](ADR-035-onboarding-sign-in-code-paywall.md) §3*: the guard also requires the session's `authMethod` to be `password_2fa`.
 - Regular (non-admin) users are never prompted; this keeps the mobile sign-up flow unchanged.
 - `otpOptions.storeOTP: "hashed"` (the code is single-use and short-lived, no need to keep it recoverable) and the default `allowedAttempts`/rate limiting (§4) apply to the email path; TOTP secrets are encrypted with the auth secret by default.
 
@@ -189,4 +195,4 @@ Mechanics:
 
 - **Depends on**: [ADR-003](ADR-003-backend.md), [ADR-009](ADR-009-backend-api.md), [ADR-013](ADR-013-backoffice-architecture.md), [ADR-017](ADR-017-data-model.md)
 - **Amends**: [ADR-003](ADR-003-backend.md) (resolves the "tokens managed on the Swift side" open point), [ADR-013](ADR-013-backoffice-architecture.md) (cookie scope)
-- **Amended by**: [ADR-023](ADR-023-transactional-email-resend.md) (transactional email sender for verification, password reset, admin OTP), [ADR-032](ADR-032-brand-and-motion-design.md) (§1 the TOTP issuer becomes Nervo)
+- **Amended by**: [ADR-023](ADR-023-transactional-email-resend.md) (transactional email sender for verification, password reset, admin OTP), [ADR-032](ADR-032-brand-and-motion-design.md) (§1 the TOTP issuer becomes Nervo), [ADR-035](ADR-035-onboarding-sign-in-code-paywall.md) (§1 sign-in by email code, no password in the app, password sign-up closed; §4 OTP rate limits; §5 admin rights need a password + 2FA session, Google loses its exception)
