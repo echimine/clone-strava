@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { emailWordmarkUrl } from "./email-layout.js";
-import { renderAdminOtpEmail, renderResetPasswordEmail, renderVerifyEmail } from "./index.js";
+import { renderAdminOtpEmail, renderResetPasswordEmail, renderSignInCodeEmail, renderVerifyEmail } from "./index.js";
 
 const logoUrl = "https://admin.example.com/brand/nervo-wordmark-email.png";
 
@@ -19,6 +19,7 @@ describe("auth emails", () => {
     ["verify", () => renderVerifyEmail({ url: "https://example.com/verify", logoUrl })],
     ["reset password", () => renderResetPasswordEmail({ url: "https://example.com/reset", logoUrl })],
     ["admin OTP", () => renderAdminOtpEmail({ otp: "123456", email: "jdoe@example.com", logoUrl })],
+    ["sign-in code", () => renderSignInCodeEmail({ otp: "482913", logoUrl })],
   ] as const;
 
   it.each(cases)("%s email is branded Nervo", async (_name, render) => {
@@ -43,5 +44,14 @@ describe("auth emails", () => {
 
     expect(html).toMatch(/<a[^>]*background-color:#FC5200/);
     expect(html).not.toContain("#fc4c02");
+  });
+
+  // ADR-035 §2: the app's users read it, in French, with the code's validity.
+  it("sign-in code email shows the code and its 5-minute validity, in French", async () => {
+    const html = await renderSignInCodeEmail({ otp: "482913", logoUrl });
+
+    expect(html).toContain('lang="fr"');
+    expect(html).toMatch(/>482913</);
+    expect(html).toContain("5 minutes");
   });
 });
