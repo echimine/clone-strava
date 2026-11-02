@@ -2,7 +2,7 @@ import Foundation
 import Observation
 
 /// The account screen and its Sign-in code screen (ADR-035 §1, §2): Google, or an email that
-/// receives a 6-digit code. Made by `AuthStore.makeSignInStore(name:)`, which it signs in.
+/// receives a 6-digit code. Made by `AuthStore.makeSignInStore(entry:)`, which it signs in.
 @Observable
 @MainActor
 final class SignInStore {

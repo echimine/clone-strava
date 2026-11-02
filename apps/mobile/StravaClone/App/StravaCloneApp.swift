@@ -57,7 +57,8 @@ struct RootView: View {
     /// The Measurement consent (ADR-035 §8): the Welcome's sheet, the Profile tab's switch.
     @State var consentStore: MeasurementConsentStore
     /// "Créer un compte" on the Welcome: the Onboarding, resumed from its draft (ADR-035 §1, §5).
-    let makeOnboardingStore: @MainActor () -> OnboardingStore
+    /// With an action, the Onboarding that "Se connecter" opened on a new account, ended by it.
+    let makeOnboardingStore: @MainActor ((@MainActor () -> Void)?) -> OnboardingStore
     @State var recordingStore: RecordingStore
     @State var importStore: ImportStore
     @State var feedStore: FeedStore
@@ -120,7 +121,7 @@ struct RootView: View {
                 WelcomeView(consent: consentStore, isRevealed: !isSplashPresented) { entry, back in
                     switch entry {
                     case .createAccount:
-                        OnboardingView(store: makeOnboardingStore(), authStore: authStore)
+                        OnboardingView(store: makeOnboardingStore(nil), authStore: authStore)
                     case .signIn:
                         AccountView(mode: .signIn, authStore: authStore, onBack: back)
                     }
@@ -131,6 +132,9 @@ struct RootView: View {
                         // ADR-030 §8: the Itinerary cache does not outlive the session.
                         Task { await itinerarySynchronizer.signOut() }
                     }
+            case .onboarding:
+                // ADR-035 §1: "Se connecter" has just created the account.
+                OnboardingView(store: makeOnboardingStore { [authStore] in authStore.finishOnboarding() }, authStore: authStore)
             case .signedIn:
                 TabView(selection: $selectedTab) {
                     FeedView(

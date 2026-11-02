@@ -55,6 +55,8 @@ final class Di {
     /// Saved Activities until processed (ADR-031 §14, §15) and their sender.
     let localActivities: GRDBLocalActivityStore
     let activitySender: ActivitySender
+    /// The Onboarding answers, sent once a session exists (ADR-035 §5).
+    let onboardingAnswersSender: OnboardingAnswersSender
     /// `defaultVisibility` of `GET /v1/me`, for the finish screen (ADR-031 §11, §13).
     let defaultVisibility: DefaultVisibilityCache
     /// What the Activity detail changes, applied by the feed (ADR-033 §7).
@@ -147,6 +149,12 @@ final class Di {
             store: localActivities,
             sessionRefresher: APISessionRefresher(apiClient: apiClient, authSession: authSession)
         )
+        onboardingAnswersSender = OnboardingAnswersSender(
+            server: APIOnboardingAnswersServer(apiClient: apiClient),
+            drafts: GRDBOnboardingDraftRepository(database: database),
+            queue: GRDBOnboardingSubmissionQueue(database: database),
+            sessionRefresher: APISessionRefresher(apiClient: apiClient, authSession: authSession)
+        )
         defaultVisibility = DefaultVisibilityCache(apiClient: apiClient)
     }
 
@@ -166,6 +174,9 @@ final class Di {
         localActivities: localActivities,
         sendItineraryChanges: { [itinerarySynchronizer] in await itinerarySynchronizer.sendPendingChanges() },
         stopItineraryChanges: { [itinerarySynchronizer] in itinerarySynchronizer.stopSendingChanges() },
+        sendOnboardingAnswers: { [onboardingAnswersSender] in await onboardingAnswersSender.send(ignoringBackoff: true) },
+        stopOnboardingAnswers: { [onboardingAnswersSender] in onboardingAnswersSender.cancelPass() },
+        clearOnboardingAnswers: { [onboardingAnswersSender] in await onboardingAnswersSender.clear() },
         reloadFeed: { [weak self] in await self?.feedStore.refresh() ?? false }
     )
 
@@ -221,7 +232,12 @@ final class Di {
     }
 
     func makeAuthStore() -> AuthStore {
-        AuthStore(service: authService, analytics: analytics)
+        let onboardingAnswersSender = onboardingAnswersSender
+        return AuthStore(
+            service: authService,
+            analytics: analytics,
+            submitOnboardingAnswers: { await onboardingAnswersSender.submit() }
+        )
     }
 
     /// One for the app: the Welcome's sheet and the Profile tab's switch (ADR-035 §8).
@@ -234,9 +250,10 @@ final class Di {
         )
     }
 
-    /// A new one for each "Créer un compte": it resumes the draft (ADR-035 §5).
-    func makeOnboardingStore() -> OnboardingStore {
-        OnboardingStore(drafts: GRDBOnboardingDraftRepository(database: database))
+    /// A new one for each "Créer un compte": it resumes the draft (ADR-035 §5). With
+    /// `finishWithSession`, the Onboarding that "Se connecter" opened on a new account (§1).
+    func makeOnboardingStore(finishWithSession: (@MainActor () -> Void)? = nil) -> OnboardingStore {
+        OnboardingStore(drafts: GRDBOnboardingDraftRepository(database: database), finishWithSession: finishWithSession)
     }
 
     func makeFeedStore() -> FeedStore {

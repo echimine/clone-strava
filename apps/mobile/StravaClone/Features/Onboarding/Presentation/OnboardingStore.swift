@@ -4,6 +4,10 @@ import Observation
 /// The Onboarding (ADR-035 §1): one question per screen, then "Voici ce qui vous attend", the
 /// personalised loading and the account screen. The draft is written at each step (§5), and a
 /// new store resumes from it.
+///
+/// Opened by "Se connecter" on an account it has just created (`finishWithSession`), the
+/// Onboarding starts at its first question, saved answers kept, and "Créer mon compte" ends it
+/// without the account screen: the session exists already.
 @Observable
 @MainActor
 final class OnboardingStore {
@@ -12,17 +16,25 @@ final class OnboardingStore {
 
     @ObservationIgnored private let drafts: any OnboardingDraftRepository
     @ObservationIgnored private let today: () -> CalendarDay
+    @ObservationIgnored private let finishWithSession: (@MainActor () -> Void)?
 
-    init(drafts: any OnboardingDraftRepository, today: @escaping () -> CalendarDay = { CalendarDay(.now) }) {
+    init(
+        drafts: any OnboardingDraftRepository,
+        today: @escaping () -> CalendarDay = { CalendarDay(.now) },
+        finishWithSession: (@MainActor () -> Void)? = nil
+    ) {
         self.drafts = drafts
         self.today = today
+        self.finishWithSession = finishWithSession
     }
 
     /// Resumes the saved draft, if any.
     func load() async {
         guard let draft = try? await drafts.load() else { return }
         answers = draft.answers
-        step = draft.step
+        if finishWithSession == nil {
+            step = draft.step
+        }
     }
 
     /// Whether the current screen lets the person go on.
@@ -78,6 +90,11 @@ final class OnboardingStore {
 
     /// The next screen, once the current one is valid.
     func next() async {
+        if step == .personalizing, let finishWithSession {
+            await saveDraft()
+            finishWithSession()
+            return
+        }
         guard canContinue,
               let index = OnboardingStep.allCases.firstIndex(of: step),
               index + 1 < OnboardingStep.allCases.count

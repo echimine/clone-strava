@@ -21,7 +21,7 @@ struct SignInStoreTests {
         let service = AuthService(repository: repository, googleAuthProvider: google)
         let authStore = AuthStore(service: service, sleep: sleeper.sleep)
         return Harness(
-            store: authStore.makeSignInStore(name: name),
+            store: authStore.makeSignInStore(entry: name.map { .onboarding(name: $0) } ?? .signIn),
             authStore: authStore,
             repository: repository,
             google: google,
