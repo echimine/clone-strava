@@ -13,6 +13,14 @@ struct CalendarDay: Hashable, Sendable {
         self.init(year: components.year ?? 1970, month: components.month ?? 1, day: components.day ?? 1)
     }
 
+    /// The day `date` falls on in UTC: the day the server checks the minimum age on (ADR-035
+    /// §5), so the app never lets through an age the server refuses.
+    static func utc(_ date: Date) -> CalendarDay {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC") ?? .gmt
+        return CalendarDay(date, calendar: calendar)
+    }
+
     init(year: Int, month: Int, day: Int) {
         self.year = year
         self.month = month

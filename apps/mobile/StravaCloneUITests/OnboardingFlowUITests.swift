@@ -40,7 +40,6 @@ final class OnboardingFlowUITests: XCTestCase {
     private func answerFirstThreeQuestions(in app: XCUIApplication) {
         let firstName = app.textFields["onboarding.firstName"]
         XCTAssertTrue(firstName.waitForExistence(timeout: 5))
-        XCTAssertFalse(app.buttons["onboarding.back"].exists)
         firstName.tap()
         firstName.typeText("Camille")
         XCTAssertFalse(continueButton(app).isEnabled)
@@ -90,6 +89,22 @@ final class OnboardingFlowUITests: XCTestCase {
 
         XCTAssertTrue(app.textFields["account.email"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["Créer un compte"].exists)
+    }
+
+    /// Decision on #128: the first screen's back button leads to the Welcome, the draft kept.
+    func testTheFirstScreenGoesBackToTheWelcomeKeepingTheNames() {
+        let app = launch(fresh: true)
+        createAccount(in: app)
+        let firstName = app.textFields["onboarding.firstName"]
+        XCTAssertTrue(firstName.waitForExistence(timeout: 5))
+        firstName.tap()
+        firstName.typeText("Camille")
+
+        app.buttons["onboarding.back"].tap()
+        createAccount(in: app)
+
+        XCTAssertTrue(firstName.waitForExistence(timeout: 5))
+        XCTAssertEqual(firstName.value as? String, "Camille")
     }
 
     func testAKilledOnboardingResumesWhereItStopped() {

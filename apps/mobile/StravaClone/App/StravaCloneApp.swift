@@ -132,7 +132,7 @@ struct RootView: View {
                 ) { entry, back in
                     switch entry {
                     case .createAccount:
-                        OnboardingView(store: makeOnboardingStore(nil), accountScreen: createAccountScreen)
+                        OnboardingView(store: makeOnboardingStore(nil), leave: back, accountScreen: createAccountScreen)
                     case .signIn:
                         AccountView(mode: .signIn, authStore: authStore, onBack: back)
                     }

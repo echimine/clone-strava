@@ -7,18 +7,19 @@ import Testing
 /// `onboarding_completed` on "Créer mon compte", never a name, a birth date or a gender.
 @MainActor
 struct OnboardingStoreAnalyticsTests {
-    private let today = CalendarDay(year: 2026, month: 11, day: 2)
+    /// 2 November 2026 at noon UTC.
+    private let now = Date(timeIntervalSince1970: 1_793_620_800)
 
     private func makeStore(
         database: AppDatabase,
         analytics: FakeAnalyticsClient,
         finishWithSession: (@MainActor () -> Void)? = nil
     ) -> OnboardingStore {
-        let today = today
+        let now = now
         return OnboardingStore(
             drafts: GRDBOnboardingDraftRepository(database: database),
             analytics: analytics,
-            today: { today },
+            now: { now },
             finishWithSession: finishWithSession
         )
     }
@@ -88,6 +89,54 @@ struct OnboardingStoreAnalyticsTests {
             .onboardingStepViewed(step: .sports, resumed: true),
             .onboardingStepViewed(step: .goals, resumed: false),
         ])
+    }
+
+    /// The account screen sends `auth_screen_viewed`, not `onboarding_step_viewed`: the first
+    /// Onboarding screen viewed after resuming there carries `resumed`.
+    @Test func anOnboardingResumedOnTheAccountScreenMarksTheFirstScreenViewed() async throws {
+        let database = try AppDatabase.inMemory()
+        let first = makeStore(database: database, analytics: FakeAnalyticsClient())
+        await first.load()
+        await walk(first, to: .account)
+        let analytics = FakeAnalyticsClient()
+        let resumed = makeStore(database: database, analytics: analytics)
+
+        await resumed.load()
+        await resumed.back()
+        await resumed.back()
+
+        #expect(analytics.events == [
+            .onboardingStepViewed(step: .personalizing, resumed: true),
+            .onboardingStepViewed(step: .showcase, resumed: false),
+        ])
+    }
+
+    @Test func comingBackFromTheAccountScreenDoesNotCompleteTheOnboardingAgain() async throws {
+        let analytics = FakeAnalyticsClient()
+        let store = makeStore(database: try AppDatabase.inMemory(), analytics: analytics)
+        await store.load()
+        await walk(store, to: .account)
+
+        await store.back()
+        await store.next()
+
+        #expect(store.step == .account)
+        #expect(analytics.events(named: "onboarding_completed").count == 1)
+    }
+
+    @Test func anOnboardingResumedOnTheAccountScreenIsNotCompletedAgain() async throws {
+        let database = try AppDatabase.inMemory()
+        let first = makeStore(database: database, analytics: FakeAnalyticsClient())
+        await first.load()
+        await walk(first, to: .account)
+        let analytics = FakeAnalyticsClient()
+        let resumed = makeStore(database: database, analytics: analytics)
+
+        await resumed.load()
+        await resumed.back()
+        await resumed.next()
+
+        #expect(analytics.events(named: "onboarding_completed").isEmpty)
     }
 
     @Test func createMyAccountCompletesTheOnboardingWithSortedCodes() async throws {

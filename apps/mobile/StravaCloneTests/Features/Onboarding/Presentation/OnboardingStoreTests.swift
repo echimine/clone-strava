@@ -6,20 +6,24 @@ import Testing
 /// over the GRDB draft of an in-memory database.
 @MainActor
 struct OnboardingStoreTests {
-    /// "Today" for every test: 2 November 2026.
-    private let today = CalendarDay(year: 2026, month: 11, day: 2)
+    /// "Now" for every test: 2 November 2026 at noon UTC.
+    private let now = Date(timeIntervalSince1970: 1_793_620_800)
 
-    private func makeStore(database: AppDatabase? = nil) throws -> OnboardingStore {
-        let today = today
+    private func makeStore(database: AppDatabase? = nil, now: Date? = nil) throws -> OnboardingStore {
+        let now = now ?? self.now
         return OnboardingStore(
             drafts: GRDBOnboardingDraftRepository(database: try database ?? AppDatabase.inMemory()),
-            today: { today }
+            now: { now }
         )
     }
 
     /// A store on the screen `step`, every earlier question answered.
-    private func makeStore(at step: OnboardingStep, database: AppDatabase? = nil) async throws -> OnboardingStore {
-        let store = try makeStore(database: database)
+    private func makeStore(
+        at step: OnboardingStep,
+        database: AppDatabase? = nil,
+        now: Date? = nil
+    ) async throws -> OnboardingStore {
+        let store = try makeStore(database: database, now: now)
         await store.load()
         while store.step != step {
             switch store.step {
@@ -66,6 +70,20 @@ struct OnboardingStoreTests {
         store.answers.birthDate = CalendarDay(year: 2011, month: 11, day: 2)
         #expect(store.canContinue)
         #expect(!store.isTooYoung)
+    }
+
+    /// The server checks the age on the UTC day (ADR-035 §5): at 00:30 in Paris on someone's
+    /// 15th birthday, it is still the day before in UTC, so they are not 15 yet.
+    @Test func theMinimumAgeIsCheckedOnTheUTCDay() async throws {
+        let halfPastMidnightInParis = Date(timeIntervalSince1970: 1_793_575_800) // 2026-11-01T23:30:00Z
+        let store = try await makeStore(at: .birthDate, now: halfPastMidnightInParis)
+
+        store.answers.birthDate = CalendarDay(year: 2011, month: 11, day: 2)
+        #expect(!store.canContinue)
+        #expect(store.isTooYoung)
+
+        store.answers.birthDate = CalendarDay(year: 2011, month: 11, day: 1)
+        #expect(store.canContinue)
     }
 
     @Test func theBirthDateWheelStartsThirtyYearsAgo() async throws {
@@ -185,6 +203,24 @@ struct OnboardingStoreTests {
         #expect(relaunched.answers.birthDate == CalendarDay(year: 1994, month: 5, day: 17))
     }
 
+    /// The first screen's back button leads to the Welcome (decision on #128): the names typed
+    /// there are kept, and the next "Créer un compte" resumes with them.
+    @Test func leavingFromTheFirstScreenKeepsTheDraft() async throws {
+        let database = try AppDatabase.inMemory()
+        let store = try makeStore(database: database)
+        await store.load()
+        store.answers.firstName = "Camille"
+        store.answers.lastName = "Martin"
+
+        await store.leave()
+
+        let resumed = try makeStore(database: database)
+        await resumed.load()
+        #expect(resumed.step == .name)
+        #expect(resumed.answers.firstName == "Camille")
+        #expect(resumed.answers.lastName == "Martin")
+    }
+
     @Test func createMyAccountOpensTheAccountScreenWithTheFullName() async throws {
         let store = try makeStore()
         await store.load()
@@ -220,11 +256,11 @@ struct OnboardingStoreTests {
     @Test func withASessionTheOnboardingStartsAtTheFirstQuestionWithTheSavedAnswers() async throws {
         let database = try AppDatabase.inMemory()
         _ = try await makeStore(at: .account, database: database)
-        let today = today
+        let now = now
 
         let store = OnboardingStore(
             drafts: GRDBOnboardingDraftRepository(database: database),
-            today: { today },
+            now: { now },
             finishWithSession: {}
         )
         await store.load()
@@ -235,11 +271,11 @@ struct OnboardingStoreTests {
 
     @Test func withASessionCreateMyAccountFinishesWithoutTheAccountScreen() async throws {
         let database = try AppDatabase.inMemory()
-        let today = today
+        let now = now
         let finished = Locked(0)
         let store = OnboardingStore(
             drafts: GRDBOnboardingDraftRepository(database: database),
-            today: { today },
+            now: { now },
             finishWithSession: { finished.value += 1 }
         )
         await store.load()

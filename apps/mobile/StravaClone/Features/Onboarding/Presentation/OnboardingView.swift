@@ -5,8 +5,12 @@ import SwiftUI
 /// mode with "Prénom Nom". It opens on the screen saved in the draft (§5). The account screen
 /// belongs to the Auth feature: the App layer builds it (ADR-007 rule 5), from the account's
 /// name and the back action to the last screen.
+///
+/// Opened from the Welcome, the first screen's back button leads back to it (`leave`), the draft
+/// kept (decision on #128). Opened by "Se connecter" on a new account, there is no way back.
 struct OnboardingView<AccountScreen: View>: View {
     @State private var store: OnboardingStore
+    private let leave: (() -> Void)?
     private let accountScreen: (_ name: String, _ back: @escaping () -> Void) -> AccountScreen
 
     /// The draft is read before anything shows, so a resumed Onboarding does not flash its first screen.
@@ -16,9 +20,11 @@ struct OnboardingView<AccountScreen: View>: View {
 
     init(
         store: OnboardingStore,
+        leave: (() -> Void)? = nil,
         @ViewBuilder accountScreen: @escaping (_ name: String, _ back: @escaping () -> Void) -> AccountScreen
     ) {
         _store = State(initialValue: store)
+        self.leave = leave
         self.accountScreen = accountScreen
     }
 
@@ -43,7 +49,13 @@ struct OnboardingView<AccountScreen: View>: View {
     @ViewBuilder private var screen: some View {
         switch store.step {
         case .name, .birthDate, .gender, .sports, .goals, .level:
-            OnboardingQuestionsView(store: store, isForward: isForward, next: next, back: back)
+            OnboardingQuestionsView(
+                store: store,
+                isForward: isForward,
+                canGoBack: store.canGoBack || leave != nil,
+                next: next,
+                back: back
+            )
         case .showcase:
             OnboardingShowcase(firstName: store.firstName, sport: store.answers.sports.first ?? .run, finish: next)
         case .personalizing:
@@ -60,7 +72,14 @@ struct OnboardingView<AccountScreen: View>: View {
 
     private func back() {
         isForward = false
-        Task { await store.back() }
+        guard !store.canGoBack, let leave else {
+            Task { await store.back() }
+            return
+        }
+        Task {
+            await store.leave()
+            leave()
+        }
     }
 
     /// What slides as a whole: the questions slide inside one screen, under a fixed header.

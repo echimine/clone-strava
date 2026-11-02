@@ -116,6 +116,25 @@ struct AuthFunnelAnalyticsTests {
         #expect(harness.analytics.events.last?.properties == ["reason": .string(reason.rawValue)])
     }
 
+    /// The server answers the 3rd wrong code with `INVALID_OTP` too, but that code is spent.
+    @Test func theThirdWrongCodeFailsWithTooManyAttempts() async {
+        let harness = makeHarness()
+        harness.repository.signInHandler = { _, _, _ throws(AuthError) in throw .invalidCode }
+        let signIn = await onTheCodeScreen(harness)
+
+        for attempt in 1...SignInStore.attemptsPerCode {
+            signIn.enterCode("123456")
+            _ = await eventually { harness.analytics.names.filter { $0 == "email_code_failed" }.count == attempt }
+        }
+
+        let failures = harness.analytics.events.filter { if case .emailCodeFailed = $0 { true } else { false } }
+        #expect(failures == [
+            .emailCodeFailed(reason: .incorrect),
+            .emailCodeFailed(reason: .incorrect),
+            .emailCodeFailed(reason: .tooManyAttempts),
+        ])
+    }
+
     @Test func aNewCodeIsRequestedAsAResend() async {
         let harness = makeHarness()
         harness.repository.signInHandler = { _, _, _ throws(AuthError) in throw .codeExpired }
