@@ -79,11 +79,11 @@ export async function bootstrapTestAuthApp(
     withAdminRoute?: boolean;
     /** Off to boot the production rule: password sign-up closed (ADR-035 §2). */
     allowPasswordSignUp?: boolean;
-    /** `"development"` turns on the dev Sign-in code helpers (ADR-035 §2). */
-    nodeEnv?: string;
+    /** Turns on the dev Sign-in code helpers (ADR-035 §2). */
+    devSignInCodes?: boolean;
   } = {},
 ): Promise<TestAuthApp> {
-  const { mockNotifications = true, withAdminRoute = false, allowPasswordSignUp = true, nodeEnv = "test" } = options;
+  const { mockNotifications = true, withAdminRoute = false, allowPasswordSignUp = true, devSignInCodes = false } = options;
 
   const moduleBuilder = Test.createTestingModule({
     imports: [
@@ -99,7 +99,7 @@ export async function bootstrapTestAuthApp(
         googleClientSecret: "test-google-client-secret",
         resendApiKey: "re_test_dummy_key_never_sent",
         allowPasswordSignUp,
-        nodeEnv,
+        devSignInCodes,
       }),
     ],
     controllers: withAdminRoute ? [TestAdminController, TestAppRouteController] : [],

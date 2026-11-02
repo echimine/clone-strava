@@ -27,9 +27,9 @@ export interface AuthModuleOptions {
    */
   allowPasswordSignUp?: boolean;
   /**
-   * The process's `NODE_ENV`. Only `"development"` turns on the dev
-   * Sign-in code helpers (ADR-035 §2): codes written to the logs, fixed
-   * code `000000` for `@stravaclone.test` addresses.
+   * Turns on the dev Sign-in code helpers (ADR-035 §2): codes written to
+   * the logs, fixed code `000000` for `@stravaclone.test` addresses. Only
+   * the API in `NODE_ENV=development` sets it; off by default.
    */
-  nodeEnv?: string;
+  devSignInCodes?: boolean;
 }

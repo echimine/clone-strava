@@ -313,7 +313,7 @@ describe("Sign-in code (ADR-035 §2)", () => {
     let devApp: TestAuthApp;
 
     beforeAll(async () => {
-      devApp = await bootstrapTestAuthApp({ nodeEnv: "development" });
+      devApp = await bootstrapTestAuthApp({ devSignInCodes: true });
     });
 
     afterAll(async () => {

@@ -20,6 +20,8 @@ const postHogEnvShape = {
 
 /** `apps/api` (ADR-009): the only entry point for mobile and backoffice clients. */
 export const apiEnvSchema = z.object({
+  // ADR-035 §2: only `development` (set by the `dev` script) turns on the dev Sign-in code helpers.
+  NODE_ENV: z.enum(["development", "test", "production"]).default("production"),
   DATABASE_URL: z.string().min(1),
   REDIS_URL: z.string().min(1),
   PORT: z.coerce.number().int().positive().default(3000),

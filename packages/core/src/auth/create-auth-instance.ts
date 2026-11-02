@@ -42,7 +42,7 @@ export function createAuthInstance(
   options: AuthModuleOptions,
 ) {
   const logoUrl = emailWordmarkUrl(options.adminOrigin);
-  const isDevelopment = options.nodeEnv === "development";
+  const isDevelopment = options.devSignInCodes === true;
   const logger = new Logger("Auth");
   const hasDevFixedCode = (email: string) =>
     isDevelopment && email.toLowerCase().endsWith(DEV_FIXED_CODE_DOMAIN);

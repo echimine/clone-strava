@@ -1,10 +1,8 @@
-import { generateKeyPairSync, randomUUID, sign } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 import { AnalyticsService } from "@repo/core/analytics";
 import { bootstrapTestAuthApp, ensureTestDatabaseMigrated, type TestAuthApp } from "./test-auth-app.js";
-
-const GOOGLE_CERTS_URL = "https://www.googleapis.com/oauth2/v3/certs";
-const GOOGLE_CLIENT_ID = "test-google-client-id";
+import { fakeGoogleIdTokens } from "./test-google-id-token.js";
 
 /**
  * `user_signed_up {method}` (ADR-035 §8): sent by the Better Auth hook when
@@ -17,19 +15,13 @@ const GOOGLE_CLIENT_ID = "test-google-client-id";
 describe("user_signed_up (ADR-035 §8)", () => {
   let testApp: TestAuthApp;
   let capture: MockInstance<AnalyticsService["capture"]>;
-  const { privateKey, publicKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
-  const kid = randomUUID();
+  let google: ReturnType<typeof fakeGoogleIdTokens>;
 
   beforeAll(async () => {
     await ensureTestDatabaseMigrated();
     testApp = await bootstrapTestAuthApp();
     capture = vi.spyOn(testApp.app.get(AnalyticsService), "capture");
-    const realFetch = globalThis.fetch;
-    const jwk = { ...publicKey.export({ format: "jwk" }), kid, alg: "RS256", use: "sig" };
-    vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
-      const url = input instanceof Request ? input.url : String(input);
-      return url === GOOGLE_CERTS_URL ? Promise.resolve(Response.json({ keys: [jwk] })) : realFetch(input, init);
-    });
+    google = fakeGoogleIdTokens();
   });
 
   afterAll(async () => {
@@ -71,29 +63,10 @@ describe("user_signed_up (ADR-035 §8)", () => {
     return ((await response.json()) as { user: { id: string } }).user;
   }
 
-  /** A Google ID token for `email`, signed with the key served as Google's. */
-  function googleIdToken(email: string, sub: string): string {
-    const encode = (part: object) => Buffer.from(JSON.stringify(part)).toString("base64url");
-    const now = Math.floor(Date.now() / 1000);
-    const header = encode({ alg: "RS256", kid, typ: "JWT" });
-    const payload = encode({
-      iss: "https://accounts.google.com",
-      aud: GOOGLE_CLIENT_ID,
-      sub,
-      email,
-      email_verified: true,
-      name: "Jeanne Martin",
-      iat: now,
-      exp: now + 600,
-    });
-    const signature = sign("sha256", Buffer.from(`${header}.${payload}`), privateKey).toString("base64url");
-    return `${header}.${payload}.${signature}`;
-  }
-
   async function signInWithGoogle(email: string, sub: string): Promise<{ id: string }> {
     const response = await post(
       "/sign-in/social",
-      { provider: "google", idToken: { token: googleIdToken(email, sub) } },
+      { provider: "google", idToken: { token: google.idToken(email, sub) } },
       randomIp(),
     );
     expect(response.status).toBe(200);
