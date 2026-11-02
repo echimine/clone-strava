@@ -13,6 +13,7 @@ struct StravaCloneApp: App {
             RootView(
                 authStore: di.makeAuthStore(),
                 consentStore: di.makeMeasurementConsentStore(),
+                makeOnboardingStore: di.makeOnboardingStore,
                 recordingStore: di.makeRecordingStore(),
                 importStore: di.makeImportStore(),
                 feedStore: di.makeFeedStore(),
@@ -55,6 +56,8 @@ struct RootView: View {
     @State var authStore: AuthStore
     /// The Measurement consent (ADR-035 §8): the Welcome's sheet, the Profile tab's switch.
     @State var consentStore: MeasurementConsentStore
+    /// "Créer un compte" on the Welcome: the Onboarding, resumed from its draft (ADR-035 §1, §5).
+    let makeOnboardingStore: @MainActor () -> OnboardingStore
     @State var recordingStore: RecordingStore
     @State var importStore: ImportStore
     @State var feedStore: FeedStore
@@ -115,8 +118,12 @@ struct RootView: View {
                 ProgressView()
             case .signedOut:
                 WelcomeView(consent: consentStore, isRevealed: !isSplashPresented) { entry, back in
-                    // Until the Onboarding exists (#128), "Créer un compte" opens the account screen.
-                    AccountView(mode: entry == .createAccount ? .createAccount : .signIn, authStore: authStore, onBack: back)
+                    switch entry {
+                    case .createAccount:
+                        OnboardingView(store: makeOnboardingStore(), authStore: authStore)
+                    case .signIn:
+                        AccountView(mode: .signIn, authStore: authStore, onBack: back)
+                    }
                 }
                     .onAppear {
                         feedStore.reset()

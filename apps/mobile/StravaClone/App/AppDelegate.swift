@@ -22,6 +22,11 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
             fatalError("Unable to open the local database: \(error)")
         }
         super.init()
+        // `-uiTestResetOnboarding`: no Onboarding draft to resume (ADR-035 §5).
+        if ProcessInfo.processInfo.arguments.contains("-uiTestResetOnboarding") {
+            let drafts = GRDBOnboardingDraftRepository(database: di.database)
+            Task { try? await drafts.delete() }
+        }
     }
 
     func application(
