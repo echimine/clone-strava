@@ -328,6 +328,8 @@ struct ProtoPaywallLegal: View {
 /// Stand-in for the step after the Paywall (not part of this ticket).
 struct ProtoNotificationsStub: View {
     let answers: ProtoAnswers
+    /// Back to the Paywall, offers reset to OK (otherwise « offres KO » skips it again).
+    let backToPaywall: () -> Void
     let restart: () -> Void
 
     var body: some View {
@@ -338,7 +340,8 @@ struct ProtoNotificationsStub: View {
             Text("Hors prototype. Sortie du Paywall :").font(.callout).foregroundStyle(.secondary)
             Text(answers.paywallEvents.last ?? "—").font(.callout.monospaced()).multilineTextAlignment(.center)
             Spacer()
-            ProtoPrimaryButton(title: "Recommencer l'Onboarding", isEnabled: true, action: restart)
+            ProtoPrimaryButton(title: "Revoir le Paywall", isEnabled: true, action: backToPaywall)
+            Button("Recommencer l'Onboarding", action: restart).font(.subheadline.weight(.semibold))
         }
         .padding(Theme.spacing)
     }

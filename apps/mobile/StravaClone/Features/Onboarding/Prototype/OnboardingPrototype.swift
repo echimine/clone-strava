@@ -177,7 +177,7 @@ struct OnboardingPrototypeView: View {
                     advance()
                 }
                 .id(paywallRunID)
-            case .notifications: ProtoNotificationsStub(answers: answers, restart: restart)
+            case .notifications: ProtoNotificationsStub(answers: answers, backToPaywall: backToPaywall, restart: restart)
             }
         }
         .transition(.opacity.combined(with: .scale(scale: 1.02)))
@@ -255,6 +255,12 @@ struct OnboardingPrototypeView: View {
         let all = ProtoOfferingMode.allCases
         offeringMode = all[(all.firstIndex(of: offeringMode)! + 1) % all.count]
         paywallRunID = UUID()
+    }
+
+    private func backToPaywall() {
+        offeringMode = .ok
+        paywallRunID = UUID()
+        withAnimation(.easeInOut(duration: 0.4)) { stage = .paywall }
     }
 
     private func restart() {
