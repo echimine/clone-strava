@@ -139,7 +139,11 @@ struct OnboardingPrototypeView: View {
 
     @AppStorage("prototype.onboarding.variant") private var variantKey = Variant.a.rawValue
     @State private var answers = ProtoAnswers()
-    @State private var finished = false
+    /// Questions, then « ce que vous pouvez faire », then the personalised loading screen.
+    enum Stage: String { case questions, showcase, personalizing, account }
+
+    /// `-protoStage showcase` (or `personalizing`) opens straight on that screen.
+    @State private var stage = Stage(rawValue: UserDefaults.standard.string(forKey: "protoStage") ?? "") ?? .questions
     @State private var showsState = false
     @State private var runID = UUID()
 
@@ -147,16 +151,19 @@ struct OnboardingPrototypeView: View {
 
     var body: some View {
         Group {
-            if finished {
-                ProtoRecap(answers: answers, restart: restart)
-            } else {
+            switch stage {
+            case .questions:
                 switch variant {
-                case .a: ProtoVariantA(answers: answers) { finished = true }
-                case .b: ProtoVariantB(answers: answers) { finished = true }
-                case .c: ProtoVariantC(answers: answers) { finished = true }
+                case .a: ProtoVariantA(answers: answers) { advance() }
+                case .b: ProtoVariantB(answers: answers) { advance() }
+                case .c: ProtoVariantC(answers: answers) { advance() }
                 }
+            case .showcase: ProtoShowcase(answers: answers) { advance() }
+            case .personalizing: ProtoPersonalizing(answers: answers) { advance() }
+            case .account: ProtoAccountStub(restart: restart)
             }
         }
+        .transition(.opacity.combined(with: .scale(scale: 1.02)))
         .id(runID)
         .safeAreaInset(edge: .bottom) { switcher }
         .sheet(isPresented: $showsState) {
@@ -172,9 +179,10 @@ struct OnboardingPrototypeView: View {
     private var switcher: some View {
         HStack(spacing: 14) {
             Button { cycle(-1) } label: { Image(systemName: "chevron.left") }
-            Text("\(variant.rawValue) · \(variant.name)").monospaced().frame(minWidth: 150)
+            Text("\(variant.rawValue) · \(variant.name)").monospaced().frame(minWidth: 130)
             Button { cycle(1) } label: { Image(systemName: "chevron.right") }
             Divider().frame(height: 16).overlay(.white.opacity(0.4))
+            Button(action: advance) { Image(systemName: "forward.end.fill") }
             Button { showsState = true } label: { Image(systemName: "list.bullet.rectangle") }
             Button(action: restart) { Image(systemName: "arrow.counterclockwise") }
         }
@@ -186,35 +194,28 @@ struct OnboardingPrototypeView: View {
         .padding(.bottom, 2)
     }
 
+    /// Next stage; also the ⏭ of the pill, to review the end screens without answering.
+    private func advance() {
+        let next: Stage = switch stage {
+        case .questions: .showcase
+        case .showcase: .personalizing
+        case .personalizing, .account: .account
+        }
+        withAnimation(.easeInOut(duration: 0.4)) { stage = next }
+    }
+
     private func cycle(_ step: Int) {
         let all = Variant.allCases
         let index = (all.firstIndex(of: variant)! + step + all.count) % all.count
         variantKey = all[index].rawValue
-        finished = false
+        stage = .questions
         runID = UUID()
     }
 
     private func restart() {
         answers = ProtoAnswers()
-        finished = false
+        stage = .questions
         runID = UUID()
-    }
-}
-
-private struct ProtoRecap: View {
-    let answers: ProtoAnswers
-    let restart: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Fin de l'Onboarding").font(.largeTitle.bold())
-            Text("Réponses gardées sur le téléphone. Écran suivant : création du compte (Google ou email + code).")
-                .foregroundStyle(.secondary)
-            List(answers.summary, id: \.0) { LabeledContent($0.0, value: $0.1) }
-                .listStyle(.insetGrouped)
-            ProtoPrimaryButton(title: "Recommencer", isEnabled: true, action: restart)
-        }
-        .padding(Theme.spacing)
     }
 }
 
