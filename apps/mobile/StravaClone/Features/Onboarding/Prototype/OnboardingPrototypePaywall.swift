@@ -4,7 +4,7 @@ import SwiftUI
 // PROTOTYPE — throwaway, never merged to main (wayfinder ticket « Design du Paywall non branché »,
 // #110). Question: what does the unwired Paywall look like, and where does the
 // `SubscriptionService` port sit so that plugging RevenueCat in later does not change the screen?
-// The variants are proven paywall patterns, meant to be A/B tested with RevenueCat Experiments
+// The variants reproduce known paywalls (Mobbin), meant to be A/B tested with RevenueCat Experiments
 // (ADR-016: the Paywall is only ever tested there): each group gets an offering whose metadata
 // `layout` picks the variant (ADR-014). Here the pill plays RevenueCat's part. Variants in
 // OnboardingPrototypePaywallVariants.swift. Launch straight on it:
@@ -173,9 +173,9 @@ enum ProtoPaywallVariant: String, CaseIterable, Sendable {
     case a = "A", b = "B", c = "C"
     var name: String {
         switch self {
-        case .a: "Frise de l'essai"
-        case .b: "Personnalisé"
-        case .c: "Gratuit vs Premium"
+        case .a: "Strava"
+        case .b: "AllTrails"
+        case .c: "Duolingo"
         }
     }
 }
