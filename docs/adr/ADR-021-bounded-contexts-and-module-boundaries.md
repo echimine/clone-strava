@@ -28,7 +28,7 @@ Two kinds of modules:
 | Module | Kind | Tables owned | Responsibility |
 |---|---|---|---|
 | `auth` | domain | `user`, `session`, `account`, `verification` | Better Auth configuration, sessions, `role` (admin guard) |
-| `users` | domain | `user_profile` | Profile, units, default visibility, privacy zone radius, health data |
+| `users` | domain | `user_profile`, `user_sport` (*amended by [ADR-035](ADR-035-onboarding-sign-in-code-paywall.md)*) | Profile, units, default visibility, privacy zone radius, health data, practiced sports |
 | `sports` | domain | `sport_type` | Reference data (populated by migration), per-sport rules |
 | `social` | domain | `follow` | Follow graph: follow, accept, unfollow, "does A follow B", followee lists |
 | `activities` | domain | `activity`, `activity_stats`, `activity_track`, `activity_attachment`, `activity_import` (*amended by ADR-028*) | Creation, upload, processing, visibility, feed, file import |
@@ -174,7 +174,7 @@ Each domain module owns a **PostgreSQL schema with the same name**, holding exac
 ```
 public         Better Auth tables of the auth module (user, session, account, verification)
                + PostGIS extension (geometry types, ST_* functions)
-users          user_profile
+users          user_profile, user_sport   (added by ADR-035)
 sports         sport_type
 social         follow
 activities     activity, activity_stats, activity_track, activity_attachment
@@ -271,5 +271,5 @@ This replaces the `eslint-plugin-boundaries` option mentioned in ADR-003. The ex
 
 - **Details**: [ADR-003](ADR-003-backend.md) (dedicated ADR for module boundary rules; replaces the `eslint-plugin-boundaries` option)
 - **Amends**: [ADR-017](ADR-017-data-model.md) (`kudos` and `comment` move to the new `engagement` module; one PostgreSQL schema per module), [ADR-010](ADR-010-backend-realtime.md) (realtime messages published by a single bridge listener, not by domain modules)
-- **Amended by**: [ADR-028](ADR-028-activity-import-from-file.md) (`activity_import` table, `imports` queue, `activities.import.*` events in the bridge table), [ADR-029](ADR-029-activity-feed-and-card.md) (feed assembly in `apps/api`, `geocoding` platform module), [ADR-030](ADR-030-itineraries-on-ios.md) (`itineraries` domain module, `elevation` platform module, `@repo/geo` package, `itinerary.*` events in the bridge table), [ADR-033](ADR-033-activity-detail-edit-delete.md) (`reprocess-activity` job, `activities.activity.updated` / `deleted` in the bridge table), [ADR-034](ADR-034-activity-engagement-and-live-detail.md) (`engagement` events in the bridge table)
+- **Amended by**: [ADR-028](ADR-028-activity-import-from-file.md) (`activity_import` table, `imports` queue, `activities.import.*` events in the bridge table), [ADR-029](ADR-029-activity-feed-and-card.md) (feed assembly in `apps/api`, `geocoding` platform module), [ADR-030](ADR-030-itineraries-on-ios.md) (`itineraries` domain module, `elevation` platform module, `@repo/geo` package, `itinerary.*` events in the bridge table), [ADR-033](ADR-033-activity-detail-edit-delete.md) (`reprocess-activity` job, `activities.activity.updated` / `deleted` in the bridge table), [ADR-034](ADR-034-activity-engagement-and-live-detail.md) (`engagement` events in the bridge table), [ADR-035](ADR-035-onboarding-sign-in-code-paywall.md) (`users.user_sport` table)
 - **Related**: [ADR-004](ADR-004-backoffice.md), [ADR-005](ADR-005-monorepo.md), [ADR-009](ADR-009-backend-api.md), [ADR-010](ADR-010-backend-realtime.md), [ADR-011](ADR-011-backend-worker.md), [ADR-015](ADR-015-posthog.md), [ADR-019](ADR-019-activity-creation-flow.md), [ADR-023](ADR-023-transactional-email-resend.md) (`notifications` platform module)
