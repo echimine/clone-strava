@@ -2,15 +2,16 @@ import Foundation
 import Observation
 
 /// Who is signed in, for the whole app (ADR-022): `RootView` shows the Welcome, the Onboarding,
-/// the Paywall or the TabView from `state`. Signing in itself happens on the account screen, in
+/// the Paywall, the notification priming screen or the TabView from `state`. Signing in itself happens on the account screen, in
 /// `SignInStore`. The analytics identity follows the session (ADR-035 §8): `identify` as soon as
 /// one exists, `reset()` at sign-out.
 ///
 /// After a sign-in (ADR-035 §1, §5, §6): at the end of the Onboarding, the Onboarding answers are
 /// sent, after `identify`, and the flow goes on to the Paywall without waiting for them. "Se
 /// connecter" on an account it has just created goes through the Onboarding (and so the Paywall)
-/// first; an existing account never does. A restored session always goes home: the Paywall is
-/// not resumed.
+/// first; an existing account never does. After the Paywall comes the notification priming
+/// screen, only while iOS has not asked yet (§7). A restored session always goes home: neither
+/// the Paywall nor the priming screen is resumed.
 @Observable
 @MainActor
 final class AuthStore {
@@ -22,10 +23,15 @@ final class AuthStore {
         case onboarding(AuthUser)
         /// Right after the sign-in that ends the Onboarding (ADR-035 §6): the Paywall, once.
         case paywall(AuthUser)
+        /// After that Paywall, while iOS has not asked for the notification permission yet
+        /// (ADR-035 §7): Nervo's priming screen, once.
+        case notificationPrimer(AuthUser)
         case signedIn(AuthUser)
     }
 
     private(set) var state = State.checkingSession
+    /// iOS's prompt is open: a second tap on "Activer les notifications" does nothing.
+    private(set) var isRequestingNotifications = false
 
     @ObservationIgnored private let service: AuthService
     @ObservationIgnored private let analytics: any AnalyticsClient
@@ -33,6 +39,8 @@ final class AuthStore {
     @ObservationIgnored private let sleep: @Sendable (Duration) async throws -> Void
     /// Sends the Onboarding answers of the draft (ADR-035 §5); never awaited by the flow.
     @ObservationIgnored private let submitOnboardingAnswers: @MainActor () async -> Void
+    /// Whether the priming screen follows the Paywall, and the system prompt it opens.
+    @ObservationIgnored private let notificationPermission: any NotificationPermission
     @ObservationIgnored private let now: @Sendable () -> Date
 
     init(
@@ -40,12 +48,14 @@ final class AuthStore {
         analytics: any AnalyticsClient = NoAnalyticsClient(),
         sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) },
         submitOnboardingAnswers: @escaping @MainActor () async -> Void = {},
+        notificationPermission: any NotificationPermission = SettledNotificationPermission(),
         now: @escaping @Sendable () -> Date = Date.init
     ) {
         self.service = service
         self.analytics = analytics
         self.sleep = sleep
         self.submitOnboardingAnswers = submitOnboardingAnswers
+        self.notificationPermission = notificationPermission
         self.now = now
     }
 
@@ -64,9 +74,29 @@ final class AuthStore {
         state = .paywall(user)
     }
 
-    /// The Paywall is left (trial tapped, skipped, or offers unavailable): the home screen.
-    func finishPaywall() {
+    /// The Paywall is left (trial tapped, skipped, or offers unavailable): the priming screen if
+    /// iOS has not asked for the notification permission yet, else silently the home screen.
+    func finishPaywall() async {
+        guard case .paywall = state else { return }
+        let status = await notificationPermission.status()
         guard case .paywall(let user) = state else { return }
+        state = status == .notDetermined ? .notificationPrimer(user) : .signedIn(user)
+    }
+
+    /// "Activer les notifications" on the priming screen: iOS's prompt, then home, whatever the
+    /// answer.
+    func enableNotifications() async {
+        guard case .notificationPrimer = state, !isRequestingNotifications else { return }
+        isRequestingNotifications = true
+        defer { isRequestingNotifications = false }
+        _ = await notificationPermission.requestAuthorization()
+        guard case .notificationPrimer(let user) = state else { return }
+        state = .signedIn(user)
+    }
+
+    /// "Plus tard": home, without spending iOS's one-time prompt. Nothing asks again.
+    func deferNotifications() {
+        guard case .notificationPrimer(let user) = state, !isRequestingNotifications else { return }
         state = .signedIn(user)
     }
 

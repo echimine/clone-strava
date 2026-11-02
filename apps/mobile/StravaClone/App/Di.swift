@@ -240,7 +240,8 @@ final class Di {
         return AuthStore(
             service: authService,
             analytics: analytics,
-            submitOnboardingAnswers: { await onboardingAnswersSender.submit() }
+            submitOnboardingAnswers: { await onboardingAnswersSender.submit() },
+            notificationPermission: UserNotificationsPermission()
         )
     }
 

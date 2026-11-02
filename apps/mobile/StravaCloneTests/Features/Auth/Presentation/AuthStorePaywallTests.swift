@@ -67,7 +67,7 @@ struct AuthStorePaywallTests {
         await signInWithACode(authStore, entry: .onboarding(name: "Ada Lovelace"), as: ada)
         #expect(await eventually { authStore.state == .paywall(ada) })
 
-        authStore.finishPaywall()
+        await authStore.finishPaywall()
 
         #expect(authStore.state == .signedIn(ada))
     }

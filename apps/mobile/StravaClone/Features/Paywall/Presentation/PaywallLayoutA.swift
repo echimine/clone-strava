@@ -69,6 +69,8 @@ struct PaywallLayoutA: View {
             .padding(.bottom, 6)
             .background(Color(.systemBackground).shadow(color: .black.opacity(0.06), radius: 3, y: -2))
         }
+        // A container, so its buttons keep their own identifiers.
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("paywall.layout.A")
     }
 
