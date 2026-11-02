@@ -12,6 +12,7 @@ struct StravaCloneApp: App {
         WindowGroup {
             RootView(
                 authStore: di.makeAuthStore(),
+                consentStore: di.makeMeasurementConsentStore(),
                 recordingStore: di.makeRecordingStore(),
                 importStore: di.makeImportStore(),
                 feedStore: di.makeFeedStore(),
@@ -48,10 +49,12 @@ struct StravaCloneApp: App {
     }
 }
 
-/// Gates the app behind the account screen (ADR-022, ADR-035): the TabView is only reachable once
-/// signed in. Session is checked once at launch (`AuthStore.restoreSession`).
+/// Gates the app behind the Welcome and its account screen (ADR-022, ADR-035): the TabView is only
+/// reachable once signed in. Session is checked once at launch (`AuthStore.restoreSession`).
 struct RootView: View {
     @State var authStore: AuthStore
+    /// The Measurement consent (ADR-035 §8): the Welcome's sheet, the Profile tab's switch.
+    @State var consentStore: MeasurementConsentStore
     @State var recordingStore: RecordingStore
     @State var importStore: ImportStore
     @State var feedStore: FeedStore
@@ -111,8 +114,10 @@ struct RootView: View {
             case .checkingSession:
                 ProgressView()
             case .signedOut:
-                // Until the Welcome exists (#127), the "Se connecter" entry of the account screen.
-                AccountView(mode: .signIn, authStore: authStore)
+                WelcomeView(consent: consentStore, isRevealed: !isSplashPresented) { entry, back in
+                    // Until the Onboarding exists (#128), "Créer un compte" opens the account screen.
+                    AccountView(mode: entry == .createAccount ? .createAccount : .signIn, authStore: authStore, onBack: back)
+                }
                     .onAppear {
                         feedStore.reset()
                         defaultVisibility.clear()
@@ -185,7 +190,7 @@ struct RootView: View {
                     )
                     .tabItem { Label("Enregistrer", systemImage: "record.circle") }
                     .tag(AppTab.record)
-                    ProfileView(store: authStore, signOutWarning: {
+                    ProfileView(store: authStore, consent: consentStore, signOutWarning: {
                         // ADR-031 §10, §14: one confirmation for all that a sign-out loses.
                         SignOutWarning.message(
                             recordingInProgress: await recordingStore.signOutWarning() != nil,

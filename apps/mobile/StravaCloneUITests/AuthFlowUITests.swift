@@ -11,9 +11,26 @@ final class AuthFlowUITests: XCTestCase {
     private func launchSignedOutApp() -> XCUIApplication {
         let app = XCUIApplication()
         // The animated splash (ADR-032 §4) is skipped: it only delays the first screen.
-        app.launchArguments += ["-uiTestResetAuth", "-uiTestDisableSplash"]
+        app.launchArguments += ["-uiTestResetAuth", "-uiTestDisableSplash", "-uiTestResetMeasurementConsent"]
         app.launch()
         return app
+    }
+
+    /// First launch (ADR-035 §8): the Measurement consent sheet opens over the Welcome.
+    private func refuseMeasurement(in app: XCUIApplication) {
+        let refuse = app.buttons["consent.refuse"]
+        XCTAssertTrue(refuse.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["consent.accept"].exists)
+        refuse.tap()
+        XCTAssertTrue(refuse.waitForNonExistence(timeout: 5))
+    }
+
+    /// "Se connecter" on the Welcome opens the account screen.
+    private func openSignIn(in app: XCUIApplication) {
+        let signIn = app.buttons["welcome.signIn"]
+        XCTAssertTrue(signIn.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["welcome.createAccount"].exists)
+        signIn.tap()
     }
 
     /// A new address each run, so the first code also creates the account.
@@ -45,6 +62,8 @@ final class AuthFlowUITests: XCTestCase {
         let feedTab = app.tabBars.buttons["Accueil"]
 
         // 1. The first code creates the account.
+        refuseMeasurement(in: app)
+        openSignIn(in: app)
         signInWithCode(email: email, in: app)
         XCTAssertTrue(feedTab.waitForExistence(timeout: 10))
 
@@ -52,7 +71,9 @@ final class AuthFlowUITests: XCTestCase {
         app.tabBars.buttons["Profil"].tap()
         app.buttons["Se déconnecter"].tap()
 
-        // 3. The same address signs into the same account.
+        // 3. The same address signs into the same account; the consent is not asked again.
+        openSignIn(in: app)
+        XCTAssertFalse(app.buttons["consent.refuse"].exists)
         signInWithCode(email: email, in: app)
         XCTAssertTrue(feedTab.waitForExistence(timeout: 10))
     }
