@@ -1,12 +1,18 @@
 import Foundation
 
-/// Normalized auth error: the Presentation layer only sees these cases (ADR-022).
+/// Normalized auth error: the Presentation layer only sees these cases (ADR-022, ADR-035 §2).
 /// `server(message:)` carries Better Auth's own `message` for cases we don't give a
-/// dedicated, translated case to (e.g. password too short/long) — better than silently
-/// mislabeling an unrelated error as "invalid credentials" or "email already in use".
+/// dedicated, translated case to (e.g. an email shape the client-side check missed) — better
+/// than silently mislabeling an unrelated error.
 enum AuthError: Error, Equatable, Sendable {
-    case invalidCredentials
-    case emailAlreadyInUse
+    /// No valid session (none in the Keychain, or the server refused it).
+    case notSignedIn
+    /// Wrong Sign-in code (`INVALID_OTP`); the code stays valid for its remaining attempts.
+    case invalidCode
+    /// The Sign-in code is past its 5 minutes (`OTP_EXPIRED`): a new one must be requested.
+    case codeExpired
+    /// The Sign-in code's attempts are used up (`TOO_MANY_ATTEMPTS`): a new one must be requested.
+    case tooManyAttempts
     case rateLimited
     case server(message: String)
     case googleSignInCancelled

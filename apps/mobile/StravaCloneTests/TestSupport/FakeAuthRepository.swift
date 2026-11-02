@@ -4,20 +4,20 @@ import Foundation
 /// Fake `AuthRepository` (ADR-025 §3): each handler is injectable per test,
 /// defaulting to "unexpected call" so a test only has to stub what it exercises.
 final class FakeAuthRepository: AuthRepository, @unchecked Sendable {
-    var signUpHandler: (@Sendable (String, String, String) async throws(AuthError) -> AuthUser)?
-    var signInHandler: (@Sendable (String, String) async throws(AuthError) -> AuthUser)?
+    var sendSignInCodeHandler: (@Sendable (String) async throws(AuthError) -> Void)?
+    var signInHandler: (@Sendable (String, String, String?) async throws(AuthError) -> AuthUser)?
     var signInWithGoogleHandler: (@Sendable (String) async throws(AuthError) -> AuthUser)?
     var signOutHandler: (@Sendable () async -> Void)?
     var currentUserHandler: (@Sendable () async throws(AuthError) -> AuthUser)?
 
-    func signUp(email: String, password: String, name: String) async throws(AuthError) -> AuthUser {
-        guard let signUpHandler else { fatalError("FakeAuthRepository.signUpHandler not set") }
-        return try await signUpHandler(email, password, name)
+    func sendSignInCode(email: String) async throws(AuthError) {
+        guard let sendSignInCodeHandler else { fatalError("FakeAuthRepository.sendSignInCodeHandler not set") }
+        try await sendSignInCodeHandler(email)
     }
 
-    func signIn(email: String, password: String) async throws(AuthError) -> AuthUser {
+    func signIn(email: String, code: String, name: String?) async throws(AuthError) -> AuthUser {
         guard let signInHandler else { fatalError("FakeAuthRepository.signInHandler not set") }
-        return try await signInHandler(email, password)
+        return try await signInHandler(email, code, name)
     }
 
     func signInWithGoogle(idToken: String) async throws(AuthError) -> AuthUser {

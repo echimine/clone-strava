@@ -48,7 +48,7 @@ struct StravaCloneApp: App {
     }
 }
 
-/// Gates the app behind the auth flow (ADR-022): the TabView is only reachable once
+/// Gates the app behind the account screen (ADR-022, ADR-035): the TabView is only reachable once
 /// signed in. Session is checked once at launch (`AuthStore.restoreSession`).
 struct RootView: View {
     @State var authStore: AuthStore
@@ -111,7 +111,8 @@ struct RootView: View {
             case .checkingSession:
                 ProgressView()
             case .signedOut:
-                AuthFlowView(store: authStore)
+                // Until the Welcome exists (#127), the "Se connecter" entry of the account screen.
+                AccountView(mode: .signIn, authStore: authStore)
                     .onAppear {
                         feedStore.reset()
                         defaultVisibility.clear()
