@@ -6,6 +6,11 @@ import XCTest
 /// development, `@stravaclone.test` addresses get the fixed code `000000` without any email.
 /// Google sign-in is not driven here (third-party SDK UI, out of our control) — only its
 /// button presence is checked.
+///
+/// The notification priming screen (ADR-035 §7) only shows while iOS has not asked yet: to see
+/// it and iOS's prompt, uninstall the app from the simulator before the run
+/// (`xcrun simctl uninstall <device> fr.echimine.StravaClone`). Otherwise it is skipped, as for a
+/// second account on the same phone.
 @MainActor
 final class AuthFlowUITests: XCTestCase {
     private func launchSignedOutApp() -> XCUIApplication {
@@ -92,8 +97,48 @@ final class AuthFlowUITests: XCTestCase {
         createMyAccount.tap()
     }
 
+    /// The Paywall (ADR-035 §6), left by "Essayer" or "Non merci": nothing is bought.
+    private func leaveThePaywall(in app: XCUIApplication, byStartingTheTrial: Bool) {
+        let button = app.buttons[byStartingTheTrial ? "paywall.startTrial" : "paywall.skip"]
+        XCTAssertTrue(button.waitForExistence(timeout: 10))
+        button.tap()
+    }
+
+    /// The priming screen, then iOS's prompt once (ADR-035 §7). Returns false when iOS had
+    /// already asked: the step is skipped silently.
+    @discardableResult
+    private func enableNotificationsIfAsked(in app: XCUIApplication) -> Bool {
+        let enable = app.buttons["notificationPrimer.enable"]
+        let feedTab = app.tabBars.buttons["Accueil"]
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        guard enable.waitForExistence(timeout: 5) else {
+            XCTAssertTrue(feedTab.waitForExistence(timeout: 5))
+            return false
+        }
+        XCTAssertTrue(app.staticTexts["Ne manquez rien"].exists)
+        XCTAssertTrue(app.buttons["notificationPrimer.later"].exists)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "notification-primer"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        // iOS's prompt opens only after the priming screen.
+        XCTAssertFalse(springboard.alerts.firstMatch.exists)
+        enable.tap()
+
+        let prompt = springboard.alerts.firstMatch
+        XCTAssertTrue(prompt.waitForExistence(timeout: 5))
+        let allow = prompt.buttons.matching(NSPredicate(format: "label IN %@", ["Autoriser", "Allow"])).firstMatch
+        XCTAssertTrue(allow.exists)
+        allow.tap()
+        XCTAssertTrue(prompt.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(feedTab.waitForExistence(timeout: 10))
+        XCTAssertFalse(springboard.alerts.firstMatch.exists)
+        return true
+    }
+
     /// ADR-035 §1, §5: the Onboarding, its account screen, then the home screen at once; the
-    /// answers are sent in the background (check `users.user_profile` of the new account).
+    /// answers are sent in the background (check `users.user_profile` of the new account). Then
+    /// the Paywall, the notification priming screen and iOS's prompt (§6, §7), then home.
     func testCreatingAnAccountAtTheEndOfTheOnboardingReachesTheTabView() {
         let app = launchSignedOutApp()
         refuseMeasurement(in: app)
@@ -103,6 +148,8 @@ final class AuthFlowUITests: XCTestCase {
         answerTheOnboarding(in: app)
 
         signInWithCode(email: uniqueEmail(), in: app)
+        leaveThePaywall(in: app, byStartingTheTrial: true)
+        enableNotificationsIfAsked(in: app)
 
         XCTAssertTrue(app.tabBars.buttons["Accueil"].waitForExistence(timeout: 10))
     }
@@ -112,11 +159,14 @@ final class AuthFlowUITests: XCTestCase {
         let feedTab = app.tabBars.buttons["Accueil"]
 
         // 1. The first code creates the account: "Se connecter" goes through the Onboarding
-        //    (ADR-035 §1), whose "Créer mon compte" goes home without the account screen.
+        //    (ADR-035 §1), whose "Créer mon compte" goes to the Paywall without the account
+        //    screen, then the notification step (§7), then home.
         refuseMeasurement(in: app)
         openSignIn(in: app)
         signInWithCode(email: uniqueEmail(), in: app)
         answerTheOnboarding(in: app)
+        leaveThePaywall(in: app, byStartingTheTrial: false)
+        enableNotificationsIfAsked(in: app)
         XCTAssertTrue(feedTab.waitForExistence(timeout: 10))
 
         // 2. Sign out from the "Profil" tab.
@@ -129,5 +179,6 @@ final class AuthFlowUITests: XCTestCase {
         signInWithCode(email: "test.map@stravaclone.test", in: app)
         XCTAssertTrue(feedTab.waitForExistence(timeout: 10))
         XCTAssertFalse(app.textFields["onboarding.firstName"].exists)
+        XCTAssertFalse(app.buttons["notificationPrimer.enable"].exists)
     }
 }

@@ -47,6 +47,8 @@ struct PaywallLayoutB: View {
             }
         }
         .overlay(alignment: .bottom) { floatingButton }
+        // A container, so its buttons keep their own identifiers.
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("paywall.layout.B")
     }
 

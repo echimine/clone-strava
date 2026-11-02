@@ -139,10 +139,17 @@ struct RootView: View {
                 // ADR-035 §1: "Se connecter" has just created the account.
                 OnboardingView(store: makeOnboardingStore { [authStore] in authStore.finishOnboarding() }, authStore: authStore)
             case .paywall(let user):
-                // ADR-035 §6: once, then home (#131 will put the notification prompt in between).
+                // ADR-035 §6: once, then the notification priming screen or home.
                 PaywallView(
-                    store: makePaywallStore { [authStore] in authStore.finishPaywall() },
+                    store: makePaywallStore { [authStore] in Task { await authStore.finishPaywall() } },
                     firstName: user.name.split(separator: " ").first.map(String.init) ?? ""
+                )
+            case .notificationPrimer:
+                // ADR-035 §7: only while iOS has not asked yet, then home.
+                NotificationPrimerView(
+                    isRequesting: authStore.isRequestingNotifications,
+                    enable: { Task { await authStore.enableNotifications() } },
+                    later: authStore.deferNotifications
                 )
             case .signedIn:
                 TabView(selection: $selectedTab) {

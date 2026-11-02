@@ -57,6 +57,8 @@ struct PaywallLayoutC: View {
             .padding(.bottom, 6)
         }
         .ignoresSafeArea(edges: .top)
+        // A container, so its buttons keep their own identifiers.
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("paywall.layout.C")
     }
 }
