@@ -82,7 +82,7 @@ struct SignInStoreTests {
         #expect(harness.store.code == "12345")
         harness.store.enterCode("123 456")
 
-        #expect(await eventually { harness.authStore.state == .signedIn(user) })
+        #expect(await eventually { harness.authStore.state == .paywall(user) })
         #expect(received.value == ["a@b.com", "123456", "Ada Lovelace"])
     }
 
