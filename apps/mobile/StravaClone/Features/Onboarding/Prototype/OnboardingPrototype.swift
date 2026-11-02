@@ -49,6 +49,17 @@ enum ProtoGoal: String, CaseIterable, Identifiable {
     case event = "Préparer une course ou un objectif"
     case habit = "Prendre l'habitude de bouger"
     var id: Self { self }
+    /// Shown under the goal once selected (Strava reveals it the same way).
+    var detail: String {
+        switch self {
+        case .compete: "Comparez vos temps sur les segments et grimpez dans les classements."
+        case .explore: "Trouvez des itinéraires près de chez vous ou là où vous partez."
+        case .health: "Suivez votre activité semaine après semaine."
+        case .people: "Suivez vos amis et encouragez-les avec des kudos."
+        case .event: "Suivez vos progrès et analysez chaque activité."
+        case .habit: "Bougez régulièrement et voyez vos efforts s'accumuler."
+        }
+    }
 }
 
 enum ProtoLevel: String, CaseIterable, Identifiable {
@@ -216,33 +227,58 @@ struct ProtoPrimaryButton: View {
 
     var body: some View {
         Button(action: action) {
-            Text(title).font(.headline).frame(maxWidth: .infinity).padding(.vertical, 15)
+            Text(title).font(.headline).frame(maxWidth: .infinity, minHeight: 54)
                 .foregroundStyle(.white)
                 .background(Capsule().fill(Theme.accent.opacity(isEnabled ? 1 : 0.35)))
+                .contentShape(Capsule())
         }
+        .buttonStyle(ProtoPressStyle())
         .disabled(!isEnabled)
+        .animation(.easeOut(duration: 0.2), value: isEnabled)
     }
 }
 
-/// A full-width choice, black when selected (Strava's gender, goals and level rows).
+/// Slight shrink while pressed, so taps feel physical.
+struct ProtoPressStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .animation(.snappy(duration: 0.15), value: configuration.isPressed)
+    }
+}
+
+/// A full-width choice, inverted when selected (Strava's gender, goals and level rows).
+/// `revealsDetail`: the detail only shows once selected (goals); otherwise always (level).
 struct ProtoChoiceRow: View {
     let title: String
     var detail: String?
+    var revealsDetail = false
     let isSelected: Bool
     let action: () -> Void
 
+    private var showsDetail: Bool { detail != nil && (!revealsDetail || isSelected) }
+
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title).font(.subheadline.weight(.semibold))
-                if let detail { Text(detail).font(.footnote) }
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title).font(.body.weight(.semibold))
+                if showsDetail, let detail {
+                    Text(detail).font(.subheadline)
+                        .foregroundStyle(isSelected ? Color(.systemBackground).opacity(0.8) : .secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 16).padding(.vertical, 15)
+            .frame(maxWidth: .infinity, minHeight: 28, alignment: .leading)
+            .padding(.horizontal, 18).padding(.vertical, 16)
             .foregroundStyle(isSelected ? Color(.systemBackground) : .primary)
-            .background(RoundedRectangle(cornerRadius: 10).fill(isSelected ? Color.primary : Color(.secondarySystemBackground)))
+            .background(RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(isSelected ? Color.primary : Color(.secondarySystemBackground)))
+            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(ProtoPressStyle())
+        .animation(.snappy(duration: 0.25), value: isSelected)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 
@@ -253,16 +289,27 @@ struct ProtoSportTile: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 10) {
-                Image(systemName: ActivityFormatters.sportSymbol(sport)).font(.title2)
-                Text(ActivityFormatters.sportLabel(sport)).font(.subheadline.weight(.semibold))
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Image(systemName: ActivityFormatters.sportSymbol(sport)).font(.title2)
+                    Spacer()
+                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                        .font(.title3)
+                        .foregroundStyle(isSelected ? Color(.systemBackground) : Color(.systemGray3))
+                        .contentTransition(.symbolEffect(.replace))
+                }
+                Text(ActivityFormatters.sportLabel(sport)).font(.body.weight(.semibold))
             }
-            .frame(maxWidth: .infinity, minHeight: 70, alignment: .leading)
-            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(16)
             .foregroundStyle(isSelected ? Color(.systemBackground) : .primary)
-            .background(RoundedRectangle(cornerRadius: 10).fill(isSelected ? Color.primary : Color(.secondarySystemBackground)))
+            .background(RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(isSelected ? Color.primary : Color(.secondarySystemBackground)))
+            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(ProtoPressStyle())
+        .animation(.snappy(duration: 0.25), value: isSelected)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 
