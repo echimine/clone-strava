@@ -10,6 +10,9 @@ struct StravaCloneApp: App {
 
     var body: some Scene {
         WindowGroup {
+            if let prototype = Self.onboardingPrototype {
+                prototype.tint(Theme.accent)
+            } else {
             RootView(
                 authStore: di.makeAuthStore(),
                 recordingStore: di.makeRecordingStore(),
@@ -44,7 +47,18 @@ struct StravaCloneApp: App {
                     // Routes the Google sign-in callback back into the SDK (ADR-022).
                     GIDSignIn.sharedInstance.handle(url)
                 }
+            }
         }
+    }
+
+    /// PROTOTYPE (#111), debug builds only: the Onboarding variants instead of the app.
+    private static var onboardingPrototype: AnyView? {
+        #if DEBUG
+        ProcessInfo.processInfo.arguments.contains(OnboardingPrototypeView.launchArgument)
+            ? AnyView(OnboardingPrototypeView()) : nil
+        #else
+        nil
+        #endif
     }
 }
 
