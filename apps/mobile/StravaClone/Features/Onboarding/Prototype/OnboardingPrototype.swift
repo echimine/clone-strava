@@ -92,6 +92,8 @@ final class ProtoAnswers {
     var level: ProtoLevel?
     /// What happened on the Paywall (#110), shown in the state sheet.
     var paywallEvents: [String] = []
+    /// Measurement consent sheet on the Welcome (#113, #116): nil until answered.
+    var measurementConsent: String?
 
     var nameIsValid: Bool {
         !firstName.trimmingCharacters(in: .whitespaces).isEmpty
@@ -132,6 +134,7 @@ final class ProtoAnswers {
             ("Sports", sports.isEmpty ? "—" : sports.map(ActivityFormatters.sportLabel).joined(separator: ", ")),
             ("Objectifs", goals.isEmpty ? "—" : ProtoGoal.allCases.filter(goals.contains).map(\.rawValue).joined(separator: ", ")),
             ("Niveau", level?.rawValue ?? "—"),
+            ("Mesure d'audience", measurementConsent ?? "—"),
             ("Paywall", paywallEvents.last ?? "—"),
         ]
     }
@@ -158,15 +161,19 @@ struct OnboardingPrototypeView: View {
         ? ProtoAnswers.demo() : ProtoAnswers()
     /// Questions, then « ce que vous pouvez faire », then the personalised loading screen.
     /// Then the account (stub) and the Paywall (#110), then the notifications permission (stub).
-    enum Stage: String { case questions, showcase, personalizing, account, paywall, notifications }
+    enum Stage: String { case welcome, questions, showcase, personalizing, account, paywall, notifications }
 
     /// `-protoStage showcase` (or `personalizing`) opens straight on that screen.
-    @State private var stage = Stage(rawValue: UserDefaults.standard.string(forKey: "protoStage") ?? "") ?? .questions
+    @State private var stage = Stage(rawValue: UserDefaults.standard.string(forKey: "protoStage") ?? "") ?? .welcome
     @State private var showsState = false
     @State private var runID = UUID()
     @AppStorage("prototype.paywall.variant") private var paywallKey = ProtoPaywallVariant.a.rawValue
     @State private var offeringMode = ProtoOfferingMode.ok
     @State private var paywallRunID = UUID()
+    @AppStorage("prototype.welcome.variant") private var welcomeKey = ProtoWelcomeVariant.a.rawValue
+    @State private var welcomeRunID = UUID()
+
+    private var welcomeVariant: ProtoWelcomeVariant { ProtoWelcomeVariant(rawValue: welcomeKey) ?? .a }
 
     private var paywallVariant: ProtoPaywallVariant { ProtoPaywallVariant(rawValue: paywallKey) ?? .a }
 
@@ -175,6 +182,12 @@ struct OnboardingPrototypeView: View {
     var body: some View {
         Group {
             switch stage {
+            case .welcome:
+                ProtoWelcome(variant: welcomeVariant, answers: answers, actions: ProtoWelcomeActions(
+                    createAccount: advance,
+                    // « Se connecter » skips the Onboarding (map #105).
+                    signIn: { withAnimation(.easeInOut(duration: 0.4)) { stage = .account } }))
+                .id(welcomeRunID)
             case .questions:
                 switch variant {
                 case .a: ProtoVariantA(answers: answers) { advance() }
@@ -211,7 +224,9 @@ struct OnboardingPrototypeView: View {
         HStack(spacing: 14) {
             Button { cycle(-1) } label: { Image(systemName: "chevron.left") }
             Group {
-                if stage == .paywall {
+                if stage == .welcome {
+                    Text("\(welcomeVariant.rawValue) · \(welcomeVariant.name)")
+                } else if stage == .paywall {
                     Text("\(paywallVariant.rawValue) · \(paywallVariant.name)")
                 } else {
                     Text("\(variant.rawValue) · \(variant.name)")
@@ -241,6 +256,7 @@ struct OnboardingPrototypeView: View {
     /// Next stage; also the ⏭ of the pill, to review the end screens without answering.
     private func advance() {
         let next: Stage = switch stage {
+        case .welcome: .questions
         case .questions: .showcase
         case .showcase: .personalizing
         case .personalizing: .account
@@ -251,6 +267,13 @@ struct OnboardingPrototypeView: View {
     }
 
     private func cycle(_ step: Int) {
+        if stage == .welcome {
+            let all = ProtoWelcomeVariant.allCases
+            let index = (all.firstIndex(of: welcomeVariant)! + step + all.count) % all.count
+            welcomeKey = all[index].rawValue
+            welcomeRunID = UUID()
+            return
+        }
         if stage == .paywall {
             let all = ProtoPaywallVariant.allCases
             let index = (all.firstIndex(of: paywallVariant)! + step + all.count) % all.count
@@ -278,9 +301,11 @@ struct OnboardingPrototypeView: View {
         withAnimation(.easeInOut(duration: 0.4)) { stage = .paywall }
     }
 
+    /// A fresh first launch: splash, Welcome, Measurement consent sheet.
     private func restart() {
         answers = ProtoAnswers()
-        stage = .questions
+        stage = .welcome
+        welcomeRunID = UUID()
         runID = UUID()
     }
 }

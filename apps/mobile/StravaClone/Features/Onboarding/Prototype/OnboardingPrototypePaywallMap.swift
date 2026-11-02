@@ -60,7 +60,7 @@ struct ProtoPaywallC: View {
 }
 
 /// The ride on the real map, tilted, with what Premium shows about it.
-private struct ProtoPaywallMapHero: View {
+struct ProtoPaywallMapHero: View {
     let firstName: String
 
     @State private var isMapLoaded = false

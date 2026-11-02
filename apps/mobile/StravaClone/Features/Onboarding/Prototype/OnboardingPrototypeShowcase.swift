@@ -138,7 +138,7 @@ private struct ProtoStat: View {
 
 // MARK: - 1. Recording: the route draws itself, stats tick up
 
-private struct ProtoRecordMock: View {
+struct ProtoRecordMock: View {
     let sport: SportType
 
     var body: some View {
@@ -177,7 +177,7 @@ private struct ProtoRecordMock: View {
 
 // MARK: - 2. Itinerary: dashed route marches, elevation profile fills
 
-private struct ProtoItineraryMock: View {
+struct ProtoItineraryMock: View {
     var body: some View {
         TimelineView(.animation) { timeline in
             let t = timeline.date.timeIntervalSinceReferenceDate
@@ -223,7 +223,7 @@ private struct ProtoItineraryMock: View {
 
 // MARK: - 3. Feed: a friend's activity gets kudos and a comment
 
-private struct ProtoFeedMock: View {
+struct ProtoFeedMock: View {
     let sport: SportType
 
     var body: some View {
