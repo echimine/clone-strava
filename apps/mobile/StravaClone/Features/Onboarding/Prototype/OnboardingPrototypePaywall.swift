@@ -175,7 +175,7 @@ enum ProtoPaywallVariant: String, CaseIterable, Sendable {
         switch self {
         case .a: "Strava"
         case .b: "AllTrails"
-        case .c: "Duolingo"
+        case .c: "Duolingo · carte"
         }
     }
 }

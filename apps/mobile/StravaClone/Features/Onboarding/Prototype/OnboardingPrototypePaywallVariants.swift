@@ -5,7 +5,7 @@ import SwiftUI
 // from Mobbin captures with Nervo's copy, fed by the same `ProtoPaywallContext`:
 // A « Strava »: https://mobbin.com/screens/94178124-98a0-4282-88c4-eb65c8e5de01
 // B « AllTrails »: https://mobbin.com/screens/0e508882-f772-497d-959e-d51095983ef1
-// C « Duolingo »: https://mobbin.com/screens/97e9b0dc-f653-4422-96e8-53650ff9accd
+// C « Duolingo » (structure only, in Nervo's look): OnboardingPrototypePaywallMap.swift
 
 // MARK: - A « Strava »
 
@@ -243,110 +243,6 @@ struct ProtoPaywallB: View {
         .background(alignment: .trailing) {
             Rectangle().fill(Theme.accent.opacity(0.08)).frame(width: 70)
         }
-    }
-}
-
-// MARK: - C « Duolingo »
-
-struct ProtoPaywallC: View {
-    let c: ProtoPaywallContext
-
-    private let night = LinearGradient(colors: [Color(red: 0.04, green: 0.08, blue: 0.27), Color(red: 0.13, green: 0.17, blue: 0.52)],
-                                       startPoint: .top, endPoint: .bottom)
-    private let ring = AngularGradient(colors: [Theme.accent, .yellow, .pink, .purple, Theme.accent], center: .center)
-
-    private var zero: String {
-        Decimal(0).formatted(.currency(code: c.selected.currencyCode).locale(Locale(identifier: "fr_FR")))
-    }
-
-    var body: some View {
-        VStack(spacing: 0) {
-            ZStack(alignment: .bottom) {
-                night.ignoresSafeArea(edges: .top)
-                VStack(spacing: 0) {
-                    HStack {
-                        Spacer()
-                        Text("PREMIUM").font(.system(size: 16, weight: .black)).italic().foregroundStyle(.white)
-                            .padding(.horizontal, 10).padding(.vertical, 4)
-                            .background(RoundedRectangle(cornerRadius: 7)
-                                .fill(LinearGradient(colors: [Theme.accent, .yellow], startPoint: .leading, endPoint: .trailing)))
-                            .rotationEffect(.degrees(-4))
-                    }
-                    .padding(.horizontal, 20).padding(.top, 12)
-
-                    (Text("Allez plus loin avec ")
-                        + Text("\(c.selected.trialDays ?? 0) jours gratuits").foregroundStyle(Theme.accent)
-                        + Text(" de Premium !"))
-                        .font(.system(size: 24, weight: .heavy))
-                        .foregroundStyle(.white)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.horizontal, 40).padding(.top, 34)
-
-                    phone.padding(.top, 34)
-                    Spacer(minLength: 0)
-                }
-                ProtoClouds().fill(Color(.systemBackground)).frame(height: 90)
-            }
-
-            VStack(spacing: 18) {
-                Label("Nous vous rappellerons avant la fin de votre essai", systemImage: "bell.fill")
-                    .font(.system(size: 15, weight: .medium)).foregroundStyle(.secondary)
-                Button(action: c.startTrial) {
-                    Text(c.isBusy ? "…" : "ESSAYER POUR \(zero)").font(.system(size: 17, weight: .heavy)).tracking(0.8)
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity, minHeight: 52)
-                        .background(RoundedRectangle(cornerRadius: 14).fill(Theme.accent))
-                        .background(RoundedRectangle(cornerRadius: 14).fill(Color(red: 0.7, green: 0.22, blue: 0)).offset(y: 4))
-                }
-                .buttonStyle(ProtoPressStyle())
-                .disabled(c.isBusy)
-                Button("NON MERCI", action: c.skip).font(.system(size: 16, weight: .heavy)).tracking(0.8).foregroundStyle(Theme.accent)
-                ProtoPaywallLegal(c: c)
-            }
-            .padding(.horizontal, 20).padding(.bottom, 6)
-            .background(Color(.systemBackground))
-        }
-    }
-
-    /// A phone showing what Premium unlocks, half hidden by the clouds.
-    private var phone: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 40, style: .continuous).fill(Color(red: 0.94, green: 0.96, blue: 1))
-            RoundedRectangle(cornerRadius: 40, style: .continuous).strokeBorder(Color(red: 0.3, green: 0.33, blue: 0.45), lineWidth: 12)
-            VStack(alignment: .leading, spacing: 14) {
-                RoundedRectangle(cornerRadius: 10).fill(Color(red: 0.82, green: 0.89, blue: 1)).frame(width: 110, height: 70)
-                RoundedRectangle(cornerRadius: 10).fill(Color(red: 0.82, green: 0.89, blue: 1)).frame(width: 90, height: 60)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-            }
-            .padding(30)
-            ZStack {
-                Circle().strokeBorder(ring, lineWidth: 26).frame(width: 150, height: 150)
-                NervoMark().stroke(ring, style: NervoMark.strokeStyle(forSide: 70)).frame(width: 70, height: 70)
-            }
-            .offset(y: -20)
-        }
-        .frame(width: 230, height: 330)
-    }
-}
-
-/// White cloud bumps along the top edge (Duolingo's bottom sheet).
-private struct ProtoClouds: Shape {
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        path.move(to: CGPoint(x: 0, y: rect.height * 0.45))
-        let bumps: [(x: CGFloat, top: CGFloat)] = [(0.22, 0.05), (0.5, 0.55), (0.82, 0.0), (1.0, 0.35)]
-        var lastX: CGFloat = 0
-        for bump in bumps {
-            let x = rect.width * bump.x
-            path.addQuadCurve(to: CGPoint(x: x, y: rect.height * 0.5),
-                              control: CGPoint(x: (lastX + x) / 2, y: rect.height * bump.top - rect.height * 0.4))
-            lastX = x
-        }
-        path.addLine(to: CGPoint(x: rect.width, y: rect.height))
-        path.addLine(to: CGPoint(x: 0, y: rect.height))
-        path.closeSubpath()
-        return path
     }
 }
 #endif
