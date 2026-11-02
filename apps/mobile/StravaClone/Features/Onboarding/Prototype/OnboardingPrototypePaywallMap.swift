@@ -44,6 +44,9 @@ struct ProtoPaywallC: View {
             VStack(spacing: 12) {
                 Label("Nous vous rappellerons avant la fin de votre essai", systemImage: "bell.fill")
                     .font(.footnote.weight(.medium)).foregroundStyle(.secondary)
+                // What is paid after the trial, readable without the fine print (App Store 3.1.2).
+                Text("\(c.selected.trialDays.map { "\($0) jours gratuits, puis " } ?? "")\(c.selected.formattedPrice) \(c.selected.perPeriod)")
+                    .font(.subheadline.weight(.semibold))
                 ProtoPrimaryButton(title: c.isBusy ? "…" : "Essayer pour \(zero)", isEnabled: !c.isBusy, action: c.startTrial)
                 Button("Non merci", action: c.skip)
                     .font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
