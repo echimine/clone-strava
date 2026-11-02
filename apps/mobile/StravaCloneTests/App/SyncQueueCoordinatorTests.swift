@@ -22,6 +22,8 @@ extension ActivitySenderTests {
         private let harness: ActivitySenderHarness
         private let backgroundTasks = RecordingBackgroundTasks()
         private let itineraryWakeUps = Locked(0)
+        private let onboardingAnswersWakeUps = Locked(0)
+        private let onboardingAnswersClears = Locked(0)
         private let feedReloads = Locked(0)
 
         init() throws {
@@ -31,11 +33,15 @@ extension ActivitySenderTests {
 
         private func makeCoordinator(feedReloads succeed: Bool = true) -> SyncQueueCoordinator {
             let itineraryWakeUps = itineraryWakeUps
+            let onboardingAnswersWakeUps = onboardingAnswersWakeUps
+            let onboardingAnswersClears = onboardingAnswersClears
             let feedReloads = feedReloads
             return SyncQueueCoordinator(
                 activitySender: harness.makeSender(),
                 localActivities: harness.store,
                 sendItineraryChanges: { itineraryWakeUps.value += 1 },
+                sendOnboardingAnswers: { onboardingAnswersWakeUps.value += 1 },
+                clearOnboardingAnswers: { onboardingAnswersClears.value += 1 },
                 reloadFeed: {
                     feedReloads.value += 1
                     return succeed
@@ -127,6 +133,14 @@ extension ActivitySenderTests {
             #expect(feedReloads.value == 1)
             #expect(try await harness.store.activity(harness.id) == nil)
             #expect(itineraryWakeUps.value == 1)
+            #expect(onboardingAnswersWakeUps.value == 1)
+        }
+
+        /// ADR-035 §5: the Onboarding answers waiting in the queue are deleted with the rest.
+        @Test func signingOutDeletesTheOnboardingAnswers() async throws {
+            await makeCoordinator().signOut()
+
+            #expect(onboardingAnswersClears.value == 1)
         }
 
         @Test func anActivityEventReloadsTheFeedThenWipesTheProcessedActivity() async throws {

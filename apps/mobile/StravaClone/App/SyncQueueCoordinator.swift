@@ -32,8 +32,8 @@ private final class BackgroundTaskBox {
     }
 }
 
-/// The queue coordinator of ADR-031 §14: wakes `ActivitySender` and the Itinerary changes on
-/// the shared triggers, so no feature imports another. It also follows the Activities in
+/// The queue coordinator of ADR-031 §14: wakes `ActivitySender`, the Itinerary changes and the
+/// Onboarding answers (ADR-035 §5) on the shared triggers, so no feature imports another. It also follows the Activities in
 /// `processing`: once processed, the feed reloads its first page, then the local Activity is
 /// wiped.
 ///
@@ -50,6 +50,9 @@ final class SyncQueueCoordinator {
     private let localActivities: GRDBLocalActivityStore
     private let sendItineraryChanges: @MainActor () async -> Void
     private let stopItineraryChanges: @MainActor @Sendable () -> Void
+    private let sendOnboardingAnswers: @MainActor () async -> Void
+    private let stopOnboardingAnswers: @MainActor @Sendable () -> Void
+    private let clearOnboardingAnswers: @MainActor () async -> Void
     private let reloadFeed: @MainActor () async -> Bool
     private let backgroundTasks: any BackgroundTaskRunning
 
@@ -58,6 +61,9 @@ final class SyncQueueCoordinator {
         localActivities: GRDBLocalActivityStore,
         sendItineraryChanges: @escaping @MainActor () async -> Void,
         stopItineraryChanges: @escaping @MainActor @Sendable () -> Void = {},
+        sendOnboardingAnswers: @escaping @MainActor () async -> Void = {},
+        stopOnboardingAnswers: @escaping @MainActor @Sendable () -> Void = {},
+        clearOnboardingAnswers: @escaping @MainActor () async -> Void = {},
         reloadFeed: @escaping @MainActor () async -> Bool,
         backgroundTasks: any BackgroundTaskRunning = UIKitBackgroundTasks()
     ) {
@@ -65,6 +71,9 @@ final class SyncQueueCoordinator {
         self.localActivities = localActivities
         self.sendItineraryChanges = sendItineraryChanges
         self.stopItineraryChanges = stopItineraryChanges
+        self.sendOnboardingAnswers = sendOnboardingAnswers
+        self.stopOnboardingAnswers = stopOnboardingAnswers
+        self.clearOnboardingAnswers = clearOnboardingAnswers
         self.reloadFeed = reloadFeed
         self.backgroundTasks = backgroundTasks
     }
@@ -101,9 +110,11 @@ final class SyncQueueCoordinator {
         (try? await localActivities.unsentCount()) ?? 0
     }
 
-    /// Sign-out, once confirmed: the local Activities and their queued steps are wiped.
+    /// Sign-out, once confirmed: the local Activities and their queued steps are wiped, and the
+    /// Onboarding answers with their operation (ADR-035 §5).
     func signOut() async {
         await activitySender.clear()
+        await clearOnboardingAnswers()
     }
 
     /// While signed in and in the foreground: sends when the network comes back, tracks on each
@@ -135,21 +146,25 @@ final class SyncQueueCoordinator {
         }
     }
 
-    /// The `BGAppRefreshTask` (ADR-031 §14): everything pending is sent, Activities then
-    /// Itinerary changes, already within iOS's background time. Cancelling the caller (the
+    /// The `BGAppRefreshTask` (ADR-031 §14): everything pending is sent, Activities, Itinerary
+    /// changes then Onboarding answers, already within iOS's background time. Cancelling the caller (the
     /// task's expiration) stops the passes in flight; each operation stays at its step.
     func backgroundRefresh() async {
         let activitySender = activitySender
         let stopItineraryChanges = stopItineraryChanges
+        let stopOnboardingAnswers = stopOnboardingAnswers
         await withTaskCancellationHandler {
             guard !Task.isCancelled else { return }
             await activitySender.send(ignoringBackoff: true)
             guard !Task.isCancelled else { return }
             await sendItineraryChanges()
+            guard !Task.isCancelled else { return }
+            await sendOnboardingAnswers()
         } onCancel: {
             Task { @MainActor in
                 activitySender.cancelPass()
                 stopItineraryChanges()
+                stopOnboardingAnswers()
             }
         }
     }
@@ -159,6 +174,7 @@ final class SyncQueueCoordinator {
         await backgroundTasks.run("sync-queue") {
             await activitySender.send(ignoringBackoff: true)
             await sendItineraryChanges()
+            await sendOnboardingAnswers()
         }
         await trackProcessing()
     }

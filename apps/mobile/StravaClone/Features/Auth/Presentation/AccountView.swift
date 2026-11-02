@@ -13,11 +13,13 @@ struct AccountView: View {
     var onBack: (() -> Void)?
     @State private var store: SignInStore
 
-    /// `name` is passed to the account if the code creates it (filled by the Onboarding).
+    /// `name` is passed to the account if the code creates it (filled by the Onboarding). In
+    /// `createAccount` mode, the sign-in ends the Onboarding: its answers are sent (ADR-035 §5).
     init(mode: Mode, authStore: AuthStore, name: String? = nil, onBack: (() -> Void)? = nil) {
         self.mode = mode
         self.onBack = onBack
-        _store = State(initialValue: authStore.makeSignInStore(name: name))
+        let entry: SignInEntry = mode == .createAccount ? .onboarding(name: name ?? "") : .signIn
+        _store = State(initialValue: authStore.makeSignInStore(entry: entry))
     }
 
     var body: some View {

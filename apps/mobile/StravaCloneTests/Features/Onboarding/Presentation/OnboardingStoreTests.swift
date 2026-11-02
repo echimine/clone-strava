@@ -214,4 +214,52 @@ struct OnboardingStoreTests {
         #expect(store.step == .name)
         #expect(store.answers == OnboardingAnswers())
     }
+
+    // MARK: Opened by "Se connecter" on an account just created (ADR-035 §1)
+
+    @Test func withASessionTheOnboardingStartsAtTheFirstQuestionWithTheSavedAnswers() async throws {
+        let database = try AppDatabase.inMemory()
+        _ = try await makeStore(at: .account, database: database)
+        let today = today
+
+        let store = OnboardingStore(
+            drafts: GRDBOnboardingDraftRepository(database: database),
+            today: { today },
+            finishWithSession: {}
+        )
+        await store.load()
+
+        #expect(store.step == .name)
+        #expect(store.answers.firstName == "Camille")
+    }
+
+    @Test func withASessionCreateMyAccountFinishesWithoutTheAccountScreen() async throws {
+        let database = try AppDatabase.inMemory()
+        let today = today
+        let finished = Locked(0)
+        let store = OnboardingStore(
+            drafts: GRDBOnboardingDraftRepository(database: database),
+            today: { today },
+            finishWithSession: { finished.value += 1 }
+        )
+        await store.load()
+        store.answers.firstName = "Camille"
+        store.answers.lastName = "Martin"
+        while store.step != .personalizing {
+            switch store.step {
+            case .birthDate: store.answers.birthDate = CalendarDay(year: 1994, month: 5, day: 17)
+            case .gender: store.answers.gender = .female
+            case .sports: store.toggle(.run)
+            case .level: store.answers.level = .beginner
+            default: break
+            }
+            await store.next()
+        }
+
+        await store.next()
+
+        #expect(finished.value == 1)
+        #expect(store.step == .personalizing)
+        #expect(try await GRDBOnboardingDraftRepository(database: database).load()?.answers == store.answers)
+    }
 }

@@ -34,6 +34,7 @@ struct APIAuthRepository: AuthRepository {
         let id: String
         let email: String
         let name: String
+        let createdAt: Date?
     }
 
     func sendSignInCode(email: String) async throws(AuthError) {
@@ -104,7 +105,8 @@ struct APIAuthRepository: AuthRepository {
             if let token = http.value(forHTTPHeaderField: "set-auth-token") {
                 authSession.store(token: token)
             }
-            return AuthUser(id: response.user.id, email: response.user.email, name: response.user.name)
+            let user = response.user
+            return AuthUser(id: user.id, email: user.email, name: user.name, createdAt: user.createdAt)
         } catch {
             throw mapError(error)
         }

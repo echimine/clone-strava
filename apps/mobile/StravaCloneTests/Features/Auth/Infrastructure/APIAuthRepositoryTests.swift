@@ -61,6 +61,23 @@ struct APIAuthRepositoryTests {
         #expect(authSession.token() == "token-123")
     }
 
+    /// "Se connecter" may have just created the account (ADR-035 §1): the response's
+    /// `user.createdAt` tells.
+    @Test func signInReadsWhenTheAccountWasCreated() async throws {
+        let (repository, authSession) = makeRepository()
+        defer { authSession.clear() }
+
+        URLProtocolStub.handler = { request in
+            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            let body = #"{"token":"raw","user":{"id":"u1","email":"a@b.com","name":"Ada","createdAt":"2026-11-02T08:15:30.250Z"}}"#
+            return (response, Data(body.utf8))
+        }
+
+        let user = try await repository.signIn(email: "a@b.com", code: "123456", name: nil)
+
+        #expect(user.createdAt == Date(timeIntervalSince1970: 1_793_607_330.25))
+    }
+
     /// Better Auth only uses `name` when the code creates the account: none is sent unless given.
     @Test func signInWithACodeLeavesTheNameOutWhenThereIsNone() async throws {
         let (repository, authSession) = makeRepository()
