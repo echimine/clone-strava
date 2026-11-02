@@ -48,7 +48,19 @@ struct APIClient: Sendable {
         return encoder
     }()
 
-    init(baseURL: URL, session: URLSession = .shared, authSession: AuthSession) {
+    /// The app authenticates with the bearer token only (ADR-022): the session never stores
+    /// nor sends cookies. With `.shared`, Better Auth's `Set-Cookie` answers came back as a
+    /// `Cookie` header, and Better Auth then demands an `Origin` the app never sends
+    /// (`403 MISSING_OR_NULL_ORIGIN` on `/api/auth/*`).
+    static let defaultSession: URLSession = {
+        let configuration = URLSessionConfiguration.default
+        configuration.httpShouldSetCookies = false
+        configuration.httpCookieAcceptPolicy = .never
+        configuration.httpCookieStorage = nil
+        return URLSession(configuration: configuration)
+    }()
+
+    init(baseURL: URL, session: URLSession = APIClient.defaultSession, authSession: AuthSession) {
         self.baseURL = baseURL
         self.session = session
         self.authSession = authSession
