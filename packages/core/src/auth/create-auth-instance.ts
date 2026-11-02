@@ -14,6 +14,7 @@ import {
 import type { Redis } from "../infrastructure/index.js";
 import { createAuthSecondaryStorage } from "./auth-secondary-storage.js";
 import type { AuthModuleOptions } from "./auth.constants.js";
+import { sessionAuthMethodFor } from "./domain/session-auth-method.js";
 
 /** Dev-only addresses that get the fixed Sign-in code, without any email (ADR-035 §2). */
 const DEV_FIXED_CODE_DOMAIN = "@stravaclone.test";
@@ -101,6 +102,14 @@ export function createAuthInstance(
     },
     // ADR-022: Google only — Apple Sign-In is deferred (blocked on the
     // Apple Developer Program), not even stubbed here.
+    session: {
+      // ADR-035 §3: how the session was opened; only `password_2fa`
+      // carries admin rights. `input: false` keeps it out of
+      // `/update-session` and every other client-supplied body.
+      additionalFields: {
+        authMethod: { type: "string", required: false, input: false },
+      },
+    },
     socialProviders: {
       google: {
         clientId: options.googleClientId,
@@ -171,6 +180,16 @@ export function createAuthInstance(
     // `twoFactorEnabled` changes — no separate flag needed, so left as a
     // documented no-op for now.
     databaseHooks: {
+      session: {
+        create: {
+          // ADR-035 §3: recomputed from the endpoint that opens the session,
+          // never inherited (Better Auth copies the previous session's
+          // fields when it rotates one, e.g. on 2FA enrollment).
+          before: async (session, ctx) => ({
+            data: { ...session, authMethod: sessionAuthMethodFor(ctx) },
+          }),
+        },
+      },
       user: {
         update: {
           after: async () => {

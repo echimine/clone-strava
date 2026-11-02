@@ -2,6 +2,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import type { UserRole } from "@repo/contracts";
 import { AUTH_INSTANCE } from "./auth.constants.js";
 import type { AuthInstance } from "./auth-instance.type.js";
+import { SESSION_AUTH_METHODS, type SessionAuthMethod } from "./domain/session-auth-method.js";
 import { AuthUserRepository } from "./repositories/auth-user.repository.js";
 
 /**
@@ -17,6 +18,12 @@ export interface AuthSession {
   role: UserRole;
   /** Added by the `twoFactor` plugin (ADR-022 §5): required for `AdminGuard`. */
   twoFactorEnabled: boolean;
+  /**
+   * How this session was opened (ADR-035 §3): `AdminGuard` requires
+   * `password_2fa`. `null` for sessions opened before the field existed or
+   * by an unknown path; they count as weak.
+   */
+  authMethod: SessionAuthMethod | null;
 }
 
 /**
@@ -59,6 +66,7 @@ export class AuthService {
       name: result.user.name,
       role: result.user.role as UserRole,
       twoFactorEnabled: Boolean(result.user.twoFactorEnabled),
+      authMethod: SESSION_AUTH_METHODS.find((method) => method === result.session.authMethod) ?? null,
     };
   }
 
