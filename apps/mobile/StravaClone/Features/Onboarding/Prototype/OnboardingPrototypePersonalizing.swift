@@ -117,6 +117,8 @@ struct ProtoPersonalizing: View {
 /// Stand-in for the next screen, owned by the ticket « Parcours de création de compte et de
 /// connexion par code ».
 struct ProtoAccountStub: View {
+    /// Account created or signed in: on to the Paywall (#110).
+    let signedIn: () -> Void
     let restart: () -> Void
 
     var body: some View {
@@ -127,7 +129,8 @@ struct ProtoAccountStub: View {
             Text("Hors prototype : Google ou email + code, puis envoi des réponses d'onboarding.")
                 .font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center)
             Spacer()
-            ProtoPrimaryButton(title: "Recommencer l'Onboarding", isEnabled: true, action: restart)
+            ProtoPrimaryButton(title: "Compte créé → Paywall", isEnabled: true, action: signedIn)
+            Button("Recommencer l'Onboarding", action: restart).font(.subheadline.weight(.semibold))
         }
         .padding(Theme.spacing)
     }

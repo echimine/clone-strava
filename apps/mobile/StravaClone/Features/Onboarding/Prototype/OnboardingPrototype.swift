@@ -90,6 +90,8 @@ final class ProtoAnswers {
     var sports: [SportType] = []
     var goals: Set<ProtoGoal> = []
     var level: ProtoLevel?
+    /// What happened on the Paywall (#110), shown in the state sheet.
+    var paywallEvents: [String] = []
 
     var nameIsValid: Bool {
         !firstName.trimmingCharacters(in: .whitespaces).isEmpty
@@ -117,6 +119,7 @@ final class ProtoAnswers {
             ("Sports", sports.isEmpty ? "—" : sports.map(ActivityFormatters.sportLabel).joined(separator: ", ")),
             ("Objectifs", goals.isEmpty ? "—" : ProtoGoal.allCases.filter(goals.contains).map(\.rawValue).joined(separator: ", ")),
             ("Niveau", level?.rawValue ?? "—"),
+            ("Paywall", paywallEvents.last ?? "—"),
         ]
     }
 }
@@ -140,12 +143,18 @@ struct OnboardingPrototypeView: View {
     @AppStorage("prototype.onboarding.variant") private var variantKey = Variant.a.rawValue
     @State private var answers = ProtoAnswers()
     /// Questions, then « ce que vous pouvez faire », then the personalised loading screen.
-    enum Stage: String { case questions, showcase, personalizing, account }
+    /// Then the account (stub) and the Paywall (#110), then the notifications permission (stub).
+    enum Stage: String { case questions, showcase, personalizing, account, paywall, notifications }
 
     /// `-protoStage showcase` (or `personalizing`) opens straight on that screen.
     @State private var stage = Stage(rawValue: UserDefaults.standard.string(forKey: "protoStage") ?? "") ?? .questions
     @State private var showsState = false
     @State private var runID = UUID()
+    @AppStorage("prototype.paywall.variant") private var paywallKey = ProtoPaywallVariant.a.rawValue
+    @State private var offeringMode = ProtoOfferingMode.ok
+    @State private var paywallRunID = UUID()
+
+    private var paywallVariant: ProtoPaywallVariant { ProtoPaywallVariant(rawValue: paywallKey) ?? .a }
 
     private var variant: Variant { Variant(rawValue: variantKey) ?? .a }
 
@@ -160,7 +169,15 @@ struct OnboardingPrototypeView: View {
                 }
             case .showcase: ProtoShowcase(answers: answers) { advance() }
             case .personalizing: ProtoPersonalizing(answers: answers) { advance() }
-            case .account: ProtoAccountStub(restart: restart)
+            case .account: ProtoAccountStub(signedIn: advance, restart: restart)
+            case .paywall:
+                ProtoPaywall(answers: answers, variant: paywallVariant,
+                             service: ProtoUnwiredSubscriptionService(mode: offeringMode)) { outcome in
+                    answers.paywallEvents.append(outcome)
+                    advance()
+                }
+                .id(paywallRunID)
+            case .notifications: ProtoNotificationsStub(answers: answers, restart: restart)
             }
         }
         .transition(.opacity.combined(with: .scale(scale: 1.02)))
@@ -179,9 +196,22 @@ struct OnboardingPrototypeView: View {
     private var switcher: some View {
         HStack(spacing: 14) {
             Button { cycle(-1) } label: { Image(systemName: "chevron.left") }
-            Text("\(variant.rawValue) · \(variant.name)").monospaced().frame(minWidth: 130)
+            Group {
+                if stage == .paywall {
+                    Text("\(paywallVariant.rawValue) · \(paywallVariant.name)")
+                } else {
+                    Text("\(variant.rawValue) · \(variant.name)")
+                }
+            }
+            .monospaced().frame(minWidth: 130)
             Button { cycle(1) } label: { Image(systemName: "chevron.right") }
             Divider().frame(height: 16).overlay(.white.opacity(0.4))
+            if stage == .paywall {
+                // Simulates RevenueCat being slow or down (once wired).
+                Button { cycleOfferingMode() } label: {
+                    Image(systemName: offeringMode == .ok ? "wifi" : offeringMode == .slow ? "tortoise.fill" : "wifi.slash")
+                }
+            }
             Button(action: advance) { Image(systemName: "forward.end.fill") }
             Button { showsState = true } label: { Image(systemName: "list.bullet.rectangle") }
             Button(action: restart) { Image(systemName: "arrow.counterclockwise") }
@@ -199,17 +229,32 @@ struct OnboardingPrototypeView: View {
         let next: Stage = switch stage {
         case .questions: .showcase
         case .showcase: .personalizing
-        case .personalizing, .account: .account
+        case .personalizing: .account
+        case .account: .paywall
+        case .paywall, .notifications: .notifications
         }
         withAnimation(.easeInOut(duration: 0.4)) { stage = next }
     }
 
     private func cycle(_ step: Int) {
+        if stage == .paywall {
+            let all = ProtoPaywallVariant.allCases
+            let index = (all.firstIndex(of: paywallVariant)! + step + all.count) % all.count
+            paywallKey = all[index].rawValue
+            return
+        }
         let all = Variant.allCases
         let index = (all.firstIndex(of: variant)! + step + all.count) % all.count
         variantKey = all[index].rawValue
         stage = .questions
         runID = UUID()
+    }
+
+    /// Reloads the Paywall with the next stub behaviour (OK → slow → unavailable).
+    private func cycleOfferingMode() {
+        let all = ProtoOfferingMode.allCases
+        offeringMode = all[(all.firstIndex(of: offeringMode)! + 1) % all.count]
+        paywallRunID = UUID()
     }
 
     private func restart() {
