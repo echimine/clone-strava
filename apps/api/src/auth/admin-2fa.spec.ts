@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createDb } from "@repo/db";
 import { AuthService } from "@repo/core/auth";
@@ -9,6 +10,7 @@ import {
   TEST_DATABASE_URL,
   type TestAuthApp,
 } from "./test-auth-app.js";
+import { fakeGoogleIdTokens } from "./test-google-id-token.js";
 
 /**
  * ADR-022 §5's own named-missing test: create a user, promote to admin,
@@ -22,7 +24,13 @@ import {
 const CLIENT_IP = "198.51.100.22";
 const JSON_HEADERS = { "content-type": "application/json", "x-forwarded-for": CLIENT_IP };
 /** One client IP per strong-session test, so none eats another's rate-limit budget. */
-const STRONG_SESSION_IPS = ["198.51.100.23", "198.51.100.24", "198.51.100.25", "198.51.100.26"] as const;
+const STRONG_SESSION_IPS = [
+  "198.51.100.23",
+  "198.51.100.24",
+  "198.51.100.25",
+  "198.51.100.26",
+  "198.51.100.27",
+] as const;
 const PASSWORD = "correcthorsebatterystaple123";
 
 describe("AdminGuard + twoFactor plugin lifecycle (ADR-022 §5)", () => {
@@ -312,6 +320,34 @@ describe("AdminGuard + twoFactor plugin lifecycle (ADR-022 §5)", () => {
       const body = (await adminResponse.json()) as { error: { code: string; message: string } };
       expect(body.error.code).toBe("ADMIN_STRONG_SESSION_REQUIRED");
       expect(body.error.message).toMatch(/backoffice/i);
+
+      const appResponse = await getAs("/v1/app-route", { bearer });
+      expect(appResponse.status).toBe(200);
+    });
+
+    it("refuses a 2FA admin's Google session with ADMIN_STRONG_SESSION_REQUIRED, which still works on app routes", async () => {
+      const ip = STRONG_SESSION_IPS[4];
+      const admin = await createAdmin("admin-google-session", ip, { twoFactor: true });
+      // A first Sign-in code proves the address, so Google can link to the account.
+      await signInWithCode(admin.email, ip);
+      const google = fakeGoogleIdTokens();
+      let bearer: string;
+      try {
+        const signIn = await post(
+          "/sign-in/social",
+          { provider: "google", idToken: { token: google.idToken(admin.email, randomUUID()) } },
+          ip,
+        );
+        expect(signIn.status).toBe(200);
+        bearer = ((await signIn.json()) as { token: string }).token;
+      } finally {
+        google.restore();
+      }
+
+      const adminResponse = await getAs("/v1/admin", { bearer });
+      expect(adminResponse.status).toBe(403);
+      const body = (await adminResponse.json()) as { error: { code: string } };
+      expect(body.error.code).toBe("ADMIN_STRONG_SESSION_REQUIRED");
 
       const appResponse = await getAs("/v1/app-route", { bearer });
       expect(appResponse.status).toBe(200);

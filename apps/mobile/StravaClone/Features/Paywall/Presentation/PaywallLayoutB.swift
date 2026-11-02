@@ -4,7 +4,7 @@ import SwiftUI
 /// timeline inside the chosen one), "Comparer" down to a Free / Premium table, and a floating
 /// black button with "Sans engagement".
 struct PaywallLayoutB: View {
-    let variant: PaywallVariant
+    let content: PaywallContent
 
     private let ink = Color(red: 0.09, green: 0.12, blue: 0.10)
 
@@ -12,9 +12,9 @@ struct PaywallLayoutB: View {
         ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    PaywallCloseButton(background: Color(.systemGray6), action: variant.skip)
+                    PaywallCloseButton(background: Color(.systemGray6), action: content.skip)
 
-                    Text(variant.trialDays == 30 ? "Votre premier mois est offert" : "Passez à Premium")
+                    Text(content.trialDays == 30 ? "Votre premier mois est offert" : "Passez à Premium")
                         .font(.system(size: 31, weight: .medium))
                         .tracking(-0.6)
                         .fixedSize(horizontal: false, vertical: true)
@@ -31,13 +31,13 @@ struct PaywallLayoutB: View {
                     .padding(.top, 26)
 
                     VStack(spacing: 14) {
-                        ForEach(variant.offering.offers) { planCard($0) }
+                        ForEach(content.offering.offers) { planCard($0) }
                     }
                     .padding(.top, 12)
 
                     table.id("table").padding(.top, 34)
 
-                    PaywallFooter(variant: variant)
+                    PaywallFooter(content: content)
                         .frame(maxWidth: .infinity)
                         .padding(.top, 28)
                 }
@@ -55,8 +55,8 @@ struct PaywallLayoutB: View {
     private var floatingButton: some View {
         VStack(spacing: 10) {
             // What is paid after the trial, readable outside the small print (App Store 3.1.2).
-            Text(variant.selected.priceAfterTrial).font(.subheadline.weight(.semibold))
-            Button(action: variant.startTrial) {
+            Text(content.selected.priceAfterTrial).font(.subheadline.weight(.semibold))
+            Button(action: content.startTrial) {
                 Text("Démarrer l'essai gratuit")
                     .font(.system(size: 18, weight: .medium))
                     .foregroundStyle(.white)
@@ -66,7 +66,7 @@ struct PaywallLayoutB: View {
                     .contentShape(Capsule())
             }
             .buttonStyle(OnboardingPressStyle())
-            .disabled(variant.store.isBusy)
+            .disabled(content.store.isBusy)
             .accessibilityIdentifier("paywall.startTrial")
             Text("Sans engagement").font(.subheadline)
         }
@@ -82,9 +82,9 @@ struct PaywallLayoutB: View {
     }
 
     private func planCard(_ offer: SubscriptionOffer) -> some View {
-        let isSelected = offer == variant.selected
+        let isSelected = offer == content.selected
         let shape = RoundedRectangle(cornerRadius: 18, style: .continuous)
-        return Button { variant.select(offer) } label: {
+        return Button { content.select(offer) } label: {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 6) {
                     Image(systemName: offer.period == .year ? "sparkle" : "circle.hexagongrid.fill")
@@ -92,7 +92,7 @@ struct PaywallLayoutB: View {
                         .foregroundStyle(Theme.accent)
                     Text(offer.title).font(.system(size: 22, weight: .medium))
                     Spacer()
-                    if offer.period == .year, let savings = variant.offering.yearlySavingsPercent {
+                    if offer.period == .year, let savings = content.offering.yearlySavingsPercent {
                         Text("−\(savings) % sur l'année")
                             .font(.caption.weight(.medium))
                             .padding(.horizontal, 8)

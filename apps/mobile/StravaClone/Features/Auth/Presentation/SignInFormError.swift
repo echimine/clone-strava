@@ -9,17 +9,19 @@ extension SignInStore {
         /// A server-provided message (AuthError.server) or a Google-specific failure —
         /// shown verbatim rather than folded into a generic "something went wrong".
         case message(String)
+        /// Nothing more precise to say: an empty server message, or an error the store handles
+        /// before it gets here (refused code, cancelled Google sheet, no session).
+        case unexpected
 
         init(_ error: AuthError) {
             switch error {
             case .rateLimited: self = .rateLimited
-            case .server(let message): self = .message(message)
+            case .server(let message): self = message.isEmpty ? .unexpected : .message(message)
             case .network(.offline): self = .offline
             case .network(let apiError): self = .message(FormError.describe(apiError))
             case .googleSignInFailed(let message): self = .message("Google : \(message)")
-            // Handled by the store before they get here (refused code, cancelled Google sheet).
             case .notSignedIn, .invalidCode, .codeExpired, .tooManyAttempts, .googleSignInCancelled:
-                self = .message("")
+                self = .unexpected
             }
         }
 
@@ -28,7 +30,8 @@ extension SignInStore {
             switch self {
             case .rateLimited: "Trop de tentatives, réessayez dans une minute."
             case .offline: "Pas de connexion internet."
-            case .message(let message): message.isEmpty ? "Une erreur est survenue, réessayez." : message
+            case .message(let message): message
+            case .unexpected: "Une erreur est survenue, réessayez."
             }
         }
 

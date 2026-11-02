@@ -184,29 +184,39 @@ final class SignInStore {
     /// In step with the server's 3 sends per minute and per IP.
     static let resendDelaySeconds = 30
 
+    /// What a refused code shows, and the `email_code_failed` reason it sends (ADR-035 §8); a
+    /// refusal that says nothing about the code (rate limit, server message) sends none.
     private func codeRejected(_ error: AuthError) {
         code = ""
-        if let reason = AnalyticsEvent.CodeFailure(error) {
-            analytics.capture(.emailCodeFailed(reason: reason))
-        }
         switch error {
         case .invalidCode:
             failedAttempts += 1
             // The 3rd wrong code still gets `INVALID_OTP`, but the code is spent.
             if failedAttempts >= Self.attemptsPerCode {
-                codeNoLongerValid()
+                codeNoLongerValid(reason: .tooManyAttempts)
             } else {
+                codeFailed(.incorrect)
                 codeProblem = .wrong
             }
-        case .codeExpired, .tooManyAttempts:
-            codeNoLongerValid()
+        case .codeExpired:
+            codeNoLongerValid(reason: .expired)
+        case .tooManyAttempts:
+            codeNoLongerValid(reason: .tooManyAttempts)
+        case .network:
+            codeFailed(.network)
+            formError = FormError(error)
         default:
             formError = FormError(error)
         }
     }
 
+    private func codeFailed(_ reason: AnalyticsEvent.CodeFailure) {
+        analytics.capture(.emailCodeFailed(reason: reason))
+    }
+
     /// The boxes are disabled and the resend opens right away, as the main button.
-    private func codeNoLongerValid() {
+    private func codeNoLongerValid(reason: AnalyticsEvent.CodeFailure) {
+        codeFailed(reason)
         codeProblem = .noLongerValid
         stopCountdown()
     }
@@ -223,19 +233,6 @@ private extension SignInEntry {
         switch self {
         case .signIn: .signIn
         case .onboarding: .create
-        }
-    }
-}
-
-private extension AnalyticsEvent.CodeFailure {
-    /// `nil` for a refusal that says nothing about the code (rate limit, server message).
-    init?(_ error: AuthError) {
-        switch error {
-        case .invalidCode: self = .incorrect
-        case .codeExpired: self = .expired
-        case .tooManyAttempts: self = .tooManyAttempts
-        case .network: self = .network
-        default: return nil
         }
     }
 }

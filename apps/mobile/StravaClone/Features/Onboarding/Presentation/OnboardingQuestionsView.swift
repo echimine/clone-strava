@@ -1,11 +1,13 @@
 import SwiftUI
 
-/// The six questions (ADR-035 §1, prototype variant A): a round back button (absent on the first
-/// screen) and a 6-segment progress bar on top, one question per page sliding in its direction,
+/// The six questions (ADR-035 §1, prototype variant A): a round back button (on the first
+/// screen, only when there is a Welcome to go back to) and a 6-segment progress bar on top, one question per page sliding in its direction,
 /// and the orange button at the bottom, pale while the page is not valid.
 struct OnboardingQuestionsView: View {
     @Bindable var store: OnboardingStore
     let isForward: Bool
+    /// Whether the round back button shows: `store.canGoBack`, or a way out of the first screen.
+    let canGoBack: Bool
     let next: () -> Void
     let back: () -> Void
 
@@ -49,7 +51,7 @@ struct OnboardingQuestionsView: View {
     private var header: some View {
         HStack(spacing: 14) {
             ZStack {
-                if store.canGoBack {
+                if canGoBack {
                     Button(action: goBack) {
                         Image(systemName: "chevron.left")
                             .font(.body.weight(.semibold))
@@ -64,7 +66,7 @@ struct OnboardingQuestionsView: View {
                 }
             }
             .frame(width: 36, height: 36)
-            .animation(.easeOut(duration: 0.2), value: store.canGoBack)
+            .animation(.easeOut(duration: 0.2), value: canGoBack)
 
             progressBar
 

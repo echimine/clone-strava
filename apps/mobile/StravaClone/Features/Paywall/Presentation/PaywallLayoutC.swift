@@ -4,7 +4,7 @@ import SwiftUI
 /// free trial highlighted in the title, "Essayer pour 0,00 €" / "Non merci") in Nervo's look,
 /// over a real ride on the Outdoors map with what Premium shows about it.
 struct PaywallLayoutC: View {
-    let variant: PaywallVariant
+    let content: PaywallContent
     let firstName: String
 
     var body: some View {
@@ -20,7 +20,7 @@ struct PaywallLayoutC: View {
                 }
 
             VStack(spacing: 10) {
-                Text("Allez plus loin avec \(Text("\(variant.trialDays) jours gratuits").foregroundStyle(Theme.accent)) de Premium")
+                Text("Allez plus loin avec \(Text("\(content.trialDays) jours gratuits").foregroundStyle(Theme.accent)) de Premium")
                     .font(.system(size: 28, weight: .bold))
                     .tracking(-0.4)
                     .multilineTextAlignment(.center)
@@ -40,18 +40,18 @@ struct PaywallLayoutC: View {
                     .font(.footnote.weight(.medium))
                     .foregroundStyle(.secondary)
                 // What is paid after the trial, readable outside the small print (App Store 3.1.2).
-                Text(variant.selected.priceAfterTrial)
+                Text(content.selected.priceAfterTrial)
                     .font(.subheadline.weight(.semibold))
-                Button("Essayer pour \(variant.selected.zeroPrice)", action: variant.startTrial)
+                Button("Essayer pour \(content.selected.zeroPrice)", action: content.startTrial)
                     .buttonStyle(PrimaryButtonStyle())
-                    .disabled(variant.store.isBusy)
+                    .disabled(content.store.isBusy)
                     .accessibilityIdentifier("paywall.startTrial")
-                Button("Non merci", action: variant.skip)
+                Button("Non merci", action: content.skip)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.secondary)
                     .frame(minHeight: 32)
                     .accessibilityIdentifier("paywall.skip")
-                PaywallFooter(variant: variant)
+                PaywallFooter(content: content)
             }
             .padding(.horizontal, Theme.spacing)
             .padding(.bottom, 6)

@@ -9,8 +9,10 @@ import Observation
 /// Onboarding starts at its first question, saved answers kept, and "Créer mon compte" ends it
 /// without the account screen: the session exists already.
 ///
-/// Each screen up to the personalised loading sends `onboarding_step_viewed`, and "Créer mon
-/// compte" `onboarding_completed` (ADR-035 §8): sports, goals and level only.
+/// Each screen up to the personalised loading sends `onboarding_step_viewed`, the first one
+/// viewed after resuming a draft with `resumed`, whatever the screen it resumed on. "Créer mon
+/// compte" sends `onboarding_completed` once per Onboarding (ADR-035 §8): sports, goals and level
+/// only.
 @Observable
 @MainActor
 final class OnboardingStore {
@@ -19,29 +21,36 @@ final class OnboardingStore {
 
     @ObservationIgnored private let drafts: any OnboardingDraftRepository
     @ObservationIgnored private let analytics: any AnalyticsClient
-    @ObservationIgnored private let today: () -> CalendarDay
+    @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private let finishWithSession: (@MainActor () -> Void)?
+    /// A draft was resumed and no Onboarding screen has been viewed since.
+    @ObservationIgnored private var isResumePending = false
+    /// `onboarding_completed` is sent: reaching the account screen, even in an earlier launch.
+    @ObservationIgnored private var isCompleted = false
 
     init(
         drafts: any OnboardingDraftRepository,
         analytics: any AnalyticsClient = NoAnalyticsClient(),
-        today: @escaping () -> CalendarDay = { CalendarDay(.now) },
+        now: @escaping () -> Date = Date.init,
         finishWithSession: (@MainActor () -> Void)? = nil
     ) {
         self.drafts = drafts
         self.analytics = analytics
-        self.today = today
+        self.now = now
         self.finishWithSession = finishWithSession
     }
 
-    /// Resumes the saved draft, if any; its first screen is viewed as resumed.
+    /// Resumes the saved draft, if any; the first screen viewed is marked as resumed.
     func load() async {
-        guard let draft = try? await drafts.load() else { return stepViewed(resumed: false) }
-        answers = draft.answers
-        if finishWithSession == nil {
-            step = draft.step
+        if let draft = try? await drafts.load() {
+            answers = draft.answers
+            isCompleted = draft.step == .account
+            if finishWithSession == nil {
+                step = draft.step
+            }
+            isResumePending = true
         }
-        stepViewed(resumed: true)
+        stepViewed()
     }
 
     /// Whether the current screen lets the person go on.
@@ -78,6 +87,11 @@ final class OnboardingStore {
         }
     }
 
+    /// The day the minimum age is checked on: the server's, in UTC.
+    private func today() -> CalendarDay {
+        .utc(now())
+    }
+
     /// The active sports (`sport_type.is_active`): never a sport that cannot be recorded.
     let sportChoices = SportType.active
 
@@ -110,7 +124,7 @@ final class OnboardingStore {
               index + 1 < OnboardingStep.allCases.count
         else { return }
         step = OnboardingStep.allCases[index + 1]
-        stepViewed(resumed: false)
+        stepViewed()
         await saveDraft()
     }
 
@@ -121,7 +135,13 @@ final class OnboardingStore {
     func back() async {
         guard let index = OnboardingStep.allCases.firstIndex(of: step), index > 0 else { return }
         step = OnboardingStep.allCases[index - 1]
-        stepViewed(resumed: false)
+        stepViewed()
+        await saveDraft()
+    }
+
+    /// The first screen's back button, to the Welcome (decision on #128): the draft keeps what
+    /// was typed, so the next "Créer un compte" resumes here.
+    func leave() async {
         await saveDraft()
     }
 
@@ -134,13 +154,17 @@ final class OnboardingStore {
     }
 
     /// The account screen sends `auth_screen_viewed` instead.
-    private func stepViewed(resumed: Bool) {
+    private func stepViewed() {
         guard let screen = AnalyticsEvent.OnboardingScreen(step) else { return }
-        analytics.capture(.onboardingStepViewed(step: screen, resumed: resumed))
+        analytics.capture(.onboardingStepViewed(step: screen, resumed: isResumePending))
+        isResumePending = false
     }
 
-    /// "Créer mon compte": never the name, the birth date or the gender (ADR-035 §8).
+    /// "Créer mon compte", the first time: never the name, the birth date or the gender
+    /// (ADR-035 §8).
     private func completed() {
+        guard !isCompleted else { return }
+        isCompleted = true
         analytics.capture(.onboardingCompleted(
             sportCodes: answers.sports.map(\.code),
             goals: answers.goals.map(\.rawValue),

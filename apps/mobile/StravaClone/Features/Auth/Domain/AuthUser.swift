@@ -15,6 +15,11 @@ struct AuthUser: Equatable, Sendable, Codable {
         self.createdAt = createdAt
     }
 
+    /// The first word of `name`, as the Paywall greets the athlete; empty for an empty name.
+    var firstName: String {
+        name.split(separator: " ").first.map(String.init) ?? ""
+    }
+
     /// How recent an account must be for "Se connecter" to count as its creation (ADR-035 §1).
     static let newAccountWindow: TimeInterval = 2 * 60
 

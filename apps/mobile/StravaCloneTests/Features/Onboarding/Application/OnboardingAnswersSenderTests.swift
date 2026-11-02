@@ -142,6 +142,8 @@ struct OnboardingAnswersSenderTests {
 
         #expect(await harness.queue.pendingCount() == 1)
         #expect(try await harness.drafts.load() == Self.completedDraft)
+        // The wake-up sleeps on its own task, after `submit` returns.
+        #expect(await eventually { harness.sleeper.waiting == 1 })
         #expect(harness.sleeper.requested == [.seconds(2)])
 
         answer { _ in .status(204) }
@@ -158,6 +160,9 @@ struct OnboardingAnswersSenderTests {
         answer { _ in .status(503) }
 
         await harness.sender.submit()
+        // The wake-up starts its sleep on its own task, after `submit` returns: waking before
+        // it waits would wake nobody.
+        #expect(await eventually { harness.sleeper.waiting == 1 })
         harness.clock.value = .fixture().addingTimeInterval(2)
         harness.sleeper.wakeAll()
 

@@ -14,6 +14,7 @@ import { ensureTestDatabaseMigrated, TEST_DATABASE_URL, TEST_REDIS_URL } from ".
 import { SessionGuard } from "../auth/session.guard.js";
 import { GlobalExceptionFilter } from "../common/global-exception.filter.js";
 import { OnboardingAnswersController } from "./onboarding-answers.controller.js";
+import { SportsActiveCatalog } from "./sports-active-catalog.js";
 
 /**
  * `PUT /v1/me/onboarding-answers` over real HTTP and Postgres (ADR-024 §2,
@@ -90,6 +91,7 @@ describe("PUT /v1/me/onboarding-answers (integration)", () => {
       controllers: [OnboardingAnswersController],
       providers: [
         SessionGuard,
+        SportsActiveCatalog,
         {
           provide: AuthService,
           useValue: {
