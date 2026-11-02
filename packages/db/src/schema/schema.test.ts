@@ -8,7 +8,7 @@ import { segment, segmentEffort } from "./segments.js";
 import { follow } from "./social.js";
 import { sportType } from "./sports.js";
 import { userSubscription } from "./subscriptions.js";
-import { userProfile } from "./users.js";
+import { userProfile, userSport } from "./users.js";
 
 describe("schema table names and owning PostgreSQL schema (ADR-017, ADR-021 §7)", () => {
   it("keeps Better Auth's `user` table in the public schema", () => {
@@ -19,6 +19,7 @@ describe("schema table names and owning PostgreSQL schema (ADR-017, ADR-021 §7)
 
   it("puts each domain module's tables in a schema named after it", () => {
     expect(getTableConfig(userProfile)).toMatchObject({ name: "user_profile", schema: "users" });
+    expect(getTableConfig(userSport)).toMatchObject({ name: "user_sport", schema: "users" });
     expect(getTableConfig(sportType)).toMatchObject({ name: "sport_type", schema: "sports" });
     expect(getTableConfig(follow)).toMatchObject({ name: "follow", schema: "social" });
     expect(getTableConfig(activity)).toMatchObject({ name: "activity", schema: "activities" });
