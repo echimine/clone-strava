@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The Welcome's two ways in: both lead to the account screen.
+/// The Welcome's two ways in: the Onboarding, or straight to the account screen.
 enum WelcomeEntry: Hashable {
     case createAccount, signIn
 }
@@ -8,15 +8,15 @@ enum WelcomeEntry: Hashable {
 /// The first screen of someone signed out (ADR-035 §1), right after the splash: the Nervo logo,
 /// a carousel of 3 scenes that advance on their own every 4 s and can be swiped, then
 /// "Créer un compte" and "Se connecter". On the first launch the Measurement consent sheet opens
-/// over it (§8). The app shell passes the account screen (ADR-007 rule 5), with its way back.
+/// over it (§8). The app shell passes the screen of each entry (ADR-007 rule 5), with its way back.
 struct WelcomeView<Account: View>: View {
     let consent: MeasurementConsentStore
     /// `false` while the splash covers the screen: the carousel and the consent sheet wait.
     var isRevealed = true
-    /// The account screen for an entry, and the action back to the Welcome.
+    /// The screen of an entry, and the action back to the Welcome.
     @ViewBuilder let account: (WelcomeEntry, _ back: @escaping () -> Void) -> Account
 
-    /// The account screen opened from here, if any.
+    /// The entry opened from here, if any.
     @State private var entry: WelcomeEntry?
 
     var body: some View {

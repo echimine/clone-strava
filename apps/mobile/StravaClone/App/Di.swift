@@ -234,6 +234,11 @@ final class Di {
         )
     }
 
+    /// A new one for each "Créer un compte": it resumes the draft (ADR-035 §5).
+    func makeOnboardingStore() -> OnboardingStore {
+        OnboardingStore(drafts: GRDBOnboardingDraftRepository(database: database))
+    }
+
     func makeFeedStore() -> FeedStore {
         feedStore
     }
