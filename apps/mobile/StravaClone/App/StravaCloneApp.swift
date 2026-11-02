@@ -60,8 +60,9 @@ struct RootView: View {
     /// "Créer un compte" on the Welcome: the Onboarding, resumed from its draft (ADR-035 §1, §5).
     /// With an action, the Onboarding that "Se connecter" opened on a new account, ended by it.
     let makeOnboardingStore: @MainActor ((@MainActor () -> Void)?) -> OnboardingStore
-    /// The Paywall after the sign-in that ends the Onboarding (ADR-035 §6), ended by its action.
-    let makePaywallStore: @MainActor (@escaping @MainActor () -> Void) -> PaywallStore
+    /// The Paywall after the sign-in that ends the Onboarding (ADR-035 §6), ended by its action;
+    /// told whether that sign-in created the account.
+    let makePaywallStore: @MainActor (Bool, @escaping @MainActor () -> Void) -> PaywallStore
     @State var recordingStore: RecordingStore
     @State var importStore: ImportStore
     @State var feedStore: FeedStore
@@ -121,7 +122,14 @@ struct RootView: View {
             case .checkingSession:
                 ProgressView()
             case .signedOut:
-                WelcomeView(consent: consentStore, isRevealed: !isSplashPresented) { entry, back in
+                WelcomeView(
+                    consent: consentStore,
+                    isRevealed: !isSplashPresented,
+                    viewed: authStore.welcomeViewed,
+                    opened: { [authStore] entry in
+                        if entry == .createAccount { authStore.onboardingStarted() }
+                    }
+                ) { entry, back in
                     switch entry {
                     case .createAccount:
                         OnboardingView(store: makeOnboardingStore(nil), authStore: authStore)
@@ -141,7 +149,9 @@ struct RootView: View {
             case .paywall(let user):
                 // ADR-035 §6: once, then the notification priming screen or home.
                 PaywallView(
-                    store: makePaywallStore { [authStore] in Task { await authStore.finishPaywall() } },
+                    store: makePaywallStore(authStore.isNewAccount) { [authStore] in
+                        Task { await authStore.finishPaywall() }
+                    },
                     firstName: user.name.split(separator: " ").first.map(String.init) ?? ""
                 )
             case .notificationPrimer:

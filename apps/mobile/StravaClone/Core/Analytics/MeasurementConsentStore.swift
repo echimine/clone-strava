@@ -11,6 +11,8 @@ final class MeasurementConsentStore {
     private(set) var isAsking = false
     /// The switch's state: `true` only once "Accepter" was chosen.
     private(set) var isMeasurementEnabled: Bool
+    /// "Accepter" or "Refuser" was chosen, on this launch or an earlier one.
+    private(set) var hasAnswered: Bool
 
     @ObservationIgnored private let preferences: any MeasurementConsentPreferences
     @ObservationIgnored private let analytics: any AnalyticsClient
@@ -29,6 +31,7 @@ final class MeasurementConsentStore {
         self.signedInUserID = signedInUserID
         self.sleep = sleep
         isMeasurementEnabled = preferences.consent == .accepted
+        hasAnswered = preferences.consent != nil
     }
 
     /// Once the splash is gone: on the first launch only, the sheet opens 0.5 s later.
@@ -66,6 +69,7 @@ final class MeasurementConsentStore {
     private func remember(_ consent: MeasurementConsent) {
         preferences.remember(consent)
         isMeasurementEnabled = consent == .accepted
+        hasAnswered = true
         isAsking = false
     }
 }

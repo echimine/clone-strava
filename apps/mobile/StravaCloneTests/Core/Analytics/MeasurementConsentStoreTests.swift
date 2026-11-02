@@ -69,6 +69,19 @@ struct MeasurementConsentStoreTests {
         #expect(nextLaunch.store.isMeasurementEnabled)
     }
 
+    /// The Welcome waits for an answer before `welcome_viewed` (ADR-035 §8).
+    @Test(arguments: [true, false])
+    func theConsentIsAnsweredOnceAcceptedOrRefused(accepting: Bool) async {
+        let harness = makeHarness()
+        await harness.openSheet()
+        #expect(!harness.store.hasAnswered)
+
+        if accepting { await harness.store.accept() } else { harness.store.refuse() }
+
+        #expect(harness.store.hasAnswered)
+        #expect(makeHarness(preferences: harness.preferences).store.hasAnswered)
+    }
+
     @Test func refusingSendsNothing() async {
         let harness = makeHarness()
         await harness.openSheet()

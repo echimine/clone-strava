@@ -1,8 +1,9 @@
 import Foundation
 @testable import StravaClone
 
-/// Hand-written `AnalyticsClient` (ADR-025 §3): records every event captured, in order, and the
-/// consent and identity calls apart (`calls`).
+/// Hand-written `AnalyticsClient` (ADR-025 §3): records every event sent, in order, and the
+/// consent and identity calls apart (`calls`). Like the SDK, it sends nothing between `optOut()`
+/// and the next `optIn()` (ADR-035 §8); it starts opted in.
 final class FakeAnalyticsClient: AnalyticsClient, @unchecked Sendable {
     enum Call: Equatable {
         case optIn, optOut, reset
@@ -11,6 +12,7 @@ final class FakeAnalyticsClient: AnalyticsClient, @unchecked Sendable {
 
     private let captured = Locked<[AnalyticsEvent]>([])
     private let recordedCalls = Locked<[Call]>([])
+    private let isOptedIn = Locked(true)
 
     var events: [AnalyticsEvent] { captured.value }
 
@@ -20,11 +22,19 @@ final class FakeAnalyticsClient: AnalyticsClient, @unchecked Sendable {
     var calls: [Call] { recordedCalls.value }
 
     func capture(_ event: AnalyticsEvent) {
+        guard isOptedIn.value else { return }
         captured.value.append(event)
     }
 
-    func optIn() { recordedCalls.value.append(.optIn) }
-    func optOut() { recordedCalls.value.append(.optOut) }
+    func optIn() {
+        isOptedIn.value = true
+        recordedCalls.value.append(.optIn)
+    }
+
+    func optOut() {
+        isOptedIn.value = false
+        recordedCalls.value.append(.optOut)
+    }
     func identify(userId: String) { recordedCalls.value.append(.identify(userId: userId)) }
     func reset() { recordedCalls.value.append(.reset) }
 

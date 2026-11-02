@@ -12,6 +12,9 @@ import Observation
 /// first; an existing account never does. After the Paywall comes the notification priming
 /// screen, only while iOS has not asked yet (§7). A restored session always goes home: neither
 /// the Paywall nor the priming screen is resumed.
+///
+/// It sends the funnel events around the session (§8): `welcome_viewed`, `onboarding_started`,
+/// `signed_in` right after `identify`, and those of the priming screen.
 @Observable
 @MainActor
 final class AuthStore {
@@ -32,6 +35,8 @@ final class AuthStore {
     private(set) var state = State.checkingSession
     /// iOS's prompt is open: a second tap on "Activer les notifications" does nothing.
     private(set) var isRequestingNotifications = false
+    /// The last sign-in created the account (`AuthUser.isNewAccount`), for the Paywall's events.
+    private(set) var isNewAccount = false
 
     @ObservationIgnored private let service: AuthService
     @ObservationIgnored private let analytics: any AnalyticsClient
@@ -61,9 +66,20 @@ final class AuthStore {
 
     /// The account screen's store; a sign-in there signs the app in.
     func makeSignInStore(entry: SignInEntry = .signIn) -> SignInStore {
-        SignInStore(service: service, name: entry.accountName, sleep: sleep) { [weak self] user in
-            self?.signedIn(user, entry: entry)
+        SignInStore(service: service, entry: entry, analytics: analytics, sleep: sleep) { [weak self] user, method in
+            self?.signedIn(user, entry: entry, method: method)
         }
+    }
+
+    /// The Welcome is on screen with the Measurement consent answered: on the first launch,
+    /// right after "Accepter", since nothing is sent before.
+    func welcomeViewed() {
+        analytics.capture(.welcomeViewed)
+    }
+
+    /// "Créer un compte" on the Welcome.
+    func onboardingStarted() {
+        analytics.capture(.onboardingStarted)
     }
 
     /// "Créer mon compte" at the end of the Onboarding that "Se connecter" opened: the session
@@ -80,7 +96,12 @@ final class AuthStore {
         guard case .paywall = state else { return }
         let status = await notificationPermission.status()
         guard case .paywall(let user) = state else { return }
-        state = status == .notDetermined ? .notificationPrimer(user) : .signedIn(user)
+        guard status == .notDetermined else {
+            state = .signedIn(user)
+            return
+        }
+        state = .notificationPrimer(user)
+        analytics.capture(.notificationPromptViewed)
     }
 
     /// "Activer les notifications" on the priming screen: iOS's prompt, then home, whatever the
@@ -89,7 +110,8 @@ final class AuthStore {
         guard case .notificationPrimer = state, !isRequestingNotifications else { return }
         isRequestingNotifications = true
         defer { isRequestingNotifications = false }
-        _ = await notificationPermission.requestAuthorization()
+        let granted = await notificationPermission.requestAuthorization()
+        analytics.capture(.notificationPermissionAnswered(granted: granted))
         guard case .notificationPrimer(let user) = state else { return }
         state = .signedIn(user)
     }
@@ -97,6 +119,7 @@ final class AuthStore {
     /// "Plus tard": home, without spending iOS's one-time prompt. Nothing asks again.
     func deferNotifications() {
         guard case .notificationPrimer(let user) = state, !isRequestingNotifications else { return }
+        analytics.capture(.notificationPermissionDeferred)
         state = .signedIn(user)
     }
 
@@ -115,13 +138,15 @@ final class AuthStore {
         state = .signedOut
     }
 
-    private func signedIn(_ user: AuthUser, entry: SignInEntry) {
+    private func signedIn(_ user: AuthUser, entry: SignInEntry, method: AnalyticsEvent.AuthMethod) {
         analytics.identify(userId: user.id)
+        isNewAccount = user.isNewAccount(at: now())
+        analytics.capture(.signedIn(method: method, isNewAccount: isNewAccount))
         switch entry {
         case .onboarding:
             startSubmittingOnboardingAnswers()
             state = .paywall(user)
-        case .signIn where user.isNewAccount(at: now()):
+        case .signIn where isNewAccount:
             state = .onboarding(user)
         case .signIn:
             state = .signedIn(user)

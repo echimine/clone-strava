@@ -13,6 +13,11 @@ struct WelcomeView<Account: View>: View {
     let consent: MeasurementConsentStore
     /// `false` while the splash covers the screen: the carousel and the consent sheet wait.
     var isRevealed = true
+    /// On screen with the Measurement consent answered (`welcome_viewed`, ADR-035 §8): on the
+    /// first launch, once the sheet is answered, since nothing is sent before "Accepter".
+    var viewed: () -> Void = {}
+    /// "Créer un compte" or "Se connecter" was tapped.
+    var opened: (WelcomeEntry) -> Void = { _ in }
     /// The screen of an entry, and the action back to the Welcome.
     @ViewBuilder let account: (WelcomeEntry, _ back: @escaping () -> Void) -> Account
 
@@ -28,6 +33,7 @@ struct WelcomeView<Account: View>: View {
                 .transition(.move(edge: .trailing))
             } else {
                 WelcomeContent(isRevealed: isRevealed) { entry in
+                    opened(entry)
                     withAnimation(.snappy) { self.entry = entry }
                 }
                 .transition(.move(edge: .leading))
@@ -37,6 +43,9 @@ struct WelcomeView<Account: View>: View {
         .task(id: isRevealed) {
             guard isRevealed else { return }
             await consent.askIfNeeded()
+        }
+        .onChange(of: isRevealed && consent.hasAnswered, initial: true) { _, isViewed in
+            if isViewed { viewed() }
         }
     }
 }

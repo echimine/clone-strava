@@ -36,6 +36,7 @@ struct AccountView: View {
         .animation(.snappy, value: store.step)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(.systemBackground))
+        .onAppear(perform: store.viewed)
     }
 }
 

@@ -3,8 +3,9 @@ import type { INestApplication } from "@nestjs/common";
 import { APP_FILTER, APP_INTERCEPTOR, APP_PIPE } from "@nestjs/core";
 import { Test } from "@nestjs/testing";
 import { ZodSerializerInterceptor, ZodValidationPipe } from "nestjs-zod";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 import type { ApiErrorResponse } from "@repo/contracts";
+import { AnalyticsModule, AnalyticsService } from "@repo/core/analytics";
 import { AuthService } from "@repo/core/auth";
 import { CoreInfrastructureModule, DATABASE, type Database } from "@repo/core/infrastructure";
 import { SportsModule } from "@repo/core/sports";
@@ -19,10 +20,12 @@ import { OnboardingAnswersController } from "./onboarding-answers.controller.js"
  * ADR-035 §4, §5): the answers fill only what the profile leaves empty.
  * There is no read endpoint for these fields yet, so the stored profile is
  * read back with SQL. Sessions come from `x-test-user` through a fake `AuthService`.
+ * `AnalyticsService.capture` is spied on (ADR-035 §8).
  */
 describe("PUT /v1/me/onboarding-answers (integration)", () => {
   let app: INestApplication;
   let baseUrl: string;
+  let capture: MockInstance<AnalyticsService["capture"]>;
   const users: string[] = [];
   const inactiveSport = `retired-${randomUUID().slice(0, 8)}`;
 
@@ -80,6 +83,7 @@ describe("PUT /v1/me/onboarding-answers (integration)", () => {
           databaseUrl: TEST_DATABASE_URL,
           redisUrl: TEST_REDIS_URL,
         }),
+        AnalyticsModule.forRoot({}),
         UsersModule,
         SportsModule,
       ],
@@ -114,6 +118,7 @@ describe("PUT /v1/me/onboarding-answers (integration)", () => {
     await app.listen(0);
     const address = app.getHttpServer().address();
     baseUrl = `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}`;
+    capture = vi.spyOn(app.get(AnalyticsService), "capture");
 
     await sql(
       "insert into sports.sport_type (code, category, icon_name, is_active) values ($1, 'test', 'figure.run', false)",
@@ -127,6 +132,38 @@ describe("PUT /v1/me/onboarding-answers (integration)", () => {
       await sql("delete from sports.sport_type where code = $1", [inactiveSport]);
       await app.close();
     }
+  });
+
+  beforeEach(() => {
+    capture.mockClear();
+  });
+
+  describe("onboarding_answers_received (ADR-035 §8)", () => {
+    it("is sent, with no property, when the answers fill something", async () => {
+      const user = await newUser();
+
+      expect((await put(user, answers)).status).toBe(204);
+
+      expect(capture.mock.calls).toEqual([["onboarding_answers_received", user, {}]]);
+    });
+
+    it("is not sent when the answers fill nothing", async () => {
+      const user = await newUser();
+      expect((await put(user, answers)).status).toBe(204);
+      capture.mockClear();
+
+      expect((await put(user, answers)).status).toBe(204);
+
+      expect(capture).not.toHaveBeenCalled();
+    });
+
+    it("is not sent for refused answers", async () => {
+      const user = await newUser();
+
+      expect((await put(user, { ...answers, sportCodes: ["curling"] })).status).toBe(422);
+
+      expect(capture).not.toHaveBeenCalled();
+    });
   });
 
   it("writes every answer on a new account, sports in the order of selection", async () => {
