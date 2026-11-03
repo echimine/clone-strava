@@ -11,7 +11,11 @@ final class FakeFeedRepository: FeedRepository, @unchecked Sendable {
     /// Suspends `setKudos` until resumed, to observe the optimistic state.
     var kudosGate: AsyncStream<Void>?
 
+    /// Answer of `recentKudos`; no givers by default.
+    var recentKudosResult: Result<[ActivityAuthor], FeedError> = .success([])
+
     private(set) var requestedCursors: [String?] = []
+    private(set) var recentKudosCalls: [ActivityID] = []
     private(set) var kudosCalls: [(given: Bool, id: ActivityID)] = []
 
     func page(cursor: String?) async throws(FeedError) -> FeedPage {
@@ -28,6 +32,14 @@ final class FakeFeedRepository: FeedRepository, @unchecked Sendable {
             for await _ in gate { break }
         }
         let result = lock.withLock { kudosResult } ?? .success(KudosState(kudosCount: given ? 1 : 0, viewerHasKudoed: given))
+        return try result.get()
+    }
+
+    func recentKudos(activityId: ActivityID) async throws(FeedError) -> [ActivityAuthor] {
+        let result = lock.withLock {
+            recentKudosCalls.append(activityId)
+            return recentKudosResult
+        }
         return try result.get()
     }
 }
@@ -50,8 +62,13 @@ extension ActivityPost {
         title: String = "Sortie",
         sport: SportType = .run,
         kudos: Int = 0,
+        comments: Int = 0,
         viewerHasKudoed: Bool = false,
-        viewerIsAuthor: Bool = false
+        viewerIsAuthor: Bool = false,
+        elevationGain: Double? = 120,
+        avgSpeedMs: Double? = nil,
+        routeTrimmed: Bool = false,
+        recentKudos: [ActivityAuthor] = []
     ) -> ActivityPost {
         ActivityPost(
             id: id,
@@ -61,10 +78,13 @@ extension ActivityPost {
             locationName: "Annecy, Haute-Savoie",
             distance: Distance(meters: 10_000),
             movingTime: .seconds(3_000),
-            elevationGain: 120,
+            elevationGain: elevationGain,
+            avgSpeedMs: avgSpeedMs,
             route: nil,
+            routeTrimmed: routeTrimmed,
             author: ActivityAuthor(id: "u1", displayName: "Camille Martin", avatarURL: nil),
-            engagement: ActivityEngagement(kudosCount: kudos, commentCount: 0, viewerHasKudoed: viewerHasKudoed),
+            engagement: ActivityEngagement(kudosCount: kudos, commentCount: comments, viewerHasKudoed: viewerHasKudoed),
+            recentKudos: recentKudos,
             viewerIsAuthor: viewerIsAuthor
         )
     }

@@ -17,3 +17,12 @@ struct ToggleKudos: Sendable {
         try await repository.setKudos(given, activityId: activityId)
     }
 }
+
+/// The most recent kudos givers of an activity, for the card's avatars (ADR-036 §5).
+struct LoadRecentKudos: Sendable {
+    let repository: any FeedRepository
+
+    func callAsFunction(activityId: ActivityID) async throws(FeedError) -> [ActivityAuthor] {
+        try await repository.recentKudos(activityId: activityId)
+    }
+}

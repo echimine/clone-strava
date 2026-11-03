@@ -34,8 +34,14 @@ struct ActivityPost: Identifiable, Hashable, Sendable {
     let distance: Distance?
     let movingTime: Duration?
     let elevationGain: Double?
+    /// Average moving speed, for the pace of `pace` sports (ADR-036 §5).
+    let avgSpeedMs: Double?
     let route: EncodedPolyline?
+    /// The privacy zone removed part of the route: "Départ et arrivée masqués" (ADR-036 §5).
+    var routeTrimmed: Bool
     let author: ActivityAuthor
     var engagement: ActivityEngagement
+    /// The most recent kudos givers, newest first (at most 3, ADR-036 §5).
+    var recentKudos: [ActivityAuthor]
     let viewerIsAuthor: Bool
 }

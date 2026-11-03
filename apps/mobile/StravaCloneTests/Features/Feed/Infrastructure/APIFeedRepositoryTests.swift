@@ -53,10 +53,13 @@ struct APIFeedRepositoryTests {
             "locationName": "Annecy, Haute-Savoie",
             "stats": { "distanceM": 42195.5, "movingTimeS": 5400, "elapsedTimeS": 5600, "elevationGainM": null, "avgSpeedMs": 7.8 },
             "map": { "polyline": "_p~iF~ps|U_ulLnnqC", "precision": 5 },
-            "routeTrimmed": false,
+            "routeTrimmed": true,
             "author": { "id": "u1", "displayName": "Camille Martin", "avatarUrl": "https://cdn.test/a.png" },
             "engagement": { "kudosCount": 3, "commentCount": 1, "viewerHasKudoed": true },
-            "recentKudos": [],
+            "recentKudos": [
+              { "id": "0b6f2f0e-5b1c-4f3e-9d43-3c2a1b0e9f01", "displayName": "Léa Bernard", "avatarUrl": "https://cdn.test/l.png" },
+              { "id": "0b6f2f0e-5b1c-4f3e-9d43-3c2a1b0e9f02", "displayName": "Hugo Petit", "avatarUrl": null }
+            ],
             "viewerIsAuthor": false
           }],
           "nextCursor": "abc"
@@ -87,6 +90,45 @@ struct APIFeedRepositoryTests {
         #expect(post.route == EncodedPolyline(value: "_p~iF~ps|U_ulLnnqC"))
         #expect(post.author.avatarURL == URL(string: "https://cdn.test/a.png"))
         #expect(post.engagement == ActivityEngagement(kudosCount: 3, commentCount: 1, viewerHasKudoed: true))
+    }
+
+    @Test func decodesTheCardFieldsOfADR036() async throws {
+        let repository = makeRepository()
+        let json = feedJSON
+        FeedURLProtocolStub.handler.value = { _ in (200, json) }
+
+        let post = try #require(try await repository.page(cursor: nil).posts.first)
+
+        #expect(post.avgSpeedMs == 7.8)
+        #expect(post.routeTrimmed)
+        #expect(post.recentKudos == [
+            ActivityAuthor(id: "0b6f2f0e-5b1c-4f3e-9d43-3c2a1b0e9f01", displayName: "Léa Bernard", avatarURL: URL(string: "https://cdn.test/l.png")),
+            ActivityAuthor(id: "0b6f2f0e-5b1c-4f3e-9d43-3c2a1b0e9f02", displayName: "Hugo Petit", avatarURL: nil),
+        ])
+    }
+
+    @Test func loadsTheThreeMostRecentKudosGivers() async throws {
+        let repository = makeRepository()
+        FeedURLProtocolStub.handler.value = { _ in
+            (200, Data("""
+            {
+              "items": [
+                { "athlete": { "id": "0b6f2f0e-5b1c-4f3e-9d43-3c2a1b0e9f01", "displayName": "Léa Bernard", "avatarUrl": null },
+                  "givenAt": "2026-10-02T12:32:00.123Z" }
+              ],
+              "nextCursor": null
+            }
+            """.utf8))
+        }
+        let id = ActivityID(UUID(uuidString: activityId)!)
+
+        let givers = try await repository.recentKudos(activityId: id)
+
+        #expect(givers == [ActivityAuthor(id: "0b6f2f0e-5b1c-4f3e-9d43-3c2a1b0e9f01", displayName: "Léa Bernard", avatarURL: nil)])
+        let request = try #require(FeedURLProtocolStub.requests.value.first)
+        let components = try #require(URLComponents(url: request.url!, resolvingAgainstBaseURL: false))
+        #expect(components.path == "/v1/activities/\(activityId)/kudos")
+        #expect(components.queryItems == [URLQueryItem(name: "limit", value: "3")])
     }
 
     @Test func givesAndRemovesKudos() async throws {
