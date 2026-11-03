@@ -10,6 +10,7 @@ import { AuthService } from "@repo/core/auth";
 import { CoreInfrastructureModule, DATABASE, type Database } from "@repo/core/infrastructure";
 import { SubscriptionsService } from "@repo/core/subscriptions";
 import { SocialModule } from "@repo/core/social";
+import { StorageModule } from "@repo/core/storage";
 import { UsersModule } from "@repo/core/users";
 import { ensureTestDatabaseMigrated, TEST_DATABASE_URL, TEST_REDIS_URL } from "../auth/test-auth-app.js";
 import { SessionGuard } from "../auth/session.guard.js";
@@ -46,6 +47,13 @@ describe("GET /v1/me (integration)", () => {
         CoreInfrastructureModule.forRoot({ databaseUrl: TEST_DATABASE_URL, redisUrl: TEST_REDIS_URL }),
         // Global in every app; `users` sends `onboarding_answers_received` (ADR-035 §8).
         AnalyticsModule.forRoot({}),
+        StorageModule.forRoot({
+          endpoint: "https://bucket.test",
+          region: "test",
+          bucket: "test",
+          accessKeyId: "test",
+          secretAccessKey: "test",
+        }),
         SocialModule,
         UsersModule,
       ],
