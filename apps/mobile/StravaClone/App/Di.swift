@@ -65,6 +65,9 @@ final class Di {
     let activityChanges = ActivityChanges()
     /// The open detail's `activity:{id}` subscription (ADR-034 §5).
     let activityLiveEvents: any ActivityLiveEventSource
+    /// The Media being sent (ADR-037 §5, `Di+Media.swift`) and their background session.
+    let mediaTransfer = BackgroundMediaTransfer()
+    let mediaUploadQueue: MediaUploadQueue
 
     private let recordingService: RecordingService
     /// Lock screen and Dynamic Island of the Recording (ADR-031 §9).
@@ -160,6 +163,14 @@ final class Di {
             sessionRefresher: APISessionRefresher(apiClient: apiClient, authSession: authSession)
         )
         defaultVisibility = DefaultVisibilityCache(apiClient: apiClient)
+        mediaUploadQueue = Self.makeMediaUploadQueue(
+            database: database,
+            apiClient: apiClient,
+            authSession: authSession,
+            analytics: analytics,
+            imageLoader: imageLoader,
+            transfer: mediaTransfer
+        )
     }
 
     /// The Home feed, one for the app: the queue coordinator reloads it.
@@ -187,6 +198,7 @@ final class Di {
             stop: { [onboardingAnswersSender] in onboardingAnswersSender.cancelPass() },
             clear: { [onboardingAnswersSender] in await onboardingAnswersSender.clear() }
         ),
+        mediaUploads: mediaUploadSender,
         reloadFeed: { [weak self] in await self?.feedStore.refresh() ?? false }
     )
 
@@ -203,6 +215,8 @@ final class Di {
 
     func start() {
         connectivityMonitor.start()
+        let mediaUploadQueue = mediaUploadQueue
+        Task { await mediaUploadQueue.start() }
     }
 
     /// At launch, before `didFinishLaunching` returns: registers the `BGAppRefreshTask`, then
@@ -323,6 +337,7 @@ final class Di {
             updateActivity: UpdateActivity(repository: activityDetailRepository),
             deleter: activityDeleter,
             events: RealtimeActivityEventSource(channel: webSocketClient),
+            mediaUploads: activityMediaUploads,
             analytics: analytics
         )
     }
@@ -337,7 +352,8 @@ final class Di {
     private(set) lazy var feedActivityEditor = ActivityEditor(
         loadDetail: LoadActivityDetail(repository: activityDetailRepository),
         updateActivity: UpdateActivity(repository: activityDetailRepository),
-        changes: activityChanges
+        changes: activityChanges,
+        mediaUploads: activityMediaUploads
     )
 
     /// The feed's cards follow `activity.updated` and `activity.deleted` on the owner's topic

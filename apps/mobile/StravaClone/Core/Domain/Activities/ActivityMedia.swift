@@ -26,4 +26,18 @@ struct ActivityMedia: Identifiable, Hashable, Sendable {
     let posterURL: URL?
     /// 512 px, for the Gallery grid and the edit strip.
     let thumbURL: URL
+    /// Set on the author's phone while the Media is still being sent (ADR-037 §5, §6): its URLs
+    /// are then local files, and the carousel adds a progress ring or "Échec". Nil once
+    /// confirmed, and for every Media the API returns.
+    var upload: MediaUploadStatus? = nil
+}
+
+/// A Media not confirmed yet, as the author's screens show it (ADR-037 §5).
+enum MediaUploadStatus: Hashable, Sendable {
+    /// The library original is being converted: no local file to show yet.
+    case exporting
+    /// Its files are going to the bucket, then confirmed: `progress` from 0 to 1.
+    case sending(progress: Double)
+    /// "Échec": "Réessayer" (when the files can still be sent) and "Retirer".
+    case failed(MediaUploadFailure, canRetry: Bool)
 }

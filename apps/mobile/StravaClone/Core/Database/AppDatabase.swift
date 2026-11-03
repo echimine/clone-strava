@@ -179,6 +179,30 @@ final class AppDatabase: Sendable {
                 table.column("level", .text)
             }
         }
+        // ADR-037 §5 (Core/MediaUploads): one row per Media being sent, from the selection to the
+        // confirmation's `201`, never in `sync_operation`. `state` is `exporting` → `uploading` →
+        // `confirming`, or `failed` with `failure_reason`. Dimensions and `files` (JSON: name,
+        // content type, size, uploaded) are known once exported. The local files live under
+        // `MediaUploads/<media_id>/` in Application Support: the path is derived, never stored,
+        // because the app container moves on each update. Dates are seconds since 2001.
+        migrator.registerMigration("media_upload_v1") { db in
+            try db.create(table: "media_upload") { table in
+                table.primaryKey("media_id", .text)
+                table.column("activity_id", .text).notNull()
+                table.column("kind", .text).notNull()
+                table.column("position", .integer).notNull()
+                table.column("state", .text).notNull()
+                table.column("failure_reason", .text)
+                table.column("width", .integer)
+                table.column("height", .integer)
+                table.column("duration_ms", .integer)
+                table.column("files", .jsonText).notNull().defaults(to: "[]")
+                table.column("attempts", .integer).notNull().defaults(to: 0)
+                table.column("next_attempt_at", .double).notNull()
+                table.column("created_at", .double).notNull()
+            }
+            try db.create(index: "media_upload_on_activity_id", on: "media_upload", columns: ["activity_id", "position"])
+        }
         return migrator
     }
 }

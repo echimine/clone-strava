@@ -54,6 +54,7 @@ final class ActivityDetailStore {
         updateActivity: UpdateActivity,
         deleter: ActivityDeleter,
         events: (any ActivityEventSource)? = nil,
+        mediaUploads: ActivityMediaUploads? = nil,
         analytics: any AnalyticsClient = NoAnalyticsClient()
     ) {
         self.id = id
@@ -64,7 +65,7 @@ final class ActivityDetailStore {
         self.setKudos = setKudos
         self.changes = changes
         self.events = events
-        editor = ActivityEditor(loadDetail: loadDetail, updateActivity: updateActivity, changes: changes)
+        editor = ActivityEditor(loadDetail: loadDetail, updateActivity: updateActivity, changes: changes, mediaUploads: mediaUploads)
         editor.onChange = { [weak self] detail in self?.phase = .loaded(detail) }
         editor.onUnavailable = { [weak self] in self?.phase = .unavailable }
     }

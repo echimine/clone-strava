@@ -60,7 +60,11 @@ actor ImageLoader {
             return .loaded(cached)
         }
         let result: ImageLoadResult
-        if let stored = cache.cachedResponse(for: URLRequest(url: key)) {
+        if url.isFileURL {
+            // A Media still being sent (ADR-037 §5): its local file, never stored twice.
+            let data = try? Data(contentsOf: url)
+            result = data.flatMap { Self.decode($0, maxPixelSize: maxPixelSize) }.map(ImageLoadResult.loaded) ?? .failed
+        } else if let stored = cache.cachedResponse(for: URLRequest(url: key)) {
             result = Self.decode(stored.data, maxPixelSize: maxPixelSize).map(ImageLoadResult.loaded) ?? .failed
         } else {
             switch await download(url, key: key) {
@@ -74,6 +78,17 @@ actor ImageLoader {
             memory.setObject(image, forKey: memoryKey as NSURL)
         }
         return result
+    }
+
+    /// Stores a local file as the content of `url`'s path: a Media just confirmed shows its
+    /// remote URL without downloading what the phone sent (ADR-037 §5).
+    func store(contentsOf file: URL, as url: URL) {
+        guard let data = try? Data(contentsOf: file), UIImage(data: data) != nil else { return }
+        let key = Self.cacheKey(for: url)
+        guard let response = HTTPURLResponse(url: key, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "image/jpeg"]) else {
+            return
+        }
+        cache.storeCachedResponse(CachedURLResponse(response: response, data: data), for: URLRequest(url: key))
     }
 
     /// The file of `url`, downloaded once for concurrent calls and stored on disk under `key`.
