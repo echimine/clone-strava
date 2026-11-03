@@ -163,7 +163,9 @@ final class MediaUploadQueue {
             reprepare(mediaID)
             return
         }
-        guard var upload = try? await store.upload(mediaID), upload.state == .failed else { return }
+        guard var upload = try? await store.upload(mediaID), upload.state == .failed,
+              upload.failure != .unavailableOffline
+        else { return }
         if upload.isExported {
             upload.state = upload.filesToUpload.isEmpty ? .confirming : .uploading
         } else if sources[mediaID] != nil {
@@ -359,15 +361,23 @@ final class MediaUploadQueue {
         await refreshBoard()
     }
 
-    /// "Échec": the tile waits for "Réessayer" or "Retirer"; `media_upload_failed` is sent.
-    func fail(_ upload: MediaUpload, _ reason: MediaUploadFailure) async {
+    /// "Échec": the tile waits for "Réessayer" or "Retirer"; `media_upload_failed` is sent,
+    /// unless the finish screen already reported it before Save (`reported`).
+    func fail(_ upload: MediaUpload, _ reason: MediaUploadFailure, reported: Bool = false) async {
         var failed = upload
         failed.state = .failed
         failed.failure = reason
         guard (try? await store.save(failed)) == true else { return }
         await cancelTasks(of: [upload.mediaID])
-        analytics.capture(.mediaUploadFailed(kind: upload.kind, reason: reason))
+        if !reported {
+            reportFailure(of: upload.kind, reason)
+        }
         await refreshBoard()
+    }
+
+    /// `media_upload_failed`, each time a tile turns "Échec" (ADR-037 §13).
+    func reportFailure(of kind: ActivityMedia.Kind, _ reason: MediaUploadFailure) {
+        analytics.capture(.mediaUploadFailed(kind: kind, reason: reason))
     }
 
     /// Rows, files and tasks of these Media go, nothing is reported.

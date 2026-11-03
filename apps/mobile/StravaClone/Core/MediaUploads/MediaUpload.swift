@@ -13,7 +13,8 @@ enum MediaUploadState: String, Codable, Hashable, Sendable {
     case failed
 }
 
-/// Why a tile turned "Échec": the `reason` of `media_upload_failed` (ADR-037 §13).
+/// Why a tile turned "Échec", stored on its row; `analyticsReason` is the `reason` of
+/// `media_upload_failed` (ADR-037 §13).
 enum MediaUploadFailure: String, Codable, Hashable, Sendable {
     /// 5xx or no network, 5 times in a row.
     case network
@@ -23,6 +24,17 @@ enum MediaUploadFailure: String, Codable, Hashable, Sendable {
     case invalid
     /// The library original could not be read or converted.
     case exportFailed = "export_failed"
+    /// The original is only in iCloud and was picked offline: "Média indisponible hors
+    /// connexion", with "Retirer" only (ADR-037 §6). Reported as `export_failed`.
+    case unavailableOffline = "unavailable_offline"
+
+    /// The `reason` of `media_upload_failed` (ADR-037 §13).
+    var analyticsReason: String {
+        switch self {
+        case .unavailableOffline: MediaUploadFailure.exportFailed.rawValue
+        default: rawValue
+        }
+    }
 }
 
 /// One file of a Media, named as the API expects (`MEDIA_FILES`, ADR-037 §3).

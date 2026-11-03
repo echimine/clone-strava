@@ -81,8 +81,12 @@ extension MediaUploadQueue {
                 apply(exported, to: &upload)
                 _ = try? await store.save(upload)
                 sources[id] = nil
-            case .unavailable?, .failed?:
-                await fail(upload, .exportFailed)
+            case .unavailable?:
+                // "Retirer" only, as before Save: the original is not kept.
+                sources[id] = nil
+                await fail(upload, .unavailableOffline, reported: true)
+            case .failed?:
+                await fail(upload, .exportFailed, reported: true)
             case .exporting?, .saved?:
                 continue
             case nil:
@@ -178,11 +182,21 @@ extension MediaUploadQueue {
             guard prepared[mediaID] != nil else { return }
             prepared[mediaID] = unavailable ? .unavailable : .failed
             board.setPreparation(unavailable ? .unavailable : .failed, of: mediaID)
+            if let kind = sources[mediaID]?.kind {
+                reportFailure(of: kind, unavailable ? .unavailableOffline : .exportFailed)
+            }
             return
         }
+        // Picked on the finish screen, its export still running at Save.
+        let fromFinishScreen = prepared[mediaID] == .saved
         prepared[mediaID] = nil
         guard upload.state == .exporting else { return }
-        await fail(upload, .exportFailed)
+        if unavailable && fromFinishScreen {
+            sources[mediaID] = nil
+            await fail(upload, .unavailableOffline)
+        } else {
+            await fail(upload, .exportFailed)
+        }
     }
 
     /// The row of `mediaID`; read again when Save committed it while the first read was queued.

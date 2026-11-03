@@ -10,6 +10,7 @@ struct ActivityMediaSlide: View {
     var isCurrent = false
 
     @Environment(\.videoPlayback) private var playback
+    @Environment(\.imageURLExpired) private var imageURLExpired
     @Environment(\.displayScale) private var displayScale
     /// This slide on this screen: the same Media can be shown by two carousels at once.
     @State private var playbackID = UUID()
@@ -29,7 +30,7 @@ struct ActivityMediaSlide: View {
             }
             .overlay {
                 if plays {
-                    LoopingVideoPlayer(url: media.url, muted: muted)
+                    LoopingVideoPlayer(url: media.url, muted: muted, expired: { [imageURLExpired] in imageURLExpired() })
                         .allowsHitTesting(false)
                 }
             }

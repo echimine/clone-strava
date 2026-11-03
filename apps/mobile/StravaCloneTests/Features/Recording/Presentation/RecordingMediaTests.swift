@@ -105,6 +105,40 @@ struct RecordingMediaTests {
         #expect(await eventually { queue.board.preparation(of: offline.id) == .unavailable })
     }
 
+    @Test func anExportFailingOnTheFinishScreenIsReportedOnceSaveIncluded() async throws {
+        let (store, _, observation) = try await onTheFinishScreen()
+        defer { observation.cancel() }
+        let unreadable = PickedMedia(source: MediaSource(kind: .photo) { .image(Data("not a photo".utf8)) })
+        store.mediaDraft.add([unreadable])
+
+        let failed = AnalyticsEvent.mediaUploadFailed(kind: .photo, reason: .exportFailed)
+        #expect(await eventually { media.analytics.events == [failed] })
+
+        #expect(await store.save(title: "", visibility: .public))
+
+        #expect(await eventually { media.analytics.events.count == 2 })
+        #expect(media.analytics.events.filter { $0 == failed }.count == 1)
+    }
+
+    @Test func anUnavailableOriginalOffersOnlyRetirerAfterSave() async throws {
+        let (store, recording, observation) = try await onTheFinishScreen()
+        defer { observation.cancel() }
+        let offline = PickedMedia(source: MediaSource(kind: .photo) { throw URLError(.notConnectedToInternet) })
+        store.mediaDraft.add([offline])
+        #expect(await eventually { queue.board.preparation(of: offline.id) == .unavailable })
+
+        #expect(await store.save(title: "", visibility: .public))
+
+        #expect(await eventually {
+            queue.board.media(of: recording.id, merging: []).first?.upload == .failed(.unavailableOffline, canRetry: false)
+        })
+        #expect(MediaUploadMessages.failure(.unavailableOffline) == "Média indisponible hors connexion")
+        let unavailable = AnalyticsEvent.mediaUploadFailed(kind: .photo, reason: .unavailableOffline)
+        #expect(media.analytics.events.filter { $0 == unavailable }.count == 1)
+        // ADR-037 §13: PostHog only knows `export_failed` for an original the phone cannot read.
+        #expect(unavailable.properties["reason"] == .string("export_failed"))
+    }
+
     // MARK: - Save
 
     @Test func offlineSaveWritesTheActivityItsCreationAndTheMediaRowsTogether() async throws {

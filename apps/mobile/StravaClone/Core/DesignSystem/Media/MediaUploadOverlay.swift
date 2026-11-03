@@ -32,6 +32,7 @@ enum MediaUploadMessages {
         case .limitReached: "Échec : cette activité a déjà 8 médias"
         case .invalid: "Échec : fichier refusé"
         case .exportFailed: "Échec : média illisible"
+        case .unavailableOffline: unavailableOffline
         }
     }
 }

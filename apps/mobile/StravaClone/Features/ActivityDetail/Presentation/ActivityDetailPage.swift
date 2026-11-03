@@ -35,13 +35,14 @@ struct ActivityDetailPage: View {
             }
             // Also on coming back from the Kudos and comments screen: the counts changed there.
             .task { await store.load() }
-            // ADR-037 §1: an expired pre-signed Media or Avatar URL brings fresh ones.
-            .onImageURLExpired { await store.load() }
             .task { await store.observeEvents() }
             // Subscribed while shown, unsubscribed when the task ends with the screen.
             .task { await ActivityLiveUpdates(events: liveEvents, detail: store).run() }
             .toast($store.kudosNotice)
             .mediaViewer($store.mediaViewer)
+            // ADR-037 §1: an expired pre-signed Media or Avatar URL brings fresh ones, from the
+            // viewer too (outside `.mediaViewer`, so that it sees the action).
+            .onImageURLExpired { await store.load() }
             .accessibilityIdentifier("activityDetail")
     }
 

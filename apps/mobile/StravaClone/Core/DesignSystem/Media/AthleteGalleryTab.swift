@@ -5,6 +5,7 @@ enum GalleryMessages {
     static let tab = "Galerie"
     static let systemImage = "photo.on.rectangle"
     static let empty = "Aucune photo ni vidéo"
+    static let emptyDescription = "Les photos et vidéos des activités apparaîtront ici."
     static let errorTitle = "Galerie indisponible"
     static let retry = "Réessayer"
 }
@@ -34,7 +35,11 @@ struct AthleteGalleryTab: View {
             }
         default:
             if store.isEmpty {
-                ContentUnavailableView(GalleryMessages.empty, systemImage: GalleryMessages.systemImage)
+                ContentUnavailableView(
+                    GalleryMessages.empty,
+                    systemImage: GalleryMessages.systemImage,
+                    description: Text(GalleryMessages.emptyDescription)
+                )
                     .padding(.top, 40)
             } else {
                 grid

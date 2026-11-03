@@ -78,12 +78,18 @@ extension MediaUploadQueue {
         board.show(entries)
     }
 
+    /// "Réessayer" is offered when the files can be sent again, or the original exported again;
+    /// never for an original only in iCloud, picked offline (ADR-037 §6).
+    private func canRetry(_ upload: MediaUpload) -> Bool {
+        upload.failure != .unavailableOffline && (upload.isExported || canReexport(upload.mediaID))
+    }
+
     private func localMedia(_ upload: MediaUpload) -> ActivityMedia {
         let status: MediaUploadStatus = switch upload.state {
         case .exporting: .exporting
         case .uploading: .sending(progress: progress(of: upload))
         case .confirming: .sending(progress: 1)
-        case .failed: .failed(upload.failure ?? .network, canRetry: upload.isExported || canReexport(upload.mediaID))
+        case .failed: .failed(upload.failure ?? .network, canRetry: canRetry(upload))
         }
         let original = upload.kind == .photo ? MediaUploadFile.originalPhoto : MediaUploadFile.originalVideo
         return ActivityMedia(

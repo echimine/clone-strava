@@ -184,7 +184,7 @@ enum AnalyticsEvent: Equatable, Sendable {
         case .notificationPermissionAnswered(let granted):
             ["granted": .bool(granted)]
         case .mediaUploadFailed(let kind, let reason):
-            ["kind": .string(kind.rawValue), "reason": .string(reason.rawValue)]
+            ["kind": .string(kind.rawValue), "reason": .string(reason.analyticsReason)]
         case .activityMediaSaved(let entry, let saved):
             [
                 "entry": .string(entry.rawValue),

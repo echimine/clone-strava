@@ -13,6 +13,7 @@ struct MediaViewer: View {
     @State private var model: MediaViewerModel
     @State private var drag: CGFloat = 0
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.imageURLExpired) private var imageURLExpired
 
     init(request: MediaViewerRequest, playback: VideoPlayback, openActivity: ((ActivityID) -> Void)? = nil) {
         _model = State(initialValue: MediaViewerModel(request: request, playback: playback))
@@ -22,7 +23,7 @@ struct MediaViewer: View {
     var body: some View {
         ZStack {
             Color.black
-                .opacity(1 - min(abs(drag) / 400, 0.6))
+                .opacity(1 - min(drag / 400, 0.6))
                 .ignoresSafeArea()
             pager
                 .offset(y: drag)
@@ -33,7 +34,12 @@ struct MediaViewer: View {
         .environment(\.colorScheme, .dark)
         .presentationBackground(.clear)
         .statusBarHidden()
-        .onAppear { model.appear() }
+        .onAppear {
+            // A video's expired URL reloads the screen under the viewer, as an image does.
+            let imageURLExpired = imageURLExpired
+            model.onVideoURLExpired = { imageURLExpired() }
+            model.appear()
+        }
         .onDisappear { model.disappear() }
         .accessibilityIdentifier("mediaViewer")
     }
@@ -51,15 +57,15 @@ struct MediaViewer: View {
         .ignoresSafeArea()
     }
 
-    /// A mostly vertical drag moves the Media; past 140 pt it closes, else it springs back.
+    /// A mostly vertical drag down moves the Media; past 140 pt it closes, else it springs back.
     private var swipeDownToClose: some Gesture {
         DragGesture(minimumDistance: 20)
             .onChanged { value in
-                guard abs(value.translation.height) > abs(value.translation.width) else { return }
-                drag = value.translation.height
+                guard let offset = MediaViewerSwipe.offset(for: value.translation) else { return }
+                drag = offset
             }
             .onEnded { _ in
-                if abs(drag) > 140 {
+                if MediaViewerSwipe.closes(at: drag) {
                     dismiss()
                 } else {
                     withAnimation(.snappy) { drag = 0 }
@@ -132,6 +138,21 @@ struct MediaViewer: View {
     }
 }
 
+/// The viewer's swipe to close (ADR-037 §10): down only, an upward drag leaves the Media in place.
+enum MediaViewerSwipe {
+    static let closingDistance: CGFloat = 140
+
+    /// How far the Media follows a drag; nil for a mostly horizontal one (the pager's).
+    static func offset(for translation: CGSize) -> CGFloat? {
+        guard abs(translation.height) > abs(translation.width) else { return nil }
+        return max(0, translation.height)
+    }
+
+    static func closes(at offset: CGFloat) -> Bool {
+        offset > closingDistance
+    }
+}
+
 /// One Media in full, aspect fit. A photo shows `url`; a video shows its poster until its
 /// player exists, then the player with the native controls.
 private struct MediaViewerPage: View {
@@ -176,10 +197,12 @@ private struct MediaViewerPresenter: ViewModifier {
     @Binding var request: MediaViewerRequest?
     let openActivity: ((ActivityID) -> Void)?
     @Environment(\.videoPlayback) private var playback
+    @Environment(\.imageURLExpired) private var imageURLExpired
 
     func body(content: Content) -> some View {
         content.fullScreenCover(item: $request) { request in
             MediaViewer(request: request, playback: playback, openActivity: openActivity)
+                .environment(\.imageURLExpired, imageURLExpired)
         }
     }
 }
