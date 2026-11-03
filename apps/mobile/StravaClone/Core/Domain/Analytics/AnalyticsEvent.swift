@@ -83,6 +83,9 @@ enum AnalyticsEvent: Equatable, Sendable {
     /// "Plus tard" on that screen.
     case avatarPromptDeferred
 
+    /// The full-screen viewer opened on a Media (ADR-037 §13); its swipes are not tracked.
+    case mediaViewerOpened(source: MediaViewerSource, kind: ActivityMedia.Kind, isOwn: Bool)
+
     var name: String {
         switch self {
         case .itineraryEditorOpened: "itinerary_editor_opened"
@@ -114,6 +117,7 @@ enum AnalyticsEvent: Equatable, Sendable {
         case .avatarUploadFailed: "avatar_upload_failed"
         case .avatarPromptViewed: "avatar_prompt_viewed"
         case .avatarPromptDeferred: "avatar_prompt_deferred"
+        case .mediaViewerOpened: "media_viewer_opened"
         }
     }
 
@@ -173,6 +177,8 @@ enum AnalyticsEvent: Equatable, Sendable {
             ["source": .string(source.rawValue), "entry": .string(entry.rawValue)]
         case .avatarUploadFailed(let reason):
             ["reason": .string(reason.rawValue)]
+        case .mediaViewerOpened(let source, let kind, let isOwn):
+            ["source": .string(source.rawValue), "kind": .string(kind.rawValue), "isOwn": .bool(isOwn)]
         }
     }
 }

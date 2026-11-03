@@ -23,6 +23,8 @@ final class FeedStore {
     private(set) var isLoadingMore = false
     /// Short-lived error shown over the list (e.g. a kudos that could not be sent).
     var notice: String?
+    /// The full-screen viewer, opened by a tap on a card's Media (ADR-037 §10).
+    var mediaViewer: MediaViewerRequest?
 
     /// Loads the next page when the user reaches this many cards from the end.
     @ObservationIgnored let prefetchDistance = 3
@@ -32,6 +34,7 @@ final class FeedStore {
     /// avatars wait for the next refresh.
     @ObservationIgnored private let loadRecentKudos: LoadRecentKudos?
     @ObservationIgnored private let events: any FeedEventSource
+    @ObservationIgnored private let analytics: any AnalyticsClient
     @ObservationIgnored private var nextCursor: String?
     @ObservationIgnored private var refreshGeneration = 0
     @ObservationIgnored private var kudosInFlight: Set<ActivityID> = []
@@ -57,8 +60,10 @@ final class FeedStore {
         events: any FeedEventSource,
         localActivities: (any LocalActivityFeedSource)? = nil,
         activityChanges: ActivityChanges? = nil,
+        analytics: any AnalyticsClient = NoAnalyticsClient(),
         onPullToRefresh: @escaping @MainActor () async -> Void = {}
     ) {
+        self.analytics = analytics
         self.loadFeed = loadFeed
         self.toggleKudos = toggleKudos
         self.loadRecentKudos = loadRecentKudos
@@ -95,6 +100,7 @@ final class FeedStore {
         nextCursor = nil
         phase = .idle
         notice = nil
+        mediaViewer = nil
         path = NavigationPath()
     }
 
@@ -110,6 +116,14 @@ final class FeedStore {
     func openComments(_ id: ActivityID) {
         guard posts.contains(where: { $0.id == id }) else { return }
         path.append(ActivityEngagementRequest.comments(id))
+    }
+
+    /// A tap on a Media of a card's carousel: the viewer on the Activity's Media (ADR-037 §10).
+    func openMedia(_ media: ActivityMedia, of id: ActivityID) {
+        guard let post = posts.first(where: { $0.id == id }),
+              let request = MediaViewerRequest.activity(post, at: media) else { return }
+        analytics.capture(request.openedEvent(source: .feed, isOwn: post.viewerIsAuthor))
+        mediaViewer = request
     }
 
     /// Long press (ADR-033 §1): the "Modifier" menu is only on my processed cards, the ones the

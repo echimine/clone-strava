@@ -4,7 +4,7 @@ import SwiftUI
 /// opens the detail, the comment button the Kudos and comments screen, and the kudos button
 /// gives kudos.
 struct AthleteActivitiesTab: View {
-    let store: AthleteActivitiesStore
+    @Bindable var store: AthleteActivitiesStore
     let openActivity: @MainActor (ActivityID) -> Void
     let openComments: @MainActor (ActivityID) -> Void
     let retry: @MainActor () async -> Void
@@ -42,7 +42,8 @@ struct AthleteActivitiesTab: View {
                 ActivityCard(
                     post: post,
                     onToggleKudos: { Task { await store.toggleKudos(on: post.id) } },
-                    onComments: { openComments(post.id) }
+                    onComments: { openComments(post.id) },
+                    onTapMedia: { store.openMedia($0, of: post.id) }
                 )
                 .contentShape(.rect(cornerRadius: 20))
                 .onTapGesture { openActivity(post.id) }
@@ -56,6 +57,7 @@ struct AthleteActivitiesTab: View {
         .animation(.default, value: store.posts.map(\.id))
         .padding(.horizontal, Theme.spacing)
         .accessibilityIdentifier("athleteProfile.activities")
+        .mediaViewer($store.mediaViewer)
     }
 }
 

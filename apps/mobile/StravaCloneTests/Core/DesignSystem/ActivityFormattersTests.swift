@@ -25,6 +25,10 @@ struct ActivityFormattersTests {
         #expect(ActivityFormatters.relativeDateTime(date(2025, 9, 12, 7, 0), now: now, calendar: calendar) == "12 septembre 2025 à 07:00")
     }
 
+    @Test func theViewerShowsTheFullDateEvenToday() {
+        #expect(ActivityFormatters.dateTime(date(2026, 10, 2, 14, 32), calendar: calendar) == "2 octobre 2026 à 14:32")
+    }
+
     @Test func distances() {
         #expect(ActivityFormatters.distance(Distance(meters: 10_234)) == "10,23 km")
         #expect(ActivityFormatters.distance(Distance(meters: 850.4)) == "850 m")

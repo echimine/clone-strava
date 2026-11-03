@@ -131,6 +131,8 @@ export const APP_ANALYTICS_EVENTS = {
   AVATAR_PROMPT_VIEWED: "avatar_prompt_viewed",
   /** "Plus tard" on "Ajoute une photo de profil". */
   AVATAR_PROMPT_DEFERRED: "avatar_prompt_deferred",
+  /** The full-screen viewer opened on a Media; its swipes are not tracked. */
+  MEDIA_VIEWER_OPENED: "media_viewer_opened",
 } as const;
 export type AppAnalyticsEventName = (typeof APP_ANALYTICS_EVENTS)[keyof typeof APP_ANALYTICS_EVENTS];
 
@@ -156,6 +158,17 @@ export type AvatarPromptViewedProperties = z.infer<typeof avatarPromptViewedProp
 export const avatarPromptDeferredPropertiesSchema = z.object({});
 export type AvatarPromptDeferredProperties = z.infer<typeof avatarPromptDeferredPropertiesSchema>;
 
+/**
+ * `media_viewer_opened`: the screen it was opened from, the kind of the Media
+ * touched, whether the Activity is the viewer's. No `mediaId` or `activityId`.
+ */
+export const mediaViewerOpenedPropertiesSchema = z.object({
+  source: z.enum(["feed", "profile_activities", "detail", "gallery"]),
+  kind: z.enum(["photo", "video"]),
+  isOwn: z.boolean(),
+});
+export type MediaViewerOpenedProperties = z.infer<typeof mediaViewerOpenedPropertiesSchema>;
+
 /** Payload schema for a given app event, keyed by its name. */
 export const appAnalyticsEventPropertiesSchemas = {
   [APP_ANALYTICS_EVENTS.AVATAR_CHANGED]: avatarChangedPropertiesSchema,
@@ -163,4 +176,5 @@ export const appAnalyticsEventPropertiesSchemas = {
   [APP_ANALYTICS_EVENTS.AVATAR_UPLOAD_FAILED]: avatarUploadFailedPropertiesSchema,
   [APP_ANALYTICS_EVENTS.AVATAR_PROMPT_VIEWED]: avatarPromptViewedPropertiesSchema,
   [APP_ANALYTICS_EVENTS.AVATAR_PROMPT_DEFERRED]: avatarPromptDeferredPropertiesSchema,
+  [APP_ANALYTICS_EVENTS.MEDIA_VIEWER_OPENED]: mediaViewerOpenedPropertiesSchema,
 } as const satisfies Record<AppAnalyticsEventName, z.ZodType>;
