@@ -74,6 +74,9 @@ enum AnalyticsEvent: Equatable, Sendable {
 
     /// A Media tile turned "Échec" (ADR-037 §13): no id, no image data.
     case mediaUploadFailed(kind: ActivityMedia.Kind, reason: MediaUploadFailure)
+    /// "Enregistrer" with the Media changed, once per session (ADR-037 §13): nothing for a
+    /// session unchanged or cancelled.
+    case activityMediaSaved(entry: ActivityMediaSavedEntry, ActivityMediaSaved)
     /// A new Avatar is stored (ADR-037 §13). Never any image data.
     case avatarChanged(source: AvatarSource, entry: AvatarEntry)
     /// "Supprimer la photo" went through.
@@ -87,6 +90,8 @@ enum AnalyticsEvent: Equatable, Sendable {
 
     /// The full-screen viewer opened on a Media (ADR-037 §13); its swipes are not tracked.
     case mediaViewerOpened(source: MediaViewerSource, kind: ActivityMedia.Kind, isOwn: Bool)
+    /// The profile's Galerie tab opened, mine or another athlete's.
+    case galleryViewed(isOwn: Bool)
 
     var name: String {
         switch self {
@@ -115,12 +120,14 @@ enum AnalyticsEvent: Equatable, Sendable {
         case .notificationPermissionAnswered: "notification_permission_answered"
         case .notificationPermissionDeferred: "notification_permission_deferred"
         case .mediaUploadFailed: "media_upload_failed"
+        case .activityMediaSaved: "activity_media_saved"
         case .avatarChanged: "avatar_changed"
         case .avatarRemoved: "avatar_removed"
         case .avatarUploadFailed: "avatar_upload_failed"
         case .avatarPromptViewed: "avatar_prompt_viewed"
         case .avatarPromptDeferred: "avatar_prompt_deferred"
         case .mediaViewerOpened: "media_viewer_opened"
+        case .galleryViewed: "gallery_viewed"
         }
     }
 
@@ -178,12 +185,24 @@ enum AnalyticsEvent: Equatable, Sendable {
             ["granted": .bool(granted)]
         case .mediaUploadFailed(let kind, let reason):
             ["kind": .string(kind.rawValue), "reason": .string(reason.rawValue)]
+        case .activityMediaSaved(let entry, let saved):
+            [
+                "entry": .string(entry.rawValue),
+                "photosAdded": .int(saved.photosAdded),
+                "videosAdded": .int(saved.videosAdded),
+                "videosTrimmed": .int(saved.videosTrimmed),
+                "mediaRemoved": .int(saved.mediaRemoved),
+                "mediaFirst": .bool(saved.mediaFirst),
+                "mediaCount": .int(saved.mediaCount),
+            ]
         case .avatarChanged(let source, let entry):
             ["source": .string(source.rawValue), "entry": .string(entry.rawValue)]
         case .avatarUploadFailed(let reason):
             ["reason": .string(reason.rawValue)]
         case .mediaViewerOpened(let source, let kind, let isOwn):
             ["source": .string(source.rawValue), "kind": .string(kind.rawValue), "isOwn": .bool(isOwn)]
+        case .galleryViewed(let isOwn):
+            ["isOwn": .bool(isOwn)]
         }
     }
 }

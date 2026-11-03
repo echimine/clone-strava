@@ -40,14 +40,29 @@ struct GRDBMediaUploadStore: Sendable {
         }
     }
 
-    /// Writes `upload` as it is; nothing if its row was deleted meanwhile ("Retirer"). Returns
-    /// whether the row still existed.
+    /// Writes `upload` as it is, its `position` excepted; nothing if its row was deleted
+    /// meanwhile ("Retirer"). Returns whether the row still existed. The position belongs to
+    /// `reposition`: a copy read before a new order (an export, an API call) cannot undo it.
     @discardableResult
     func save(_ upload: MediaUpload) async throws -> Bool {
         try await database.writer.write { db in
-            guard try MediaUploadRow.exists(db, key: Self.key(upload.mediaID)) else { return false }
-            try MediaUploadRow(upload).update(db)
+            guard let stored = try MediaUploadRow.fetchOne(db, key: Self.key(upload.mediaID)) else { return false }
+            var row = MediaUploadRow(upload)
+            row.position = stored.position
+            try row.update(db)
             return true
+        }
+    }
+
+    /// A new Media order (#184): each row listed takes its index; the others are left alone.
+    func reposition(_ positions: [UUID: Int]) async throws {
+        try await database.writer.write { db in
+            for (mediaID, position) in positions {
+                try db.execute(
+                    sql: "UPDATE media_upload SET position = ? WHERE media_id = ?",
+                    arguments: [position, Self.key(mediaID)]
+                )
+            }
         }
     }
 

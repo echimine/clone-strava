@@ -9,7 +9,9 @@ struct ProfileStoreTests {
         _ athletes: FakeAthleteRepository = FakeAthleteRepository(),
         _ profiles: FakeProfileRepository = FakeProfileRepository(),
         progress: FakeProgressRepository = FakeProgressRepository(),
-        avatars: FakeAvatarRepository = FakeAvatarRepository()
+        avatars: FakeAvatarRepository = FakeAvatarRepository(),
+        gallery: FakeAthleteGalleryRepository = FakeAthleteGalleryRepository(),
+        analytics: FakeAnalyticsClient = FakeAnalyticsClient()
     ) -> ProfileStore {
         ProfileStore(
             loadProfile: LoadProfile(repository: athletes),
@@ -18,6 +20,11 @@ struct ProfileStoreTests {
             setApproveFollowers: SetApproveFollowers(repository: profiles),
             activities: ProfileActivitiesStore(loadActivities: LoadProfileActivities(repository: athletes)),
             progress: ProfileProgressStore(loadProgress: LoadProgress(repository: progress)),
+            gallery: AthleteGalleryStore(
+                loadGallery: LoadAthleteGallery(repository: gallery),
+                message: ProfileMessages.message(for:),
+                analytics: analytics
+            ),
             avatar: AvatarEditor(
                 repository: avatars,
                 analytics: FakeAnalyticsClient(),
@@ -46,6 +53,22 @@ struct ProfileStoreTests {
         #expect(store.yearToDateDistance == Distance(meters: 412_000))
         #expect(store.activities.posts.count == 1)
         #expect(athletes.profileCalls == ["me"])
+    }
+
+    @Test func openingGalerieLoadsMyMediaAndPullToRefreshReloadsThem() async {
+        let gallery = FakeAthleteGalleryRepository()
+        gallery.pages[nil] = .success(GalleryPage(items: [.fixture()], nextCursor: nil))
+        let analytics = FakeAnalyticsClient()
+        let store = makeStore(loadedRepository(), gallery: gallery, analytics: analytics)
+        await store.load(athleteId: "me")
+        #expect(gallery.calls.isEmpty)
+
+        await store.openGallery()
+        await store.refresh()
+
+        #expect(store.gallery.items.count == 1)
+        #expect(gallery.calls.map(\.athleteId) == ["me", "me"])
+        #expect(analytics.events == [.galleryViewed(isOwn: true)])
     }
 
     @Test func aFailedLoadSaysSoAndCanBeRetried() async {

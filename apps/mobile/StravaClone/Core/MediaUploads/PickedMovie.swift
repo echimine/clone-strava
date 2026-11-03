@@ -75,14 +75,3 @@ extension PickedMedia {
         await source.movie?.isTrimmed() ?? false
     }
 }
-
-extension MediaDraft {
-    /// The videos picked during this session that will be cut to a minute (`videosTrimmed`).
-    func videosTrimmed() async -> Int {
-        var count = 0
-        for picked in added where await picked.isTrimmed() {
-            count += 1
-        }
-        return count
-    }
-}

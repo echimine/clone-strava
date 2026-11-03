@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Another athlete's profile (ADR-036 §3, §10), pushed in the current tab's stack: back (no "⋯":
 /// "Partager le profil" is not shown and nothing else goes there), their header, counters and
-/// follow button, then Activités · Plus.
+/// follow button, then Activités · Galerie · Plus.
 /// Knows nothing of other features (ADR-007 rule 5): the app shell pushes the Activity detail,
 /// the Kudos and comments screen and the Statistiques screen.
 struct AthleteProfilePage: View {
@@ -40,6 +40,11 @@ struct AthleteProfilePage: View {
             .task { await store.load() }
             .toast(Binding(get: { store.follows.toast }, set: { store.follows.toast = $0 }))
             .toast(Binding(get: { store.activities.notice }, set: { store.activities.notice = $0 }))
+            .toast(Binding(get: { store.gallery.notice }, set: { store.gallery.notice = $0 }))
+            // Not a task of the tab's content: it would run again back from a detail.
+            .onChange(of: store.tab) { _, tab in
+                if tab == .gallery { Task { await store.openGallery() } }
+            }
             // Their own cards' author is this profile: no new push of the same page.
             .environment(\.openAthlete, openAthlete.map { outer in
                 OpenAthleteAction { [athleteId = store.athleteId] id in
@@ -114,6 +119,8 @@ struct AthleteProfilePage: View {
                 retry: { await store.refresh() }
             )
             .groupedTabContent()
+        case .gallery:
+            AthleteGalleryTab(store: store.gallery) { openActivity(ActivityDetailRequest(id: $0)) }
         case .more:
             AthleteMoreTab(yearToDateDistance: store.yearToDateDistance, openStatistics: statisticsAction(profile))
         }
@@ -122,6 +129,7 @@ struct AthleteProfilePage: View {
     private static func systemImage(_ tab: AthleteProfileStore.Tab) -> String {
         switch tab {
         case .activities: "waveform.path.ecg"
+        case .gallery: GalleryMessages.systemImage
         case .more: "line.3.horizontal"
         }
     }

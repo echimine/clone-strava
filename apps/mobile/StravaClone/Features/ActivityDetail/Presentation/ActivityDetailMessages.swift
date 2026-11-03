@@ -44,6 +44,9 @@ enum ActivityDetailMessages {
     }
 
     /// The toast of a save that failed; the previous values are back.
+    /// A Media "Supprimer" in "Modifier" whose `DELETE` did not go through.
+    static let mediaDeleteFailed = "Un média n'a pas pu être supprimé, réessayez."
+
     static func editFailed(_ error: ActivityDetailError) -> String {
         switch error {
         case .offline: "Vous êtes hors ligne : la modification n'a pas été enregistrée."

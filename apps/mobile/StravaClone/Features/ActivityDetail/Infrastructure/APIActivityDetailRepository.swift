@@ -26,6 +26,7 @@ struct APIActivityDetailRepository: ActivityDetailRepository {
             description: edit.description ?? "",
             sportTypeCode: edit.sport.code,
             visibility: UpdateRequest.visibilityPayload(rawValue: edit.visibility.rawValue),
+            mediaFirst: edit.mediaFirst,
             mediaOrder: edit.mediaOrder?.map { $0.uuidString.lowercased() }
         )
         do {

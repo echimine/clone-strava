@@ -429,7 +429,7 @@ final class MediaUploadQueue {
     }
 
     /// The request, sent once more after a `401` if the session could be refreshed.
-    private func attempt<T>(_ request: @escaping () async throws(MediaServerError) -> T) async -> Result<T, MediaServerError> {
+    func attempt<T>(_ request: @escaping () async throws(MediaServerError) -> T) async -> Result<T, MediaServerError> {
         let result = await Self.result(of: request)
         guard case .failure(.unauthorized) = result, await sessionRefresher.refresh() else { return result }
         return await Self.result(of: request)
