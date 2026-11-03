@@ -19,6 +19,7 @@ describe("apiClient", () => {
           role: "admin",
           isPremium: false,
           defaultVisibility: "public",
+          approveFollowers: false,
         }),
       ),
     );
