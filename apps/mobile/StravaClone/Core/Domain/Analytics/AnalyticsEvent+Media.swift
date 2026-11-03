@@ -11,4 +11,12 @@ extension AnalyticsEvent {
         case detail
         case gallery
     }
+
+    /// The screen that saved the Media of `activity_media_saved`.
+    enum ActivityMediaSavedEntry: String, Sendable {
+        /// The Recording's finish screen (#185).
+        case recording
+        /// "Modifier".
+        case edit
+    }
 }

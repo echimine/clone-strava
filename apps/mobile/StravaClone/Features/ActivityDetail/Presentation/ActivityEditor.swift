@@ -45,7 +45,8 @@ final class ActivityEditor {
                 description: description.isEmpty ? nil : description,
                 sport: sport,
                 visibility: visibility,
-                mediaOrder: media.hasChanges ? media.order : nil
+                mediaOrder: media.hasChanges ? media.order : nil,
+                mediaFirst: media.hasChanges ? media.showsMediaFirst : nil
             )
         }
 
@@ -111,32 +112,52 @@ final class ActivityEditor {
         form = nil
     }
 
-    /// "Enregistrer". The Media just picked are queued at once (ADR-037 §5): the sheet is already
-    /// closed, they show in the author's carousel and go in the background.
+    /// "Enregistrer": nothing is sent for an unchanged session. The Media changes go first
+    /// (ADR-037 §5, §8): the sheet is already closed, the picked Media show in the author's
+    /// carousel and go in the background, a removed one is deleted; then a single `PATCH`
+    /// carries the full order and `mediaFirst`.
     func save(_ submitted: Form) async {
         guard submitted.canSave, let previous = original, previous.id == submitted.id else { return }
         form = nil
         let edit = submitted.edit
-        if submitted.media.hasChanges, let mediaUploads {
-            await mediaUploads.enqueue(submitted.media.queued, previous.id)
-        }
+        guard edit != Form(detail: previous).edit else { return }
         show(edit.applied(to: previous))
+        var mediaDeleted = true
+        if submitted.media.hasChanges, let mediaUploads {
+            mediaDeleted = await mediaUploads.save(submitted.media, to: previous.id, entry: .edit)
+        }
         do {
             show(try await updateActivity(previous.id, with: edit))
+            if !mediaDeleted { toast = ActivityDetailMessages.mediaDeleteFailed }
         } catch .notFound {
             // Deleted or no longer visible meanwhile (ADR-033 §3): nothing to roll back to.
             onUnavailable()
             changes.publish(.deleted(previous.id))
         } catch {
-            show(previous)
+            // The Media changes already went (queued, deleted): only the server's copy comes back.
+            let rolledBack = Self.removing(submitted.media.removed, from: previous)
+            original = rolledBack
+            show(rolledBack)
             if case .invalid(let code) = error {
                 var reopened = submitted
+                reopened.media = Form(detail: rolledBack, media: mediaUploads?.board.media(of: previous.id, merging: rolledBack.media)).media
                 reopened.errorMessage = ActivityDetailMessages.editRefused(code: code)
                 form = reopened
             } else {
                 toast = ActivityDetailMessages.editFailed(error)
             }
         }
+    }
+
+    /// `detail` without the Media deleted; the map first again if the one before it went, as
+    /// the server does on `DELETE`.
+    private static func removing(_ removed: [ActivityMedia], from detail: ActivityDetail) -> ActivityDetail {
+        guard !removed.isEmpty else { return detail }
+        let ids = Set(removed.map(\.id))
+        var kept = detail
+        kept.media.removeAll { ids.contains($0.id) }
+        if let head = detail.media.first, ids.contains(head.id) { kept.mediaFirst = false }
+        return kept
     }
 
     private func show(_ detail: ActivityDetail) {
