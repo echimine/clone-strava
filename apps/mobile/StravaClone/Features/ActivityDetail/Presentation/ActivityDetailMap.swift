@@ -1,20 +1,22 @@
 import SwiftUI
 
-/// The detail's map, about 300 pt tall (ADR-036 §9): the route framed, "Départ et arrivée
-/// masqués" when the privacy zone trimmed it, and ⤢. Tapping it, or ⤢, opens the full-screen
-/// map; the inline map itself does not pan, so the page scrolls over it.
+/// The detail's map, a slide of the header's carousel (ADR-036 §9, ADR-037 §10): the route
+/// framed, "Départ et arrivée masqués" when the privacy zone trimmed it, and ⤢. Tapping it, or
+/// ⤢, opens the full-screen map; the inline map itself does not pan, so the page and the
+/// carousel scroll over it.
 struct ActivityDetailMap: View {
     let route: EncodedPolyline
     let routeTrimmed: Bool
     /// The card of the Activity, for the full-screen summary.
     let post: ActivityPost
+    var height: CGFloat = 330
 
     @State private var showsFullScreen = false
 
     var body: some View {
         ActivityRouteMap(route: route)
             .allowsHitTesting(false)
-            .frame(height: 300)
+            .frame(height: height)
             .frame(maxWidth: .infinity)
             .contentShape(.rect)
             .onTapGesture { showsFullScreen = true }

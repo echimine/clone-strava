@@ -118,6 +118,8 @@ struct FeedView<TopContent: View>: View {
                 .padding(.vertical, 8)
             }
             .refreshable { await store.pullToRefresh() }
+            // ADR-037 §1: an expired pre-signed Media or Avatar URL brings fresh ones.
+            .onImageURLExpired { await store.refresh() }
             .accessibilityIdentifier("feed.list")
             .onChange(of: store.scrollToTopRequest) {
                 withAnimation { proxy.scrollTo(Self.topID, anchor: .top) }

@@ -1,3 +1,4 @@
+import ImageIO
 import SwiftUI
 import UIKit
 
@@ -13,7 +14,7 @@ actor ImageLoader {
     private let session: URLSession
     private let cache: URLCache
     private let memory = NSCache<NSURL, UIImage>()
-    private var inFlight: [URL: Task<ImageLoadResult, Never>] = [:]
+    private var inFlight: [URL: Task<Result<Data, DownloadFailure>, Never>] = [:]
 
     /// The disk cache is filled by hand under the path key, so `session` must not cache.
     init(session: URLSession? = nil, cache: URLCache? = nil) {
@@ -38,48 +39,89 @@ actor ImageLoader {
     }
 
     /// Cached image, else downloaded one. A failed load is not remembered: the next call
-    /// tries the network again.
-    func load(_ url: URL) async -> ImageLoadResult {
+    /// tries the network again. With `maxPixelSize`, the image is downsampled at decode so its
+    /// longest side is at most that many pixels (a 2048 px Media photo in a 250 pt carousel,
+    /// ADR-037 §7); the file is downloaded and stored on disk once for every size.
+    func load(_ url: URL, maxPixelSize: CGFloat? = nil) async -> ImageLoadResult {
         let key = Self.cacheKey(for: url)
-        if let cached = memory.object(forKey: key as NSURL) {
+        let memoryKey = Self.memoryKey(key, maxPixelSize: maxPixelSize)
+        if let cached = memory.object(forKey: memoryKey as NSURL) {
             return .loaded(cached)
         }
-        let keyRequest = URLRequest(url: key)
-        if let stored = cache.cachedResponse(for: keyRequest), let image = UIImage(data: stored.data) {
-            memory.setObject(image, forKey: key as NSURL)
-            return .loaded(image)
+        let result: ImageLoadResult
+        if let stored = cache.cachedResponse(for: URLRequest(url: key)) {
+            result = Self.decode(stored.data, maxPixelSize: maxPixelSize).map(ImageLoadResult.loaded) ?? .failed
+        } else {
+            switch await download(url, key: key) {
+            case .success(let data):
+                result = Self.decode(data, maxPixelSize: maxPixelSize).map(ImageLoadResult.loaded) ?? .failed
+            case .failure(let failure):
+                result = failure.result
+            }
         }
+        if case let .loaded(image) = result {
+            memory.setObject(image, forKey: memoryKey as NSURL)
+        }
+        return result
+    }
+
+    /// The file of `url`, downloaded once for concurrent calls and stored on disk under `key`.
+    private func download(_ url: URL, key: URL) async -> Result<Data, DownloadFailure> {
         if let task = inFlight[key] {
             return await task.value
         }
         let session = session
         let cache = cache
-        let task = Task<ImageLoadResult, Never> {
+        let task = Task<Result<Data, DownloadFailure>, Never> {
             guard
                 let (data, response) = try? await session.data(from: url),
                 let http = response as? HTTPURLResponse
-            else { return .failed }
+            else { return .failure(DownloadFailure(result: .failed)) }
             switch http.statusCode {
             case 200..<300:
-                guard let image = UIImage(data: data) else { return .failed }
-                cache.storeCachedResponse(CachedURLResponse(response: response, data: data), for: keyRequest)
-                return .loaded(image)
+                guard UIImage(data: data) != nil else { return .failure(DownloadFailure(result: .failed)) }
+                cache.storeCachedResponse(CachedURLResponse(response: response, data: data), for: URLRequest(url: key))
+                return .success(data)
             case 403:
-                return .expired
+                return .failure(DownloadFailure(result: .expired))
             case 404:
-                return .missing
+                return .failure(DownloadFailure(result: .missing))
             default:
-                return .failed
+                return .failure(DownloadFailure(result: .failed))
             }
         }
         inFlight[key] = task
         let result = await task.value
         inFlight[key] = nil
-        if case let .loaded(image) = result {
-            memory.setObject(image, forKey: key as NSURL)
-        }
         return result
     }
+
+    /// One memory entry per path and decode size.
+    private static func memoryKey(_ key: URL, maxPixelSize: CGFloat?) -> URL {
+        guard let maxPixelSize else { return key }
+        return URL(string: "\(key.absoluteString)#\(Int(maxPixelSize.rounded(.up)))") ?? key
+    }
+
+    /// The full image, or a thumbnail decoded straight at `maxPixelSize` (ImageIO), never the
+    /// full bitmap first.
+    private static func decode(_ data: Data, maxPixelSize: CGFloat?) -> UIImage? {
+        guard let maxPixelSize else { return UIImage(data: data) }
+        let options = [kCGImageSourceShouldCache: false] as CFDictionary
+        guard let source = CGImageSourceCreateWithData(data as CFData, options) else { return nil }
+        let thumbnailOptions = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceThumbnailMaxPixelSize: Int(maxPixelSize.rounded(.up)),
+        ] as CFDictionary
+        guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, thumbnailOptions) else { return nil }
+        return UIImage(cgImage: image)
+    }
+}
+
+/// Why a download gave no image: the `ImageLoadResult` to return.
+private struct DownloadFailure: Error {
+    let result: ImageLoadResult
 }
 
 /// Outcome of `ImageLoader.load(_:)`.
