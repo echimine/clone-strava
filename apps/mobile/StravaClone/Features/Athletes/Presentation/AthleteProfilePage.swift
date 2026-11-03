@@ -34,7 +34,7 @@ struct AthleteProfilePage: View {
     var body: some View {
         content
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color(.systemGroupedBackground))
+            .background(Color(.systemBackground))
             .navigationTitle(store.profile?.athlete.displayName ?? "")
             .navigationBarTitleDisplayMode(.inline)
             .task { await store.load() }
@@ -71,7 +71,7 @@ struct AthleteProfilePage: View {
 
     private func page(_ profile: AthleteProfile) -> some View {
         ScrollView {
-            LazyVStack(spacing: Theme.spacing, pinnedViews: .sectionHeaders) {
+            LazyVStack(spacing: 0, pinnedViews: .sectionHeaders) {
                 AthleteProfileHeader(profile: profile, onFollows: followsAction(profile)) {
                     if let status = store.followStatus {
                         FollowButton(
@@ -84,24 +84,20 @@ struct AthleteProfilePage: View {
                     }
                 }
                 .padding(.horizontal, Theme.spacing)
+                .padding(.bottom, 20)
                 Section {
                     tabContent(profile)
                 } header: {
-                    Picker(selection: $store.tab) {
-                        ForEach(AthleteProfileStore.Tab.allCases, id: \.self) { tab in
-                            Text(AthletesMessages.tab(tab)).tag(tab)
-                        }
-                    } label: {
-                        EmptyView()
-                    }
-                    .pickerStyle(.segmented)
-                    .padding(.horizontal, Theme.spacing)
-                    .padding(.vertical, 8)
-                    .background(Color(.systemGroupedBackground))
+                    ProfileTabBar(
+                        tabs: AthleteProfileStore.Tab.allCases,
+                        selection: $store.tab,
+                        title: AthletesMessages.tab,
+                        systemImage: Self.systemImage
+                    )
                     .accessibilityIdentifier("athleteProfile.tabs")
                 }
             }
-            .padding(.vertical, 8)
+            .padding(.top, 8)
         }
         .refreshable { await store.refresh() }
     }
@@ -115,8 +111,16 @@ struct AthleteProfilePage: View {
                 openComments: { openEngagement(.comments($0)) },
                 retry: { await store.refresh() }
             )
+            .groupedTabContent()
         case .more:
             AthleteMoreTab(yearToDateDistance: store.yearToDateDistance, openStatistics: statisticsAction(profile))
+        }
+    }
+
+    private static func systemImage(_ tab: AthleteProfileStore.Tab) -> String {
+        switch tab {
+        case .activities: "waveform.path.ecg"
+        case .more: "line.3.horizontal"
         }
     }
 

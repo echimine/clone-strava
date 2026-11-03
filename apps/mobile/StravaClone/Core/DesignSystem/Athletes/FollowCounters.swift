@@ -10,12 +10,12 @@ struct FollowCounters: View {
     var open: ((AthleteFollowsRequest.Kind) -> Void)?
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 10) {
             counter(followers, .followers)
             Text("•").accessibilityHidden(true)
             counter(following, .following)
         }
-        .font(.subheadline)
+        .font(.body)
         .monospacedDigit()
     }
 
@@ -23,7 +23,6 @@ struct FollowCounters: View {
         if let open {
             Button(label) { open(list) }
                 .buttonStyle(.plain)
-                .fontWeight(.semibold)
                 .accessibilityHint(Text("Ouvre la liste"))
                 .accessibilityIdentifier(list == .followers ? "followCounters.followers" : "followCounters.following")
         } else {

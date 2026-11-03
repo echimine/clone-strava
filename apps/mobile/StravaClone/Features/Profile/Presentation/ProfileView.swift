@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Profile tab (ADR-036 §3, §10): my header, then Progrès · Activités · Plus, with the
-/// magnifier and the gear to Réglages at the top right. The header scrolls away and leaves my
+/// Profile tab (ADR-036 §3, §10), laid out as Strava: my header on white, then the Progrès ·
+/// Activités · Plus tabs with their icons, with the magnifier and the gear to Réglages at the top right. The header scrolls away and leaves my
 /// name in the navigation bar. Knows nothing of other features (ADR-007 rule 5): the app shell
 /// passes the signed-in account and the sign-out, the search, "Mes Itinéraires" (ADR-030), the
 /// screens every tab's stack pushes (`AppDestinations`: the Activity detail, the Kudos and
@@ -31,7 +31,7 @@ struct ProfileView<Itineraries: View, Search: View>: View {
         NavigationStack(path: $store.path) {
             content
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color(.systemGroupedBackground))
+                .background(Color(.systemBackground))
                 .navigationTitle(isHeaderHidden ? store.profile?.athlete.displayName ?? "" : "")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar { toolbar }
@@ -101,28 +101,24 @@ struct ProfileView<Itineraries: View, Search: View>: View {
 
     private func page(_ profile: AthleteProfile) -> some View {
         ScrollView {
-            LazyVStack(spacing: Theme.spacing, pinnedViews: .sectionHeaders) {
+            LazyVStack(spacing: 0, pinnedViews: .sectionHeaders) {
                 ProfileHeader(profile: profile, onFollows: store.openFollows) { isEditingName = true }
                     .padding(.horizontal, Theme.spacing)
+                    .padding(.bottom, 20)
                     .onScrolledAway { isHeaderHidden = $0 }
                 Section {
                     tabContent(profile)
                 } header: {
-                    Picker(selection: $store.tab) {
-                        ForEach(ProfileStore.Tab.allCases, id: \.self) { tab in
-                            Text(ProfileMessages.tab(tab)).tag(tab)
-                        }
-                    } label: {
-                        EmptyView()
-                    }
-                    .pickerStyle(.segmented)
-                    .padding(.horizontal, Theme.spacing)
-                    .padding(.vertical, 8)
-                    .background(Color(.systemGroupedBackground))
+                    ProfileTabBar(
+                        tabs: ProfileStore.Tab.allCases,
+                        selection: $store.tab,
+                        title: ProfileMessages.tab,
+                        systemImage: Self.systemImage
+                    )
                     .accessibilityIdentifier("profile.tabs")
                 }
             }
-            .padding(.vertical, 8)
+            .padding(.top, 8)
         }
         .refreshable { await store.refresh() }
         .accessibilityIdentifier("profile.page")
@@ -132,6 +128,7 @@ struct ProfileView<Itineraries: View, Search: View>: View {
         switch store.tab {
         case .progress:
             ProfileProgressTab(store: store.progress, practicedSports: profile.practicedSports)
+                .groupedTabContent()
         case .activities:
             ProfileActivitiesTab(
                 store: store.activities,
@@ -139,6 +136,7 @@ struct ProfileView<Itineraries: View, Search: View>: View {
                 openComments: store.openComments,
                 retry: store.refresh
             )
+            .groupedTabContent()
         case .more:
             ProfileMoreTab(
                 yearToDateDistance: store.yearToDateDistance,
@@ -146,6 +144,14 @@ struct ProfileView<Itineraries: View, Search: View>: View {
                 openStatistics: store.openStatistics,
                 openItineraries: store.openItineraries
             )
+        }
+    }
+
+    private static func systemImage(_ tab: ProfileStore.Tab) -> String {
+        switch tab {
+        case .progress: "chart.bar.doc.horizontal"
+        case .activities: "waveform.path.ecg"
+        case .more: "line.3.horizontal"
         }
     }
 }

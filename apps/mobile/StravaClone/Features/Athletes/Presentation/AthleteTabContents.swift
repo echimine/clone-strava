@@ -74,32 +74,16 @@ struct AthleteMoreTab: View {
                 row(showsChevron: false)
             }
         }
-        .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 20))
-        .padding(.horizontal, Theme.spacing)
+        .padding(.vertical, 8)
         .accessibilityIdentifier("athleteProfile.statistics")
     }
 
     private func row(showsChevron: Bool) -> some View {
-        HStack(spacing: Theme.spacing) {
-            Image(systemName: "chart.bar")
-                .font(.title3)
-                .frame(width: 24)
-                .foregroundStyle(.secondary)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(AthletesMessages.statistics).font(.body.weight(.semibold))
-                Text(AthletesMessages.thisYear(yearToDateDistance))
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-            if showsChevron {
-                Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.tertiary)
-            }
-        }
-        .padding(Theme.spacing)
-        .contentShape(.rect)
-        .accessibilityElement(children: .combine)
+        ProfileMenuRow(
+            title: AthletesMessages.statistics,
+            subtitle: AthletesMessages.thisYear(yearToDateDistance),
+            systemImage: "list.bullet.rectangle",
+            showsChevron: showsChevron
+        )
     }
 }

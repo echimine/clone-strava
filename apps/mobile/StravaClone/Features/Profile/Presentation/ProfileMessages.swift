@@ -33,10 +33,6 @@ enum ProfileMessages {
         count == 1 ? "1 activité" : "\(count) activités"
     }
 
-    static func streak(_ weeks: Int) -> String {
-        weeks == 1 ? "🔥 1 semaine d'affilée" : "🔥 \(weeks) semaines d'affilée"
-    }
-
     static func followers(_ count: Int) -> String {
         count == 1 ? "1 abonné" : "\(count) abonnés"
     }

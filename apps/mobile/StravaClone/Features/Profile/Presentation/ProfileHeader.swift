@@ -1,38 +1,29 @@
 import SwiftUI
 
-/// Top of the profile (ADR-036 §3): avatar in initials, name, Activity count and Streak, the
-/// follow counters, which open my lists, and "Modifier le profil".
+/// Top of the profile (ADR-036 §3), laid out as Strava: avatar, name and Activity count, the
+/// Streak, the follow counters, which open my lists, and "Modifier le profil".
 struct ProfileHeader: View {
     let profile: AthleteProfile
     var onFollows: ((AthleteFollowsRequest.Kind) -> Void)?
     let onEdit: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: Theme.spacing) {
-                AvatarView(name: profile.athlete.displayName, url: profile.athlete.avatarURL, size: 72)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(profile.athlete.displayName)
-                        .font(.title2.weight(.bold))
-                        .lineLimit(2)
-                        .accessibilityIdentifier("profile.name")
-                    Text(ProfileMessages.activityCount(profile.activityCount))
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    Text(ProfileMessages.streak(profile.streakWeeks))
-                        .font(.subheadline.weight(.semibold))
-                }
-            }
+        VStack(alignment: .leading, spacing: Theme.spacing) {
+            ProfileIdentity(
+                athlete: profile.athlete,
+                activityCount: ProfileMessages.activityCount(profile.activityCount),
+                nameIdentifier: "profile.name"
+            )
+            StreakLabel(weeks: profile.streakWeeks)
             FollowCounters(
                 followers: ProfileMessages.followers(profile.followerCount),
                 following: ProfileMessages.following(profile.followingCount),
                 open: onFollows
             )
             .accessibilityIdentifier("profile.followCounts")
+            // "Partager le profil" stays hidden (ADR-036 §3): one full-width button.
             Button(ProfileMessages.editProfile, action: onEdit)
-                .buttonStyle(.bordered)
-                .controlSize(.large)
-                .frame(maxWidth: .infinity)
+                .buttonStyle(.profileOutline)
                 .accessibilityIdentifier("profile.edit")
         }
         .frame(maxWidth: .infinity, alignment: .leading)
