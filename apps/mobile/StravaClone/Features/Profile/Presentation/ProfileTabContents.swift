@@ -55,7 +55,8 @@ struct ProfileActivitiesTab: View {
     }
 }
 
-/// Plus (ADR-036 §3): Statistiques with this year's distance, and my Itineraries.
+/// Plus (ADR-036 §3), as Strava's list: Statistiques with this year's distance, and my
+/// Itineraries with their count.
 struct ProfileMoreTab: View {
     let yearToDateDistance: Distance?
     let itineraryCount: Int?
@@ -65,52 +66,24 @@ struct ProfileMoreTab: View {
     var body: some View {
         VStack(spacing: 0) {
             Button(action: openStatistics) {
-                row(
+                ProfileMenuRow(
                     title: ProfileMessages.statistics,
                     subtitle: ProfileMessages.thisYear(yearToDateDistance),
-                    systemImage: "chart.bar",
-                    showsChevron: true
+                    systemImage: "list.bullet.rectangle"
                 )
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("profile.statistics")
-            Divider().padding(.leading, 56)
             Button(action: openItineraries) {
-                row(
-                    title: itineraryCount.map { "\(ProfileMessages.itineraries) · \($0)" } ?? ProfileMessages.itineraries,
-                    subtitle: nil,
-                    systemImage: "point.topleft.down.to.point.bottomright.curvepath",
-                    showsChevron: true
+                ProfileMenuRow(
+                    title: ProfileMessages.itineraries,
+                    subtitle: itineraryCount.map { $0.formatted() },
+                    systemImage: "point.topleft.down.to.point.bottomright.curvepath"
                 )
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("profile.itineraries")
         }
-        .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 20))
-        .padding(.horizontal, Theme.spacing)
-    }
-
-    private func row(title: String, subtitle: String?, systemImage: String, showsChevron: Bool = false) -> some View {
-        HStack(spacing: Theme.spacing) {
-            Image(systemName: systemImage)
-                .font(.title3)
-                .frame(width: 24)
-                .foregroundStyle(.secondary)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.body.weight(.semibold))
-                if let subtitle {
-                    Text(subtitle).font(.subheadline).foregroundStyle(.secondary)
-                }
-            }
-            Spacer()
-            if showsChevron {
-                Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.tertiary)
-            }
-        }
-        .padding(Theme.spacing)
-        .contentShape(.rect)
-        .accessibilityElement(children: .combine)
+        .padding(.vertical, 8)
     }
 }

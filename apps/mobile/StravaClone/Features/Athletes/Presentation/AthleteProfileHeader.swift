@@ -9,24 +9,16 @@ struct AthleteProfileHeader<FollowButtonContent: View>: View {
     @ViewBuilder let followButton: () -> FollowButtonContent
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: Theme.spacing) {
-                AvatarView(name: profile.athlete.displayName, url: profile.athlete.avatarURL, size: 72)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(profile.athlete.displayName)
-                        .font(.title2.weight(.bold))
-                        .lineLimit(2)
-                        .accessibilityIdentifier("athleteProfile.name")
-                    Text(AthletesMessages.activityCount(profile.activityCount))
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    Text(AthletesMessages.streak(profile.streakWeeks))
-                        .font(.subheadline.weight(.semibold))
-                }
-            }
+        VStack(alignment: .leading, spacing: Theme.spacing) {
+            ProfileIdentity(
+                athlete: profile.athlete,
+                activityCount: AthletesMessages.activityCount(profile.activityCount),
+                nameIdentifier: "athleteProfile.name"
+            )
+            StreakLabel(weeks: profile.streakWeeks)
             HStack(spacing: 8) {
                 if !profile.followersYouKnow.isEmpty {
-                    KudosAvatarStack(givers: profile.followersYouKnow, size: 24, ring: Color(.systemGroupedBackground))
+                    KudosAvatarStack(givers: profile.followersYouKnow, size: 24, ring: Color(.systemBackground))
                         .accessibilityElement(children: .ignore)
                         .accessibilityLabel(Text(AthletesMessages.followersYouKnow(profile.followersYouKnow)))
                 }
