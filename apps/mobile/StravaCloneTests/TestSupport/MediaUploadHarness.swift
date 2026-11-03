@@ -147,9 +147,9 @@ struct MediaUploadHarness: Sendable {
     }
 
     /// `200` with a `PUT` URL per file of the request, signed `signature`.
-    static func uploadURLs(_ signature: String = "first") -> (Int, String) {
+    static func uploadURLs(_ signature: String = "first", names: [String] = ["original.jpg", "thumb.jpg"]) -> (Int, String) {
         let expiresAt = Self.now.addingTimeInterval(86_400).formatted(Date.ISO8601FormatStyle(includingFractionalSeconds: true))
-        let files = ["original.jpg", "thumb.jpg"].map { name in
+        let files = names.map { name in
             #"{"name":"\#(name)","uploadUrl":"https://bucket.test/\#(name)?sig=\#(signature)","expiresAt":"\#(expiresAt)"}"#
         }
         return (200, #"{"files":[\#(files.joined(separator: ","))]}"#)
@@ -159,6 +159,12 @@ struct MediaUploadHarness: Sendable {
     static func confirmed(_ id: UUID) -> (Int, String) {
         let base = "https://bucket.test/test/activities/u/a/media/\(id.uuidString.lowercased())"
         return (201, #"{"media":{"id":"\#(id.uuidString.lowercased())","kind":"photo","width":2048,"height":1536,"durationMs":null,"url":"\#(base)/original.jpg?X-Amz-Expires=3600","posterUrl":null,"thumbUrl":"\#(base)/thumb.jpg?X-Amz-Expires=3600"}}"#)
+    }
+
+    /// `201` with the confirmed video of `id`.
+    static func confirmedVideo(_ id: UUID, durationMs: Int) -> (Int, String) {
+        let base = "https://bucket.test/test/activities/u/a/media/\(id.uuidString.lowercased())"
+        return (201, #"{"media":{"id":"\#(id.uuidString.lowercased())","kind":"video","width":1280,"height":720,"durationMs":\#(durationMs),"url":"\#(base)/original.mp4?X-Amz-Expires=3600","posterUrl":"\#(base)/poster.jpg?X-Amz-Expires=3600","thumbUrl":"\#(base)/thumb.jpg?X-Amz-Expires=3600"}}"#)
     }
 
     static func refused(_ status: Int, _ code: String) -> (Int, String) {
@@ -189,6 +195,11 @@ struct MediaUploadHarness: Sendable {
         CGImageDestinationAddImage(destination, image, properties as CFDictionary)
         CGImageDestinationFinalize(destination)
         return data as Data
+    }
+
+    /// A picked video whose library copy is `movie`.
+    static func video(_ movie: URL) -> PickedMedia {
+        PickedMedia(source: .video(PickedMovie { movie }))
     }
 
     static func photo(_ data: Data = cameraPhoto(width: 1_200, height: 900)) -> PickedMedia {
