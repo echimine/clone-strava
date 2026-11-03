@@ -82,14 +82,15 @@ struct ActivityDetailPage: View {
             }
         case .loaded(let detail):
             ActivityDetailContent(detail: detail) {
-                ActivityKudosSection(store: store, engagement: detail.engagement)
+                ActivityKudosSection(store: store, detail: detail)
             }
         }
     }
 }
 
-/// The loaded Activity: map, header, title and description, stats grid, then the kudos and
-/// comments block under the stats (ADR-036 §8).
+/// The loaded Activity, top to bottom (ADR-036 §9): the map, the header, title and
+/// description, the stats grid, the source, the kudos row and action bar, then the splits,
+/// Allure (Vitesse) and Fréquence cardiaque when the analysis has them.
 struct ActivityDetailContent<Engagement: View>: View {
     let detail: ActivityDetail
     @ViewBuilder let engagement: () -> Engagement
@@ -97,12 +98,11 @@ struct ActivityDetailContent<Engagement: View>: View {
     private let columns = [GridItem(.flexible(), alignment: .leading), GridItem(.flexible(), alignment: .leading)]
 
     var body: some View {
+        let sections = ActivityDetailSections(detail: detail)
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.spacing) {
-                if let route = detail.route {
-                    ActivityRouteMap(route: route)
-                        .aspectRatio(4 / 3, contentMode: .fit)
-                        .frame(maxWidth: .infinity)
+                if sections.showsMap, let route = detail.route {
+                    ActivityDetailMap(route: route, routeTrimmed: detail.routeTrimmed, post: detail.post)
                 }
                 VStack(alignment: .leading, spacing: Theme.spacing) {
                     ActivityCardHeader(post: detail.post)
@@ -117,11 +117,47 @@ struct ActivityDetailContent<Engagement: View>: View {
                     if let stats = detail.stats {
                         statsGrid(ActivityStatItem.items(for: stats, sport: detail.sport))
                     }
+                    sourceLine
                     engagement()
+                    analysis(sections)
                 }
                 .padding(.horizontal, Theme.spacing)
             }
             .padding(.bottom, Theme.spacing)
+        }
+    }
+
+    private var sourceLine: some View {
+        Label(ActivityAnalysisMessages.source(detail.source), systemImage: sourceSymbol)
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .accessibilityIdentifier("activityDetail.source")
+    }
+
+    private var sourceSymbol: String {
+        switch detail.source {
+        case .recorded: "record.circle"
+        case .imported: "square.and.arrow.down"
+        case .manual: "square.and.pencil"
+        }
+    }
+
+    /// Sections 8 to 10, hidden without an analysis that has splits.
+    @ViewBuilder private func analysis(_ sections: ActivityDetailSections) -> some View {
+        if let splits = sections.splits {
+            ActivitySplitsSection(table: splits)
+        }
+        if let chart = sections.speedChart {
+            ActivitySpeedSection(
+                chart: chart,
+                rows: ActivityAnalysisSummary.speedRows(stats: detail.stats, splits: detail.analysis?.splits ?? [], sport: detail.sport)
+            )
+        }
+        if let chart = sections.heartRateChart {
+            ActivityHeartRateSection(
+                chart: chart,
+                rows: ActivityAnalysisSummary.heartRateRows(stats: detail.stats, series: detail.analysis?.series)
+            )
         }
     }
 

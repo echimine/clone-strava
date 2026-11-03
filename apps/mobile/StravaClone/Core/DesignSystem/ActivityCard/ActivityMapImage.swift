@@ -22,21 +22,13 @@ struct ActivityMapImage: View {
             .clipped()
             .overlay(alignment: .bottomLeading) {
                 if routeTrimmed && route != nil {
-                    trimmedLabel
+                    RouteTrimmedLabel()
+                        .padding(8)
+                        .accessibilityIdentifier("activityCard.routeTrimmed")
                 }
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(routeTrimmed && route != nil ? "Carte du parcours, \(ActivityCardMessages.routeTrimmed.lowercased())" : "Carte du parcours")
-    }
-
-    private var trimmedLabel: some View {
-        Label(ActivityCardMessages.routeTrimmed, systemImage: "eye.slash")
-            .font(.caption2.weight(.semibold))
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .glassBackground(in: .capsule)
-            .padding(8)
-            .accessibilityIdentifier("activityCard.routeTrimmed")
     }
 
     private func url(for size: CGSize) -> URL? {
