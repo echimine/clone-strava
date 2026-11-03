@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
-import type { FeedAuthor } from "@repo/contracts";
+import { AVATAR_URL_EXPIRES_IN_SECONDS, type FeedAuthor } from "@repo/contracts";
 import { AuthService } from "@repo/core/auth";
+import { StorageService } from "@repo/core/storage";
 import { UsersService } from "@repo/core/users";
 
 /** How an athlete is shown next to their content: Activity author, comment author, kudos giver. */
@@ -10,13 +11,16 @@ export type AthleteIdentity = FeedAuthor;
  * Assembles athlete identities for every list of the API (ADR-029 §2:
  * modules return user ids only; names live in `users` and `auth`), with one
  * batch call per module. `user_profile` names win over Better Auth's
- * account name; the avatar is still Better Auth's image.
+ * account name. `avatarUrl` is `avatar_key` signed for 7 days, or `null`
+ * (ADR-037 §1, §2): Better Auth's `user.image` is never a fallback, and the
+ * key itself never leaves the API.
  */
 @Injectable()
 export class AthleteIdentities {
   constructor(
     private readonly users: UsersService,
     private readonly auth: AuthService,
+    private readonly storage: StorageService,
   ) {}
 
   /**
@@ -42,6 +46,12 @@ export class AthleteIdentities {
     ]);
     const summaryById = new Map(summaries.map((summary) => [summary.userId, summary]));
     const identityById = new Map(identities.map((identity) => [identity.userId, identity]));
+    // Signing is local (no network call), one per athlete with an Avatar.
+    const avatarUrlById = new Map(
+      await Promise.all(
+        summaries.map(async (summary) => [summary.userId, await this.signAvatar(summary.avatarKey)] as const),
+      ),
+    );
 
     return (userId) => {
       const summary = summaryById.get(userId);
@@ -50,10 +60,15 @@ export class AthleteIdentities {
       return {
         id: userId,
         displayName: profileName || identity?.name || "",
-        // `avatar_url` was never written, so the Better Auth image was all the app ever saw.
-        // The signed `avatarKey` replaces it with the Avatar API (ADR-037 §2).
-        avatarUrl: identity?.image ?? null,
+        avatarUrl: avatarUrlById.get(userId) ?? null,
       };
     };
+  }
+
+  private async signAvatar(avatarKey: string | null): Promise<string | null> {
+    if (avatarKey === null) {
+      return null;
+    }
+    return (await this.storage.presignGet(avatarKey, AVATAR_URL_EXPIRES_IN_SECONDS)).url;
   }
 }

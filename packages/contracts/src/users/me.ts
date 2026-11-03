@@ -4,7 +4,7 @@ import { userRoleSchema, visibilitySchema } from "../common/enums.js";
 /**
  * `GET /v1/me` response (ADR-009 §3, ADR-013): current user, role and premium
  * status, the visibility preselected for a new Activity (ADR-031 §13), and
- * "Approuver mes abonnés" (ADR-036 §1).
+ * "Approuver mes abonnés" (ADR-036 §1), and the Avatar (ADR-037 §2).
  */
 export const meResponseSchema = z.object({
   id: z.uuid(),
@@ -16,5 +16,10 @@ export const meResponseSchema = z.object({
   defaultVisibility: visibilitySchema,
   /** `social.follow_settings.approve_followers`, `false` without a row. */
   approveFollowers: z.boolean(),
+  /**
+   * The Avatar signed for 7 days (ADR-037 §1, §2), absent without one. Optional rather than
+   * nullable: @nestjs/swagger reads a top-level `type: ["string", "null"]` as an array.
+   */
+  avatarUrl: z.string().optional(),
 });
 export type MeResponse = z.infer<typeof meResponseSchema>;

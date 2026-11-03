@@ -9,6 +9,7 @@ import { AnalyticsModule } from "@repo/core/analytics";
 import { AuthService } from "@repo/core/auth";
 import { CoreInfrastructureModule, DATABASE, type Database } from "@repo/core/infrastructure";
 import { SocialModule } from "@repo/core/social";
+import { StorageModule } from "@repo/core/storage";
 import { UsersModule } from "@repo/core/users";
 import { ensureTestDatabaseMigrated, TEST_DATABASE_URL, TEST_REDIS_URL } from "../auth/test-auth-app.js";
 import { SessionGuard } from "../auth/session.guard.js";
@@ -73,6 +74,13 @@ describe("athlete search (integration)", () => {
       imports: [
         CoreInfrastructureModule.forRoot({ databaseUrl: TEST_DATABASE_URL, redisUrl: TEST_REDIS_URL }),
         AnalyticsModule.forRoot({}),
+        StorageModule.forRoot({
+          endpoint: "https://bucket.test",
+          region: "test",
+          bucket: "test",
+          accessKeyId: "test",
+          secretAccessKey: "test",
+        }),
         SocialModule,
         UsersModule,
       ],
@@ -90,7 +98,7 @@ describe("athlete search (integration)", () => {
                 : null;
             },
             getPublicIdentities: async (userIds: string[]) =>
-              sql('select id as "userId", name, image from "user" where id = any($1)', [userIds]),
+              sql('select id as "userId", name from "user" where id = any($1)', [userIds]),
           },
         },
         { provide: APP_PIPE, useClass: ZodValidationPipe },

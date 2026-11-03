@@ -2,7 +2,10 @@ import { Module } from "@nestjs/common";
 import { UserProfileRepository } from "./repositories/user-profile.repository.js";
 import { UserSportRepository } from "./repositories/user-sport.repository.js";
 import { GetUserSummariesUseCase } from "./use-cases/get-user-summaries.use-case.js";
+import { RemoveAvatarUseCase } from "./use-cases/remove-avatar.use-case.js";
+import { RequestAvatarUploadUseCase } from "./use-cases/request-avatar-upload.use-case.js";
 import { SearchUsersByNameUseCase } from "./use-cases/search-users-by-name.use-case.js";
+import { SetAvatarUseCase } from "./use-cases/set-avatar.use-case.js";
 import { SubmitOnboardingAnswersUseCase } from "./use-cases/submit-onboarding-answers.use-case.js";
 import { UsersService } from "./users.service.js";
 
@@ -14,6 +17,9 @@ import { UsersService } from "./users.service.js";
     GetUserSummariesUseCase,
     SubmitOnboardingAnswersUseCase,
     SearchUsersByNameUseCase,
+    RequestAvatarUploadUseCase,
+    SetAvatarUseCase,
+    RemoveAvatarUseCase,
     UsersService,
   ],
   exports: [UsersService],

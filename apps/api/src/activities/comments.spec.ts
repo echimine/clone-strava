@@ -23,6 +23,7 @@ import { CommentAssembler } from "./comment-assembler.js";
 import { AthleteIdentities } from "../identities/athlete-identities.js";
 import { CommentsController } from "./comments.controller.js";
 import { listenOnLoopback } from "../testing/listen-on-loopback.js";
+import { signedAvatarUrl } from "../testing/signed-avatar-url.js";
 
 /**
  * `/v1/activities/:id/comments` over real HTTP and Postgres (ADR-024 §2
@@ -122,7 +123,7 @@ describe("/v1/activities/:id/comments (integration)", () => {
                 : null;
             },
             getPublicIdentities: async (userIds: string[]) =>
-              sql('select id as "userId", name, image from "user" where id = any($1)', [userIds]),
+              sql('select id as "userId", name from "user" where id = any($1)', [userIds]),
           },
         },
         { provide: APP_PIPE, useClass: ZodValidationPipe },
@@ -140,8 +141,8 @@ describe("/v1/activities/:id/comments (integration)", () => {
       await sql('insert into "user" (id, name, email) values ($1, $2, $3)', [id, `User ${index}`, `${id}@test.local`]);
     }
     await sql(
-      "with profile as (insert into users.user_profile (user_id, first_name, last_name) values ($1, 'Camille', 'Martin')) update \"user\" set image = 'https://cdn.test/c.png' where id = $1",
-      [commenter],
+      "with profile as (insert into users.user_profile (user_id, first_name, last_name, avatar_key) values ($1, 'Camille', 'Martin', $2)) update \"user\" set image = 'https://cdn.test/c.png' where id = $1",
+      [commenter, `avatars/${commenter}/a.jpg`],
     );
   }, 30_000);
 
@@ -165,7 +166,7 @@ describe("/v1/activities/:id/comments (integration)", () => {
       body: "Belle sortie !",
       createdAt: expect.any(String),
       updatedAt: null,
-      author: { id: commenter, displayName: "Camille Martin", avatarUrl: "https://cdn.test/c.png" },
+      author: { id: commenter, displayName: "Camille Martin", avatarUrl: signedAvatarUrl(`avatars/${commenter}/a.jpg`) },
       viewerCanEdit: true,
       viewerCanDelete: true,
     });
