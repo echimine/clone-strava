@@ -2,7 +2,7 @@ export { ActivitiesModule } from "./activities.module.js";
 export { ActivitiesService } from "./activities.service.js";
 export type { ActivityDetailRecord } from "./domain/activity-detail.js";
 export type { ActivityRecord } from "./domain/activity-record.js";
-export type { ActivityMediaRecord } from "./domain/activity-media.js";
+export type { ActivityMediaRecord, GalleryMediaPage, GalleryMediaRecord } from "./domain/activity-media.js";
 export type { FeedActivity, FeedActivityPage, FeedActivityStats } from "./domain/feed-activity.js";
 export type { AthleteProfileFigures } from "./use-cases/get-athlete-profile-figures.use-case.js";
 export type { ConfirmMediaResult } from "./use-cases/confirm-media.use-case.js";

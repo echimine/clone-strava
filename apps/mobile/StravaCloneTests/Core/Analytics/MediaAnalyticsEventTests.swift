@@ -10,4 +10,11 @@ struct MediaAnalyticsEventTests {
         #expect(event.name == "media_viewer_opened")
         #expect(event.properties == ["source": "profile_activities", "kind": "video", "isOwn": true])
     }
+
+    @Test func theGallerySaysWhoseItIs() {
+        let event = AnalyticsEvent.galleryViewed(isOwn: false)
+
+        #expect(event.name == "gallery_viewed")
+        #expect(event.properties == ["isOwn": false])
+    }
 }

@@ -14,3 +14,17 @@ export interface ActivityMediaRecord {
   durationMs: number | null;
   folderKey: string;
 }
+
+/**
+ * A Media of an athlete's Gallery (ADR-037 §9) with the Activity it belongs to, for the viewer's
+ * "titre · Voir l'activité ›" pill.
+ */
+export interface GalleryMediaRecord extends ActivityMediaRecord {
+  activity: { id: string; title: string; startedAt: Date };
+}
+
+/** One keyset page of a Gallery: `nextCursor` is null on the last page. */
+export interface GalleryMediaPage {
+  items: GalleryMediaRecord[];
+  nextCursor: string | null;
+}

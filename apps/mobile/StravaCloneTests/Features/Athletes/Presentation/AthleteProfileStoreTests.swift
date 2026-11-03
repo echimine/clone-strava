@@ -6,7 +6,9 @@ import Testing
 struct AthleteProfileStoreTests {
     private func makeStore(
         _ athletes: FakeAthleteRepository,
-        _ follows: FakeFollowRepository = FakeFollowRepository()
+        _ follows: FakeFollowRepository = FakeFollowRepository(),
+        gallery: FakeAthleteGalleryRepository = FakeAthleteGalleryRepository(),
+        analytics: FakeAnalyticsClient = FakeAnalyticsClient()
     ) -> AthleteProfileStore {
         AthleteProfileStore(
             athleteId: "lea",
@@ -16,6 +18,11 @@ struct AthleteProfileStoreTests {
             activities: AthleteActivitiesStore(
                 loadActivities: LoadAthleteActivities(repository: athletes),
                 setKudos: SetAthleteActivityKudos(repository: FakeAthleteKudosRepository())
+            ),
+            gallery: AthleteGalleryStore(
+                loadGallery: LoadAthleteGallery(repository: gallery),
+                message: AthletesMessages.message(for:),
+                analytics: analytics
             )
         )
     }
@@ -40,6 +47,20 @@ struct AthleteProfileStoreTests {
         #expect(store.yearToDateDistance == Distance(meters: 412_000))
         #expect(store.activities.posts.count == 1)
         #expect(athletes.profileCalls == ["lea"])
+    }
+
+    @Test func openingGalerieLoadsTheirMediaAsSomeoneElses() async {
+        let gallery = FakeAthleteGalleryRepository()
+        gallery.pages[nil] = .success(GalleryPage(items: [], nextCursor: nil))
+        let analytics = FakeAnalyticsClient()
+        let store = makeStore(repository(status: .none), gallery: gallery, analytics: analytics)
+        await store.load()
+
+        await store.openGallery()
+
+        #expect(store.gallery.isEmpty)
+        #expect(gallery.calls.map(\.athleteId) == ["lea"])
+        #expect(analytics.events == [.galleryViewed(isOwn: false)])
     }
 
     @Test func followingAnAthleteWhoApprovesFollowersShowsRequestSentAndATapCancels() async {
