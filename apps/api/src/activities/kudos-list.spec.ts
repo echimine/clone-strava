@@ -127,9 +127,9 @@ describe("GET /v1/activities/:id/kudos (integration)", () => {
         index === 3 ? "https://auth.test/u3.png" : null,
       ]);
     }
-    // `user_profile` names and avatar win over Better Auth's (same rule as the feed).
+    // `user_profile` names win over Better Auth's, the avatar is Better Auth's image (same rule as the feed).
     await sql(
-      "insert into users.user_profile (user_id, first_name, last_name, avatar_url) values ($1, 'Camille', 'Martin', 'https://cdn.test/c.png')",
+      "with profile as (insert into users.user_profile (user_id, first_name, last_name) values ($1, 'Camille', 'Martin')) update \"user\" set image = 'https://cdn.test/c.png' where id = $1",
       [givers[1]],
     );
     await sql("insert into social.follow (follower_id, followee_id, status) values ($1, $2, 'accepted')", [

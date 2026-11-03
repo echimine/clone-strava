@@ -99,6 +99,13 @@
       "when": 1793695526704,
       "tag": "0013_profile_follows_analysis",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1793737457030,
+      "tag": "0014_media_avatar",
+      "breakpoints": true
     }
   ]
 }

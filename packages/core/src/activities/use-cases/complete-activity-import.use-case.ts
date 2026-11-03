@@ -36,7 +36,7 @@ export class CompleteActivityImportUseCase {
       return toActivityImport(row);
     }
 
-    const head = await this.storage.head(activityImportSourceKey(row.userId, row.id, row.format));
+    const head = await this.storage.headObject(activityImportSourceKey(row.userId, row.id, row.format));
     if (!head) {
       throw new ConflictException({ code: "file_missing", message: "The file has not been uploaded" });
     }

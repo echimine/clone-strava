@@ -30,9 +30,9 @@ export type UnitSystem = z.infer<typeof unitSystemSchema>;
 export const followStatusSchema = z.enum(["pending", "accepted"]);
 export type FollowStatus = z.infer<typeof followStatusSchema>;
 
-/** `activity_attachment.kind` (ADR-017). */
-export const attachmentKindSchema = z.enum(["photo", "video"]);
-export type AttachmentKind = z.infer<typeof attachmentKindSchema>;
+/** `activity_media.kind` (ADR-037 §12). */
+export const mediaKindSchema = z.enum(["photo", "video"]);
+export type MediaKind = z.infer<typeof mediaKindSchema>;
 
 /** `sport_type.pace_unit` (ADR-017): whether the sport is displayed as a pace or a speed. */
 export const paceUnitSchema = z.enum(["pace", "speed"]);

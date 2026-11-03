@@ -139,7 +139,7 @@ describe("PATCH /v1/activities/:id (integration)", () => {
       await sql('insert into "user" (id, name, email) values ($1, $2, $3)', [id, `User ${index}`, `${id}@test.local`]);
     }
     await sql(
-      "insert into users.user_profile (user_id, first_name, last_name, avatar_url) values ($1, 'Camille', 'Martin', 'https://cdn.test/a.png')",
+      "with profile as (insert into users.user_profile (user_id, first_name, last_name) values ($1, 'Camille', 'Martin')) update \"user\" set image = 'https://cdn.test/a.png' where id = $1",
       [author],
     );
   }, 30_000);

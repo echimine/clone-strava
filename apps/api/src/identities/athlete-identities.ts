@@ -9,8 +9,8 @@ export type AthleteIdentity = FeedAuthor;
 /**
  * Assembles athlete identities for every list of the API (ADR-029 §2:
  * modules return user ids only; names live in `users` and `auth`), with one
- * batch call per module. `user_profile` names and avatar win; Better
- * Auth's account name and image are the fallback.
+ * batch call per module. `user_profile` names win over Better Auth's
+ * account name; the avatar is still Better Auth's image.
  */
 @Injectable()
 export class AthleteIdentities {
@@ -50,7 +50,9 @@ export class AthleteIdentities {
       return {
         id: userId,
         displayName: profileName || identity?.name || "",
-        avatarUrl: summary?.avatarUrl ?? identity?.image ?? null,
+        // `avatar_url` was never written, so the Better Auth image was all the app ever saw.
+        // The signed `avatarKey` replaces it with the Avatar API (ADR-037 §2).
+        avatarUrl: identity?.image ?? null,
       };
     };
   }

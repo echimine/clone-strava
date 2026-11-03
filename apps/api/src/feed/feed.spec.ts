@@ -138,7 +138,7 @@ describe("/v1/feed and kudos (integration)", () => {
     for (const [index, id] of users.entries()) {
       await sql('insert into "user" (id, name, email) values ($1, $2, $3)', [id, `User ${index}`, `${id}@test.local`]);
     }
-    await sql("insert into users.user_profile (user_id, first_name, last_name, avatar_url) values ($1, 'Camille', 'Martin', 'https://cdn.test/a.png')", [friend]);
+    await sql("with profile as (insert into users.user_profile (user_id, first_name, last_name) values ($1, 'Camille', 'Martin')) update \"user\" set image = 'https://cdn.test/a.png' where id = $1", [friend]);
     await sql("insert into social.follow (follower_id, followee_id, status) values ($1, $2, 'accepted'), ($1, $3, 'pending')", [viewer, friend, pendingFriend]);
 
     await insertActivity(ids.mine, viewer, 1);
