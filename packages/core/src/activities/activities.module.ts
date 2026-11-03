@@ -30,6 +30,10 @@ import { OfficialValuesService } from "./services/official-values.js";
 import { ImportRateLimiter } from "./services/import-rate-limiter.js";
 import { ImportJobEnqueuer } from "./services/import-job-enqueuer.js";
 import { ReprocessJobEnqueuer } from "./services/reprocess-job-enqueuer.js";
+import { ActivityAggregateRepository } from "./repositories/activity-aggregate.repository.js";
+import { AggregateScopeResolver } from "./services/aggregate-scope-resolver.js";
+import { GetProgressUseCase } from "./use-cases/get-progress.use-case.js";
+import { GetAthleteStatsUseCase } from "./use-cases/get-athlete-stats.use-case.js";
 import { ActivitiesService } from "./activities.service.js";
 
 /**
@@ -72,6 +76,10 @@ import { ActivitiesService } from "./activities.service.js";
     UpdateActivityUseCase,
     ReprocessActivityUseCase,
     OfficialValuesService,
+    ActivityAggregateRepository,
+    AggregateScopeResolver,
+    GetProgressUseCase,
+    GetAthleteStatsUseCase,
     ActivitiesService,
   ],
   exports: [ActivitiesService],
