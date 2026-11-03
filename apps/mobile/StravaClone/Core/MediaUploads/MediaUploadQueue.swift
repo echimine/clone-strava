@@ -190,7 +190,7 @@ final class MediaUploadQueue {
         await discard([mediaID])
     }
 
-    /// Sign-out: every row, file and task goes (#186).
+    /// Sign-out: every row, file and task goes, the finish screen's exports too (ADR-037 §6).
     func clear() async {
         wakeUp?.cancel()
         wakeUp = nil
@@ -273,8 +273,10 @@ final class MediaUploadQueue {
         defer { inFlight.remove(upload.mediaID) }
         switch await attempt({ () async throws(MediaServerError) in try await self.server.uploadTargets(for: upload) }) {
         case .success(let targets):
-            // Removed, or failed, while the URLs were asked for.
-            guard let current = try? await store.upload(upload.mediaID), current.state == .uploading else { return }
+            // Removed, or failed, or its Activity being deleted, while the URLs were asked for.
+            guard let current = try? await store.upload(upload.mediaID), current.state == .uploading,
+                  await canSend(upload.activityID)
+            else { return }
             for file in missing {
                 guard let target = targets.first(where: { $0.name == file.name }) else { continue }
                 let key = key(upload, file)
@@ -384,7 +386,7 @@ final class MediaUploadQueue {
         await refreshBoard()
     }
 
-    private func cancelTasks(of mediaIDs: [UUID]) async {
+    func cancelTasks(of mediaIDs: [UUID]) async {
         let ids = Set(mediaIDs)
         await transfer.cancel(mediaIDs: ids)
         activeFiles = activeFiles.filter { !ids.contains($0.mediaID) }

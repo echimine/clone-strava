@@ -1,5 +1,16 @@
 import Foundation
 
+/// Where the Delete of a local Activity stands (ADR-031 §14), for what follows it (its Media,
+/// ADR-037 §6).
+enum LocalActivityDeletion: Sendable {
+    /// `delete_activity` waits for the server: the local copy stays, hidden.
+    case pending
+    /// Gone: wiped at once (unknown to the server), or deleted by it (`204`, `404`).
+    case deleted
+    /// `409`: already handed to the worker, the Activity is back in `processing`.
+    case refused
+}
+
 /// Drains the `sync_operation` queue of local Activities (ADR-031 §14), modelled on
 /// `ItineraryChangeSender`: `create_activity` → `upload_trace` → `complete_activity`, each
 /// success replacing its operation with the next one in the transaction of the state change
@@ -37,6 +48,9 @@ final class ActivitySender {
     /// coordinator, which wakes the Media waiting for it (ADR-037 §6). Called once the local
     /// Activity is `created` (or `processing`), before `upload_trace` goes.
     var onCreated: @MainActor (ActivityID) -> Void = { _ in }
+    /// Each step of a Delete: set by the queue coordinator, which holds, drops or resumes the
+    /// Activity's Media (ADR-037 §6). Awaited, so the Media are held before the server is asked.
+    var onDeletion: @MainActor (ActivityID, LocalActivityDeletion) async -> Void = { _, _ in }
 
     init(
         server: any ActivityServer,
@@ -100,7 +114,11 @@ final class ActivitySender {
     /// `delete_activity` sent right away, and the local copy goes once the server confirms.
     /// Refused once `processing`.
     func delete(_ id: ActivityID) async throws {
-        guard try await store.delete(id) else { return }
+        guard try await store.delete(id) else {
+            await onDeletion(id, .deleted)
+            return
+        }
+        await onDeletion(id, .pending)
         await send()
     }
 
@@ -171,9 +189,11 @@ final class ActivitySender {
         switch await attempt({ () async throws(ActivityServerError) in try await self.server.delete(operation.activityID) }) {
         case .success:
             try? await store.deleted(operation)
+            await onDeletion(operation.activityID, .deleted)
         case .failure(.refused):
             // `409`: already handed to the worker; it comes back in `processing`.
             try? await store.deletionRefused(operation)
+            await onDeletion(operation.activityID, .refused)
             for continuation in refusalContinuations.values {
                 continuation.yield(operation.activityID)
             }

@@ -21,9 +21,25 @@ struct GRDBMediaUploadStore: Sendable {
         }
     }
 
-    /// Rows not yet confirmed, `failed` included: what the sign-out confirmation counts (#186).
+    /// Rows not yet confirmed, `failed` included.
     func count() async throws -> Int {
         try await database.writer.read { db in try MediaUploadRow.fetchCount(db) }
+    }
+
+    /// What the sign-out confirmation counts (ADR-037 §6): the rows not yet confirmed, but those
+    /// of Activities already given up.
+    func count(excluding activityIDs: Set<ActivityID>) async throws -> Int {
+        try await database.writer.read { db in
+            try MediaUploadRow.filter(!activityIDs.map(\.description).contains(Column("activity_id"))).fetchCount(db)
+        }
+    }
+
+    /// The rows of one Activity, `failed` included.
+    func mediaIDs(of activityID: ActivityID) async throws -> [UUID] {
+        try await database.writer.read { db in
+            try String.fetchAll(db, MediaUploadRow.filter(Column("activity_id") == activityID.description).select(Column("media_id")))
+                .compactMap(UUID.init(uuidString:))
+        }
     }
 
     // MARK: - Writing
