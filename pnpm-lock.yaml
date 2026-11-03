@@ -386,6 +386,9 @@ importers:
       rxjs:
         specifier: 7.8.2
         version: 7.8.2
+      sharp:
+        specifier: 0.35.4
+        version: 0.35.4(@types/node@26.6.2)
       zod:
         specifier: 4.6.5
         version: 4.6.5

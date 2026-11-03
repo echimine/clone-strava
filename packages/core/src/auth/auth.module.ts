@@ -1,4 +1,6 @@
+import { BullModule } from "@nestjs/bullmq";
 import { Module, type DynamicModule } from "@nestjs/common";
+import { AVATARS_QUEUE_NAME } from "@repo/contracts";
 import type { Database } from "@repo/db";
 import { AnalyticsService } from "../analytics/index.js";
 import { DATABASE, REDIS, type Redis } from "../infrastructure/index.js";
@@ -7,6 +9,8 @@ import { AUTH_INSTANCE, type AuthModuleOptions } from "./auth.constants.js";
 import { createAuthInstance } from "./create-auth-instance.js";
 import { AuthService } from "./auth.service.js";
 import { AuthUserRepository } from "./repositories/auth-user.repository.js";
+import { GoogleAvatarCopyEnqueuer } from "./services/google-avatar-copy-enqueuer.js";
+import { BackfillGoogleAvatarsUseCase } from "./use-cases/backfill-google-avatars.use-case.js";
 
 export type { AuthModuleOptions } from "./auth.constants.js";
 
@@ -33,7 +37,12 @@ export class AuthModule {
       // so `webhookSecret` is intentionally inert — `webhooks.module.ts`
       // imports its own `NotificationsModule.forRoot(...)` with the real one
       // for that purpose.
-      imports: [NotificationsModule.forRoot({ apiKey: options.resendApiKey, webhookSecret: "" })],
+      // The `avatars` queue: the account hook enqueues the Google photo copy (ADR-037 §2), so
+      // every app importing this module also needs `BullModule.forRoot`.
+      imports: [
+        NotificationsModule.forRoot({ apiKey: options.resendApiKey, webhookSecret: "" }),
+        BullModule.registerQueue({ name: AVATARS_QUEUE_NAME }),
+      ],
       providers: [
         { provide: AUTH_MODULE_OPTIONS, useValue: options },
         {
@@ -43,12 +52,22 @@ export class AuthModule {
             redis: Redis,
             notifications: NotificationsService,
             analytics: AnalyticsService,
+            googleAvatars: GoogleAvatarCopyEnqueuer,
             opts: AuthModuleOptions,
-          ) => createAuthInstance(db, redis, notifications, analytics, opts),
+          ) => createAuthInstance(db, redis, notifications, analytics, googleAvatars, opts),
           // `AnalyticsService` comes from the global `AnalyticsModule` each app registers.
-          inject: [DATABASE, REDIS, NotificationsService, AnalyticsService, AUTH_MODULE_OPTIONS],
+          inject: [
+            DATABASE,
+            REDIS,
+            NotificationsService,
+            AnalyticsService,
+            GoogleAvatarCopyEnqueuer,
+            AUTH_MODULE_OPTIONS,
+          ],
         },
         AuthUserRepository,
+        GoogleAvatarCopyEnqueuer,
+        BackfillGoogleAvatarsUseCase,
         AuthService,
       ],
       exports: [AuthService, AUTH_INSTANCE],
