@@ -18,6 +18,7 @@ export class ActivityTrackRepository {
         activityId: schema.activityTrack.activityId,
         mapPolyline: schema.activityTrack.mapPolyline,
         locationName: schema.activityTrack.locationName,
+        routeTrimmed: schema.activityTrack.routeTrimmed,
       })
       .from(schema.activityTrack)
       .where(inArray(schema.activityTrack.activityId, ids));

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { processingStatusSchema, visibilitySchema } from "../common/enums.js";
+import { activitySourceSchema, processingStatusSchema, visibilitySchema } from "../common/enums.js";
 import { sportTypeCodeSchema } from "../sports/sport-type.js";
 import { feedActivityMapSchema, feedAuthorSchema, feedEngagementSchema } from "./feed.js";
 
@@ -112,12 +112,14 @@ export type ActivityStats = z.infer<typeof activityStatsSchema>;
  * only once `processed`. `stats` holds the official values once
  * `processed`, null before; `processingError` is present only once
  * `failed`. Author and engagement are assembled like a feed card (ADR-029 §2).
+ * `source` and `routeTrimmed` come from ADR-036 §5-6.
  */
 export const activityDetailSchema = z.object({
   id: z.uuid(),
   title: z.string(),
   // Optional rather than nullable: @nestjs/swagger reads a top-level `type: ["string", "null"]` as an array.
   description: z.string().optional(),
+  source: activitySourceSchema,
   sportTypeCode: sportTypeCodeSchema,
   startedAt: z.iso.datetime(),
   endedAt: z.iso.datetime(),
@@ -128,6 +130,8 @@ export const activityDetailSchema = z.object({
   locationName: z.string().optional(),
   stats: activityStatsSchema.nullable(),
   map: feedActivityMapSchema.nullable(),
+  /** The privacy zone removed the start or end of the route: "Départ et arrivée masqués". */
+  routeTrimmed: z.boolean(),
   author: feedAuthorSchema,
   engagement: feedEngagementSchema,
   viewerIsAuthor: z.boolean(),

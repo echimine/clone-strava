@@ -66,6 +66,7 @@ struct APIActivityDetailRepositoryTests {
           "id": "\(activityId)",
           "title": "Sortie du matin",
           "description": "Belle boucle",
+          "source": "imported",
           "sportTypeCode": "ride",
           "startedAt": "2026-10-02T12:32:00.123Z",
           "endedAt": "2026-10-02T14:12:00.000Z",
@@ -77,6 +78,7 @@ struct APIActivityDetailRepositoryTests {
             "avgSpeedMs": 7.8, "maxSpeedMs": 15.2, "avgHeartRate": 142, "maxHeartRate": null, "calories": 900
           },
           "map": { "polyline": "_p~iF~ps|U_ulLnnqC", "precision": 5 },
+          "routeTrimmed": true,
           "author": { "id": "0b5a5c1e-1f4e-4c55-9d6e-0d3f8f6e2a11", "displayName": "Camille Martin", "avatarUrl": null },
           "engagement": { "kudosCount": 3, "commentCount": 1, "viewerHasKudoed": true },
           "viewerIsAuthor": false,
@@ -123,10 +125,10 @@ struct APIActivityDetailRepositoryTests {
         DetailURLProtocolStub.handler.value = { [activityId] _ in
             (200, Data("""
             {
-              "id": "\(activityId)", "title": "Course", "description": "", "sportTypeCode": "run",
+              "id": "\(activityId)", "title": "Course", "description": "", "source": "manual", "sportTypeCode": "run",
               "startedAt": "2026-10-02T12:32:00.000Z", "endedAt": "2026-10-02T13:00:00.000Z",
               "visibility": "private", "processingStatus": "processed",
-              "stats": null, "map": null,
+              "stats": null, "map": null, "routeTrimmed": false,
               "author": { "id": "0b5a5c1e-1f4e-4c55-9d6e-0d3f8f6e2a11", "displayName": "Camille", "avatarUrl": "https://cdn.test/a.png" },
               "engagement": { "kudosCount": 0, "commentCount": 0, "viewerHasKudoed": false },
               "viewerIsAuthor": true, "updatedAt": "2026-10-02T13:00:00.000Z"

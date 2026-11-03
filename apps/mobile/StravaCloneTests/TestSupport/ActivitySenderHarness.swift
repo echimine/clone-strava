@@ -166,7 +166,7 @@ struct ActivitySenderHarness: Sendable {
         // `GET /v1/activities/:id` as the author sees it before processing (ADR-033 §2).
         let author = #""author":{"id":"\#(UUID())","displayName":"Camille","avatarUrl":null}"#
         let engagement = #""engagement":{"kudosCount":0,"commentCount":0,"viewerHasKudoed":false}"#
-        return .status(200, #"{"id":"\#(id)","sportTypeCode":"run","title":"Course à pied le matin","startedAt":"\#(Self.iso(Self.start))","endedAt":"\#(Self.iso(Self.start.addingTimeInterval(600)))","visibility":"followers","processingStatus":"\#(status)"\#(processingError),"stats":null,"map":null,\#(author),\#(engagement),"viewerIsAuthor":true,"updatedAt":"\#(Self.iso(Self.start))"}"#)
+        return .status(200, #"{"id":"\#(id)","sportTypeCode":"run","title":"Course à pied le matin","startedAt":"\#(Self.iso(Self.start))","endedAt":"\#(Self.iso(Self.start.addingTimeInterval(600)))","visibility":"followers","processingStatus":"\#(status)"\#(processingError),"source":"recorded","stats":null,"map":null,"routeTrimmed":false,\#(author),\#(engagement),"viewerIsAuthor":true,"updatedAt":"\#(Self.iso(Self.start))"}"#)
     }
 
     static func refused(_ status: Int, _ code: String) -> ActivityURLProtocolStub.Answer {
