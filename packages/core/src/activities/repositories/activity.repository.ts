@@ -247,6 +247,11 @@ export class ActivityRepository {
     return row;
   }
 
+  /** The map comes first again (ADR-037 §4: the first Media was deleted). */
+  async clearMediaFirst(id: string, executor: DbExecutor = this.db): Promise<void> {
+    await executor.update(schema.activity).set({ mediaFirst: false }).where(eq(schema.activity.id, id));
+  }
+
   async incrementAttempts(id: string): Promise<void> {
     await this.db
       .update(schema.activity)
