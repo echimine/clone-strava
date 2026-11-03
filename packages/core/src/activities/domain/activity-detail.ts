@@ -1,4 +1,9 @@
-import type { ActivityProcessingErrorCode, ActivitySource, ActivityStats } from "@repo/contracts";
+import type {
+  ActivityAnalysis,
+  ActivityProcessingErrorCode,
+  ActivitySource,
+  ActivityStats,
+} from "@repo/contracts";
 import type { ActivityRecord } from "./activity-record.js";
 
 /**
@@ -20,5 +25,7 @@ export interface ActivityDetailRecord extends ActivityRecord {
   locationName: string | null;
   /** The privacy zone removed the start or end of the route (ADR-036 §5). */
   routeTrimmed: boolean;
+  /** Splits and series (ADR-036 §6), only once `processed` and computed. */
+  analysis: ActivityAnalysis | null;
   updatedAt: Date;
 }

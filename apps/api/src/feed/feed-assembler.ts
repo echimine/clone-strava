@@ -55,6 +55,7 @@ export class FeedAssembler {
       stats: activity.stats,
       map: toMap(activity.mapPolyline),
       routeTrimmed: activity.routeTrimmed,
+      analysis: activity.analysis,
       ...social(activity),
       updatedAt: activity.updatedAt.toISOString(),
     };

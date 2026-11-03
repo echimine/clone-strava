@@ -12,6 +12,7 @@ import { ActivityRepository } from "../repositories/activity.repository.js";
 import { ActivityImportRepository } from "../repositories/activity-import.repository.js";
 import { ImportJobEnqueuer } from "../services/import-job-enqueuer.js";
 import { ReprocessJobEnqueuer } from "../services/reprocess-job-enqueuer.js";
+import { ACTIVITY_ANALYSIS_VERSION } from "../domain/compute-analysis.js";
 
 /** ADR-019 §7, ADR-028 §8: older than this in `processing` counts as stuck. */
 const STUCK_AFTER_MINUTES = 15;
@@ -20,7 +21,8 @@ const STUCK_AFTER_MINUTES = 15;
  * Reconciliation (ADR-019 §7, ADR-028 §8): re-enqueues activities and
  * imports stuck `processing` for more than 15 minutes without a live job,
  * and `reprocess-activity` for processed activities whose official values
- * lag behind a sport change (ADR-033 §5), every 10 minutes. `apps/worker` schedules this use case (no scheduler
+ * lag behind a sport change (ADR-033 §5) or whose analysis is missing or outdated (ADR-036 §7,
+ * 100 per sweep), every 10 minutes. `apps/worker` schedules this use case (no scheduler
  * dependency in `packages/core`, ADR-021 §6).
  */
 @Injectable()
@@ -53,6 +55,12 @@ export class ReconcileStuckActivitiesUseCase {
     // The job id of the activity's last edit, so it matches the one the `PATCH` enqueued.
     for (const activity of await this.activities.findWithValuesForAnotherSport()) {
       if (await this.reprocessEnqueuer.enqueue({ activityId: activity.id, userId: activity.userId }, activity.updatedAt)) {
+        count++;
+      }
+    }
+    for (const activity of await this.activities.findWithOutdatedAnalysis(ACTIVITY_ANALYSIS_VERSION)) {
+      const job = { activityId: activity.id, userId: activity.userId };
+      if (await this.reprocessEnqueuer.enqueueForAnalysis(job, ACTIVITY_ANALYSIS_VERSION)) {
         count++;
       }
     }

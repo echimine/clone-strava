@@ -79,6 +79,10 @@ struct APIActivityDetailRepositoryTests {
           },
           "map": { "polyline": "_p~iF~ps|U_ulLnnqC", "precision": 5 },
           "routeTrimmed": true,
+          "analysis": {
+            "splits": [{ "distanceM": 1000, "movingTimeS": 128, "elevationDiffM": 4.5, "avgHeartRate": 140 }],
+            "series": { "distanceM": [0, 1000], "speedMs": [7.6, 8.1], "altitudeM": [450, 454.5], "heartRateBpm": null }
+          },
           "author": { "id": "0b5a5c1e-1f4e-4c55-9d6e-0d3f8f6e2a11", "displayName": "Camille Martin", "avatarUrl": null },
           "engagement": { "kudosCount": 3, "commentCount": 1, "viewerHasKudoed": true },
           "viewerIsAuthor": false,
@@ -128,7 +132,7 @@ struct APIActivityDetailRepositoryTests {
               "id": "\(activityId)", "title": "Course", "description": "", "source": "manual", "sportTypeCode": "run",
               "startedAt": "2026-10-02T12:32:00.000Z", "endedAt": "2026-10-02T13:00:00.000Z",
               "visibility": "private", "processingStatus": "processed",
-              "stats": null, "map": null, "routeTrimmed": false,
+              "stats": null, "map": null, "routeTrimmed": false, "analysis": { "splits": [], "series": null },
               "author": { "id": "0b5a5c1e-1f4e-4c55-9d6e-0d3f8f6e2a11", "displayName": "Camille", "avatarUrl": "https://cdn.test/a.png" },
               "engagement": { "kudosCount": 0, "commentCount": 0, "viewerHasKudoed": false },
               "viewerIsAuthor": true, "updatedAt": "2026-10-02T13:00:00.000Z"

@@ -83,6 +83,13 @@ describe("process-activity of a recorded activity (integration)", () => {
     // No profile: the default 200 m privacy zone cut the start and end of the route (ADR-036 §5).
     expect(detail.routeTrimmed).toBe(true);
     expect(detail.source).toBe("recorded");
+    // ADR-036 §6: computed on the untrimmed route, the Pause skipped like the official distance.
+    expect(detail.analysis?.splits).toEqual([
+      { distanceM: 1000, movingTimeS: 540, elevationDiffM: 0, avgHeartRate: null },
+    ]);
+    expect(detail.analysis?.series?.distanceM.at(-1)).toBeCloseTo(1000, -1);
+    expect(new Set(detail.analysis?.series?.altitudeM)).toEqual(new Set([35]));
+    expect(detail.analysis?.series?.heartRateBpm).toBeNull();
 
     const feed = await activities.getFeedPage(userId, { limit: 20 });
     expect(feed.items.map((item) => item.id)).toContain(id);

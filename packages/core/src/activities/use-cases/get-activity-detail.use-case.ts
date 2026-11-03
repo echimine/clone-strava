@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { activityProcessingErrorCodeSchema, type ActivityProcessingErrorCode } from "@repo/contracts";
 import { ActivityStatsRepository } from "../repositories/activity-stats.repository.js";
 import { ActivityTrackRepository } from "../repositories/activity-track.repository.js";
+import { ActivityAnalysisRepository } from "../repositories/activity-analysis.repository.js";
 import type { ActivityDetailRecord } from "../domain/activity-detail.js";
 import { activityNotFound } from "../services/activity-not-found.js";
 import { GetVisibleActivityUseCase } from "./get-visible-activity.use-case.js";
@@ -19,6 +20,7 @@ export class GetActivityDetailUseCase {
     private readonly visible: GetVisibleActivityUseCase,
     private readonly activityStats: ActivityStatsRepository,
     private readonly tracks: ActivityTrackRepository,
+    private readonly analyses: ActivityAnalysisRepository,
   ) {}
 
   async execute(viewerId: string, activityId: string): Promise<ActivityDetailRecord> {
@@ -28,12 +30,13 @@ export class GetActivityDetailUseCase {
     }
     // Official values only once processed (ADR-019 §5 step 7).
     const processed = row.processingStatus === "processed";
-    const [[stats], [track]] = processed
+    const [[stats], [track], analysis] = processed
       ? await Promise.all([
           this.activityStats.findByActivityIds([row.id]),
           this.tracks.findFeedFieldsByActivityIds([row.id]),
+          this.analyses.findByActivityId(row.id),
         ])
-      : [[], []];
+      : [[], [], undefined];
     return {
       id: row.id,
       userId: row.userId,
@@ -62,6 +65,7 @@ export class GetActivityDetailUseCase {
       mapPolyline: track?.mapPolyline ?? null,
       locationName: track?.locationName ?? null,
       routeTrimmed: track?.routeTrimmed ?? false,
+      analysis: analysis?.analysis ?? null,
       updatedAt: row.updatedAt,
     };
   }

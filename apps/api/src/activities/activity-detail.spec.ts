@@ -23,6 +23,20 @@ import { FeedAssembler } from "../feed/feed-assembler.js";
 import { AthleteIdentities } from "../identities/athlete-identities.js";
 import { ActivitiesController } from "./activities.controller.js";
 
+/** A stored Activity analysis (ADR-036 §6), as the worker writes it. */
+const ANALYSIS = {
+  splits: [
+    { distanceM: 1000, movingTimeS: 305, elevationDiffM: 12.5, avgHeartRate: 148 },
+    { distanceM: 234.5, movingTimeS: 70, elevationDiffM: -3, avgHeartRate: 155 },
+  ],
+  series: {
+    distanceM: [0, 617.3, 1234.5],
+    speedMs: [3.2, 3.4, 0],
+    altitudeM: [450, 462.5, 459.5],
+    heartRateBpm: [140, 150, 156],
+  },
+};
+
 /**
  * `GET /v1/activities/:id` for every viewer who can see the Activity (ADR-033 §2) over real
  * HTTP and Postgres (ADR-024 §2). Sessions come from `x-test-user` through a fake
@@ -155,6 +169,10 @@ describe("GET /v1/activities/:id (integration)", () => {
 
     await insertActivity(ids.publicProcessed, { source: "imported", routeTrimmed: true });
     await insertActivity(ids.followersProcessed, { visibility: "followers", source: "manual" });
+    await sql(
+      "insert into activities.activity_analysis (activity_id, version, splits, series) values ($1, 1, $2, $3), ($4, 1, '[]', null)",
+      [ids.publicProcessed, JSON.stringify(ANALYSIS.splits), JSON.stringify(ANALYSIS.series), ids.followersProcessed],
+    );
     await insertActivity(ids.privateProcessed, { visibility: "private" });
     await insertActivity(ids.pending, { status: "pending", withResults: false });
     await insertActivity(ids.processing, { status: "processing", withResults: false });
@@ -205,6 +223,7 @@ describe("GET /v1/activities/:id (integration)", () => {
       },
       map: { polyline: "_p~iF~ps|U", precision: 5 },
       routeTrimmed: true,
+      analysis: ANALYSIS,
       author: { id: author, displayName: "Camille Martin", avatarUrl: "https://cdn.test/a.png" },
       engagement: { kudosCount: 2, commentCount: 1, viewerHasKudoed: true },
       viewerIsAuthor: false,
@@ -227,6 +246,7 @@ describe("GET /v1/activities/:id (integration)", () => {
       stats: null,
       map: null,
       routeTrimmed: false,
+      analysis: null,
       viewerIsAuthor: true,
     });
     expect(body.processingError).toBe(error);
@@ -251,6 +271,8 @@ describe("GET /v1/activities/:id (integration)", () => {
       visibility: "followers",
       source: "manual",
       routeTrimmed: false,
+      // ADR-036 §6: no trace, an empty analysis.
+      analysis: { splits: [], series: null },
       viewerIsAuthor: false,
     });
   });

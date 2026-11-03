@@ -10,9 +10,14 @@ import {
   TRACE_SCHEMA_VERSION,
   activityTraceKey,
   reprocessActivityJobId,
+  reprocessAnalysisJobId,
   type ActivityUpdatedEvent,
 } from "@repo/contracts";
-import { ActivitiesService, type ActivityDetailRecord } from "@repo/core/activities";
+import {
+  ACTIVITY_ANALYSIS_VERSION,
+  ActivitiesService,
+  type ActivityDetailRecord,
+} from "@repo/core/activities";
 import { bootstrapTestWorkerApp, waitFor, type TestWorkerApp } from "../../testing/test-worker-app.js";
 
 const M_PER_DEG_LAT = 111_195;
@@ -214,6 +219,91 @@ describe("reprocess-activity after a sport change (integration)", () => {
 
     // Up to date now: even with its finished job gone, the next sweep enqueues nothing for it.
     await waitFor(async () => ((await activitiesQueue().getJobState(jobId)) === "completed" ? true : undefined));
+    await activitiesQueue().remove(jobId);
+    await activities.reconcileStuck();
+    expect(await activitiesQueue().getJob(jobId)).toBeUndefined();
+  }, 30_000);
+
+  /** Every `activities.activity.updated` emitted while `run` runs. */
+  async function updatesDuring(run: () => Promise<void>): Promise<ActivityUpdatedEvent[]> {
+    const updates: ActivityUpdatedEvent[] = [];
+    const listener = (event: ActivityUpdatedEvent) => void updates.push(event);
+    const emitter = ctx.app.get(EventEmitter2);
+    emitter.on(ACTIVITY_UPDATED_EVENT, listener);
+    try {
+      await run();
+    } finally {
+      emitter.off(ACTIVITY_UPDATED_EVENT, listener);
+    }
+    return updates;
+  }
+
+  it("backfills the analysis and routeTrimmed of an Activity processed before them, silently", async () => {
+    const asRun = await processedRun();
+    expect(asRun.analysis?.splits).toHaveLength(6);
+    // As processed before ADR-036: no analysis, `route_trimmed` at its column default.
+    await ctx.db.$client.query("delete from activities.activity_analysis where activity_id = $1", [asRun.id]);
+    await ctx.db.$client.query(
+      "update activities.activity_track set route_trimmed = false where activity_id = $1",
+      [asRun.id],
+    );
+    const before = await activities.getDetail(userId, asRun.id);
+    expect(before.analysis).toBeNull();
+
+    const jobId = reprocessAnalysisJobId(asRun.id, ACTIVITY_ANALYSIS_VERSION);
+    const updates = await updatesDuring(async () => {
+      expect(await activities.reconcileStuck()).toBeGreaterThanOrEqual(1);
+      expect(await activitiesQueue().getJob(jobId)).toBeDefined();
+      await waitFor(async () => ((await activitiesQueue().getJobState(jobId)) === "completed" ? true : undefined));
+    });
+
+    const after = await activities.getDetail(userId, asRun.id);
+    expect(after.analysis?.splits.map((split) => Math.round(split.distanceM))).toEqual([
+      1000, 1000, 1000, 1000, 1000, 1000,
+    ]);
+    expect(after.routeTrimmed).toBe(true);
+    expect(after.stats).toEqual(asRun.stats);
+    // No realtime event for a backfill (ADR-036 §7).
+    expect(updates.filter((event) => event.activityId === asRun.id)).toEqual([]);
+
+    // Up to date: even with its finished job gone, the next sweep does not pick it again.
+    await activitiesQueue().remove(jobId);
+    await activities.reconcileStuck();
+    expect(await activitiesQueue().getJob(jobId)).toBeUndefined();
+  }, 30_000);
+
+  it("recomputes an analysis written by an older version", async () => {
+    const asRun = await processedRun();
+    await ctx.db.$client.query(
+      "update activities.activity_analysis set version = $2, splits = '[]', series = null where activity_id = $1",
+      [asRun.id, ACTIVITY_ANALYSIS_VERSION - 1],
+    );
+
+    await activities.reconcileStuck();
+
+    const jobId = reprocessAnalysisJobId(asRun.id, ACTIVITY_ANALYSIS_VERSION);
+    await waitFor(async () => ((await activitiesQueue().getJobState(jobId)) === "completed" ? true : undefined));
+    expect((await activities.getDetail(userId, asRun.id)).analysis?.splits).toHaveLength(6);
+  }, 30_000);
+
+  it("gives a manual Activity an empty analysis, then leaves it out of the sweep", async () => {
+    const id = randomUUID();
+    const start = new Date(Date.now() - 5 * 3_600_000);
+    await ctx.db.$client.query(
+      `insert into activities.activity
+         (id, user_id, sport_type_code, title, started_at, ended_at, visibility, processing_status, source, is_manual)
+       values ($1, $2, 'run', 'Saisie manuelle', $3, $4, 'public', 'processed', 'manual', true)`,
+      [id, userId, start, new Date(start.getTime() + 3_600_000)],
+    );
+
+    const jobId = reprocessAnalysisJobId(id, ACTIVITY_ANALYSIS_VERSION);
+    const updates = await updatesDuring(async () => {
+      await activities.reconcileStuck();
+      await waitFor(async () => ((await activitiesQueue().getJobState(jobId)) === "completed" ? true : undefined));
+    });
+
+    expect((await activities.getDetail(userId, id)).analysis).toEqual({ splits: [], series: null });
+    expect(updates.filter((event) => event.activityId === id)).toEqual([]);
     await activitiesQueue().remove(jobId);
     await activities.reconcileStuck();
     expect(await activitiesQueue().getJob(jobId)).toBeUndefined();
