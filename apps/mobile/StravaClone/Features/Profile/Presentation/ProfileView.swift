@@ -3,13 +3,15 @@ import SwiftUI
 /// Profile tab (ADR-036 §3, §10): my header, then Progrès · Activités · Plus, with the
 /// magnifier and the gear to Réglages at the top right. The header scrolls away and leaves my
 /// name in the navigation bar. Knows nothing of other features (ADR-007 rule 5): the app shell
-/// passes the search, "Mes Itinéraires" (ADR-030), the Activity detail, the Kudos and
-/// comments screen and Statistiques pushed in this tab's own stack, and what a sign-out would lose (ADR-030 §8).
+/// passes the search, "Mes Itinéraires" (ADR-030), the Activity detail, the Kudos and comments
+/// screen, Statistiques and another athlete's profile pushed in this tab's own stack, and what
+/// a sign-out would lose (ADR-030 §8).
 struct ProfileView<
     Itineraries: View,
     ActivityDestination: View,
     EngagementDestination: View,
-    StatisticsDestination: View
+    StatisticsDestination: View,
+    AthleteDestination: View
 >: View {
     @Bindable var store: ProfileStore
     let authStore: AuthStore
@@ -25,6 +27,7 @@ struct ProfileView<
     @ViewBuilder var openEngagement: (ActivityEngagementRequest) -> EngagementDestination
     /// Statistiques (ADR-036 §4), the same screen as on another athlete's profile.
     @ViewBuilder var openStatistics: (AthleteStatisticsRequest) -> StatisticsDestination
+    @ViewBuilder var openAthlete: (AthleteProfileRequest) -> AthleteDestination
 
     @State private var isEditingName = false
     /// The header has scrolled away: the name shows in the navigation bar.
@@ -71,6 +74,9 @@ struct ProfileView<
                 }
                 .navigationDestination(for: AthleteStatisticsRequest.self) { request in
                     openStatistics(request)
+                }
+                .navigationDestination(for: AthleteProfileRequest.self) { request in
+                    openAthlete(request)
                 }
         }
         .toast($store.toast)
