@@ -8,3 +8,13 @@ export type { CreateActivityImportResult } from "./use-cases/create-activity-imp
 export type { ImportActivityResult } from "./use-cases/import-activity-from-file.use-case.js";
 export { PermanentProcessingError } from "./domain/processing-error.js";
 export { activityNotFound } from "./services/activity-not-found.js";
+export {
+  ATHLETE_TIME_ZONE,
+  addDays,
+  athleteLocalDate,
+  athleteWeekStart,
+  mondayOf,
+  zeroFilledWeeks,
+  type WeekTotals,
+} from "./domain/athlete-weeks.js";
+export { streakWeeks } from "./domain/streak.js";
