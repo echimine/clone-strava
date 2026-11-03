@@ -6,23 +6,31 @@ import Foundation
 /// The subscription also brings `activity.updated` / `activity.deleted` onto the connection:
 /// the detail store already follows them (`ActivityEventSource`, ADR-033 §8), so they are not
 /// repeated here; a deletion only ends the subscription.
+///
+/// One instance for the app: streams of the same Activity (the detail and the Kudos and
+/// comments screen pushed over it) share one subscription (`RealtimeTopicSubscriptions`).
 struct RealtimeActivityLiveEventSource: ActivityLiveEventSource {
-    typealias Grant = @Sendable (_ topic: String) async throws -> String
+    typealias Grant = RealtimeTopicSubscriptions.Grant
 
     let channel: any RealtimeChannel
-    /// `POST /v1/realtime/grants`, asked right before each `sub`: a grant lives 60 s.
-    let grant: Grant
+    let subscriptions: RealtimeTopicSubscriptions
+
+    /// `grant`: `POST /v1/realtime/grants`, asked right before each `sub`.
+    init(channel: any RealtimeChannel, grant: @escaping Grant) {
+        self.channel = channel
+        subscriptions = RealtimeTopicSubscriptions(channel: channel, grant: grant)
+    }
 
     func events(of activityId: ActivityID) -> AsyncStream<ActivityLiveEvent> {
         let topic = realtimeActivityTopic(activityId)
         let channel = channel
-        let grant = grant
+        let subscriptions = subscriptions
         return AsyncStream { continuation in
             let task = Task {
                 // Listening first: nothing arriving during the first `sub` is missed.
                 let events = await channel.events()
                 let connections = await channel.connections()
-                await Self.subscribe(topic, on: channel, grant: grant)
+                await subscriptions.acquire(topic)
                 await withTaskGroup(of: Void.self) { group in
                     group.addTask {
                         for await event in events {
@@ -38,7 +46,7 @@ struct RealtimeActivityLiveEventSource: ActivityLiveEventSource {
                     }
                     group.addTask {
                         for await _ in connections {
-                            await Self.subscribe(topic, on: channel, grant: grant)
+                            await subscriptions.resubscribe(topic)
                             continuation.yield(.reconnected)
                         }
                     }
@@ -46,16 +54,9 @@ struct RealtimeActivityLiveEventSource: ActivityLiveEventSource {
             }
             continuation.onTermination = { @Sendable _ in
                 task.cancel()
-                Task { _ = await channel.send(RealtimeControlMessage.unsubscribe(topic: topic)) }
+                Task { await subscriptions.release(topic) }
             }
         }
-    }
-
-    /// A failure (offline, Activity no longer visible) only means no live events until the next
-    /// connection: the detail itself shows what the API answers.
-    private static func subscribe(_ topic: String, on channel: any RealtimeChannel, grant: Grant) async {
-        guard let grant = try? await grant(topic) else { return }
-        _ = await channel.send(RealtimeControlMessage.subscribe(topic: topic, grant: grant))
     }
 
     /// `data` of the `activity:{id}` events (`packages/realtime/src/events.ts`).
