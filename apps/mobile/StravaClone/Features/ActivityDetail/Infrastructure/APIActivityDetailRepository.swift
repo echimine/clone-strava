@@ -59,6 +59,7 @@ private extension Components.Schemas.ActivityDetailDto_Output {
             visibility: ActivityVisibility(rawValue: visibility.rawValue) ?? .private,
             startedAt: startedAt,
             locationName: locationName,
+            source: ActivitySource(rawValue: source.rawValue) ?? .recorded,
             stats: stats.map {
                 ActivityStats(
                     distance: $0.distanceM.map { Distance(meters: $0) },
@@ -73,6 +74,27 @@ private extension Components.Schemas.ActivityDetailDto_Output {
                 )
             },
             route: map.map { EncodedPolyline(value: $0.polyline, precision: Int($0.precision)) },
+            routeTrimmed: routeTrimmed,
+            analysis: analysis.map { analysis in
+                ActivityAnalysis(
+                    splits: analysis.splits.map {
+                        ActivitySplit(
+                            distance: Distance(meters: $0.distanceM),
+                            movingTime: .seconds($0.movingTimeS),
+                            elevationDiff: $0.elevationDiffM,
+                            avgHeartRate: $0.avgHeartRate
+                        )
+                    },
+                    series: analysis.series.map {
+                        ActivitySeries(
+                            distanceM: $0.distanceM,
+                            speedMs: $0.speedMs,
+                            altitudeM: $0.altitudeM,
+                            heartRateBpm: $0.heartRateBpm
+                        )
+                    }
+                )
+            },
             author: ActivityAuthor(
                 id: author.id,
                 displayName: author.displayName,

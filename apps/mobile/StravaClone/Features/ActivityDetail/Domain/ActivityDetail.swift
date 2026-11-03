@@ -24,10 +24,15 @@ struct ActivityDetail: Hashable, Sendable {
     var visibility: ActivityVisibility
     let startedAt: Date
     let locationName: String?
+    let source: ActivitySource
     /// Nil until processed.
     var stats: ActivityStats?
     /// The privacy-zoned polyline (ADR-029 §3); nil without GPS.
     let route: EncodedPolyline?
+    /// True when the privacy zone removed part of the route (ADR-036 §5).
+    let routeTrimmed: Bool
+    /// Splits and series (ADR-036 §6); nil while not computed yet.
+    let analysis: ActivityAnalysis?
     let author: ActivityAuthor
     var engagement: ActivityEngagement
     let viewerIsAuthor: Bool

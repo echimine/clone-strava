@@ -159,6 +159,7 @@ private struct PreviewActivityDetailRepository: ActivityDetailRepository {
             visibility: .public,
             startedAt: post.startedAt,
             locationName: post.locationName,
+            source: .recorded,
             stats: ActivityStats(
                 distance: post.distance,
                 movingTime: post.movingTime,
@@ -171,6 +172,8 @@ private struct PreviewActivityDetailRepository: ActivityDetailRepository {
                 calories: 712
             ),
             route: post.route,
+            routeTrimmed: true,
+            analysis: .preview,
             author: post.author,
             engagement: post.engagement,
             viewerIsAuthor: true
@@ -182,6 +185,33 @@ private struct PreviewActivityDetailRepository: ActivityDetailRepository {
     }
 
     func delete(id: ActivityID) async throws(ActivityDetailError) {}
+}
+
+extension ActivityAnalysis {
+    /// 10,14 km with a climb, heart rate on, for previews.
+    static var preview: ActivityAnalysis {
+        let paces: [Double] = [298, 305, 312, 296, 289, 318, 330, 301, 293, 285, 280]
+        let splits = paces.enumerated().map { index, secondsPerKm in
+            let meters = index == paces.count - 1 ? 140.0 : 1_000
+            return ActivitySplit(
+                distance: Distance(meters: meters),
+                movingTime: .seconds(Int((secondsPerKm * meters / 1_000).rounded())),
+                elevationDiff: [4, 12, -3, 8, -10, 22, 18, -15, -20, -6, 1][index],
+                avgHeartRate: 140 + index * 3
+            )
+        }
+        let samples = 200
+        let distances = (0..<samples).map { Double($0) * 10_140 / Double(samples - 1) }
+        return ActivityAnalysis(
+            splits: splits,
+            series: ActivitySeries(
+                distanceM: distances,
+                speedMs: distances.map { 3.3 + 0.3 * sin($0 / 900) + ($0 > 6_000 && $0 < 6_100 ? -3.3 : 0) },
+                altitudeM: distances.map { 450 + 35 * sin($0 / 2_500) },
+                heartRateBpm: distances.map { 138 + Int(25 * $0 / 10_140) }
+            )
+        )
+    }
 }
 
 private struct PreviewActivityKudosRepository: ActivityKudosRepository {

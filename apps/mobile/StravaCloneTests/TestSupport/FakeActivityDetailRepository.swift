@@ -69,6 +69,9 @@ extension ActivityDetail {
         sport: SportType = .run,
         stats: ActivityStats? = .fixture(),
         route: EncodedPolyline? = EncodedPolyline(value: "_p~iF~ps|U_ulLnnqC_mqNvxq`@"),
+        source: ActivitySource = .recorded,
+        routeTrimmed: Bool = false,
+        analysis: ActivityAnalysis? = nil,
         engagement: ActivityEngagement = ActivityEngagement(kudosCount: 2, commentCount: 1, viewerHasKudoed: false),
         viewerIsAuthor: Bool = true
     ) -> ActivityDetail {
@@ -80,8 +83,11 @@ extension ActivityDetail {
             visibility: .public,
             startedAt: Date(timeIntervalSince1970: 1_790_000_000),
             locationName: "Annecy, Haute-Savoie",
+            source: source,
             stats: stats,
             route: route,
+            routeTrimmed: routeTrimmed,
+            analysis: analysis,
             author: ActivityAuthor(id: "u1", displayName: "Camille Martin", avatarURL: nil),
             engagement: engagement,
             viewerIsAuthor: viewerIsAuthor
