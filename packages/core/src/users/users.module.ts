@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { UserProfileRepository } from "./repositories/user-profile.repository.js";
 import { UserSportRepository } from "./repositories/user-sport.repository.js";
 import { GetUserSummariesUseCase } from "./use-cases/get-user-summaries.use-case.js";
+import { SearchUsersByNameUseCase } from "./use-cases/search-users-by-name.use-case.js";
 import { SubmitOnboardingAnswersUseCase } from "./use-cases/submit-onboarding-answers.use-case.js";
 import { UsersService } from "./users.service.js";
 
@@ -12,6 +13,7 @@ import { UsersService } from "./users.service.js";
     UserSportRepository,
     GetUserSummariesUseCase,
     SubmitOnboardingAnswersUseCase,
+    SearchUsersByNameUseCase,
     UsersService,
   ],
   exports: [UsersService],
