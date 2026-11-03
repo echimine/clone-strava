@@ -2,8 +2,9 @@ import Foundation
 import Testing
 @testable import StravaClone
 
-/// The Paywall (ADR-035 §6): shown once, right after the sign-in that ends the Onboarding, never
-/// on the "Se connecter" path, and not resumed after the app is killed.
+/// The Paywall (ADR-035 §6): shown once, right after the sign-in that ends the Onboarding (after
+/// "Ajoute une photo de profil" for an account the email code has just created, ADR-037 §2),
+/// never on the "Se connecter" path, and not resumed after the app is killed.
 @MainActor
 struct AuthStorePaywallTests {
     nonisolated private static let now = Date(timeIntervalSince1970: 1_793_607_330)
@@ -37,8 +38,11 @@ struct AuthStorePaywallTests {
         let ada = user(createdMinutesAgo: 0)
 
         await signInWithACode(authStore, entry: .onboarding(name: "Ada Lovelace"), as: ada)
+        #expect(await eventually { authStore.state == .avatarPrompt(ada) })
 
-        #expect(await eventually { authStore.state == .paywall(ada) })
+        authStore.deferAvatarPrompt()
+
+        #expect(authStore.state == .paywall(ada))
     }
 
     @Test func finishingTheOnboardingThatSeConnecterOpenedShowsThePaywall() async {
@@ -48,6 +52,8 @@ struct AuthStorePaywallTests {
         #expect(await eventually { authStore.state == .onboarding(ada) })
 
         authStore.finishOnboarding()
+        #expect(authStore.state == .avatarPrompt(ada))
+        authStore.deferAvatarPrompt()
 
         #expect(authStore.state == .paywall(ada))
     }
@@ -65,7 +71,8 @@ struct AuthStorePaywallTests {
         let authStore = makeAuthStore()
         let ada = user(createdMinutesAgo: 0)
         await signInWithACode(authStore, entry: .onboarding(name: "Ada Lovelace"), as: ada)
-        #expect(await eventually { authStore.state == .paywall(ada) })
+        #expect(await eventually { authStore.state == .avatarPrompt(ada) })
+        authStore.deferAvatarPrompt()
 
         await authStore.finishPaywall()
 

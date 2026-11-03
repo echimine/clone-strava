@@ -193,6 +193,7 @@ struct AuthFunnelAnalyticsTests {
         let harness = makeHarness()
 
         await signInWithCode(harness, as: newAda, entry: .onboarding(name: "Ada Lovelace"))
+        harness.authStore.deferAvatarPrompt()
 
         #expect(harness.authStore.state == .paywall(newAda))
         #expect(harness.authStore.isNewAccount)
@@ -203,6 +204,7 @@ struct AuthFunnelAnalyticsTests {
     @Test func thePrimerIsViewedThenTheSystemPromptAnswered() async {
         let harness = makeHarness(permission: FakeNotificationPermission(status: .notDetermined, answer: false))
         await signInWithCode(harness, as: newAda, entry: .onboarding(name: "Ada Lovelace"))
+        harness.authStore.deferAvatarPrompt()
 
         await harness.authStore.finishPaywall()
         await harness.authStore.enableNotifications()
@@ -216,6 +218,7 @@ struct AuthFunnelAnalyticsTests {
     @Test func plusTardDefersThePermission() async {
         let harness = makeHarness(permission: FakeNotificationPermission(status: .notDetermined))
         await signInWithCode(harness, as: newAda, entry: .onboarding(name: "Ada Lovelace"))
+        harness.authStore.deferAvatarPrompt()
         await harness.authStore.finishPaywall()
 
         harness.authStore.deferNotifications()
@@ -228,6 +231,7 @@ struct AuthFunnelAnalyticsTests {
     @Test func aSkippedPrimerSendsNothing() async {
         let harness = makeHarness(permission: FakeNotificationPermission(status: .granted))
         await signInWithCode(harness, as: newAda, entry: .onboarding(name: "Ada Lovelace"))
+        harness.authStore.deferAvatarPrompt()
         let before = harness.analytics.events
 
         await harness.authStore.finishPaywall()
@@ -251,6 +255,7 @@ struct AuthFunnelAnalyticsTests {
         harness.authStore.onboardingStarted()
         harness.authStore.makeSignInStore(entry: .onboarding(name: "Ada Lovelace")).viewed()
         await signInWithCode(harness, as: newAda, entry: .onboarding(name: "Ada Lovelace"))
+        harness.authStore.deferAvatarPrompt()
         await harness.authStore.finishPaywall()
         await harness.authStore.enableNotifications()
 
