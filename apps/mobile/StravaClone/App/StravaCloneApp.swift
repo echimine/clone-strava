@@ -21,6 +21,7 @@ struct StravaCloneApp: App {
                 profileStore: di.makeProfileStore(),
                 makeActivityDetailStore: { [di] id in di.makeActivityDetailStore(id: id) },
                 makeActivityEngagementStore: { [di] request in di.makeActivityEngagementStore(request: request) },
+                makeAthleteProfileStore: { [di] id in di.makeAthleteProfileStore(athleteId: id) },
                 feedActivityEditor: di.feedActivityEditor,
                 activityDeleter: di.activityDeleter,
                 reloadUpdatedActivities: di.makeReloadUpdatedActivities(),
@@ -73,6 +74,8 @@ struct RootView: View {
     let makeActivityDetailStore: @MainActor (ActivityID) -> ActivityDetailStore
     /// Kudos and comments screens, pushed from a detail or a card (ADR-036 §8).
     let makeActivityEngagementStore: @MainActor (ActivityEngagementRequest) -> ActivityEngagementStore
+    /// Another athlete's profile, pushed from wherever an athlete is shown (ADR-036 §10).
+    let makeAthleteProfileStore: @MainActor (String) -> AthleteProfileStore
     /// "Modifier" in the context menu of my feed cards (ADR-033 §1).
     @State var feedActivityEditor: ActivityEditor
     /// "Supprimer" in that menu and in a detail's "⋯" (ADR-033 §7); its toast shows over the feed.
@@ -176,7 +179,8 @@ struct RootView: View {
                         editActivity: { [feedActivityEditor] id in Task { await feedActivityEditor.edit(id: id) } },
                         deleteActivity: { [activityDeleter] id in Task { await activityDeleter.delete(id) } },
                         openActivity: activityDetail,
-                        openEngagement: activityEngagement
+                        openEngagement: activityEngagement,
+                        openAthlete: { athleteProfile($0, path: $feedStore.path) }
                     ) {
                         if let banner = importStore.banner {
                             ImportStatusBanner(
@@ -188,6 +192,7 @@ struct RootView: View {
                         }
                     }
                     .animation(.default, value: importStore.banner)
+                    .environment(\.openAthlete, openAthlete(in: $feedStore.path))
                     .activityEditing(feedActivityEditor)
                     .toast($activityDeleter.toast)
                     .fileImporter(
@@ -254,8 +259,10 @@ struct RootView: View {
                             )
                         },
                         openActivity: activityDetail,
-                        openEngagement: activityEngagement
+                        openEngagement: activityEngagement,
+                        openAthlete: { athleteProfile($0, path: $profileStore.path) }
                     )
+                    .environment(\.openAthlete, openAthlete(in: $profileStore.path))
                     // A detail opened from the profile can delete its Activity too (ADR-033 §7).
                     .toast($activityDeleter.toast)
                     .tabItem { Label("Profil", systemImage: "person") }
@@ -346,6 +353,31 @@ struct RootView: View {
     /// The Kudos and comments screen, pushed in the feed's and the profile's stacks (ADR-036 §8).
     private func activityEngagement(_ request: ActivityEngagementRequest) -> ActivityEngagementPage {
         ActivityEngagementPage(request: request, makeStore: makeActivityEngagementStore, liveEvents: activityLiveEvents)
+    }
+
+    /// Another athlete's profile, pushed in the stack of the tab it was opened from (ADR-036 §10).
+    private func athleteProfile(_ request: AthleteProfileRequest, path: Binding<NavigationPath>) -> AthleteProfilePage {
+        AthleteProfilePage(
+            request: request,
+            makeStore: makeAthleteProfileStore,
+            openActivity: { path.wrappedValue.append($0) },
+            openEngagement: { path.wrappedValue.append($0) }
+        )
+    }
+
+    /// A tap on an athlete in a tab's stack (ADR-036 §10): their profile pushed in that stack,
+    /// or the Profile tab, at its top, for the viewer themself.
+    private func openAthlete(in path: Binding<NavigationPath>) -> OpenAthleteAction {
+        OpenAthleteAction { [authStore, profileStore] id in
+            let viewerId: String? = if case .signedIn(let user) = authStore.state { user.id } else { nil }
+            switch AthleteProfileRequest.destination(of: id, viewerId: viewerId) {
+            case .ownProfile:
+                profileStore.path = NavigationPath()
+                selectedTab = .profile
+            case .push(let request):
+                path.wrappedValue.append(request)
+            }
+        }
     }
 
     /// After Save (ADR-031 §11): the Home tab at the top of the feed, and the Activity leaves

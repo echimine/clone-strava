@@ -30,12 +30,17 @@ struct KudosListView: View {
         case .loaded:
             List {
                 ForEach(store.givers) { giver in
-                    HStack(spacing: 12) {
-                        AvatarView(name: giver.athlete.displayName, url: giver.athlete.avatarURL, size: 40)
-                        Text(giver.athlete.displayName)
-                            .font(.body)
+                    // The row opens the giver's profile (ADR-036 §8).
+                    AthleteButton(athlete: giver.athlete) {
+                        HStack(spacing: 12) {
+                            AvatarView(name: giver.athlete.displayName, url: giver.athlete.avatarURL, size: 40)
+                            Text(giver.athlete.displayName)
+                                .font(.body)
+                            Spacer(minLength: 0)
+                        }
+                        .contentShape(.rect)
                     }
-                    .accessibilityElement(children: .combine)
+                    .accessibilityIdentifier("kudosList.athlete")
                     .task { await store.loadMoreIfNeeded(current: giver) }
                 }
                 if store.isLoadingMore {

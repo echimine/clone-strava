@@ -3,16 +3,18 @@ import SwiftUI
 /// Home tab: the activity feed (ADR-029). Knows nothing of other features (ADR-007 rule 5):
 /// the app shell passes the "+" action, the content shown above the feed (e.g. the import
 /// banner), `openActivity` and `openEngagement`, the Activity detail and the Kudos and comments
-/// screen pushed in this tab's stack (ADR-036 §10), and `editActivity` and `deleteActivity`
+/// screen pushed in this tab's stack, `openAthlete`, another athlete's profile pushed there too
+/// (ADR-036 §10), and `editActivity` and `deleteActivity`
 /// (once confirmed), "Modifier" and "Supprimer" in the context menu of my processed cards
 /// (ADR-033 §1, §7).
-struct FeedView<TopContent: View, ActivityDestination: View, EngagementDestination: View>: View {
+struct FeedView<TopContent: View, ActivityDestination: View, EngagementDestination: View, AthleteDestination: View>: View {
     @Bindable var store: FeedStore
     var onImportActivity: () -> Void = {}
     var editActivity: ((ActivityID) -> Void)?
     var deleteActivity: ((ActivityID) -> Void)?
     @ViewBuilder var openActivity: (ActivityDetailRequest) -> ActivityDestination
     @ViewBuilder var openEngagement: (ActivityEngagementRequest) -> EngagementDestination
+    @ViewBuilder var openAthlete: (AthleteProfileRequest) -> AthleteDestination
     @ViewBuilder var topContent: () -> TopContent
     /// "Supprimer" on a card, waiting for its confirmation.
     @State private var deletionCandidate: ActivityID?
@@ -38,6 +40,9 @@ struct FeedView<TopContent: View, ActivityDestination: View, EngagementDestinati
                 }
                 .navigationDestination(for: ActivityEngagementRequest.self) { request in
                     openEngagement(request)
+                }
+                .navigationDestination(for: AthleteProfileRequest.self) { request in
+                    openAthlete(request)
                 }
                 .activityDeleteConfirmation($deletionCandidate) { id in deleteActivity?(id) }
         }
@@ -140,13 +145,15 @@ private extension LocalActivityCard {
     var rowID: String { "local-\(id)" }
 }
 
-extension FeedView where TopContent == EmptyView, ActivityDestination == EmptyView, EngagementDestination == EmptyView {
+extension FeedView where TopContent == EmptyView, ActivityDestination == EmptyView, EngagementDestination == EmptyView,
+    AthleteDestination == EmptyView {
     init(store: FeedStore, onImportActivity: @escaping () -> Void = {}) {
         self.init(
             store: store,
             onImportActivity: onImportActivity,
             openActivity: { _ in EmptyView() },
-            openEngagement: { _ in EmptyView() }
+            openEngagement: { _ in EmptyView() },
+            openAthlete: { _ in EmptyView() }
         ) { EmptyView() }
     }
 }

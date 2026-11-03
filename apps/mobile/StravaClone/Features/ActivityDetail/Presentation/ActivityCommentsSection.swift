@@ -58,7 +58,7 @@ struct ActivityCommentsSection: View {
     }
 }
 
-/// One comment: avatar, name (not tappable), time with "modifié", text; greyed with "Envoi…"
+/// One comment: avatar and name (both open the author's profile, ADR-036 §8), time with "modifié", text; greyed with "Envoi…"
 /// while sent, "Échec · Réessayer" when the send failed.
 struct ActivityCommentRow: View {
     let row: ActivityCommentsStore.Row
@@ -66,12 +66,18 @@ struct ActivityCommentRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
-            AvatarView(name: row.comment.author.displayName, url: row.comment.author.avatarURL, size: 32)
+            AthleteButton(athlete: row.comment.author) {
+                AvatarView(name: row.comment.author.displayName, url: row.comment.author.avatarURL, size: 32)
+            }
+            .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
-                    Text(row.comment.author.displayName)
-                        .font(.subheadline.weight(.semibold))
-                        .lineLimit(1)
+                    AthleteButton(athlete: row.comment.author) {
+                        Text(row.comment.author.displayName)
+                            .font(.subheadline.weight(.semibold))
+                            .lineLimit(1)
+                    }
+                    .accessibilityIdentifier("activityComments.author")
                     Text(subtitle)
                         .font(.caption)
                         .foregroundStyle(.secondary)
