@@ -1,7 +1,7 @@
 import Foundation
 
-/// A day on the calendar, without time or time zone: a birth date (`YYYY-MM-DD` in the
-/// contract, ADR-035 §5).
+/// A day on the calendar, without time or time zone (`YYYY-MM-DD` in the contracts): a birth
+/// date (ADR-035 §5), a week's Monday or an active day of Progrès (ADR-036 §4).
 struct CalendarDay: Hashable, Sendable {
     let year: Int
     let month: Int

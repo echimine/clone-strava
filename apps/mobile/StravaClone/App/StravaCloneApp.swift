@@ -21,6 +21,7 @@ struct StravaCloneApp: App {
                 profileStore: di.makeProfileStore(),
                 makeActivityDetailStore: { [di] id in di.makeActivityDetailStore(id: id) },
                 makeActivityEngagementStore: { [di] request in di.makeActivityEngagementStore(request: request) },
+                makeAthleteStatisticsStore: { [di] request in di.makeAthleteStatisticsStore(request: request) },
                 feedActivityEditor: di.feedActivityEditor,
                 activityDeleter: di.activityDeleter,
                 reloadUpdatedActivities: di.makeReloadUpdatedActivities(),
@@ -73,6 +74,8 @@ struct RootView: View {
     let makeActivityDetailStore: @MainActor (ActivityID) -> ActivityDetailStore
     /// Kudos and comments screens, pushed from a detail or a card (ADR-036 §8).
     let makeActivityEngagementStore: @MainActor (ActivityEngagementRequest) -> ActivityEngagementStore
+    /// Statistiques of an athlete, mine or another's (ADR-036 §4).
+    let makeAthleteStatisticsStore: @MainActor (AthleteStatisticsRequest) -> AthleteStatisticsStore
     /// "Modifier" in the context menu of my feed cards (ADR-033 §1).
     @State var feedActivityEditor: ActivityEditor
     /// "Supprimer" in that menu and in a detail's "⋯" (ADR-033 §7); its toast shows over the feed.
@@ -254,7 +257,8 @@ struct RootView: View {
                             )
                         },
                         openActivity: activityDetail,
-                        openEngagement: activityEngagement
+                        openEngagement: activityEngagement,
+                        openStatistics: athleteStatistics
                     )
                     // A detail opened from the profile can delete its Activity too (ADR-033 §7).
                     .toast($activityDeleter.toast)
@@ -346,6 +350,12 @@ struct RootView: View {
     /// The Kudos and comments screen, pushed in the feed's and the profile's stacks (ADR-036 §8).
     private func activityEngagement(_ request: ActivityEngagementRequest) -> ActivityEngagementPage {
         ActivityEngagementPage(request: request, makeStore: makeActivityEngagementStore, liveEvents: activityLiveEvents)
+    }
+
+    /// Statistiques (ADR-036 §4), pushed from my Plus tab, and from another athlete's for the
+    /// stacks that show other profiles.
+    private func athleteStatistics(_ request: AthleteStatisticsRequest) -> AthleteStatisticsView {
+        AthleteStatisticsView(store: makeAthleteStatisticsStore(request))
     }
 
     /// After Save (ADR-031 §11): the Home tab at the top of the feed, and the Activity leaves

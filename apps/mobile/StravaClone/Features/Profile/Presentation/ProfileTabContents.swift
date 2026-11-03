@@ -1,17 +1,5 @@
 import SwiftUI
 
-/// Progrès (ADR-036 §4): empty until the Progrès ticket fills it.
-struct ProfileProgressTab: View {
-    var body: some View {
-        ContentUnavailableView(
-            ProfileMessages.tab(.progress),
-            systemImage: "chart.line.uptrend.xyaxis",
-            description: Text(ProfileMessages.progressPlaceholder)
-        )
-        .padding(.top, 40)
-    }
-}
-
 /// Activités (ADR-036 §3): my Activities as the feed's cards; a tap opens the detail and the
 /// comment button the Kudos and comments screen.
 struct ProfileActivitiesTab: View {
@@ -67,20 +55,24 @@ struct ProfileActivitiesTab: View {
     }
 }
 
-/// Plus (ADR-036 §3): Statistiques with this year's distance (its screen comes later), and my
-/// Itineraries.
+/// Plus (ADR-036 §3): Statistiques with this year's distance, and my Itineraries.
 struct ProfileMoreTab: View {
     let yearToDateDistance: Distance?
     let itineraryCount: Int?
+    let openStatistics: @MainActor () -> Void
     let openItineraries: @MainActor () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
-            row(
-                title: ProfileMessages.statistics,
-                subtitle: ProfileMessages.thisYear(yearToDateDistance),
-                systemImage: "chart.bar"
-            )
+            Button(action: openStatistics) {
+                row(
+                    title: ProfileMessages.statistics,
+                    subtitle: ProfileMessages.thisYear(yearToDateDistance),
+                    systemImage: "chart.bar",
+                    showsChevron: true
+                )
+            }
+            .buttonStyle(.plain)
             .accessibilityIdentifier("profile.statistics")
             Divider().padding(.leading, 56)
             Button(action: openItineraries) {
