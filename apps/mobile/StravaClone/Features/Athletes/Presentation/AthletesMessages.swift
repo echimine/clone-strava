@@ -55,12 +55,13 @@ enum AthletesMessages {
     }
 
     enum Tab: Hashable, CaseIterable {
-        case activities, more
+        case activities, gallery, more
     }
 
     static func tab(_ tab: Tab) -> String {
         switch tab {
         case .activities: "Activités"
+        case .gallery: GalleryMessages.tab
         case .more: "Plus"
         }
     }

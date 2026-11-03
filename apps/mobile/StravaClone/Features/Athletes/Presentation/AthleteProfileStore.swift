@@ -2,7 +2,7 @@ import Foundation
 import Observation
 
 /// Another athlete's profile (ADR-036 §1, §3, §10): their header and counters, the follow
-/// button, and the Activités · Plus tabs. One per pushed profile.
+/// button, and the Activités · Galerie · Plus tabs (ADR-037 §10). One per pushed profile.
 @Observable
 @MainActor
 final class AthleteProfileStore {
@@ -24,6 +24,8 @@ final class AthleteProfileStore {
 
     let follows: FollowStore
     let activities: AthleteActivitiesStore
+    /// Galerie (ADR-037 §9), loaded when its tab first opens.
+    let gallery: AthleteGalleryStore
 
     @ObservationIgnored private let loadProfile: LoadAthleteProfile
     @ObservationIgnored private let loadYearToDateDistance: LoadAthleteYearToDateDistance
@@ -34,13 +36,15 @@ final class AthleteProfileStore {
         loadProfile: LoadAthleteProfile,
         loadYearToDateDistance: LoadAthleteYearToDateDistance,
         follows: FollowStore,
-        activities: AthleteActivitiesStore
+        activities: AthleteActivitiesStore,
+        gallery: AthleteGalleryStore
     ) {
         self.athleteId = athleteId
         self.loadProfile = loadProfile
         self.loadYearToDateDistance = loadYearToDateDistance
         self.follows = follows
         self.activities = activities
+        self.gallery = gallery
     }
 
     /// The follow button's state; nil until loaded.
@@ -52,7 +56,8 @@ final class AthleteProfileStore {
         await refresh()
     }
 
-    /// Pull-to-refresh and "Réessayer": the header, Plus's figure and the Activities again.
+    /// Pull-to-refresh and "Réessayer": the header, Plus's figure, the Activities and, once
+    /// opened, the Gallery again.
     func refresh() async {
         generation += 1
         let current = generation
@@ -60,6 +65,7 @@ final class AthleteProfileStore {
             phase = .loading
         }
         async let activitiesLoaded: Void = activities.refresh(athleteId: athleteId)
+        async let galleryLoaded: Void = gallery.refresh()
         async let distance = try? loadYearToDateDistance(athleteId: athleteId)
         do {
             let loaded = try await loadProfile(athleteId: athleteId)
@@ -75,8 +81,14 @@ final class AthleteProfileStore {
         }
         let yearToDate = await distance
         await activitiesLoaded
+        await galleryLoaded
         guard current == generation else { return }
         yearToDateDistance = yearToDate ?? yearToDateDistance
+    }
+
+    /// The Galerie tab opened (ADR-037 §13).
+    func openGallery() async {
+        await gallery.open(athleteId: athleteId, isOwn: false)
     }
 
     /// "Suivre".

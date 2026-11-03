@@ -16,7 +16,8 @@ extension Di {
                 setKudos: SetAthleteActivityKudos(repository: APIAthleteKudosRepository(apiClient: apiClient)),
                 activityChanges: activityChanges,
                 analytics: analytics
-            )
+            ),
+            gallery: makeGalleryStore(message: AthletesMessages.message(for:))
         )
     }
 

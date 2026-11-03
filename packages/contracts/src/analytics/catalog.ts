@@ -133,6 +133,8 @@ export const APP_ANALYTICS_EVENTS = {
   AVATAR_PROMPT_DEFERRED: "avatar_prompt_deferred",
   /** The full-screen viewer opened on a Media; its swipes are not tracked. */
   MEDIA_VIEWER_OPENED: "media_viewer_opened",
+  /** The profile's Galerie tab opened, on one's own profile or another athlete's. */
+  GALLERY_VIEWED: "gallery_viewed",
 } as const;
 export type AppAnalyticsEventName = (typeof APP_ANALYTICS_EVENTS)[keyof typeof APP_ANALYTICS_EVENTS];
 
@@ -169,6 +171,10 @@ export const mediaViewerOpenedPropertiesSchema = z.object({
 });
 export type MediaViewerOpenedProperties = z.infer<typeof mediaViewerOpenedPropertiesSchema>;
 
+/** `gallery_viewed`: whether the Gallery is the viewer's own. */
+export const galleryViewedPropertiesSchema = z.object({ isOwn: z.boolean() });
+export type GalleryViewedProperties = z.infer<typeof galleryViewedPropertiesSchema>;
+
 /** Payload schema for a given app event, keyed by its name. */
 export const appAnalyticsEventPropertiesSchemas = {
   [APP_ANALYTICS_EVENTS.AVATAR_CHANGED]: avatarChangedPropertiesSchema,
@@ -177,4 +183,5 @@ export const appAnalyticsEventPropertiesSchemas = {
   [APP_ANALYTICS_EVENTS.AVATAR_PROMPT_VIEWED]: avatarPromptViewedPropertiesSchema,
   [APP_ANALYTICS_EVENTS.AVATAR_PROMPT_DEFERRED]: avatarPromptDeferredPropertiesSchema,
   [APP_ANALYTICS_EVENTS.MEDIA_VIEWER_OPENED]: mediaViewerOpenedPropertiesSchema,
+  [APP_ANALYTICS_EVENTS.GALLERY_VIEWED]: galleryViewedPropertiesSchema,
 } as const satisfies Record<AppAnalyticsEventName, z.ZodType>;

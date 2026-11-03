@@ -85,6 +85,8 @@ enum AnalyticsEvent: Equatable, Sendable {
 
     /// The full-screen viewer opened on a Media (ADR-037 §13); its swipes are not tracked.
     case mediaViewerOpened(source: MediaViewerSource, kind: ActivityMedia.Kind, isOwn: Bool)
+    /// The profile's Galerie tab opened, mine or another athlete's.
+    case galleryViewed(isOwn: Bool)
 
     var name: String {
         switch self {
@@ -118,6 +120,7 @@ enum AnalyticsEvent: Equatable, Sendable {
         case .avatarPromptViewed: "avatar_prompt_viewed"
         case .avatarPromptDeferred: "avatar_prompt_deferred"
         case .mediaViewerOpened: "media_viewer_opened"
+        case .galleryViewed: "gallery_viewed"
         }
     }
 
@@ -179,6 +182,8 @@ enum AnalyticsEvent: Equatable, Sendable {
             ["reason": .string(reason.rawValue)]
         case .mediaViewerOpened(let source, let kind, let isOwn):
             ["source": .string(source.rawValue), "kind": .string(kind.rawValue), "isOwn": .bool(isOwn)]
+        case .galleryViewed(let isOwn):
+            ["isOwn": .bool(isOwn)]
         }
     }
 }

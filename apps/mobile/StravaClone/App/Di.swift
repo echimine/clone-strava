@@ -300,6 +300,7 @@ final class Di {
                 analytics: analytics
             ),
             progress: ProfileProgressStore(loadProgress: LoadProgress(repository: APIProgressRepository(apiClient: apiClient))),
+            gallery: makeGalleryStore(message: ProfileMessages.message(for:)),
             avatar: makeAvatarEditor()
         )
     }()
