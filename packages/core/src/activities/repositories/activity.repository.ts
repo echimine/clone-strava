@@ -225,9 +225,12 @@ export class ActivityRepository {
    */
   async updateIfProcessed(
     id: string,
-    values: Partial<Pick<typeof schema.activity.$inferInsert, "title" | "description" | "sportTypeCode" | "visibility">>,
+    values: Partial<
+      Pick<typeof schema.activity.$inferInsert, "title" | "description" | "sportTypeCode" | "visibility" | "mediaFirst">
+    >,
+    executor: DbExecutor = this.db,
   ) {
-    const [row] = await this.db
+    const [row] = await executor
       .update(schema.activity)
       .set({ ...values, updatedAt: new Date() })
       .where(and(eq(schema.activity.id, id), eq(schema.activity.processingStatus, "processed")))

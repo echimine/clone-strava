@@ -69,8 +69,8 @@ export type ActivitySegmentsMatchedData = z.infer<
 >;
 
 /**
- * `changedFields`: `title`, `description`, `sportTypeCode`, `visibility` (an edit) or `stats`
- * (a reprocessing). The app reloads the card and an open detail; the echo of its own write is
+ * `changedFields`: `title`, `description`, `sportTypeCode`, `visibility`, `mediaFirst`,
+ * `mediaOrder` (an edit) or `stats` (a reprocessing). The app reloads the card and an open detail; the echo of its own write is
  * harmless.
  */
 export const activityUpdatedDataSchema = z.object({
