@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+import { BullModule } from "@nestjs/bullmq";
 import { toNodeHandler } from "better-auth/node";
 import express, { type Express } from "express";
 import { Redis } from "ioredis";
@@ -89,6 +91,9 @@ export async function bootstrapTestAuthApp(
   const moduleBuilder = Test.createTestingModule({
     imports: [
       CoreInfrastructureModule.forRoot({ databaseUrl: TEST_DATABASE_URL, redisUrl: TEST_REDIS_URL }),
+      // The account hook enqueues the Google photo copy (ADR-037 §2): a random prefix keeps the
+      // jobs away from a dev worker on the same Redis. BullMQ owns and closes these connections.
+      BullModule.forRoot({ connection: { host: "127.0.0.1", port: 6379 }, prefix: `test-${randomUUID()}` }),
       // No API key: `capture` sends nothing; specs spy on it (ADR-035 §8).
       AnalyticsModule.forRoot({}),
       CoreAuthModule.forRoot({

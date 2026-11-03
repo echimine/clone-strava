@@ -17,6 +17,7 @@ import {
 } from "@repo/core/storage";
 import { runMigrations } from "@repo/db/migrate";
 import { ActivitiesProcessorModule } from "../processors/activities/activities.module.js";
+import { AvatarsProcessorModule } from "../processors/avatars/avatars.module.js";
 import { BucketSweepProcessorModule } from "../processors/bucket-sweep/bucket-sweep.module.js";
 
 /** Local-dev/test infrastructure (`docker-compose.dev.yml`, ADR-024 §3). */
@@ -127,7 +128,7 @@ export interface TestWorkerApp {
 }
 
 /**
- * Boots the activities and bucket-sweep processors (ADR-024 §4 `test-worker-app.ts`) on
+ * Boots the activities, bucket-sweep and avatars processors (ADR-024 §4 `test-worker-app.ts`) on
  * the real dev Postgres and Redis, with a random BullMQ prefix so the
  * queues never mix with a dev worker running on the same Redis.
  */
@@ -153,6 +154,7 @@ export async function bootstrapTestWorkerApp(): Promise<TestWorkerApp> {
       RealtimeBridgeModule,
       ActivitiesProcessorModule,
       BucketSweepProcessorModule,
+      AvatarsProcessorModule,
     ],
   })
     .overrideProvider(StorageService)
