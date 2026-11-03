@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { activitySourceSchema, processingStatusSchema, visibilitySchema } from "../common/enums.js";
+import {
+  activityImportFormatSchema,
+  activitySourceSchema,
+  processingStatusSchema,
+  visibilitySchema,
+} from "../common/enums.js";
 import { sportTypeCodeSchema } from "../sports/sport-type.js";
 import { feedActivityMapSchema, feedAuthorSchema, feedEngagementSchema } from "./feed.js";
 
@@ -145,7 +150,7 @@ export type ActivityAnalysis = z.infer<typeof activityAnalysisSchema>;
  * only once `processed`. `stats` holds the official values once
  * `processed`, null before; `processingError` is present only once
  * `failed`. Author and engagement are assembled like a feed card (ADR-029 §2).
- * `source`, `routeTrimmed` and `analysis` come from ADR-036 §5-6.
+ * `source`, `importFormat`, `routeTrimmed` and `analysis` come from ADR-036 §5-6.
  */
 export const activityDetailSchema = z.object({
   id: z.uuid(),
@@ -153,6 +158,8 @@ export const activityDetailSchema = z.object({
   // Optional rather than nullable: @nestjs/swagger reads a top-level `type: ["string", "null"]` as an array.
   description: z.string().optional(),
   source: activitySourceSchema,
+  /** The imported file's format, only for an `imported` Activity whose import is known: "Importé · fichier GPX". */
+  importFormat: activityImportFormatSchema.optional(),
   sportTypeCode: sportTypeCodeSchema,
   startedAt: z.iso.datetime(),
   endedAt: z.iso.datetime(),

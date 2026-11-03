@@ -67,6 +67,7 @@ struct APIActivityDetailRepositoryTests {
           "title": "Sortie du matin",
           "description": "Belle boucle",
           "source": "imported",
+          "importFormat": "gpx",
           "sportTypeCode": "ride",
           "startedAt": "2026-10-02T12:32:00.123Z",
           "endedAt": "2026-10-02T14:12:00.000Z",
@@ -121,7 +122,7 @@ struct APIActivityDetailRepositoryTests {
         #expect(detail.author == ActivityAuthor(id: "0b5a5c1e-1f4e-4c55-9d6e-0d3f8f6e2a11", displayName: "Camille Martin", avatarURL: nil))
         #expect(detail.engagement == ActivityEngagement(kudosCount: 3, commentCount: 1, viewerHasKudoed: true))
         #expect(!detail.viewerIsAuthor)
-        #expect(detail.source == .imported)
+        #expect(detail.source == .imported(.gpx))
         #expect(detail.routeTrimmed)
         #expect(detail.analysis == ActivityAnalysis(
             splits: [ActivitySplit(distance: Distance(meters: 1_000), movingTime: .seconds(128), elevationDiff: 4.5, avgHeartRate: 140)],

@@ -18,6 +18,10 @@ export type ProcessingStatus = z.infer<typeof processingStatusSchema>;
 export const activitySourceSchema = z.enum(["recorded", "imported", "manual"]);
 export type ActivitySource = z.infer<typeof activitySourceSchema>;
 
+/** `activity_import.format` (ADR-028 §1). */
+export const activityImportFormatSchema = z.enum(["gpx", "tcx", "fit"]);
+export type ActivityImportFormat = z.infer<typeof activityImportFormatSchema>;
+
 /** `user_profile.unit_system` (ADR-017). */
 export const unitSystemSchema = z.enum(["metric", "imperial"]);
 export type UnitSystem = z.infer<typeof unitSystemSchema>;

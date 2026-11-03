@@ -15,6 +15,15 @@ export class ActivityImportRepository {
     return this.db.query.activityImport.findFirst({ where: eq(schema.activityImport.id, id) });
   }
 
+  /** The file format of the import that created `activityId`, if any (ADR-036 §5 source line). */
+  async findFormatByActivityId(activityId: string): Promise<ActivityImportRow["format"] | null> {
+    const row = await this.db.query.activityImport.findFirst({
+      where: and(eq(schema.activityImport.activityId, activityId), eq(schema.activityImport.status, "imported")),
+      columns: { format: true },
+    });
+    return row?.format ?? null;
+  }
+
   /** Inserts a new import; `false` when the id already exists (replayed `POST`, ADR-028 §3). */
   async insertIfAbsent(values: typeof schema.activityImport.$inferInsert): Promise<boolean> {
     const inserted = await this.db

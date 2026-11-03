@@ -3,6 +3,7 @@ import { activityProcessingErrorCodeSchema, type ActivityProcessingErrorCode } f
 import { ActivityStatsRepository } from "../repositories/activity-stats.repository.js";
 import { ActivityTrackRepository } from "../repositories/activity-track.repository.js";
 import { ActivityAnalysisRepository } from "../repositories/activity-analysis.repository.js";
+import { ActivityImportRepository } from "../repositories/activity-import.repository.js";
 import type { ActivityDetailRecord } from "../domain/activity-detail.js";
 import { activityNotFound } from "../services/activity-not-found.js";
 import { GetVisibleActivityUseCase } from "./get-visible-activity.use-case.js";
@@ -21,6 +22,7 @@ export class GetActivityDetailUseCase {
     private readonly activityStats: ActivityStatsRepository,
     private readonly tracks: ActivityTrackRepository,
     private readonly analyses: ActivityAnalysisRepository,
+    private readonly imports: ActivityImportRepository,
   ) {}
 
   async execute(viewerId: string, activityId: string): Promise<ActivityDetailRecord> {
@@ -37,6 +39,7 @@ export class GetActivityDetailUseCase {
           this.analyses.findByActivityId(row.id),
         ])
       : [[], [], undefined];
+    const importFormat = row.source === "imported" ? await this.imports.findFormatByActivityId(row.id) : null;
     return {
       id: row.id,
       userId: row.userId,
@@ -48,6 +51,7 @@ export class GetActivityDetailUseCase {
       title: row.title,
       description: row.description,
       source: row.source,
+      importFormat,
       processingError: row.processingStatus === "failed" ? toErrorCode(row.processingError) : null,
       stats: stats
         ? {

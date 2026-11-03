@@ -52,10 +52,13 @@ struct ActivityDetailSectionsTests {
         #expect(sections.heartRateChart == nil)
     }
 
-    /// The source line (ADR-036 §9); the API does not give the import format yet.
+    /// The source line (ADR-036 §9): the imported file's format when known, "Importé" alone otherwise.
     @Test func theSourceLineSaysHowTheActivityCameIn() {
         #expect(ActivityAnalysisMessages.source(.recorded) == "Enregistré avec Nervo")
-        #expect(ActivityAnalysisMessages.source(.imported) == "Importé")
+        #expect(ActivityAnalysisMessages.source(.imported(.gpx)) == "Importé · fichier GPX")
+        #expect(ActivityAnalysisMessages.source(.imported(.fit)) == "Importé · fichier FIT")
+        #expect(ActivityAnalysisMessages.source(.imported(.tcx)) == "Importé · fichier TCX")
+        #expect(ActivityAnalysisMessages.source(.imported(nil)) == "Importé")
         #expect(ActivityAnalysisMessages.source(.manual) == "Saisie manuelle")
     }
 }

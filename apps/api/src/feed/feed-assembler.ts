@@ -45,6 +45,7 @@ export class FeedAssembler {
       title: activity.title,
       description: activity.description ?? undefined,
       source: activity.source,
+      importFormat: activity.importFormat ?? undefined,
       sportTypeCode: activity.sportTypeCode,
       startedAt: activity.startedAt.toISOString(),
       endedAt: activity.endedAt.toISOString(),

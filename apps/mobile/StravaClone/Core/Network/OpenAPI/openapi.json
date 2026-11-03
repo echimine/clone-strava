@@ -2279,7 +2279,8 @@
                   "enum": [
                     "none",
                     "pending",
-                    "accepted"
+                    "accepted",
+                    null
                   ]
                 }
               },
@@ -2345,7 +2346,8 @@
                   "enum": [
                     "none",
                     "pending",
-                    "accepted"
+                    "accepted",
+                    null
                   ]
                 },
                 "requestedAt": {
@@ -2556,6 +2558,14 @@
               "recorded",
               "imported",
               "manual"
+            ]
+          },
+          "importFormat": {
+            "type": "string",
+            "enum": [
+              "gpx",
+              "tcx",
+              "fit"
             ]
           },
           "sportTypeCode": {
@@ -4077,7 +4087,8 @@
             "enum": [
               "none",
               "pending",
-              "accepted"
+              "accepted",
+              null
             ]
           },
           "followersYouKnow": {

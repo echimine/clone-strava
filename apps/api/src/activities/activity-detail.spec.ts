@@ -22,6 +22,7 @@ import { GlobalExceptionFilter } from "../common/global-exception.filter.js";
 import { FeedAssembler } from "../feed/feed-assembler.js";
 import { AthleteIdentities } from "../identities/athlete-identities.js";
 import { ActivitiesController } from "./activities.controller.js";
+import { listenOnLoopback } from "../testing/listen-on-loopback.js";
 
 /** A stored Activity analysis (ADR-036 §6), as the worker writes it. */
 const ANALYSIS = {
@@ -58,6 +59,7 @@ describe("GET /v1/activities/:id (integration)", () => {
     pending: randomUUID(),
     processing: randomUUID(),
     failed: randomUUID(),
+    importedWithoutFile: randomUUID(),
   };
   const startedAt = new Date("2026-10-12T07:30:00.000Z");
   const updatedAt = new Date("2026-10-13T18:00:00.000Z");
@@ -151,9 +153,7 @@ describe("GET /v1/activities/:id (integration)", () => {
 
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix("v1");
-    await app.listen(0);
-    const address = app.getHttpServer().address();
-    baseUrl = `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}`;
+    baseUrl = await listenOnLoopback(app);
 
     for (const [index, id] of users.entries()) {
       await sql('insert into "user" (id, name, email) values ($1, $2, $3)', [id, `User ${index}`, `${id}@test.local`]);
@@ -168,6 +168,12 @@ describe("GET /v1/activities/:id (integration)", () => {
     );
 
     await insertActivity(ids.publicProcessed, { source: "imported", routeTrimmed: true });
+    await sql(
+      `insert into activities.activity_import (id, user_id, format, original_file_name, size_bytes, status, activity_id)
+       values ($1, $2, 'fit', 'lac.fit', 1024, 'imported', $3)`,
+      [randomUUID(), author, ids.publicProcessed],
+    );
+    await insertActivity(ids.importedWithoutFile, { source: "imported" });
     await insertActivity(ids.followersProcessed, { visibility: "followers", source: "manual" });
     await sql(
       "insert into activities.activity_analysis (activity_id, version, splits, series) values ($1, 1, $2, $3), ($4, 1, '[]', null)",
@@ -204,6 +210,7 @@ describe("GET /v1/activities/:id (integration)", () => {
       title: "Sortie au lac",
       description: "Belle lumière",
       source: "imported",
+      importFormat: "fit",
       sportTypeCode: "run",
       startedAt: startedAt.toISOString(),
       endedAt: "2026-10-12T08:30:00.000Z",
@@ -261,6 +268,15 @@ describe("GET /v1/activities/:id (integration)", () => {
       expect(body.stats?.distanceM).toBe(10234.5);
       expect(body.engagement.viewerHasKudoed).toBe(false);
     }
+  });
+
+  it("gives no import format to an imported Activity whose import is unknown, nor to a manual one", async () => {
+    const imported = await get(ids.importedWithoutFile, stranger);
+    expect(imported.status).toBe(200);
+    expect(imported.body.source).toBe("imported");
+    expect(imported.body.importFormat).toBeUndefined();
+    const manual = await get(ids.followersProcessed, follower);
+    expect(manual.body.importFormat).toBeUndefined();
   });
 
   it("gives an accepted follower a followers Activity", async () => {
