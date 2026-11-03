@@ -1,8 +1,8 @@
 import Foundation
 import Observation
 
-/// The sheet listing everyone who gave kudos to an Activity (ADR-034 §1): most recent first,
-/// one page at a time as the list scrolls.
+/// The Kudos segment of the Kudos and comments screen (ADR-034 §1, ADR-036 §8): everyone who
+/// gave kudos to an Activity, most recent first, one page at a time as the list scrolls.
 @Observable
 @MainActor
 final class KudosListStore {

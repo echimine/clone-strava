@@ -4,7 +4,4 @@ import Foundation
 /// the app shell's `openActivity` builds the detail from.
 struct ActivityDetailRequest: Hashable, Sendable {
     let id: ActivityID
-    /// From the card's comment button: the detail scrolls to the comments with the composer
-    /// focused (ADR-034).
-    var showsComments = false
 }

@@ -157,7 +157,7 @@ final class ActivityDetailStore {
         }
     }
 
-    /// The sheet listing every giver, opened from the kudos row.
+    /// The list of every giver, the Kudos segment of the Kudos and comments screen (ADR-036 §8).
     func makeKudosListStore() -> KudosListStore {
         KudosListStore(activityId: id, loadKudos: loadKudos)
     }

@@ -318,17 +318,23 @@ final class Di {
         )
     }
 
-    /// The comment thread of a detail (ADR-034 §6), wired to that detail's count.
-    func makeActivityCommentsStore(request: ActivityDetailRequest, detail: ActivityDetailStore) -> ActivityCommentsStore {
+    /// The Kudos and comments screen (ADR-036 §8): its Activity's own store holds the counts,
+    /// which reach the feed card (ADR-034 §6).
+    func makeActivityEngagementStore(request: ActivityEngagementRequest) -> ActivityEngagementStore {
+        let detail = makeActivityDetailStore(id: request.activityId)
         let repository = APIActivityCommentRepository(apiClient: apiClient)
-        return .forDetail(
-            detail,
+        return ActivityEngagementStore(
             request: request,
-            loadComments: LoadActivityComments(repository: repository),
-            loadComment: LoadActivityComment(repository: repository),
-            addComment: AddActivityComment(repository: repository),
-            editComment: EditActivityComment(repository: repository),
-            deleteComment: DeleteActivityComment(repository: repository)
+            detail: detail,
+            comments: .forDetail(
+                detail,
+                request: request,
+                loadComments: LoadActivityComments(repository: repository),
+                loadComment: LoadActivityComment(repository: repository),
+                addComment: AddActivityComment(repository: repository),
+                editComment: EditActivityComment(repository: repository),
+                deleteComment: DeleteActivityComment(repository: repository)
+            )
         )
     }
 

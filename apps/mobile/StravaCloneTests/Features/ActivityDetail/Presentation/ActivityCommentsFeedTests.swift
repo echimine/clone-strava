@@ -2,8 +2,9 @@ import Foundation
 import Testing
 @testable import StravaClone
 
-/// The comment thread and the feed (ADR-034 §6): the card's comment button opens the detail
-/// with the composer focused, and the card shows the right count when the athlete comes back.
+/// The comment thread and the feed (ADR-034 §6, ADR-036 §8): the card's comment button opens the
+/// Kudos and comments screen on Commentaires, and the card shows the right count when the
+/// athlete comes back.
 @MainActor
 struct ActivityCommentsFeedTests {
     private func makeFeed(_ post: ActivityPost, changes: ActivityChanges) async -> FeedStore {
@@ -20,50 +21,8 @@ struct ActivityCommentsFeedTests {
         return feed
     }
 
-    /// The detail and its thread, built from the request the feed pushed, as the app shell does.
-    private func openDetail(
-        _ request: ActivityDetailRequest,
-        _ detail: ActivityDetail,
-        comments repository: FakeActivityCommentRepository,
-        changes: ActivityChanges
-    ) -> (ActivityDetailStore, ActivityCommentsStore) {
-        let kudos = FakeActivityKudosRepository()
-        let details = FakeActivityDetailRepository(.success(detail))
-        let detailStore = ActivityDetailStore(
-            id: request.id,
-            loadDetail: LoadActivityDetail(repository: details),
-            loadKudos: LoadKudosList(repository: kudos),
-            setKudos: SetActivityKudos(repository: kudos),
-            changes: changes,
-            updateActivity: UpdateActivity(repository: details),
-            deleter: .over(details, changes: changes)
-        )
-        let comments = ActivityCommentsStore.forDetail(
-            detailStore,
-            request: request,
-            repository: repository
-        )
-        return (detailStore, comments)
-    }
-
-    @Test func theCardsCommentButtonOpensTheDetailWithTheComposerFocused() async throws {
-        let post = ActivityPost.fixture()
-        let changes = ActivityChanges()
-        let feed = await makeFeed(post, changes: changes)
-        let detail = ActivityDetail.fixture(id: post.id)
-
-        feed.open(post.id, showingComments: true)
-        let (_, focused) = openDetail(try #require(feed.path.last), detail, comments: FakeActivityCommentRepository(), changes: changes)
-        #expect(focused.isComposerFocused)
-
-        // A tap on the card itself opens the detail without the keyboard.
-        feed.path = []
-        feed.open(post.id)
-        let (_, plain) = openDetail(try #require(feed.path.last), detail, comments: FakeActivityCommentRepository(), changes: changes)
-        #expect(!plain.isComposerFocused)
-    }
-
-    @Test func backFromTheDetailTheCardShowsTheNewCommentCount() async throws {
+    /// Sent, edited and deleted from the screen the card's comment button opened.
+    @Test func backFromTheCommentsTheCardShowsTheNewCommentCount() async throws {
         let post = ActivityPost.fixture()
         let changes = ActivityChanges()
         let feed = await makeFeed(post, changes: changes)
@@ -73,21 +32,32 @@ struct ActivityCommentsFeedTests {
         let existing = ActivityComment.fixture(mine: true)
         repository.setPage(.success(ActivityCommentsPage(items: [existing], previousCursor: nil)))
 
-        feed.open(post.id, showingComments: true)
-        let (detailStore, comments) = openDetail(try #require(feed.path.last), detail, comments: repository, changes: changes)
-        await detailStore.load()
+        feed.openComments(post.id)
+        let screen = ActivityEngagementStore.over(
+            .comments(post.id),
+            FakeActivityDetailRepository(.success(detail)),
+            comments: repository,
+            changes: changes
+        )
+        await screen.load()
+        let comments = screen.comments
         await comments.load()
 
         comments.draft = "Premier !"
         await comments.send()
         comments.draft = "Deuxième"
         await comments.send()
+        let second = try #require(comments.comments.last?.id)
+        comments.startEditing(second)
+        comments.draft = "Deuxième, modifié"
+        await comments.send()
         comments.requestDeletion(existing.id)
         await comments.confirmDeletion()
-        feed.path = []
+        feed.path.removeLast()
 
         let expected = ActivityEngagement(kudosCount: 4, commentCount: 2, viewerHasKudoed: true)
-        #expect(detailStore.detail?.engagement == expected)
+        #expect(screen.detail.detail?.engagement == expected)
+        #expect(screen.commentsTitle == "Commentaires · 2")
         #expect(await eventually { feed.posts.first?.engagement == expected })
     }
 
@@ -97,13 +67,17 @@ struct ActivityCommentsFeedTests {
         let detail = ActivityDetail.fixture(viewerIsAuthor: true)
         let repository = FakeActivityCommentRepository()
         repository.holdNextWrite()
-        let (detailStore, comments) = openDetail(ActivityDetailRequest(id: detail.id), detail, comments: repository, changes: ActivityChanges())
-        await detailStore.load()
+        let screen = ActivityEngagementStore.over(
+            .comments(detail.id),
+            FakeActivityDetailRepository(.success(detail)),
+            comments: repository
+        )
+        await screen.load()
 
-        comments.draft = "Bravo"
-        let send = Task { await comments.send() }
+        screen.comments.draft = "Bravo"
+        let send = Task { await screen.comments.send() }
         #expect(await eventually { repository.isHoldingWrite })
-        #expect(comments.comments.first?.comment.author == detail.author)
+        #expect(screen.comments.comments.first?.comment.author == detail.author)
         repository.resume()
         await send.value
     }

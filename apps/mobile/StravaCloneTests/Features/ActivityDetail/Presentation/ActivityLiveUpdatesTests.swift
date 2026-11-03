@@ -2,15 +2,16 @@ import Foundation
 import Testing
 @testable import StravaClone
 
-/// The live detail (ADR-034 §5): while it is open, the Activity's events reach its stores; a
-/// reconnection reloads what may have been missed.
+/// The live Kudos and comments screen and detail (ADR-034 §5, ADR-036 §8): while one is open,
+/// the Activity's events reach its stores; a reconnection reloads what may have been missed.
 @MainActor
 struct ActivityLiveUpdatesTests {
-    /// The detail's screen: its stores, their fakes, and the live updates running like the
-    /// page's `.task`.
-    private struct Screen {
-        let detail: ActivityDetailStore
-        let comments: ActivityCommentsStore
+    /// The Kudos and comments screen: its stores, their fakes, and the live updates running like
+    /// the page's `.task`.
+    @MainActor private struct Screen {
+        let engagement: ActivityEngagementStore
+        var detail: ActivityDetailStore { engagement.detail }
+        var comments: ActivityCommentsStore { engagement.comments }
         let details: FakeActivityDetailRepository
         let kudos: FakeActivityKudosRepository
         let commentsRepository: FakeActivityCommentRepository
@@ -24,29 +25,15 @@ struct ActivityLiveUpdatesTests {
         comments commentsRepository: FakeActivityCommentRepository = FakeActivityCommentRepository(),
         id: ActivityID
     ) async -> Screen {
-        let detail = ActivityDetailStore(
-            id: id,
-            loadDetail: LoadActivityDetail(repository: details),
-            loadKudos: LoadKudosList(repository: kudos),
-            setKudos: SetActivityKudos(repository: kudos),
-            changes: ActivityChanges(),
-            updateActivity: UpdateActivity(repository: details),
-            deleter: .over(details)
-        )
-        let comments = ActivityCommentsStore.forDetail(
-            detail,
-            request: ActivityDetailRequest(id: id),
-            repository: commentsRepository
-        )
-        await detail.load()
-        await comments.load()
+        let engagement = ActivityEngagementStore.over(.comments(id), details, kudos: kudos, comments: commentsRepository)
+        await engagement.load()
+        await engagement.comments.load()
         let source = FakeActivityLiveEventSource()
-        let updates = ActivityLiveUpdates(events: source, detail: detail, comments: comments)
+        let updates = ActivityLiveUpdates(events: source, engagement: engagement)
         let live = Task { await updates.run() }
         _ = await eventually { source.subscribedIds == [id] }
         return Screen(
-            detail: detail,
-            comments: comments,
+            engagement: engagement,
             details: details,
             kudos: kudos,
             commentsRepository: commentsRepository,
@@ -65,7 +52,8 @@ struct ActivityLiveUpdatesTests {
         #expect(await eventually { screen.source.subscribedIds.isEmpty })
     }
 
-    /// Back after a disconnection: the detail, its kudos row and its comments are read again.
+    /// Back after a disconnection: the Activity, its kudos row, its givers and its comments are
+    /// read again.
     @Test func reloadsTheDetailAndTheCommentsAfterAReconnection() async {
         let activity = ActivityDetail.fixture(title: "Avant")
         let renamed = ActivityDetail.fixture(id: activity.id, title: "Après")
@@ -82,7 +70,8 @@ struct ActivityLiveUpdatesTests {
 
         #expect(await eventually { screen.detail.detail?.title == "Après" })
         #expect(await eventually { screen.comments.comments.map(\.comment) == [missed] })
-        #expect(screen.kudos.pageRequests.count == 2)
+        // The row on opening, then the row and the givers' list.
+        #expect(await eventually { screen.kudos.pageRequests.count == 3 })
         screen.live.cancel()
     }
 
@@ -300,6 +289,40 @@ struct ActivityLiveUpdatesTests {
 
         #expect(await eventually { screen.detail.detail?.engagement.kudosCount == 1 })
         #expect(await eventually { screen.detail.recentKudos == giver })
+        #expect(await eventually { screen.engagement.kudos.givers == giver })
         screen.live.cancel()
+    }
+
+    // MARK: Detail
+
+    /// The detail no longer shows the thread (ADR-036 §8): a comment posted or deleted elsewhere
+    /// reads its counts again, for its comment button and the feed card.
+    @Test func onTheDetailACommentPostedOrDeletedElsewhereReloadsTheCounts() async {
+        let activity = ActivityDetail.fixture(engagement: ActivityEngagement(kudosCount: 0, commentCount: 0, viewerHasKudoed: false))
+        let commented = ActivityDetail.fixture(id: activity.id, engagement: ActivityEngagement(kudosCount: 0, commentCount: 1, viewerHasKudoed: false))
+        let uncommented = ActivityDetail.fixture(id: activity.id, engagement: ActivityEngagement(kudosCount: 0, commentCount: 0, viewerHasKudoed: false))
+        let details = FakeActivityDetailRepository(.success(activity), .success(commented), .success(uncommented))
+        let kudos = FakeActivityKudosRepository()
+        let detail = ActivityDetailStore(
+            id: activity.id,
+            loadDetail: LoadActivityDetail(repository: details),
+            loadKudos: LoadKudosList(repository: kudos),
+            setKudos: SetActivityKudos(repository: kudos),
+            changes: ActivityChanges(),
+            updateActivity: UpdateActivity(repository: details),
+            deleter: .over(details)
+        )
+        await detail.load()
+        let source = FakeActivityLiveEventSource()
+        let live = Task { await ActivityLiveUpdates(events: source, detail: detail).run() }
+        _ = await eventually { source.subscribedIds == [activity.id] }
+
+        source.send(.commentCreated(UUID()))
+        #expect(await eventually { detail.detail?.engagement.commentCount == 1 })
+
+        source.send(.commentDeleted(UUID()))
+        #expect(await eventually { detail.detail?.engagement.commentCount == 0 })
+        #expect(details.requestedIds.count == 3)
+        live.cancel()
     }
 }

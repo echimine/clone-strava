@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import Testing
 @testable import StravaClone
 
@@ -36,13 +37,25 @@ struct FeedStoreActivityDetailTests {
         #expect(store.path.isEmpty)
 
         store.open(post.id)
-        #expect(store.path == [ActivityDetailRequest(id: post.id)])
-
-        // The comment button opens the same detail, asking for the comments (ADR-034).
-        store.path = []
-        store.open(post.id, showingComments: true)
-        #expect(store.path == [ActivityDetailRequest(id: post.id, showsComments: true)])
+        #expect(store.path == NavigationPath([ActivityDetailRequest(id: post.id)]))
         observation.cancel()
+    }
+
+    /// The card's comment button opens the Kudos and comments screen on Commentaires, the
+    /// composer focused (ADR-036 §8); a local card has none.
+    @Test func theCommentButtonOpensTheCommentsWithTheComposerFocused() async {
+        let repository = FakeFeedRepository()
+        let post = ActivityPost.fixture()
+        repository.pages[nil] = .success(FeedPage(posts: [post], nextCursor: nil))
+        let store = makeStore(repository)
+        await store.refresh()
+
+        store.openComments(ActivityID())
+        #expect(store.path.isEmpty)
+
+        store.openComments(post.id)
+        let expected = ActivityEngagementRequest(activityId: post.id, tab: .comments, focusComposer: true)
+        #expect(store.path == NavigationPath([expected]))
     }
 
     @Test func theCardsFollowWhatTheDetailPublishes() async {

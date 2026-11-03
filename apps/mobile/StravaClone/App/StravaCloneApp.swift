@@ -19,7 +19,7 @@ struct StravaCloneApp: App {
                 importStore: di.makeImportStore(),
                 feedStore: di.makeFeedStore(),
                 makeActivityDetailStore: { [di] id in di.makeActivityDetailStore(id: id) },
-                makeActivityCommentsStore: { [di] request, detail in di.makeActivityCommentsStore(request: request, detail: detail) },
+                makeActivityEngagementStore: { [di] request in di.makeActivityEngagementStore(request: request) },
                 feedActivityEditor: di.feedActivityEditor,
                 activityDeleter: di.activityDeleter,
                 reloadUpdatedActivities: di.makeReloadUpdatedActivities(),
@@ -68,8 +68,8 @@ struct RootView: View {
     @State var feedStore: FeedStore
     /// Details pushed from the feed's cards (ADR-033 §1).
     let makeActivityDetailStore: @MainActor (ActivityID) -> ActivityDetailStore
-    /// Their comment threads (ADR-034 §6).
-    let makeActivityCommentsStore: @MainActor (ActivityDetailRequest, ActivityDetailStore) -> ActivityCommentsStore
+    /// Kudos and comments screens, pushed from a detail or a card (ADR-036 §8).
+    let makeActivityEngagementStore: @MainActor (ActivityEngagementRequest) -> ActivityEngagementStore
     /// "Modifier" in the context menu of my feed cards (ADR-033 §1).
     @State var feedActivityEditor: ActivityEditor
     /// "Supprimer" in that menu and in a detail's "⋯" (ADR-033 §7); its toast shows over the feed.
@@ -175,7 +175,13 @@ struct RootView: View {
                             ActivityDetailPage(
                                 request: request,
                                 makeStore: makeActivityDetailStore,
-                                makeCommentsStore: makeActivityCommentsStore,
+                                liveEvents: activityLiveEvents
+                            )
+                        },
+                        openEngagement: { request in
+                            ActivityEngagementPage(
+                                request: request,
+                                makeStore: makeActivityEngagementStore,
                                 liveEvents: activityLiveEvents
                             )
                         }
