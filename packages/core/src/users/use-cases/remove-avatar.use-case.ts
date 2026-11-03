@@ -2,7 +2,7 @@ import { Inject, Injectable, Logger } from "@nestjs/common";
 import { DATABASE, type Database } from "../../infrastructure/index.js";
 import { StorageService } from "../../storage/index.js";
 import { UserProfileRepository } from "../repositories/user-profile.repository.js";
-import { deleteOldAvatar } from "./delete-old-avatar.js";
+import { deleteOldAvatar } from "../services/delete-old-avatar.js";
 
 /**
  * `DELETE /v1/me/avatar` (ADR-037 §2): the athlete is shown with their initials again. Without an

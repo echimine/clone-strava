@@ -44,6 +44,7 @@ final class Di {
     let realtimeService: RealtimeService
     /// Avatars and static maps (ADR-029), one cache for the whole app.
     let imageLoader = ImageLoader.shared
+    let videoPlayback = VideoPlayback() // ADR-037 §10: one video plays at a time, app-wide.
     /// Full resync of the Itinerary cache and its queue of changes (ADR-030 §8), triggered by
     /// the app shell.
     let itinerarySynchronizer: ItinerarySynchronizer
