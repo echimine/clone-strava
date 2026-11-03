@@ -70,6 +70,8 @@ private struct AccountEmailStep: View {
 
                 googleButton
                     .padding(.top, 32)
+                appleButton
+                    .padding(.top, 12)
                 separator
                     .padding(.vertical, 24)
                 emailField
@@ -145,6 +147,21 @@ private struct AccountEmailStep: View {
         .disabled(!store.canUseGoogle)
         .opacity(store.canUseGoogle ? 1 : 0.45)
         .accessibilityIdentifier("account.google")
+    }
+
+    private var appleButton: some View {
+        Button {} label: {
+            HStack(spacing: 10) {
+                if store.isSigningInWithApple { ProgressView() }
+                else { Image(systemName: "apple.logo").font(.title3) }
+                Text("Continuer avec Apple")
+            }
+            .font(.body.weight(.semibold)).foregroundStyle(.primary)
+            .frame(maxWidth: .infinity, minHeight: 54)
+            .overlay(Capsule().strokeBorder(Color(.separator)))
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("account.apple")
     }
 
     private var separator: some View {

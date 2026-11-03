@@ -19,6 +19,9 @@ export interface AuthModuleOptions {
   trustedOrigins: string[];
   googleClientId: string;
   googleClientSecret: string;
+  appleClientId: string;
+  appleClientSecret: string;
+  appleAppBundleIdentifier: string;
   resendApiKey: string;
   /**
    * Keeps `POST /api/auth/sign-up/email` open. Password sign-up is closed

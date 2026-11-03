@@ -23,6 +23,12 @@ struct PaywallView: View {
             }
         }
         .background(Color(.systemBackground))
+        .overlay(alignment: .topTrailing) {
+            PaywallCloseButton { store.skip() }
+                .padding(.top, 12)
+                .padding(.trailing, 16)
+                .zIndex(1)
+        }
         .animation(.easeOut(duration: 0.3), value: store.offering)
         .sensoryFeedback(.selection, trigger: store.selected)
         .toast($store.message)
@@ -110,7 +116,7 @@ struct PaywallCloseButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Passer")
-        .accessibilityIdentifier("paywall.skip")
+        .accessibilityIdentifier("paywall.close")
     }
 }
 
