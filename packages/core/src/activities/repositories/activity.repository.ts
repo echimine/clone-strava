@@ -1,5 +1,5 @@
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
-import { and, desc, eq, gt, inArray, lt, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { schema, type Database } from "@repo/db";
 import { DATABASE, type DbExecutor } from "../../infrastructure/index.js";
 
@@ -103,6 +103,24 @@ export class ActivityRepository {
         and(
           eq(schema.activity.processingStatus, "processed"),
           sql`${schema.activityStats.computedForSportTypeCode} is distinct from ${schema.activity.sportTypeCode}`,
+        ),
+      )
+      .limit(limit);
+  }
+
+  /**
+   * ADR-036 §7 backfill: processed activities with no `activity_analysis` row, or one computed
+   * by an older version of the analysis.
+   */
+  findWithOutdatedAnalysis(currentVersion: number, limit = 100) {
+    return this.db
+      .select({ id: schema.activity.id, userId: schema.activity.userId })
+      .from(schema.activity)
+      .leftJoin(schema.activityAnalysis, eq(schema.activityAnalysis.activityId, schema.activity.id))
+      .where(
+        and(
+          eq(schema.activity.processingStatus, "processed"),
+          or(isNull(schema.activityAnalysis.activityId), lt(schema.activityAnalysis.version, currentVersion)),
         ),
       )
       .limit(limit);

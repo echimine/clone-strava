@@ -5,6 +5,7 @@ import {
   ACTIVITIES_QUEUE_NAME,
   REPROCESS_ACTIVITY_JOB_NAME,
   reprocessActivityJobId,
+  reprocessAnalysisJobId,
   type ReprocessActivityJob,
 } from "@repo/contracts";
 import { DEFAULT_JOB_RETRY } from "../../infrastructure/index.js";
@@ -23,8 +24,19 @@ export class ReprocessJobEnqueuer {
    * keeps the old values (ADR-033 §5) instead of being retried by every sweep. A later edit
    * bumps `updated_at`, hence a new id and a new attempt. Returns whether a job was added.
    */
-  async enqueue(job: ReprocessActivityJob, updatedAt: Date): Promise<boolean> {
-    const jobId = reprocessActivityJobId(job.activityId, updatedAt);
+  enqueue(job: ReprocessActivityJob, updatedAt: Date): Promise<boolean> {
+    return this.addOnce(job, reprocessActivityJobId(job.activityId, updatedAt));
+  }
+
+  /**
+   * The analysis backfill (ADR-036 §7), `reprocess-{activityId}-analysis-v{version}`: one attempt
+   * per analysis version, under the same rule.
+   */
+  enqueueForAnalysis(job: ReprocessActivityJob, analysisVersion: number): Promise<boolean> {
+    return this.addOnce(job, reprocessAnalysisJobId(job.activityId, analysisVersion));
+  }
+
+  private async addOnce(job: ReprocessActivityJob, jobId: string): Promise<boolean> {
     if (await this.queue.getJob(jobId)) {
       return false;
     }

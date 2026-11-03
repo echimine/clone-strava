@@ -2016,6 +2016,103 @@
           "routeTrimmed": {
             "type": "boolean"
           },
+          "analysis": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "splits": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "distanceM": {
+                      "type": "number"
+                    },
+                    "movingTimeS": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "elevationDiffM": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "avgHeartRate": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "distanceM",
+                    "movingTimeS",
+                    "elevationDiffM",
+                    "avgHeartRate"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "series": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "properties": {
+                  "distanceM": {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    }
+                  },
+                  "speedMs": {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    }
+                  },
+                  "altitudeM": {
+                    "type": [
+                      "array",
+                      "null"
+                    ],
+                    "items": {
+                      "type": "number"
+                    }
+                  },
+                  "heartRateBpm": {
+                    "type": [
+                      "array",
+                      "null"
+                    ],
+                    "items": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  }
+                },
+                "required": [
+                  "distanceM",
+                  "speedMs",
+                  "altitudeM",
+                  "heartRateBpm"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "splits",
+              "series"
+            ],
+            "additionalProperties": false
+          },
           "author": {
             "type": "object",
             "properties": {
@@ -2086,6 +2183,7 @@
           "stats",
           "map",
           "routeTrimmed",
+          "analysis",
           "author",
           "engagement",
           "viewerIsAuthor",
