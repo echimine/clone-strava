@@ -1,5 +1,5 @@
 import { ConflictException, Inject, Injectable, Logger } from "@nestjs/common";
-import { AVATAR_MAX_BYTES, avatarObjectKey } from "@repo/contracts";
+import { AVATAR_MAX_BYTES, avatarKey } from "@repo/contracts";
 import { DATABASE, type Database } from "../../infrastructure/index.js";
 import { StorageService } from "../../storage/index.js";
 import { UserProfileRepository } from "../repositories/user-profile.repository.js";
@@ -26,7 +26,7 @@ export class SetAvatarUseCase {
    * `avatarId` is now the Avatar.
    */
   async execute(userId: string, avatarId: string, options: { onlyIfAbsent?: boolean } = {}): Promise<boolean> {
-    const key = avatarObjectKey(userId, avatarId);
+    const key = avatarKey(userId, avatarId);
     const object = await this.storage.headObject(key);
     if (!object) {
       throw new ConflictException({ code: "avatar_missing", message: "The Avatar was not uploaded" });

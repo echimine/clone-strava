@@ -161,22 +161,24 @@ describe("/v1/activities/:id/comments (integration)", () => {
     const response = await post(activityId, commenter, { id, body: "  Belle sortie !  " });
     expect(response.status).toBe(201);
     const created = (await response.json()) as ActivityComment;
+    // Each response signs the Avatar anew (its date changes every second): match it, not copy it.
+    const commenterIdentity = { id: commenter, displayName: "Camille Martin", avatarUrl: signedAvatarUrl(`avatars/${commenter}/a.jpg`) };
     expect(created).toEqual({
       id,
       body: "Belle sortie !",
       createdAt: expect.any(String),
       updatedAt: null,
-      author: { id: commenter, displayName: "Camille Martin", avatarUrl: signedAvatarUrl(`avatars/${commenter}/a.jpg`) },
+      author: commenterIdentity,
       viewerCanEdit: true,
       viewerCanDelete: true,
     });
 
     expect(await list(activityId, author)).toEqual({
-      items: [{ ...created, viewerCanEdit: false, viewerCanDelete: true }],
+      items: [{ ...created, author: commenterIdentity, viewerCanEdit: false, viewerCanDelete: true }],
       previousCursor: null,
     });
     expect(await list(activityId, third)).toEqual({
-      items: [{ ...created, viewerCanEdit: false, viewerCanDelete: false }],
+      items: [{ ...created, author: commenterIdentity, viewerCanEdit: false, viewerCanDelete: false }],
       previousCursor: null,
     });
   });

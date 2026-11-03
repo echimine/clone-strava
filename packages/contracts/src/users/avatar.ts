@@ -10,11 +10,6 @@ export const AVATAR_MAX_BYTES = 1024 * 1024;
 /** How long an Avatar `avatarUrl` stays valid (ADR-037 §1: 7 days, the SigV4 maximum). */
 export const AVATAR_URL_EXPIRES_IN_SECONDS = 7 * 24 * 60 * 60;
 
-/** Bucket key of an Avatar (ADR-037 §1): a new `avatarId` for every upload, never rewritten. */
-export function avatarObjectKey(userId: string, avatarId: string): string {
-  return `avatars/${userId}/${avatarId}.jpg`;
-}
-
 /** `POST /v1/me/avatar/upload-url` body: the exact size of the JPEG about to be sent. */
 export const avatarUploadUrlRequestSchema = z.object({
   sizeBytes: z.number().int().min(1).max(AVATAR_MAX_BYTES),

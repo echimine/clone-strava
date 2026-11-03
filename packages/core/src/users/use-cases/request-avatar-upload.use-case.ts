@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { Injectable } from "@nestjs/common";
-import { AVATAR_CONTENT_TYPE, avatarObjectKey } from "@repo/contracts";
+import { AVATAR_CONTENT_TYPE, avatarKey } from "@repo/contracts";
 import { StorageService, type PresignedUrl } from "../../storage/index.js";
 
 /** A pre-signed `PUT` for a new Avatar object (ADR-037 §2). */
@@ -20,7 +20,7 @@ export class RequestAvatarUploadUseCase {
 
   async execute(userId: string, sizeBytes: number): Promise<AvatarUpload> {
     const avatarId = randomUUID();
-    const upload = await this.storage.presignPut(avatarObjectKey(userId, avatarId), AVATAR_CONTENT_TYPE, {
+    const upload = await this.storage.presignPut(avatarKey(userId, avatarId), AVATAR_CONTENT_TYPE, {
       contentLength: sizeBytes,
     });
     return { avatarId, upload };

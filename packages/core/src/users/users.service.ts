@@ -9,6 +9,7 @@ import {
 import { SearchUsersByNameUseCase } from "./use-cases/search-users-by-name.use-case.js";
 import { SetAvatarUseCase } from "./use-cases/set-avatar.use-case.js";
 import { SubmitOnboardingAnswersUseCase } from "./use-cases/submit-onboarding-answers.use-case.js";
+import { SweepAvatarsUseCase } from "./use-cases/sweep-avatars.use-case.js";
 import type { ActiveSportCatalog } from "./domain/active-sport-catalog.js";
 import type { UserSummary } from "./domain/user-summary.js";
 import { UserProfileRepository } from "./repositories/user-profile.repository.js";
@@ -33,6 +34,7 @@ export class UsersService {
     private readonly requestAvatarUploadUseCase: RequestAvatarUploadUseCase,
     private readonly setAvatarUseCase: SetAvatarUseCase,
     private readonly removeAvatarUseCase: RemoveAvatarUseCase,
+    private readonly sweepAvatarsUseCase: SweepAvatarsUseCase,
   ) {}
 
   /**
@@ -90,6 +92,14 @@ export class UsersService {
   /** Removes the Avatar, if any, then deletes its object (a failure is only logged, ADR-037 §2). */
   removeAvatar(userId: string): Promise<void> {
     return this.removeAvatarUseCase.execute(userId);
+  }
+
+  /**
+   * Called by `apps/worker`'s daily `bucket-sweep` (ADR-037 §11): deletes the Avatars that are no
+   * athlete's current `avatar_key`, once 7 days old. Returns the number of objects deleted.
+   */
+  sweepAvatars(): Promise<number> {
+    return this.sweepAvatarsUseCase.execute();
   }
 
   /** Default visibility and privacy zone radius for a new activity. */
