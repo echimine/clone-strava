@@ -169,8 +169,9 @@ final class AuthFlowUITests: XCTestCase {
         enableNotificationsIfAsked(in: app)
         XCTAssertTrue(feedTab.waitForExistence(timeout: 10))
 
-        // 2. Sign out from the "Profil" tab.
+        // 2. Sign out from Réglages, behind the "Profil" tab's gear (ADR-036 §10).
         app.tabBars.buttons["Profil"].tap()
+        app.buttons["profile.settings"].tap()
         app.buttons["Se déconnecter"].tap()
 
         // 3. An existing account goes home; the consent is not asked again.

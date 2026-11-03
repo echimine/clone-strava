@@ -27,7 +27,7 @@ struct APIFeedRepository: FeedRepository {
         let response: FeedResponse = try await call { () async throws(APIError) in
             try await apiClient.get("/v1/feed", query: query)
         }
-        return FeedPage(posts: response.items.compactMap(\.model), nextCursor: response.nextCursor)
+        return response.page
     }
 
     func recentKudos(activityId: ActivityID) async throws(FeedError) -> [ActivityAuthor] {
@@ -64,35 +64,5 @@ struct APIFeedRepository: FeedRepository {
             case .transport: throw .network
             }
         }
-    }
-}
-
-private extension Components.Schemas.FeedResponseDto_Output.itemsPayloadPayload {
-    /// Nil for an item whose id is not a UUID, which the API never sends.
-    var model: ActivityPost? {
-        guard let uuid = UUID(uuidString: id) else { return nil }
-        return ActivityPost(
-            id: ActivityID(uuid),
-            title: title,
-            sport: SportType(code: sportTypeCode),
-            startedAt: startedAt,
-            locationName: locationName,
-            distance: stats.distanceM.map { Distance(meters: $0) },
-            movingTime: stats.movingTimeS.map { .seconds($0) },
-            elevationGain: stats.elevationGainM,
-            avgSpeedMs: stats.avgSpeedMs,
-            route: map.map { EncodedPolyline(value: $0.polyline, precision: Int($0.precision)) },
-            routeTrimmed: routeTrimmed,
-            author: ActivityAuthor(id: author.id, displayName: author.displayName, avatarURL: author.avatarUrl.flatMap(URL.init(string:))),
-            engagement: ActivityEngagement(
-                kudosCount: engagement.kudosCount,
-                commentCount: engagement.commentCount,
-                viewerHasKudoed: engagement.viewerHasKudoed
-            ),
-            recentKudos: recentKudos.map {
-                ActivityAuthor(id: $0.id, displayName: $0.displayName, avatarURL: $0.avatarUrl.flatMap(URL.init(string:)))
-            },
-            viewerIsAuthor: viewerIsAuthor
-        )
     }
 }

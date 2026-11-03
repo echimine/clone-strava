@@ -121,6 +121,41 @@ struct OpenAPIContractTests {
         #expect(item.viewerIsAuthor)
     }
 
+    /// `GET /v1/athletes/:id/activities` answers the feed's format (ADR-036 §3), so
+    /// `APIAthleteRepository` decodes it with the feed's type: what the athlete list encodes,
+    /// the feed type reads back to the same JSON.
+    @Test func athleteActivitiesResponseIsTheFeedResponse() throws {
+        let json = Data("""
+        {
+          "items": [{
+            "id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+            "title": "Sortie du matin",
+            "sportTypeCode": "ride",
+            "startedAt": "2026-10-02T12:32:00Z",
+            "visibility": "followers",
+            "locationName": "Annecy",
+            "stats": { "distanceM": 42000, "movingTimeS": 5400, "elapsedTimeS": 5600, "elevationGainM": null, "avgSpeedMs": 7.8 },
+            "map": { "polyline": "_p~iF~ps|U", "precision": 5 },
+            "routeTrimmed": false,
+            "author": { "id": "1b4e28ba-2fa1-41d2-883f-0016d3cca427", "displayName": "Camille Martin", "avatarUrl": "https://cdn.test/a.png" },
+            "engagement": { "kudosCount": 3, "commentCount": 1, "viewerHasKudoed": true },
+            "recentKudos": [{ "id": "0b5a5c1e-1f4e-4c55-9d6e-0d3f8f6e2a11", "displayName": "Léa Dupont", "avatarUrl": null }],
+            "viewerIsAuthor": false
+          }],
+          "nextCursor": "abc"
+        }
+        """.utf8)
+
+        let athleteList = try APIClient.decoder.decode(Components.Schemas.AthleteActivitiesResponseDto_Output.self, from: json)
+        let encoded = try encoder.encode(athleteList)
+        let feed = try APIClient.decoder.decode(Components.Schemas.FeedResponseDto_Output.self, from: encoded)
+
+        let asAthleteList = try JSONSerialization.jsonObject(with: encoded) as? NSDictionary
+        let asFeed = try JSONSerialization.jsonObject(with: encoder.encode(feed)) as? NSDictionary
+        #expect(asAthleteList != nil)
+        #expect(asAthleteList == asFeed)
+    }
+
     /// The `analysis` of `GET /v1/activities/:id` (`activityAnalysisSchema`, ADR-036 §6): splits,
     /// and series whose altitude and heart rate may be null.
     @Test func activityDetailAnalysisDecodesAnAPIPayload() throws {
