@@ -257,6 +257,307 @@
         ]
       }
     },
+    "/v1/athletes/{id}/follow": {
+      "put": {
+        "operationId": "AthleteFollowsController_follow",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FollowResponseDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "AthleteFollows"
+        ]
+      },
+      "delete": {
+        "operationId": "AthleteFollowsController_unfollow",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FollowResponseDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "AthleteFollows"
+        ]
+      }
+    },
+    "/v1/athletes/{id}/followers": {
+      "get": {
+        "operationId": "AthleteFollowsController_followers",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minLength": 1,
+              "maxLength": 200,
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FollowListResponseDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "AthleteFollows"
+        ]
+      }
+    },
+    "/v1/athletes/{id}/following": {
+      "get": {
+        "operationId": "AthleteFollowsController_following",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minLength": 1,
+              "maxLength": 200,
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FollowListResponseDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "AthleteFollows"
+        ]
+      }
+    },
+    "/v1/me/follow-requests": {
+      "get": {
+        "operationId": "MeFollowsController_requests",
+        "parameters": [
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minLength": 1,
+              "maxLength": 200,
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FollowRequestListResponseDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "MeFollows"
+        ]
+      }
+    },
+    "/v1/me/follow-requests/{followerId}": {
+      "put": {
+        "operationId": "MeFollowsController_accept",
+        "parameters": [
+          {
+            "name": "followerId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Accepted"
+          }
+        },
+        "tags": [
+          "MeFollows"
+        ]
+      },
+      "delete": {
+        "operationId": "MeFollowsController_refuse",
+        "parameters": [
+          {
+            "name": "followerId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Refused"
+          }
+        },
+        "tags": [
+          "MeFollows"
+        ]
+      }
+    },
+    "/v1/me/followers/{followerId}": {
+      "delete": {
+        "operationId": "MeFollowsController_removeFollower",
+        "parameters": [
+          {
+            "name": "followerId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removed"
+          }
+        },
+        "tags": [
+          "MeFollows"
+        ]
+      }
+    },
+    "/v1/me/follow-settings": {
+      "put": {
+        "operationId": "MeFollowsController_updateSettings",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FollowSettingsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FollowSettingsDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "MeFollows"
+        ]
+      }
+    },
     "/v1/activities": {
       "post": {
         "operationId": "ActivitiesController_create",
@@ -1401,6 +1702,9 @@
               "followers",
               "private"
             ]
+          },
+          "approveFollowers": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -1409,7 +1713,8 @@
           "name",
           "role",
           "isPremium",
-          "defaultVisibility"
+          "defaultVisibility",
+          "approveFollowers"
         ],
         "additionalProperties": false
       },
@@ -1704,6 +2009,196 @@
         "required": [
           "items",
           "nextCursor"
+        ],
+        "additionalProperties": false
+      },
+      "FollowResponseDto_Output": {
+        "type": "object",
+        "properties": {
+          "athleteId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "viewerFollowStatus": {
+            "type": "string",
+            "enum": [
+              "none",
+              "pending",
+              "accepted"
+            ]
+          },
+          "followerCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "athleteId",
+          "viewerFollowStatus",
+          "followerCount"
+        ],
+        "additionalProperties": false
+      },
+      "FollowListResponseDto_Output": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "athlete": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "displayName": {
+                      "type": "string"
+                    },
+                    "avatarUrl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "displayName",
+                    "avatarUrl"
+                  ],
+                  "additionalProperties": false
+                },
+                "viewerFollowStatus": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "enum": [
+                    "none",
+                    "pending",
+                    "accepted"
+                  ]
+                }
+              },
+              "required": [
+                "athlete",
+                "viewerFollowStatus"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "additionalProperties": false
+      },
+      "FollowRequestListResponseDto_Output": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "athlete": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "displayName": {
+                      "type": "string"
+                    },
+                    "avatarUrl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "displayName",
+                    "avatarUrl"
+                  ],
+                  "additionalProperties": false
+                },
+                "viewerFollowStatus": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "enum": [
+                    "none",
+                    "pending",
+                    "accepted"
+                  ]
+                },
+                "requestedAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                }
+              },
+              "required": [
+                "athlete",
+                "viewerFollowStatus",
+                "requestedAt"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "additionalProperties": false
+      },
+      "FollowSettingsDto": {
+        "type": "object",
+        "properties": {
+          "approveFollowers": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "approveFollowers"
+        ]
+      },
+      "FollowSettingsDto_Output": {
+        "type": "object",
+        "properties": {
+          "approveFollowers": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "approveFollowers"
         ],
         "additionalProperties": false
       },

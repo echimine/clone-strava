@@ -7,6 +7,7 @@ export * from "./itineraries/index.js";
 export * from "./notifications/index.js";
 export * from "./realtime/index.js";
 export * from "./segments/index.js";
+export * from "./social/index.js";
 export * from "./sports/index.js";
 export * from "./subscriptions/index.js";
 export * from "./users/index.js";

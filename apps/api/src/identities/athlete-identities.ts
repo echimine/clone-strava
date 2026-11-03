@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import type { FeedAuthor } from "@repo/contracts";
 import { AuthService } from "@repo/core/auth";
 import { UsersService } from "@repo/core/users";
@@ -18,6 +18,17 @@ export class AthleteIdentities {
     private readonly users: UsersService,
     private readonly auth: AuthService,
   ) {}
+
+  /**
+   * `404 athlete_not_found` unless `userId` is an athlete (ADR-036 §1, §3):
+   * athletes are Better Auth `user` rows, which `auth` owns.
+   */
+  async assertExists(userId: string): Promise<void> {
+    const [known] = await this.auth.getPublicIdentities([userId]);
+    if (!known) {
+      throw new NotFoundException({ code: "athlete_not_found", message: "Athlete not found" });
+    }
+  }
 
   /** Resolves `userIds` at once; the returned lookup answers for any of them. */
   async resolve(userIds: string[]): Promise<(userId: string) => AthleteIdentity> {

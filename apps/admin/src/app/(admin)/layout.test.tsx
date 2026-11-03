@@ -26,6 +26,7 @@ const admin = {
   role: "admin",
   isPremium: false,
   defaultVisibility: "public",
+  approveFollowers: false,
 };
 
 /** The admin pages open only once `/v1/admin` accepts the session (ADR-022 §5, ADR-035 §3). */
