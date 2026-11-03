@@ -1,11 +1,17 @@
 import { getTableConfig } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
-import { activity, activityAttachment, activityStats, activityTrack } from "./activities.js";
+import {
+  activity,
+  activityAnalysis,
+  activityAttachment,
+  activityStats,
+  activityTrack,
+} from "./activities.js";
 import { user } from "./auth.js";
 import { comment, kudos } from "./engagement.js";
 import { itinerary, itineraryLeg, itineraryWaypoint } from "./itineraries.js";
 import { segment, segmentEffort } from "./segments.js";
-import { follow } from "./social.js";
+import { follow, followSettings } from "./social.js";
 import { sportType } from "./sports.js";
 import { userSubscription } from "./subscriptions.js";
 import { userProfile, userSport } from "./users.js";
@@ -22,6 +28,10 @@ describe("schema table names and owning PostgreSQL schema (ADR-017, ADR-021 §7)
     expect(getTableConfig(userSport)).toMatchObject({ name: "user_sport", schema: "users" });
     expect(getTableConfig(sportType)).toMatchObject({ name: "sport_type", schema: "sports" });
     expect(getTableConfig(follow)).toMatchObject({ name: "follow", schema: "social" });
+    expect(getTableConfig(followSettings)).toMatchObject({
+      name: "follow_settings",
+      schema: "social",
+    });
     expect(getTableConfig(activity)).toMatchObject({ name: "activity", schema: "activities" });
     expect(getTableConfig(activityStats)).toMatchObject({
       name: "activity_stats",
@@ -29,6 +39,10 @@ describe("schema table names and owning PostgreSQL schema (ADR-017, ADR-021 §7)
     });
     expect(getTableConfig(activityTrack)).toMatchObject({
       name: "activity_track",
+      schema: "activities",
+    });
+    expect(getTableConfig(activityAnalysis)).toMatchObject({
+      name: "activity_analysis",
       schema: "activities",
     });
     expect(getTableConfig(activityAttachment)).toMatchObject({
@@ -76,5 +90,37 @@ describe("schema table names and owning PostgreSQL schema (ADR-017, ADR-021 §7)
 
   it("gives the Itinerary track no GiST index, never searched spatially (ADR-030 §5)", () => {
     expect(getTableConfig(itinerary).indexes.some((i) => i.config.method === "gist")).toBe(false);
+  });
+});
+
+describe("ADR-036 schema", () => {
+  it("indexes follows by follower and status, for the following list and counts (§1)", () => {
+    const followerIndex = getTableConfig(follow).indexes.find(
+      (i) => i.config.name === "follow_follower_status_idx",
+    );
+    expect(followerIndex?.config.columns.map((c) => ("name" in c ? c.name : undefined))).toEqual([
+      "follower_id",
+      "status",
+    ]);
+  });
+
+  it("does not approve followers unless the athlete asked to (§1)", () => {
+    const approve = getTableConfig(followSettings).columns.find((c) => c.name === "approve_followers");
+    expect(approve).toMatchObject({ notNull: true, default: false });
+  });
+
+  it("marks a route as untrimmed by default (§5)", () => {
+    const trimmed = getTableConfig(activityTrack).columns.find((c) => c.name === "route_trimmed");
+    expect(trimmed).toMatchObject({ notNull: true, default: false });
+  });
+
+  it("requires a version and splits on an Activity analysis, series being optional (§6)", () => {
+    const columns = getTableConfig(activityAnalysis).columns;
+    const byName = (name: string) => columns.find((c) => c.name === name);
+    expect(byName("activity_id")?.primary).toBe(true);
+    expect(byName("version")).toMatchObject({ notNull: true, columnType: "PgSmallInt" });
+    expect(byName("splits")).toMatchObject({ notNull: true, columnType: "PgJsonb" });
+    expect(byName("series")).toMatchObject({ notNull: false, columnType: "PgJsonb" });
+    expect(byName("computed_at")).toMatchObject({ notNull: true, hasDefault: true });
   });
 });
