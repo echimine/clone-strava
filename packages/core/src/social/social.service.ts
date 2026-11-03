@@ -100,6 +100,16 @@ export class SocialService {
     );
   }
 
+  /** Up to `limit` accepted followers of `athleteId` whom the viewer follows, most recent first (ADR-036 §3). */
+  getFollowersYouKnow(viewerId: string, athleteId: string, limit: number): Promise<string[]> {
+    return this.follows.findFollowersFollowedBy(athleteId, viewerId, limit);
+  }
+
+  /** The athlete's incoming pending follow requests. */
+  countFollowRequests(userId: string): Promise<number> {
+    return this.follows.countPending(userId);
+  }
+
   /** Batch read (ADR-021 §2 rule 6, §6): the feed's first step. */
   getFolloweeIds(userId: string): Promise<string[]> {
     return this.getFolloweeIdsUseCase.execute(userId);

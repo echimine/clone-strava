@@ -52,6 +52,14 @@ export class UserProfileRepository {
     await executor.insert(t).values({ userId }).onConflictDoNothing({ target: t.userId });
   }
 
+  /** Creates the row with this name, or renames the existing one (ADR-036 §3). */
+  async upsertName(userId: string, name: { firstName: string; lastName: string }): Promise<void> {
+    await this.db
+      .insert(t)
+      .values({ userId, ...name })
+      .onConflictDoUpdate({ target: t.userId, set: { ...name, updatedAt: new Date() } });
+  }
+
   /** The Onboarding fields of an existing row, locked until the end of the transaction. */
   async lockOnboardingFields(userId: string, tx: Transaction): Promise<OnboardingProfileFields> {
     const [row] = await tx

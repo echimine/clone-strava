@@ -1687,6 +1687,118 @@
           "Admin"
         ]
       }
+    },
+    "/v1/athletes/{id}": {
+      "get": {
+        "operationId": "AthletesController_profile",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AthleteProfileResponseDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Athletes"
+        ]
+      }
+    },
+    "/v1/athletes/{id}/activities": {
+      "get": {
+        "operationId": "AthletesController_activitiesOf",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minLength": 1,
+              "maxLength": 200,
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AthleteActivitiesResponseDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Athletes"
+        ]
+      }
+    },
+    "/v1/me/profile": {
+      "patch": {
+        "operationId": "MeProfileController_update",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProfileRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateProfileResponseDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "MeProfile"
+        ]
+      }
     }
   },
   "info": {
@@ -3908,6 +4020,404 @@
           "type",
           "data"
         ]
+      },
+      "AthleteProfileResponseDto_Output": {
+        "type": "object",
+        "properties": {
+          "athlete": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "displayName": {
+                "type": "string"
+              },
+              "avatarUrl": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "displayName",
+              "avatarUrl"
+            ],
+            "additionalProperties": false
+          },
+          "activityCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "streakWeeks": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "followerCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "followingCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "viewerFollowStatus": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "none",
+              "pending",
+              "accepted"
+            ]
+          },
+          "followersYouKnow": {
+            "type": "array",
+            "maxItems": 2,
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "displayName": {
+                  "type": "string"
+                },
+                "avatarUrl": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "displayName",
+                "avatarUrl"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "practicedSports": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "approveFollowers": {
+            "type": "boolean"
+          },
+          "pendingFollowRequestCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "itineraryCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "athlete",
+          "activityCount",
+          "streakWeeks",
+          "followerCount",
+          "followingCount",
+          "viewerFollowStatus",
+          "followersYouKnow",
+          "practicedSports"
+        ],
+        "additionalProperties": false
+      },
+      "AthleteActivitiesResponseDto_Output": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "sportTypeCode": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "startedAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                },
+                "visibility": {
+                  "type": "string",
+                  "enum": [
+                    "public",
+                    "followers",
+                    "private"
+                  ]
+                },
+                "locationName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "stats": {
+                  "type": "object",
+                  "properties": {
+                    "distanceM": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "movingTimeS": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "elapsedTimeS": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "elevationGainM": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "avgSpeedMs": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "distanceM",
+                    "movingTimeS",
+                    "elapsedTimeS",
+                    "elevationGainM",
+                    "avgSpeedMs"
+                  ],
+                  "additionalProperties": false
+                },
+                "map": {
+                  "type": [
+                    "object",
+                    "null"
+                  ],
+                  "properties": {
+                    "polyline": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "precision": {
+                      "type": "number",
+                      "const": 5
+                    }
+                  },
+                  "required": [
+                    "polyline",
+                    "precision"
+                  ],
+                  "additionalProperties": false
+                },
+                "routeTrimmed": {
+                  "type": "boolean"
+                },
+                "author": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "displayName": {
+                      "type": "string"
+                    },
+                    "avatarUrl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "displayName",
+                    "avatarUrl"
+                  ],
+                  "additionalProperties": false
+                },
+                "engagement": {
+                  "type": "object",
+                  "properties": {
+                    "kudosCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "commentCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "viewerHasKudoed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "kudosCount",
+                    "commentCount",
+                    "viewerHasKudoed"
+                  ],
+                  "additionalProperties": false
+                },
+                "recentKudos": {
+                  "maxItems": 3,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "displayName": {
+                        "type": "string"
+                      },
+                      "avatarUrl": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "displayName",
+                      "avatarUrl"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "viewerIsAuthor": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "id",
+                "title",
+                "sportTypeCode",
+                "startedAt",
+                "visibility",
+                "locationName",
+                "stats",
+                "map",
+                "routeTrimmed",
+                "author",
+                "engagement",
+                "recentKudos",
+                "viewerIsAuthor"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "additionalProperties": false
+      },
+      "UpdateProfileRequestDto": {
+        "type": "object",
+        "properties": {
+          "firstName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50
+          },
+          "lastName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50
+          }
+        },
+        "required": [
+          "firstName",
+          "lastName"
+        ]
+      },
+      "UpdateProfileResponseDto_Output": {
+        "type": "object",
+        "properties": {
+          "athlete": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "displayName": {
+                "type": "string"
+              },
+              "avatarUrl": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "displayName",
+              "avatarUrl"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "athlete"
+        ],
+        "additionalProperties": false
       }
     }
   }

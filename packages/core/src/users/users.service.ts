@@ -6,6 +6,7 @@ import { SubmitOnboardingAnswersUseCase } from "./use-cases/submit-onboarding-an
 import type { ActiveSportCatalog } from "./domain/active-sport-catalog.js";
 import type { UserSummary } from "./domain/user-summary.js";
 import { UserProfileRepository } from "./repositories/user-profile.repository.js";
+import { UserSportRepository } from "./repositories/user-sport.repository.js";
 import {
   DEFAULT_USER_ACTIVITY_DEFAULTS,
   type UserActivityDefaults,
@@ -21,6 +22,7 @@ export class UsersService {
     private readonly getUserSummaries: GetUserSummariesUseCase,
     private readonly userProfiles: UserProfileRepository,
     private readonly submitOnboarding: SubmitOnboardingAnswersUseCase,
+    private readonly userSports: UserSportRepository,
     private readonly searchUsersByName: SearchUsersByNameUseCase,
   ) {}
 
@@ -42,6 +44,19 @@ export class UsersService {
   async getSummary(userId: string): Promise<UserSummary | undefined> {
     const [summary] = await this.getSummaries([userId]);
     return summary;
+  }
+
+  /** The athlete's Practiced sports in their order (ADR-035 §4, ADR-036 §3); empty if never chosen. */
+  getPracticedSports(userId: string): Promise<string[]> {
+    return this.userSports.findCodes(userId);
+  }
+
+  /**
+   * The name everyone sees (ADR-036 §3), already trimmed and validated by the caller. Creates the
+   * profile row if needed.
+   */
+  updateName(userId: string, name: { firstName: string; lastName: string }): Promise<void> {
+    return this.userProfiles.upsertName(userId, name);
   }
 
   /** Default visibility and privacy zone radius for a new activity. */

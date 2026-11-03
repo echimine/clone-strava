@@ -35,6 +35,9 @@ import { ActivityAggregateRepository } from "./repositories/activity-aggregate.r
 import { AggregateScopeResolver } from "./services/aggregate-scope-resolver.js";
 import { GetProgressUseCase } from "./use-cases/get-progress.use-case.js";
 import { GetAthleteStatsUseCase } from "./use-cases/get-athlete-stats.use-case.js";
+import { GetAthleteProfileFiguresUseCase } from "./use-cases/get-athlete-profile-figures.use-case.js";
+import { GetAthleteActivitiesPageUseCase } from "./use-cases/get-athlete-activities-page.use-case.js";
+import { FeedPageBuilder } from "./services/feed-page-builder.js";
 import { ActivitiesService } from "./activities.service.js";
 
 /**
@@ -82,6 +85,9 @@ import { ActivitiesService } from "./activities.service.js";
     AggregateScopeResolver,
     GetProgressUseCase,
     GetAthleteStatsUseCase,
+    GetAthleteProfileFiguresUseCase,
+    GetAthleteActivitiesPageUseCase,
+    FeedPageBuilder,
     ActivitiesService,
   ],
   exports: [ActivitiesService],

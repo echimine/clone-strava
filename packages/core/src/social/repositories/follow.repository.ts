@@ -62,6 +62,40 @@ export class FollowRepository {
   }
 
   /**
+   * Up to `limit` accepted followers of `athleteId` whom `viewerId` follows (accepted), most
+   * recent follow of the athlete first (ADR-036 §3 "followersYouKnow").
+   */
+  async findFollowersFollowedBy(athleteId: string, viewerId: string, limit: number): Promise<string[]> {
+    const rows = await this.db
+      .select({ followerId: schema.follow.followerId })
+      .from(schema.follow)
+      .where(
+        and(
+          eq(schema.follow.followeeId, athleteId),
+          eq(schema.follow.status, "accepted"),
+          sql`exists (
+            select 1 from ${schema.follow} as known
+            where known.follower_id = ${viewerId}::uuid
+              and known.followee_id = ${schema.follow.followerId}
+              and known.status = 'accepted'
+          )`,
+        ),
+      )
+      .orderBy(desc(schema.follow.createdAt), desc(schema.follow.followerId))
+      .limit(limit);
+    return rows.map((row) => row.followerId);
+  }
+
+  /** Incoming `pending` follows of `followeeId`. */
+  async countPending(followeeId: string): Promise<number> {
+    const [row] = await this.db
+      .select({ total: count() })
+      .from(schema.follow)
+      .where(and(eq(schema.follow.followeeId, followeeId), eq(schema.follow.status, "pending")));
+    return row?.total ?? 0;
+  }
+
+  /**
    * One keyset page of a follow list (ADR-036 §1): the `followers` of
    * `athleteId` (rows where they are the followee) or whom they are
    * `following`, with `status`, most recent first and strictly after
