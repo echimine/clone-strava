@@ -121,6 +121,30 @@ struct OpenAPIContractTests {
         #expect(item.viewerIsAuthor)
     }
 
+    /// The `analysis` of `GET /v1/activities/:id` (`activityAnalysisSchema`, ADR-036 §6): splits,
+    /// and series whose altitude and heart rate may be null.
+    @Test func activityDetailAnalysisDecodesAnAPIPayload() throws {
+        let json = Data("""
+        {
+          "splits": [
+            { "distanceM": 1000, "movingTimeS": 305, "elevationDiffM": 12.5, "avgHeartRate": null },
+            { "distanceM": 234.5, "movingTimeS": 70, "elevationDiffM": null, "avgHeartRate": null }
+          ],
+          "series": { "distanceM": [0, 617.3, 1234.5], "speedMs": [3.2, 3.4, 0], "altitudeM": [450, 462.5, 459.5], "heartRateBpm": null }
+        }
+        """.utf8)
+
+        let dto = try APIClient.decoder.decode(
+            Components.Schemas.ActivityDetailDto_Output.analysisPayload.self, from: json
+        )
+
+        #expect(dto.splits.map(\.movingTimeS) == [305, 70])
+        #expect(dto.splits.map(\.elevationDiffM) == [12.5, nil])
+        #expect(dto.series?.speedMs == [3.2, 3.4, 0])
+        #expect(dto.series?.altitudeM == [450, 462.5, 459.5])
+        #expect(dto.series?.heartRateBpm == nil)
+    }
+
     // MARK: Itineraries (ADR-030 §6)
 
     /// `{ waypoints, legs }` as `POST /v1/itineraries`, `PUT /v1/itineraries/:id` and

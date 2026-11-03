@@ -214,6 +214,36 @@
         ]
       }
     },
+    "/v1/athletes/search": {
+      "get": {
+        "operationId": "AthleteSearchController_search",
+        "parameters": [
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AthleteSearchResponseDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "AthleteSearch"
+        ]
+      }
+    },
     "/v1/feed": {
       "get": {
         "operationId": "FeedController_list",
@@ -1788,6 +1818,61 @@
           "level"
         ]
       },
+      "AthleteSearchResponseDto_Output": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "athlete": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "displayName": {
+                      "type": "string"
+                    },
+                    "avatarUrl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "displayName",
+                    "avatarUrl"
+                  ],
+                  "additionalProperties": false
+                },
+                "viewerFollowStatus": {
+                  "type": "string",
+                  "enum": [
+                    "none",
+                    "pending",
+                    "accepted"
+                  ]
+                }
+              },
+              "required": [
+                "athlete",
+                "viewerFollowStatus"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      },
       "FeedResponseDto_Output": {
         "type": "object",
         "properties": {
@@ -2511,6 +2596,103 @@
           "routeTrimmed": {
             "type": "boolean"
           },
+          "analysis": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "splits": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "distanceM": {
+                      "type": "number"
+                    },
+                    "movingTimeS": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "elevationDiffM": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "avgHeartRate": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "distanceM",
+                    "movingTimeS",
+                    "elevationDiffM",
+                    "avgHeartRate"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "series": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "properties": {
+                  "distanceM": {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    }
+                  },
+                  "speedMs": {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    }
+                  },
+                  "altitudeM": {
+                    "type": [
+                      "array",
+                      "null"
+                    ],
+                    "items": {
+                      "type": "number"
+                    }
+                  },
+                  "heartRateBpm": {
+                    "type": [
+                      "array",
+                      "null"
+                    ],
+                    "items": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  }
+                },
+                "required": [
+                  "distanceM",
+                  "speedMs",
+                  "altitudeM",
+                  "heartRateBpm"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "splits",
+              "series"
+            ],
+            "additionalProperties": false
+          },
           "author": {
             "type": "object",
             "properties": {
@@ -2581,6 +2763,7 @@
           "stats",
           "map",
           "routeTrimmed",
+          "analysis",
           "author",
           "engagement",
           "viewerIsAuthor",

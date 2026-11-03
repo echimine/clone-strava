@@ -36,6 +36,14 @@ export function reprocessActivityJobId(activityId: string, updatedAt: Date): str
   return `reprocess-${activityId}-${updatedAt.getTime()}`;
 }
 
+/**
+ * Backfill of the Activity analysis (ADR-036 §7): one job per Activity and analysis version, so
+ * a job that failed for good is not retried before the next version bump.
+ */
+export function reprocessAnalysisJobId(activityId: string, analysisVersion: number): string {
+  return `reprocess-${activityId}-analysis-v${analysisVersion}`;
+}
+
 /** `reprocess-activity` job payload (ADR-033 §5). */
 export const reprocessActivityJobSchema = z.object({
   activityId: z.uuid(),

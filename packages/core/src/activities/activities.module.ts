@@ -7,6 +7,7 @@ import { SocialModule } from "../social/index.js";
 import { ActivityRepository } from "./repositories/activity.repository.js";
 import { ActivityStatsRepository } from "./repositories/activity-stats.repository.js";
 import { ActivityTrackRepository } from "./repositories/activity-track.repository.js";
+import { ActivityAnalysisRepository } from "./repositories/activity-analysis.repository.js";
 import { CreateActivityUseCase } from "./use-cases/create-activity.use-case.js";
 import { RequestUploadUrlUseCase } from "./use-cases/request-upload-url.use-case.js";
 import { CompleteActivityUseCase } from "./use-cases/complete-activity.use-case.js";
@@ -53,6 +54,7 @@ import { ActivitiesService } from "./activities.service.js";
     ActivityRepository,
     ActivityStatsRepository,
     ActivityTrackRepository,
+    ActivityAnalysisRepository,
     CreateActivityUseCase,
     RequestUploadUrlUseCase,
     CompleteActivityUseCase,

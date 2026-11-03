@@ -107,12 +107,45 @@ export const activityStatsSchema = z.object({
 export type ActivityStats = z.infer<typeof activityStatsSchema>;
 
 /**
+ * One split of the Activity analysis (ADR-036 §6): 1,000 m (the last one may be shorter),
+ * counted like the official values. Its speed is `distanceM / movingTimeS`.
+ */
+export const activitySplitSchema = z.object({
+  distanceM: z.number(),
+  movingTimeS: z.number().int(),
+  /** Altitude at the end minus altitude at the start; null without altitude. */
+  elevationDiffM: z.number().nullable(),
+  avgHeartRate: z.number().int().nullable(),
+});
+export type ActivitySplit = z.infer<typeof activitySplitSchema>;
+
+/**
+ * The Activity's curves (ADR-036 §6): at most 300 samples evenly spaced along the distance,
+ * all arrays of the same length. `altitudeM` / `heartRateBpm` are null without such data.
+ */
+export const activitySeriesSchema = z.object({
+  distanceM: z.array(z.number()),
+  /** Smoothed over about 100 m, 0 while stopped. */
+  speedMs: z.array(z.number()),
+  altitudeM: z.array(z.number()).nullable(),
+  heartRateBpm: z.array(z.number().int()).nullable(),
+});
+export type ActivitySeries = z.infer<typeof activitySeriesSchema>;
+
+/** Splits and series (ADR-036 §6): `splits: []`, `series: null` without a usable GPS trace. */
+export const activityAnalysisSchema = z.object({
+  splits: z.array(activitySplitSchema),
+  series: activitySeriesSchema.nullable(),
+});
+export type ActivityAnalysis = z.infer<typeof activityAnalysisSchema>;
+
+/**
  * `GET /v1/activities/:id` response (ADR-033 §2, amends ADR-031 §13): any
  * viewer who can see the Activity. The author gets it in any state, others
  * only once `processed`. `stats` holds the official values once
  * `processed`, null before; `processingError` is present only once
  * `failed`. Author and engagement are assembled like a feed card (ADR-029 §2).
- * `source` and `routeTrimmed` come from ADR-036 §5-6.
+ * `source`, `routeTrimmed` and `analysis` come from ADR-036 §5-6.
  */
 export const activityDetailSchema = z.object({
   id: z.uuid(),
@@ -132,6 +165,8 @@ export const activityDetailSchema = z.object({
   map: feedActivityMapSchema.nullable(),
   /** The privacy zone removed the start or end of the route: "Départ et arrivée masqués". */
   routeTrimmed: z.boolean(),
+  /** Splits and series (ADR-036 §6), null while not computed yet. */
+  analysis: activityAnalysisSchema.nullable(),
   author: feedAuthorSchema,
   engagement: feedEngagementSchema,
   viewerIsAuthor: z.boolean(),
