@@ -38,7 +38,8 @@ describe("/v1/feed and kudos (integration)", () => {
   const friend = randomUUID();
   const pendingFriend = randomUUID();
   const stranger = randomUUID();
-  const users = [viewer, friend, pendingFriend, stranger];
+  const kudoers = [randomUUID(), randomUUID(), randomUUID(), randomUUID()];
+  const users = [viewer, friend, pendingFriend, stranger, ...kudoers];
   const ids = {
     mine: randomUUID(),
     mineProcessing: randomUUID(),
@@ -62,7 +63,7 @@ describe("/v1/feed and kudos (integration)", () => {
     id: string,
     userId: string,
     hoursAgo: number,
-    options: { visibility?: string; status?: string } = {},
+    options: { visibility?: string; status?: string; routeTrimmed?: boolean } = {},
   ) {
     const startedAt = new Date(Date.now() - hoursAgo * 3_600_000);
     await sql(
@@ -72,13 +73,14 @@ describe("/v1/feed and kudos (integration)", () => {
         options.visibility ?? "public", options.status ?? "processed"],
     );
     await sql(
-      `insert into activities.activity_stats (activity_id, distance_m, moving_time_s, elapsed_time_s, elevation_gain_m)
-       values ($1, 10234.5, 3120, 3300, 245)`,
+      `insert into activities.activity_stats (activity_id, distance_m, moving_time_s, elapsed_time_s, elevation_gain_m, avg_speed_ms)
+       values ($1, 10234.5, 3120, 3300, 245, 3.25)`,
       [id],
     );
     await sql(
-      `insert into activities.activity_track (activity_id, map_polyline, location_name) values ($1, '_p~iF~ps|U', 'Annecy, Haute-Savoie')`,
-      [id],
+      `insert into activities.activity_track (activity_id, map_polyline, location_name, route_trimmed)
+       values ($1, '_p~iF~ps|U', 'Annecy, Haute-Savoie', $2)`,
+      [id, options.routeTrimmed ?? false],
     );
   }
 
@@ -142,7 +144,7 @@ describe("/v1/feed and kudos (integration)", () => {
 
     await insertActivity(ids.mine, viewer, 1);
     await insertActivity(ids.mineProcessing, viewer, 0.5, { status: "processing" });
-    await insertActivity(ids.friendPublic, friend, 2);
+    await insertActivity(ids.friendPublic, friend, 2, { routeTrimmed: true });
     await insertActivity(ids.friendFollowers, friend, 3, { visibility: "followers" });
     await insertActivity(ids.friendPrivate, friend, 4, { visibility: "private" });
     await insertActivity(ids.pendingFriendPublic, pendingFriend, 5);
@@ -151,6 +153,13 @@ describe("/v1/feed and kudos (integration)", () => {
     await sql("insert into engagement.kudos (user_id, activity_id) values ($1, $2)", [friend, ids.mine]);
     await sql("insert into engagement.comment (user_id, activity_id, body) values ($1, $2, 'Bravo'), ($1, $2, 'Supprimé')", [friend, ids.mine]);
     await sql("update engagement.comment set deleted_at = now() where body = 'Supprimé' and activity_id = $1", [ids.mine]);
+    // Kudoer i gave kudos i minutes ago: kudoers[0] is the most recent.
+    for (const [index, kudoer] of kudoers.entries()) {
+      await sql(
+        "insert into engagement.kudos (user_id, activity_id, created_at) values ($1, $2, now() - make_interval(mins => $3))",
+        [kudoer, ids.friendFollowers, index + 1],
+      );
+    }
   }, 30_000);
 
   afterAll(async () => {
@@ -169,13 +178,31 @@ describe("/v1/feed and kudos (integration)", () => {
     const [mine, friendPublic] = body.items;
     expect(mine).toMatchObject({
       locationName: "Annecy, Haute-Savoie",
-      stats: { distanceM: 10234.5, movingTimeS: 3120, elevationGainM: 245 },
+      stats: { distanceM: 10234.5, movingTimeS: 3120, elevationGainM: 245, avgSpeedMs: 3.25 },
       map: { polyline: "_p~iF~ps|U", precision: 5 },
+      routeTrimmed: false,
       author: { id: viewer, displayName: "User 0", avatarUrl: null },
       engagement: { kudosCount: 1, commentCount: 1, viewerHasKudoed: false },
       viewerIsAuthor: true,
     });
+    expect(friendPublic?.routeTrimmed).toBe(true);
     expect(friendPublic?.author).toEqual({ id: friend, displayName: "Camille Martin", avatarUrl: "https://cdn.test/a.png" });
+  });
+
+  it("gives each card its 3 most recent kudos givers, newest first", async () => {
+    const body = (await (await call("/feed", viewer)).json()) as FeedResponse;
+    const byId = new Map(body.items.map((item) => [item.id, item]));
+
+    expect(byId.get(ids.friendFollowers)?.recentKudos).toEqual([
+      { id: kudoers[0], displayName: "User 4", avatarUrl: null },
+      { id: kudoers[1], displayName: "User 5", avatarUrl: null },
+      { id: kudoers[2], displayName: "User 6", avatarUrl: null },
+    ]);
+    expect(byId.get(ids.friendFollowers)?.engagement.kudosCount).toBe(4);
+    expect(byId.get(ids.mine)?.recentKudos).toEqual([
+      { id: friend, displayName: "Camille Martin", avatarUrl: "https://cdn.test/a.png" },
+    ]);
+    expect(byId.get(ids.friendPublic)?.recentKudos).toEqual([]);
   });
 
   it("walks pages with a cursor without duplicates", async () => {

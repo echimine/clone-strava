@@ -1,7 +1,7 @@
 import Foundation
 import Observation
 
-/// The comment thread under an Activity's detail (ADR-034 §6).
+/// The comment thread of an Activity, on its Kudos and comments screen (ADR-034 §6, ADR-036 §8).
 @Observable
 @MainActor
 final class ActivityCommentsStore {
@@ -63,11 +63,11 @@ final class ActivityCommentsStore {
     @ObservationIgnored private var countedDeletions: Set<UUID> = []
 
     /// - Parameters:
-    ///   - request: from the card's comment button (`showsComments`), the composer starts focused.
+    ///   - request: from a comment button (`focusComposer`), the composer starts focused.
     ///   - viewer: the author shown on a comment being sent.
     ///   - onCountChange: each comment the thread gains or loses (sent, deleted, rolled back).
     init(
-        request: ActivityDetailRequest,
+        request: ActivityEngagementRequest,
         loadComments: LoadActivityComments,
         loadComment: LoadActivityComment,
         addComment: AddActivityComment,
@@ -76,8 +76,8 @@ final class ActivityCommentsStore {
         viewer: @escaping @MainActor () -> ActivityAuthor,
         onCountChange: @escaping @MainActor (Int) -> Void
     ) {
-        activityId = request.id
-        isComposerFocused = request.showsComments
+        activityId = request.activityId
+        isComposerFocused = request.focusComposer
         self.loadComments = loadComments
         self.loadComment = loadComment
         self.addComment = addComment
@@ -87,11 +87,11 @@ final class ActivityCommentsStore {
         self.onCountChange = onCountChange
     }
 
-    /// The thread of `detail`'s screen: its count changes reach the detail, and from there the
-    /// feed card (ADR-033 §7).
+    /// The thread of `detail`'s Activity: its count changes reach that store, and from there
+    /// the feed card (ADR-033 §7).
     static func forDetail(
         _ detail: ActivityDetailStore,
-        request: ActivityDetailRequest,
+        request: ActivityEngagementRequest,
         loadComments: LoadActivityComments,
         loadComment: LoadActivityComment,
         addComment: AddActivityComment,

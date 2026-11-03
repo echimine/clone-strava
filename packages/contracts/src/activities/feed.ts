@@ -15,6 +15,8 @@ export const feedActivityStatsSchema = z.object({
   movingTimeS: z.number().int().nullable(),
   elapsedTimeS: z.number().int().nullable(),
   elevationGainM: z.number().nullable(),
+  /** The card's Allure for `pace` sports (ADR-036 §5). */
+  avgSpeedMs: z.number().nullable(),
 });
 
 /** Route drawn on the card's static map (ADR-029): Google encoded polyline. */
@@ -47,8 +49,12 @@ export const feedItemSchema = z.object({
   locationName: z.string().nullable(),
   stats: feedActivityStatsSchema,
   map: feedActivityMapSchema.nullable(),
+  /** The privacy zone removed the start or end of the route: "Départ et arrivée masqués" (ADR-036 §5). */
+  routeTrimmed: z.boolean(),
   author: feedAuthorSchema,
   engagement: feedEngagementSchema,
+  /** The last 3 kudos givers, most recent first (ADR-036 §5). */
+  recentKudos: z.array(feedAuthorSchema).max(3),
   viewerIsAuthor: z.boolean(),
 });
 export type FeedItem = z.infer<typeof feedItemSchema>;

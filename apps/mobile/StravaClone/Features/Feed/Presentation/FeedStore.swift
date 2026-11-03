@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import SwiftUI
 
 /// State of the Home feed (ADR-029): first load and pull-to-refresh, infinite scroll,
 /// optimistic kudos, and reload when one of the user's activities finishes processing.
@@ -37,8 +38,9 @@ final class FeedStore {
     @ObservationIgnored private let localActivities: (any LocalActivityFeedSource)?
     /// Bumped to bring the list back to its top (after Save, ADR-031 §11).
     private(set) var scrollToTopRequest = 0
-    /// Navigation of the Home tab: the Activity details opened from the feed.
-    var path: [ActivityDetailRequest] = []
+    /// Navigation of the Home tab: the Activity details and Kudos and comments screens opened
+    /// from the feed, and whatever they push in turn (ADR-036 §10).
+    var path = NavigationPath()
     /// Applies the change stream for the store's lifetime, even while a detail covers the feed.
     @ObservationIgnored private var changeObservation: Task<Void, Never>?
     /// The cards a `.deleted` change removed since the last refresh, with their place, for a
@@ -88,14 +90,21 @@ final class FeedStore {
         nextCursor = nil
         phase = .idle
         notice = nil
-        path = []
+        path = NavigationPath()
     }
 
-    /// Tap on a card outside its buttons, or its comment button: only a processed card, one the
-    /// server returned, opens the detail; local cards are not tappable (ADR-033 §1).
-    func open(_ id: ActivityID, showingComments: Bool = false) {
+    /// Tap on a card outside its buttons: only a processed card, one the server returned, opens
+    /// the detail; local cards are not tappable (ADR-033 §1).
+    func open(_ id: ActivityID) {
         guard posts.contains(where: { $0.id == id }) else { return }
-        path.append(ActivityDetailRequest(id: id, showsComments: showingComments))
+        path.append(ActivityDetailRequest(id: id))
+    }
+
+    /// The card's comment button: the Kudos and comments screen on Commentaires, composer
+    /// focused (ADR-036 §8).
+    func openComments(_ id: ActivityID) {
+        guard posts.contains(where: { $0.id == id }) else { return }
+        path.append(ActivityEngagementRequest.comments(id))
     }
 
     /// Long press (ADR-033 §1): the "Modifier" menu is only on my processed cards, the ones the

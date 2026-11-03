@@ -1,21 +1,18 @@
 import SwiftUI
 
-/// Kudos block of the detail, under the stats (ADR-034 §1): the count, the row of the most
-/// recent givers (a tap opens the full list), and the kudos button, hidden on the viewer's own
-/// Activity.
+/// Kudos and comments block of the detail, under the stats (ADR-034 §1, ADR-036 §8): the count
+/// and the row of the most recent givers (a tap opens the Kudos and comments screen on Kudos),
+/// the comment button with its count (that screen on Commentaires, composer focused), and the
+/// kudos button, hidden on the viewer's own Activity.
 struct ActivityKudosSection: View {
     let store: ActivityDetailStore
     let engagement: ActivityEngagement
-
-    @State private var kudosList: KudosListStore?
 
     private let avatarSize: CGFloat = 32
 
     var body: some View {
         HStack(spacing: Theme.spacing) {
-            Button {
-                kudosList = store.makeKudosListStore()
-            } label: {
+            NavigationLink(value: ActivityEngagementRequest.kudos(store.id)) {
                 HStack(spacing: 12) {
                     if !store.recentKudos.isEmpty {
                         avatarRow
@@ -36,16 +33,14 @@ struct ActivityKudosSection: View {
 
             Spacer(minLength: 0)
 
+            commentsButton
+
             if store.showsKudosButton {
                 kudosButton
             }
         }
         .padding(.horizontal, Theme.spacing)
         .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 20))
-        .sheet(item: $kudosList) { list in
-            KudosListSheet(store: list)
-                .presentationDetents([.medium, .large])
-        }
     }
 
     /// At most 5 overlapping avatars, the most recent first (on top).
@@ -58,6 +53,26 @@ struct ActivityKudosSection: View {
             }
         }
         .accessibilityIdentifier("activityDetail.kudosAvatars")
+    }
+
+    private var commentsButton: some View {
+        NavigationLink(value: ActivityEngagementRequest.comments(store.id)) {
+            HStack(spacing: 4) {
+                Image(systemName: "bubble.right")
+                    .font(.title3)
+                if engagement.commentCount > 0 {
+                    Text(engagement.commentCount.formatted())
+                        .font(.subheadline.weight(.medium))
+                        .monospacedDigit()
+                }
+            }
+            .foregroundStyle(.primary)
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(ActivityEngagementMessages.commentsButton(engagement.commentCount))
+        .accessibilityIdentifier("activityDetail.comments")
     }
 
     private var kudosButton: some View {
@@ -75,8 +90,4 @@ struct ActivityKudosSection: View {
         .accessibilityLabel(engagement.viewerHasKudoed ? "Retirer le kudos" : "Donner un kudos")
         .accessibilityIdentifier("activityDetail.kudos")
     }
-}
-
-extension KudosListStore: Identifiable {
-    nonisolated var id: ObjectIdentifier { ObjectIdentifier(self) }
 }

@@ -96,10 +96,12 @@ struct OpenAPIContractTests {
             "startedAt": "2026-10-02T12:32:00.000Z",
             "visibility": "public",
             "locationName": null,
-            "stats": { "distanceM": 10234.5, "movingTimeS": 3120, "elapsedTimeS": 3300, "elevationGainM": 245 },
+            "stats": { "distanceM": 10234.5, "movingTimeS": 3120, "elapsedTimeS": 3300, "elevationGainM": 245, "avgSpeedMs": 3.28 },
             "map": null,
+            "routeTrimmed": true,
             "author": { "id": "1b4e28ba-2fa1-41d2-883f-0016d3cca427", "displayName": "Camille Martin", "avatarUrl": null },
             "engagement": { "kudosCount": 3, "commentCount": 1, "viewerHasKudoed": false },
+            "recentKudos": [{ "id": "0b5a5c1e-1f4e-4c55-9d6e-0d3f8f6e2a11", "displayName": "Léa Dupont", "avatarUrl": null }],
             "viewerIsAuthor": true
           }],
           "nextCursor": null
@@ -113,6 +115,9 @@ struct OpenAPIContractTests {
         #expect(item.locationName == nil)
         #expect(item.stats.distanceM == 10234.5)
         #expect(item.engagement.kudosCount == 3)
+        #expect(item.stats.avgSpeedMs == 3.28)
+        #expect(item.routeTrimmed)
+        #expect(item.recentKudos.map(\.displayName) == ["Léa Dupont"])
         #expect(item.viewerIsAuthor)
     }
 

@@ -1,17 +1,16 @@
 import SwiftUI
 
-/// The comment thread under the kudos block (ADR-034 §6): "Voir les commentaires précédents",
-/// then the comments oldest first. A long press offers "Modifier" / "Supprimer".
+/// The Commentaires segment of the Kudos and comments screen (ADR-034 §6, ADR-036 §8): "Voir les
+/// commentaires précédents", then the comments oldest first. A long press offers "Modifier" /
+/// "Supprimer".
 struct ActivityCommentsSection: View {
     @Bindable var store: ActivityCommentsStore
 
-    /// Scroll id of the end of the thread, placed by the detail under this section.
+    /// Scroll id of the end of the thread, placed by the screen under this section.
     static let endAnchor = "activityComments.end"
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(ActivityCommentMessages.title)
-                .font(.headline)
             if store.hasPreviousComments {
                 Button(ActivityCommentMessages.previous) { Task { await store.loadPrevious() } }
                     .font(.subheadline.weight(.semibold))
@@ -107,7 +106,7 @@ struct ActivityCommentRow: View {
     }
 }
 
-/// The composer pinned to the bottom of the detail, with the "Modification… ✕" banner while a
+/// The composer pinned to the bottom of the Kudos and comments screen, with the "Modification… ✕" banner while a
 /// comment is being edited.
 struct ActivityCommentComposer: View {
     @Bindable var store: ActivityCommentsStore

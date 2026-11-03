@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import type {
   ActivityImport,
+  AthleteStatsResponse,
   CreateActivityImportRequest,
   CreateActivityRequest,
   UpdateActivityRequest,
@@ -8,6 +9,7 @@ import type {
   ListActivityImportsQuery,
   ListActivityImportsResponse,
   ProcessActivityJob,
+  ProgressResponse,
   ReprocessActivityJob,
   UploadUrlResponse,
 } from "@repo/contracts";
@@ -35,6 +37,8 @@ import { GetActivityDetailUseCase } from "./use-cases/get-activity-detail.use-ca
 import { DeleteActivityUseCase } from "./use-cases/delete-activity.use-case.js";
 import { UpdateActivityUseCase } from "./use-cases/update-activity.use-case.js";
 import { ReprocessActivityUseCase } from "./use-cases/reprocess-activity.use-case.js";
+import { GetProgressUseCase } from "./use-cases/get-progress.use-case.js";
+import { GetAthleteStatsUseCase } from "./use-cases/get-athlete-stats.use-case.js";
 import type { ActivityDetailRecord } from "./domain/activity-detail.js";
 import type { ActivityRecord } from "./domain/activity-record.js";
 import type { FeedActivityPage } from "./domain/feed-activity.js";
@@ -65,6 +69,8 @@ export class ActivitiesService {
     private readonly deleteActivityUseCase: DeleteActivityUseCase,
     private readonly updateActivityUseCase: UpdateActivityUseCase,
     private readonly reprocessActivityUseCase: ReprocessActivityUseCase,
+    private readonly getProgressUseCase: GetProgressUseCase,
+    private readonly getAthleteStatsUseCase: GetAthleteStatsUseCase,
   ) {}
 
   create(userId: string, request: CreateActivityRequest): Promise<CreateActivityResult> {
@@ -134,6 +140,21 @@ export class ActivitiesService {
   /** The author deletes their activity unless it is `processing` (ADR-031 §13, ADR-033 §6). */
   delete(userId: string, activityId: string): Promise<void> {
     return this.deleteActivityUseCase.execute(userId, activityId);
+  }
+
+  // --- Progrès and Statistiques (ADR-036 §4) ---
+
+  /** The athlete's own 12 weeks and Streak for one active sport; `422` for an unknown sport. */
+  getProgress(userId: string, sportTypeCode: string): Promise<ProgressResponse> {
+    return this.getProgressUseCase.execute(userId, sportTypeCode);
+  }
+
+  /**
+   * An athlete's statistics over the Activities `viewerId` may see; all sports when
+   * `sportTypeCode` is omitted, `422` for an unknown one. The caller checks the athlete exists.
+   */
+  getAthleteStats(viewerId: string, athleteId: string, sportTypeCode?: string): Promise<AthleteStatsResponse> {
+    return this.getAthleteStatsUseCase.execute(viewerId, athleteId, sportTypeCode);
   }
 
   // --- File import (ADR-028) ---

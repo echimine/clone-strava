@@ -44,6 +44,7 @@ export class GetActivityDetailUseCase {
       endedAt: row.endedAt,
       title: row.title,
       description: row.description,
+      source: row.source,
       processingError: row.processingStatus === "failed" ? toErrorCode(row.processingError) : null,
       stats: stats
         ? {
@@ -60,6 +61,7 @@ export class GetActivityDetailUseCase {
         : null,
       mapPolyline: track?.mapPolyline ?? null,
       locationName: track?.locationName ?? null,
+      routeTrimmed: track?.routeTrimmed ?? false,
       updatedAt: row.updatedAt,
     };
   }
