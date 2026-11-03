@@ -190,6 +190,80 @@
         ]
       }
     },
+    "/v1/me/avatar/upload-url": {
+      "post": {
+        "operationId": "MeAvatarController_requestUploadUrl",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AvatarUploadUrlRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AvatarUploadUrlResponseDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "MeAvatar"
+        ]
+      }
+    },
+    "/v1/me/avatar": {
+      "put": {
+        "operationId": "MeAvatarController_set",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetAvatarRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetAvatarResponseDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "MeAvatar"
+        ]
+      },
+      "delete": {
+        "operationId": "MeAvatarController_remove",
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": "Avatar removed"
+          }
+        },
+        "tags": [
+          "MeAvatar"
+        ]
+      }
+    },
     "/v1/me/onboarding-answers": {
       "put": {
         "operationId": "OnboardingAnswersController_submit",
@@ -1847,6 +1921,9 @@
           },
           "approveFollowers": {
             "type": "boolean"
+          },
+          "avatarUrl": {
+            "type": "string"
           }
         },
         "required": [
@@ -1857,6 +1934,91 @@
           "isPremium",
           "defaultVisibility",
           "approveFollowers"
+        ],
+        "additionalProperties": false
+      },
+      "AvatarUploadUrlRequestDto": {
+        "type": "object",
+        "properties": {
+          "sizeBytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1048576
+          }
+        },
+        "required": [
+          "sizeBytes"
+        ]
+      },
+      "AvatarUploadUrlResponseDto_Output": {
+        "type": "object",
+        "properties": {
+          "avatarId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "uploadUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          }
+        },
+        "required": [
+          "avatarId",
+          "uploadUrl",
+          "expiresAt"
+        ],
+        "additionalProperties": false
+      },
+      "SetAvatarRequestDto": {
+        "type": "object",
+        "properties": {
+          "avatarId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "avatarId"
+        ]
+      },
+      "SetAvatarResponseDto_Output": {
+        "type": "object",
+        "properties": {
+          "athlete": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "displayName": {
+                "type": "string"
+              },
+              "avatarUrl": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "displayName",
+              "avatarUrl"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "athlete"
         ],
         "additionalProperties": false
       },

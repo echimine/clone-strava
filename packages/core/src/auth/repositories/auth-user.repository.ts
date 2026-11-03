@@ -13,7 +13,7 @@ export class AuthUserRepository {
       return Promise.resolve([]);
     }
     return this.db
-      .select({ id: schema.user.id, name: schema.user.name, image: schema.user.image })
+      .select({ id: schema.user.id, name: schema.user.name })
       .from(schema.user)
       .where(inArray(schema.user.id, ids));
   }

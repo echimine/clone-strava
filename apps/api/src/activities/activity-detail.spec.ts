@@ -24,6 +24,7 @@ import { MediaAssembler } from "../media/media-assembler.js";
 import { AthleteIdentities } from "../identities/athlete-identities.js";
 import { ActivitiesController } from "./activities.controller.js";
 import { listenOnLoopback } from "../testing/listen-on-loopback.js";
+import { signedAvatarUrl } from "../testing/signed-avatar-url.js";
 
 /** A stored Activity analysis (ADR-036 §6), as the worker writes it. */
 const ANALYSIS = {
@@ -151,7 +152,7 @@ describe("GET /v1/activities/:id (integration)", () => {
                 : null;
             },
             getPublicIdentities: async (userIds: string[]) =>
-              sql('select id as "userId", name, image from "user" where id = any($1)', [userIds]),
+              sql('select id as "userId", name from "user" where id = any($1)', [userIds]),
           },
         },
         { provide: APP_PIPE, useClass: ZodValidationPipe },
@@ -168,8 +169,8 @@ describe("GET /v1/activities/:id (integration)", () => {
       await sql('insert into "user" (id, name, email) values ($1, $2, $3)', [id, `User ${index}`, `${id}@test.local`]);
     }
     await sql(
-      "with profile as (insert into users.user_profile (user_id, first_name, last_name) values ($1, 'Camille', 'Martin')) update \"user\" set image = 'https://cdn.test/a.png' where id = $1",
-      [author],
+      "with profile as (insert into users.user_profile (user_id, first_name, last_name, avatar_key) values ($1, 'Camille', 'Martin', $2)) update \"user\" set image = 'https://cdn.test/a.png' where id = $1",
+      [author, `avatars/${author}/a.jpg`],
     );
     await sql(
       "insert into social.follow (follower_id, followee_id, status) values ($1, $3, 'accepted'), ($2, $3, 'pending')",
@@ -252,7 +253,7 @@ describe("GET /v1/activities/:id (integration)", () => {
       map: { polyline: "_p~iF~ps|U", precision: 5 },
       routeTrimmed: true,
       analysis: ANALYSIS,
-      author: { id: author, displayName: "Camille Martin", avatarUrl: "https://cdn.test/a.png" },
+      author: { id: author, displayName: "Camille Martin", avatarUrl: signedAvatarUrl(`avatars/${author}/a.jpg`) },
       engagement: { kudosCount: 2, commentCount: 1, viewerHasKudoed: true },
       viewerIsAuthor: false,
       media: expect.any(Array),

@@ -7,12 +7,14 @@ import { UsersService } from "@repo/core/users";
 import { CurrentUser } from "../auth/current-user.decorator.js";
 import { SessionGuard } from "../auth/session.guard.js";
 import type { AuthenticatedUser } from "../auth/session.guard.js";
+import { AthleteIdentities } from "../identities/athlete-identities.js";
 
 class MeResponseDto extends createZodDto(meResponseSchema) {}
 
 /**
  * `GET /v1/me` (ADR-009 §3, ADR-031 §13, ADR-036 §1): current user, role,
- * premium status, default visibility and "Approuver mes abonnés".
+ * premium status, default visibility, "Approuver mes abonnés" and the
+ * Avatar (ADR-037 §2), signed like every other identity.
  */
 @Controller("me")
 @UseGuards(SessionGuard)
@@ -21,6 +23,7 @@ export class MeController {
     private readonly subscriptionsService: SubscriptionsService,
     private readonly usersService: UsersService,
     private readonly socialService: SocialService,
+    private readonly identities: AthleteIdentities,
   ) {}
 
   @Get()
@@ -31,11 +34,13 @@ export class MeController {
     // call to `subscriptions` (ADR-021 §5 batch reads / here a single read),
     // the default visibility a read of `users`, and the follow approval a
     // read of `social`.
-    const [isPremium, defaults, followSettings] = await Promise.all([
+    const [isPremium, defaults, followSettings, identity] = await Promise.all([
       this.subscriptionsService.isPremium(user.userId),
       this.usersService.getActivityDefaults(user.userId),
       this.socialService.getFollowSettings(user.userId),
+      this.identities.resolve([user.userId]),
     ]);
+    const { avatarUrl } = identity(user.userId);
     return {
       id: user.userId,
       email: user.email,
@@ -44,6 +49,7 @@ export class MeController {
       isPremium,
       defaultVisibility: defaults.defaultVisibility,
       approveFollowers: followSettings.approveFollowers,
+      ...(avatarUrl === null ? {} : { avatarUrl }),
     };
   }
 }

@@ -60,6 +60,23 @@ export class UserProfileRepository {
       .onConflictDoUpdate({ target: t.userId, set: { ...name, updatedAt: new Date() } });
   }
 
+  /** The Avatar key of an existing row, locked until the end of the transaction. */
+  async lockAvatarKey(userId: string, tx: Transaction): Promise<string | null> {
+    const [row] = await tx
+      .select({ avatarKey: t.avatarKey })
+      .from(t)
+      .where(eq(t.userId, userId))
+      .for("update");
+    if (!row) {
+      throw new Error(`No user_profile row for ${userId}`);
+    }
+    return row.avatarKey;
+  }
+
+  async setAvatarKey(userId: string, avatarKey: string | null, executor: DbExecutor = this.db): Promise<void> {
+    await executor.update(t).set({ avatarKey, updatedAt: new Date() }).where(eq(t.userId, userId));
+  }
+
   /** The Onboarding fields of an existing row, locked until the end of the transaction. */
   async lockOnboardingFields(userId: string, tx: Transaction): Promise<OnboardingProfileFields> {
     const [row] = await tx

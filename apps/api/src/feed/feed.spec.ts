@@ -26,6 +26,7 @@ import { MediaAssembler } from "../media/media-assembler.js";
 import { AthleteIdentities } from "../identities/athlete-identities.js";
 import { FeedController } from "./feed.controller.js";
 import { listenOnLoopback } from "../testing/listen-on-loopback.js";
+import { signedAvatarUrl } from "../testing/signed-avatar-url.js";
 
 /**
  * `GET /v1/feed` and `/v1/activities/:id/kudos` over real HTTP and Postgres
@@ -38,6 +39,7 @@ describe("/v1/feed and kudos (integration)", () => {
   let bullConnection: Redis;
   const viewer = randomUUID();
   const friend = randomUUID();
+  const friendAvatarKey = `avatars/${friend}/${randomUUID()}.jpg`;
   const pendingFriend = randomUUID();
   const stranger = randomUUID();
   const kudoers = [randomUUID(), randomUUID(), randomUUID(), randomUUID()];
@@ -126,7 +128,7 @@ describe("/v1/feed and kudos (integration)", () => {
                 : null;
             },
             getPublicIdentities: async (userIds: string[]) =>
-              sql('select id as "userId", name, image from "user" where id = any($1)', [userIds]),
+              sql('select id as "userId", name from "user" where id = any($1)', [userIds]),
           },
         },
         { provide: APP_PIPE, useClass: ZodValidationPipe },
@@ -142,7 +144,9 @@ describe("/v1/feed and kudos (integration)", () => {
     for (const [index, id] of users.entries()) {
       await sql('insert into "user" (id, name, email) values ($1, $2, $3)', [id, `User ${index}`, `${id}@test.local`]);
     }
-    await sql("with profile as (insert into users.user_profile (user_id, first_name, last_name) values ($1, 'Camille', 'Martin')) update \"user\" set image = 'https://cdn.test/a.png' where id = $1", [friend]);
+    // `user.image` (a Google photo) is never read: only `avatar_key` makes an `avatarUrl` (ADR-037 §2).
+    await sql("with profile as (insert into users.user_profile (user_id, first_name, last_name, avatar_key) values ($1, 'Camille', 'Martin', $2)) update \"user\" set image = 'https://cdn.test/a.png' where id = $1", [friend, friendAvatarKey]);
+    await sql("update \"user\" set image = 'https://cdn.test/viewer.png' where id = $1", [viewer]);
     await sql("insert into social.follow (follower_id, followee_id, status) values ($1, $2, 'accepted'), ($1, $3, 'pending')", [viewer, friend, pendingFriend]);
 
     await insertActivity(ids.mine, viewer, 1);
@@ -196,7 +200,7 @@ describe("/v1/feed and kudos (integration)", () => {
       viewerIsAuthor: true,
     });
     expect(friendPublic?.routeTrimmed).toBe(true);
-    expect(friendPublic?.author).toEqual({ id: friend, displayName: "Camille Martin", avatarUrl: "https://cdn.test/a.png" });
+    expect(friendPublic?.author).toEqual({ id: friend, displayName: "Camille Martin", avatarUrl: signedAvatarUrl(friendAvatarKey) });
   });
 
   it("gives each card its signed Media in order and mediaFirst, with one Media read per page", async () => {
@@ -245,7 +249,7 @@ describe("/v1/feed and kudos (integration)", () => {
     ]);
     expect(byId.get(ids.friendFollowers)?.engagement.kudosCount).toBe(4);
     expect(byId.get(ids.mine)?.recentKudos).toEqual([
-      { id: friend, displayName: "Camille Martin", avatarUrl: "https://cdn.test/a.png" },
+      { id: friend, displayName: "Camille Martin", avatarUrl: signedAvatarUrl(friendAvatarKey) },
     ]);
     expect(byId.get(ids.friendPublic)?.recentKudos).toEqual([]);
   });

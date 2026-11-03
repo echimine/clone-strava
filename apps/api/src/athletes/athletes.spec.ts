@@ -145,7 +145,7 @@ describe("Athlete profile (integration)", () => {
                 : null;
             },
             getPublicIdentities: async (userIds: string[]) =>
-              sql('select id as "userId", name, image from "user" where id = any($1)', [userIds]),
+              sql('select id as "userId", name from "user" where id = any($1)', [userIds]),
             // Stands in for Better Auth's own write of `user.name`.
             setName: async (userId: string, name: string) => {
               await sql('update "user" set name = $2 where id = $1', [userId, name]);

@@ -15,6 +15,7 @@ import { UsersModule } from "@repo/core/users";
 import { ensureTestDatabaseMigrated, TEST_DATABASE_URL, TEST_REDIS_URL } from "../auth/test-auth-app.js";
 import { SessionGuard } from "../auth/session.guard.js";
 import { GlobalExceptionFilter } from "../common/global-exception.filter.js";
+import { AthleteIdentities } from "../identities/athlete-identities.js";
 import { MeController } from "./me.controller.js";
 import { listenOnLoopback } from "../testing/listen-on-loopback.js";
 
@@ -60,6 +61,7 @@ describe("GET /v1/me (integration)", () => {
       controllers: [MeController],
       providers: [
         SessionGuard,
+        AthleteIdentities,
         { provide: SubscriptionsService, useValue: { isPremium: async () => false } },
         {
           provide: AuthService,
@@ -76,6 +78,8 @@ describe("GET /v1/me (integration)", () => {
                   }
                 : null;
             },
+            getPublicIdentities: async (userIds: string[]) =>
+              sql('select id as "userId", name from "user" where id = any($1)', [userIds]),
           },
         },
         { provide: APP_PIPE, useClass: ZodValidationPipe },
