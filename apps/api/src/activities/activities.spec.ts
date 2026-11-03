@@ -220,6 +220,17 @@ describe("/v1/activities (integration)", () => {
       expect(expiresInMs).toBeLessThanOrEqual(15 * 60_000);
     });
 
+    it.each([
+      ["false without mediaFirst (finish screen without Media first)", {}, false],
+      ["the mediaFirst sent by the finish screen", { mediaFirst: true }, true],
+    ])("stores mediaFirst: %s (ADR-037 §6)", async (_case, overrides, expected) => {
+      const id = randomUUID();
+      expect((await call("", userA, { body: body(id, overrides) })).status).toBe(201);
+
+      const detail = (await (await call(`/${id}`, userA, { method: "GET" })).json()) as { mediaFirst: boolean };
+      expect(detail.mediaFirst).toBe(expected);
+    });
+
     it("replays the same call on a pending activity (200) with a new upload URL", async () => {
       const id = randomUUID();
       const first = await json(await call("", userA, { body: body(id) }));

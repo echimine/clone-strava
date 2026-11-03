@@ -4,6 +4,7 @@ import { AUTH_INSTANCE } from "./auth.constants.js";
 import type { AuthInstance } from "./auth-instance.type.js";
 import { SESSION_AUTH_METHODS, type SessionAuthMethod } from "./domain/session-auth-method.js";
 import { AuthUserRepository } from "./repositories/auth-user.repository.js";
+import { BackfillGoogleAvatarsUseCase } from "./use-cases/backfill-google-avatars.use-case.js";
 
 /**
  * Current session, as read from Better Auth (ADR-009 §3: used by
@@ -46,12 +47,22 @@ export class AuthService {
   constructor(
     @Inject(AUTH_INSTANCE) private readonly auth: AuthInstance,
     private readonly users: AuthUserRepository,
+    private readonly backfillGoogleAvatars: BackfillGoogleAvatarsUseCase,
   ) {}
 
   /** Batch read (ADR-021 §2 rule 6): feed authors (ADR-029). */
   async getPublicIdentities(userIds: string[]): Promise<PublicIdentity[]> {
     const rows = await this.users.findPublicByIds([...new Set(userIds)]);
     return rows.map((row) => ({ userId: row.id, name: row.name }));
+  }
+
+  /**
+   * The one-off Google photo backfill (ADR-037 §2): enqueues the copy of the photo of every
+   * existing Google account; the worker copies it only for athletes still without an Avatar.
+   * Replayable. Returns the number of jobs enqueued.
+   */
+  backfillGoogleAvatarCopies(): Promise<number> {
+    return this.backfillGoogleAvatars.execute();
   }
 
   /** `ADR-009 §3`: session guard, `GET /v1/me`. `headers` is the incoming request's `Headers`. */

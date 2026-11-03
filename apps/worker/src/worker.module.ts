@@ -11,6 +11,7 @@ import { loadConfig } from "./config/env.js";
 import { HeartbeatModule } from "./heartbeat/heartbeat.module.js";
 import { AppLoggingModule } from "./logging/logging.module.js";
 import { ActivitiesProcessorModule } from "./processors/activities/activities.module.js";
+import { AvatarsProcessorModule } from "./processors/avatars/avatars.module.js";
 import { BucketSweepProcessorModule } from "./processors/bucket-sweep/bucket-sweep.module.js";
 import { SegmentsProcessorModule } from "./processors/segments/segments.module.js";
 import { SubscriptionsProcessorModule } from "./processors/subscriptions/subscriptions.module.js";
@@ -60,6 +61,7 @@ const config = loadConfig();
     SegmentsProcessorModule,
     SubscriptionsProcessorModule,
     BucketSweepProcessorModule,
+    AvatarsProcessorModule,
   ],
 })
 export class WorkerModule {}

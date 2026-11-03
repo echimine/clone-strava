@@ -42,6 +42,10 @@ import { GetAthleteActivitiesPageUseCase } from "./use-cases/get-athlete-activit
 import { FeedPageBuilder } from "./services/feed-page-builder.js";
 import { BucketReferencesRepository } from "./repositories/bucket-references.repository.js";
 import { SweepBucketUseCase } from "./use-cases/sweep-bucket.use-case.js";
+import { AuthorActivityResolver } from "./services/author-activity-resolver.js";
+import { RequestMediaUploadUrlsUseCase } from "./use-cases/request-media-upload-urls.use-case.js";
+import { ConfirmMediaUseCase } from "./use-cases/confirm-media.use-case.js";
+import { DeleteMediaUseCase } from "./use-cases/delete-media.use-case.js";
 import { ActivitiesService } from "./activities.service.js";
 
 /**
@@ -96,6 +100,10 @@ import { ActivitiesService } from "./activities.service.js";
     FeedPageBuilder,
     BucketReferencesRepository,
     SweepBucketUseCase,
+    AuthorActivityResolver,
+    RequestMediaUploadUrlsUseCase,
+    ConfirmMediaUseCase,
+    DeleteMediaUseCase,
     ActivitiesService,
   ],
   exports: [ActivitiesService],

@@ -1,6 +1,7 @@
 import {
   ConflictException,
   ForbiddenException,
+  Inject,
   Injectable,
   Logger,
   UnprocessableEntityException,
@@ -12,8 +13,11 @@ import {
   type ActivityUpdatedEvent,
   type UpdateActivityRequest,
 } from "@repo/contracts";
+import type { Database } from "@repo/db";
+import { DATABASE } from "../../infrastructure/index.js";
 import { SportsService } from "../../sports/index.js";
 import { ActivityRepository } from "../repositories/activity.repository.js";
+import { ActivityMediaRepository } from "../repositories/activity-media.repository.js";
 import { ActivityStatsRepository } from "../repositories/activity-stats.repository.js";
 import { activityNotFound } from "../services/activity-not-found.js";
 import { ReprocessJobEnqueuer } from "../services/reprocess-job-enqueuer.js";
@@ -22,18 +26,23 @@ import { GetVisibleActivityUseCase } from "./get-visible-activity.use-case.js";
 type ActivityRow = NonNullable<Awaited<ReturnType<GetVisibleActivityUseCase["findRow"]>>>;
 
 /**
- * `PATCH /v1/activities/:id` (ADR-033 §4): the author edits the title, description, sport or
- * visibility of their processed activity. Not visible: `404`; visible but someone else's:
- * `403`; not `processed`: `409`. A new sport must accept the official values (its minimums),
- * otherwise `422`. One `UPDATE`, last write wins, then `activities.activity.updated` and, when
- * the sport changed, `reprocess-activity` (ADR-033 §5).
+ * `PATCH /v1/activities/:id` (ADR-033 §4): the author edits the title, description, sport,
+ * visibility, "media first" or Media order (ADR-037 §8) of their processed activity. Not
+ * visible: `404`; visible but someone else's: `403`; not `processed`: `409`, Media fields
+ * included (ADR-033 §4 "When" is not amended: the finish screen sends `mediaFirst` on
+ * `POST /v1/activities` and each Media its `position` on confirmation). A new sport must accept
+ * the official values (its minimums), otherwise `422`. One transaction (the `UPDATE`, last write
+ * wins, then the positions), then `activities.activity.updated` and, when the sport changed,
+ * `reprocess-activity` (ADR-033 §5).
  */
 @Injectable()
 export class UpdateActivityUseCase {
   private readonly logger = new Logger(UpdateActivityUseCase.name);
 
   constructor(
+    @Inject(DATABASE) private readonly db: Database,
     private readonly activities: ActivityRepository,
+    private readonly media: ActivityMediaRepository,
     private readonly activityStats: ActivityStatsRepository,
     private readonly getVisibleActivity: GetVisibleActivityUseCase,
     private readonly sports: SportsService,
@@ -60,12 +69,19 @@ export class UpdateActivityUseCase {
       description: toStoredDescription(request.description),
       sportTypeCode: request.sportTypeCode,
       visibility: request.visibility,
+      mediaFirst: request.mediaFirst,
     };
     if (values.sportTypeCode !== undefined && values.sportTypeCode !== row.sportTypeCode) {
       await this.validateSportChange(row.id, values.sportTypeCode);
     }
 
-    const updated = await this.activities.updateIfProcessed(row.id, values);
+    const { mediaOrder } = request;
+    const { updated, reordered } = await this.db.transaction(async (tx) => {
+      const updated = await this.activities.updateIfProcessed(row.id, values, tx);
+      const reordered =
+        updated !== undefined && mediaOrder !== undefined && (await this.media.reorder(row.id, mediaOrder, tx));
+      return { updated, reordered };
+    });
     if (!updated) {
       // Deleted (or no longer processed) by a concurrent request in between.
       if (await this.activities.findById(row.id)) {
@@ -76,6 +92,9 @@ export class UpdateActivityUseCase {
 
     // After the commit (ADR-021 §3). An edit that changes nothing has nothing to tell.
     const changedFields = changedFieldsBetween(row, updated);
+    if (reordered) {
+      changedFields.push("mediaOrder");
+    }
     if (changedFields.length > 0) {
       const event: ActivityUpdatedEvent = { activityId: row.id, userId, changedFields };
       this.events.emit(ACTIVITY_UPDATED_EVENT, event);
@@ -128,7 +147,13 @@ export class UpdateActivityUseCase {
   }
 }
 
-const EDITABLE_FIELDS = ["title", "description", "sportTypeCode", "visibility"] as const satisfies ActivityChangedField[];
+const EDITABLE_FIELDS = [
+  "title",
+  "description",
+  "sportTypeCode",
+  "visibility",
+  "mediaFirst",
+] as const satisfies ActivityChangedField[];
 
 /** `undefined` leaves it as is; `null`, empty or blank clears it. */
 function toStoredDescription(description: string | null | undefined): string | null | undefined {

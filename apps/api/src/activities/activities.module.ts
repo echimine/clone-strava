@@ -6,6 +6,7 @@ import { FeedAssembler } from "../feed/feed-assembler.js";
 import { MediaAssembler } from "../media/media-assembler.js";
 import { IdentitiesModule } from "../identities/identities.module.js";
 import { ActivitiesController } from "./activities.controller.js";
+import { ActivityMediaController } from "./activity-media.controller.js";
 import { ActivityImportsController } from "./activity-imports.controller.js";
 import { CommentAssembler } from "./comment-assembler.js";
 import { CommentsController } from "./comments.controller.js";
@@ -14,7 +15,13 @@ import { KudosController } from "./kudos.controller.js";
 
 @Module({
   imports: [AuthModule, CoreActivitiesModule, EngagementModule, IdentitiesModule],
-  controllers: [ActivitiesController, ActivityImportsController, KudosController, CommentsController],
+  controllers: [
+    ActivitiesController,
+    ActivityImportsController,
+    ActivityMediaController,
+    KudosController,
+    CommentsController,
+  ],
   // The detail reuses the feed's author and engagement assembly (ADR-033 §2).
   providers: [CommentAssembler, FeedAssembler, KudosAssembler, MediaAssembler],
 })

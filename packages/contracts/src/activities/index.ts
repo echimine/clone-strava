@@ -7,3 +7,4 @@ export * from "./feed.js";
 export * from "./media.js";
 export * from "./athlete-stats.js";
 export * from "./bucket-keys.js";
+export * from "./media-upload.js";
