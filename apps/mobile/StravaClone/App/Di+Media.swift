@@ -4,9 +4,11 @@ import Foundation
 /// and what the screens get of it.
 extension Di {
     /// The queue over the app's background session, its files in Application Support. The
-    /// session must exist at launch: iOS hands it the events of uploads finished meanwhile.
+    /// session must exist at launch: iOS hands it the events of uploads finished meanwhile. A
+    /// row waits until the server has its Activity (ADR-037 §6).
     static func makeMediaUploadQueue(
         database: AppDatabase,
+        localActivities: GRDBLocalActivityStore,
         apiClient: APIClient,
         authSession: AuthSession,
         analytics: any AnalyticsClient,
@@ -25,21 +27,14 @@ extension Di {
             sessionRefresher: APISessionRefresher(apiClient: apiClient, authSession: authSession),
             analytics: analytics,
             imageLoader: imageLoader,
-            runInBackground: { name, work in await UIKitBackgroundTasks().run(name, work) }
+            runInBackground: { name, work in await UIKitBackgroundTasks().run(name, work) },
+            canSend: { activityID in await localActivities.isKnownToServer(activityID) }
         )
     }
 
-    /// The edit sheet's "Photos et vidéos" (and the finish screen's, #185).
+    /// The "Photos et vidéos" of the edit sheet and of the finish screen.
     var activityMediaUploads: ActivityMediaUploads {
-        let queue = mediaUploadQueue
-        return ActivityMediaUploads(
-            board: queue.board,
-            enqueue: { picked, activityID in await queue.enqueue(picked, to: activityID) },
-            discard: { mediaIDs in await queue.discard(mediaIDs) },
-            reorder: { order, activityID in await queue.reorder(order, of: activityID) },
-            delete: { mediaID, activityID in await queue.deleteConfirmed(mediaID, of: activityID) },
-            analytics: analytics
-        )
+        ActivityMediaUploads(queue: mediaUploadQueue, analytics: analytics)
     }
 
     /// The coordinator's triggers (foreground, network back) and the sign-out (ADR-031 §14).
@@ -48,7 +43,9 @@ extension Di {
         return QueuedSender(
             send: { await queue.send(ignoringBackoff: true) },
             stop: { queue.stopPass() },
-            clear: { await queue.clear() }
+            clear: { await queue.clear() },
+            // The finish screen's Media were waiting for their Activity (ADR-037 §6).
+            activityCreated: { _ in await queue.send() }
         )
     }
 

@@ -16,8 +16,20 @@ final class MediaUploadBoard {
         let media: ActivityMedia
     }
 
+    /// A Media picked on the finish screen, exported before Save writes its row (ADR-037 §6).
+    enum Preparation: Hashable, Sendable {
+        case exporting
+        case ready
+        /// The library could not hand the original (only in iCloud, picked offline): "Média
+        /// indisponible hors connexion", with "Retirer" only.
+        case unavailable
+        /// The original could not be converted: "Réessayer" and "Retirer".
+        case failed
+    }
+
     private(set) var pending: [ActivityID: [Entry]] = [:]
     private(set) var confirmed: [ActivityID: [Entry]] = [:]
+    private(set) var preparations: [UUID: Preparation] = [:]
 
     /// "Réessayer" and "Retirer" on a failed tile, set by the queue.
     @ObservationIgnored var retry: @MainActor (UUID) -> Void = { _ in }
@@ -58,7 +70,17 @@ final class MediaUploadBoard {
         return merged
     }
 
+    /// Where the export of a Media picked on the finish screen stands; nil once saved, or for a
+    /// Media of the edit sheet (exported after "Enregistrer").
+    func preparation(of mediaID: UUID) -> Preparation? {
+        preparations[mediaID]
+    }
+
     // MARK: - Written by the queue
+
+    func setPreparation(_ preparation: Preparation?, of mediaID: UUID) {
+        preparations[mediaID] = preparation
+    }
 
     func show(_ entries: [ActivityID: [Entry]]) {
         pending = entries
@@ -105,6 +127,7 @@ final class MediaUploadBoard {
     func clear() {
         pending = [:]
         confirmed = [:]
+        preparations = [:]
     }
 }
 

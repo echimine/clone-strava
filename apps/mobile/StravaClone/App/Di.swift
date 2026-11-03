@@ -165,6 +165,7 @@ final class Di {
         defaultVisibility = DefaultVisibilityCache(apiClient: apiClient)
         mediaUploadQueue = Self.makeMediaUploadQueue(
             database: database,
+            localActivities: localActivities,
             apiClient: apiClient,
             authSession: authSession,
             analytics: analytics,
@@ -249,6 +250,7 @@ final class Di {
             launch: recordingLaunch,
             ensureFullAccuracy: { await permission.ensureFullAccuracy(purposeKey: "Recording") },
             saveRecording: SaveRecording(service: recordingService, activities: GRDBRecordingSaver(activities: localActivities)),
+            mediaUploads: activityMediaUploads,
             defaultVisibility: { defaultVisibility.cachedDefaultVisibility },
             autoPausePreferences: UserDefaultsRecordingPreferences(),
             requestMotionAuthorization: { await motion.requestAuthorization() }

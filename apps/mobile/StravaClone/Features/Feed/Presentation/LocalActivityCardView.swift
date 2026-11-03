@@ -3,13 +3,15 @@ import SwiftUI
 /// A local Activity on top of the feed (ADR-031 §14): date, sport, title, provisional distance
 /// and moving time, the route from the local points, and a status line. No elevation gain,
 /// place, kudos, comments or share. Delete (confirmed) before `processing` and once `failed`;
-/// Retry after an API refusal.
+/// Retry after an API refusal. The Media picked on the finish screen follow the map, with their
+/// ring or "Échec" (ADR-037 §6).
 struct LocalActivityCardView: View {
     let card: LocalActivityCard
     var onDelete: () -> Void = {}
     var onRetry: () -> Void = {}
 
     @State private var isConfirmingDelete = false
+    @Environment(\.mediaUploads) private var uploads
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -27,7 +29,7 @@ struct LocalActivityCardView: View {
             }
             .padding([.horizontal, .top], Theme.spacing)
 
-            ActivityMapImage(route: card.route, sport: card.activity.sport)
+            carousel
 
             statusLine
                 .padding(.horizontal, Theme.spacing)
@@ -48,6 +50,20 @@ struct LocalActivityCardView: View {
             Text(FeedMessages.deleteConfirmationMessage)
         }
     }
+
+    /// The map alone until a Media is picked; then the carousel, as on the server's card.
+    @ViewBuilder private var carousel: some View {
+        let slides = card.slides(merging: uploads)
+        if slides.count <= 1 {
+            ActivityMapImage(route: card.route, sport: card.activity.sport)
+        } else {
+            ActivityCarousel(slides: slides, height: Self.carouselHeight, slideCornerRadius: 4) {
+                ActivityMapImage(route: card.route, sport: card.activity.sport, height: Self.carouselHeight)
+            }
+        }
+    }
+
+    private static let carouselHeight: CGFloat = 250
 
     private var header: some View {
         HStack(spacing: 8) {

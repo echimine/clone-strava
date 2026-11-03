@@ -18,7 +18,8 @@ import Foundation
 /// - `404` (Activity deleted): silent abandon, row and files deleted.
 ///
 /// Generic on the kind (the exporter decides) and on the Activity's state: `canSend` holds a
-/// row back while its Activity does not exist on the server yet (#185).
+/// row back while its Activity does not exist on the server yet (ADR-037 §6). The finish
+/// screen's Media are exported before their rows exist (`prepare`, MediaUploadQueue+Exports).
 @MainActor
 final class MediaUploadQueue {
     static let maxAttempts = 5
@@ -28,20 +29,22 @@ final class MediaUploadQueue {
     let files: MediaUploadFiles
     let transfer: any MediaFileTransferring
     let server: any MediaUploadServer
-    private let exporter: MediaExporter
+    let exporter: MediaExporter
     private let sessionRefresher: any SessionRefreshing
     private let analytics: any AnalyticsClient
     private let imageLoader: ImageLoader?
     private let backoff: RetryBackoff
     let now: @Sendable () -> Date
     private let sleep: @Sendable (Duration) async throws -> Void
-    private let runInBackground: MediaBackgroundWork
-    private let canSend: @MainActor (ActivityID) async -> Bool
+    let runInBackground: MediaBackgroundWork
+    let canSend: @MainActor (ActivityID) async -> Bool
 
     /// The library originals not exported yet, or whose export failed ("Réessayer").
-    private var sources: [UUID: MediaSource] = [:]
-    private var exportOrder: [UUID] = []
-    private var exporting: Task<Void, Never>?
+    var sources: [UUID: MediaSource] = [:]
+    var exportOrder: [UUID] = []
+    var exporting: Task<Void, Never>?
+    /// The finish screen's Media, exported before Save writes their rows (ADR-037 §6).
+    var prepared: [UUID: PreparedExport] = [:]
     /// Files with a `PUT` running in the session.
     var activeFiles: Set<MediaFileKey> = []
     /// Bytes sent so far of the running `PUT`s, for the progress ring.
@@ -113,7 +116,7 @@ final class MediaUploadQueue {
         let lost = all.filter { $0.state == .exporting && sources[$0.mediaID] == nil }
         try? await store.delete(lost.map(\.mediaID))
         let kept = Set(all.map(\.mediaID)).subtracting(lost.map(\.mediaID))
-        files.deleteFolders(except: kept)
+        files.deleteFolders(except: kept.union(prepared.keys))
         activeFiles = await transfer.activeFiles()
         await refreshBoard()
         await send()
@@ -156,6 +159,10 @@ final class MediaUploadQueue {
     /// "Réessayer" on a failed tile: the files are sent again, or the export runs again while
     /// the library original is still in memory.
     func retry(_ mediaID: UUID) async {
+        if prepared[mediaID] != nil {
+            reprepare(mediaID)
+            return
+        }
         guard var upload = try? await store.upload(mediaID), upload.state == .failed else { return }
         if upload.isExported {
             upload.state = upload.filesToUpload.isEmpty ? .confirming : .uploading
@@ -189,6 +196,7 @@ final class MediaUploadQueue {
         wakeUp = nil
         exportOrder = []
         sources = [:]
+        forgetPrepared(Array(prepared.keys))
         await transfer.cancelAll()
         activeFiles = []
         sentBytes = [:]
@@ -204,52 +212,6 @@ final class MediaUploadQueue {
         wakeUp?.cancel()
         wakeUp = nil
         sending?.cancel()
-    }
-
-    // MARK: - Exports
-
-    private func runExports() {
-        guard exporting == nil else { return }
-        exporting = Task {
-            await runInBackground("media-export") {
-                while !exportOrder.isEmpty {
-                    let mediaID = exportOrder.removeFirst()
-                    await export(mediaID)
-                }
-            }
-            exporting = nil
-        }
-    }
-
-    private func export(_ mediaID: UUID) async {
-        guard let source = sources[mediaID], var upload = try? await store.upload(mediaID), upload.state == .exporting else {
-            return
-        }
-        let exported: ExportedMedia
-        do {
-            let directory = try files.makeDirectory(of: mediaID)
-            exported = try await exporter.export(source, into: directory)
-        } catch {
-            files.delete(mediaID)
-            await fail(upload, .exportFailed)
-            return
-        }
-        upload.width = exported.width
-        upload.height = exported.height
-        upload.durationMs = exported.durationMs
-        upload.files = exported.files
-        upload.state = .uploading
-        upload.attempts = 0
-        upload.nextAttemptAt = now()
-        guard (try? await store.save(upload)) == true else {
-            // "Retirer" during the export.
-            files.delete(mediaID)
-            return
-        }
-        sources[mediaID] = nil
-        await refreshBoard()
-        guard await canSend(upload.activityID) else { return }
-        await self.upload(upload)
     }
 
     // MARK: - Passes
@@ -412,6 +374,7 @@ final class MediaUploadQueue {
         for id in mediaIDs {
             sources[id] = nil
         }
+        forgetPrepared(mediaIDs)
         await cancelTasks(of: mediaIDs)
         try? await store.delete(mediaIDs)
         for id in mediaIDs {

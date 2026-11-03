@@ -117,8 +117,15 @@ struct MediaUploadHarness: Sendable {
         return try request?.httpBody.flatMap { try JSONSerialization.jsonObject(with: $0) as? [String: Any] }
     }
 
+    /// `server` replaces the API adapter on the stubbed network (`MediaURLProtocolStub`);
+    /// `canSend` holds the rows of an Activity the server does not have yet (ADR-037 §6).
     @MainActor
-    func makeQueue(transfer: FakeMediaTransfer, exporter: MediaExporter = MediaExporter()) -> MediaUploadQueue {
+    func makeQueue(
+        transfer: FakeMediaTransfer,
+        exporter: MediaExporter = MediaExporter(),
+        server: (any MediaUploadServer)? = nil,
+        canSend: @escaping @MainActor (ActivityID) async -> Bool = { _ in true }
+    ) -> MediaUploadQueue {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [MediaURLProtocolStub.self]
         let authSession = AuthSession(service: "test.media-upload.\(UUID())")
@@ -127,13 +134,14 @@ struct MediaUploadHarness: Sendable {
         return MediaUploadQueue(
             store: store,
             files: files,
-            server: APIMediaUploadServer(apiClient: apiClient),
+            server: server ?? APIMediaUploadServer(apiClient: apiClient),
             transfer: transfer,
             sessionRefresher: FakeSessionRefresher(),
             analytics: analytics,
             exporter: exporter,
             now: { Self.now },
-            sleep: ManualSleeper().sleep
+            sleep: ManualSleeper().sleep,
+            canSend: canSend
         )
     }
 
@@ -205,4 +213,27 @@ struct MediaUploadHarness: Sendable {
     static func photo(_ data: Data = cameraPhoto(width: 1_200, height: 900)) -> PickedMedia {
         PickedMedia(source: MediaSource(kind: .photo) { .image(data) })
     }
+}
+
+/// `MediaUploadServer` without a network, for suites that already stub another one: records
+/// each call ("upload-urls <mediaId>", "confirm <mediaId>"), hands a target per file, and
+/// leaves every confirmation offline.
+final class FakeMediaUploadServer: MediaUploadServer, @unchecked Sendable {
+    private let recorded = Locked<[String]>([])
+
+    var calls: [String] { recorded.value }
+
+    func uploadTargets(for upload: MediaUpload) async throws(MediaServerError) -> [MediaUploadTarget] {
+        recorded.value.append("upload-urls \(upload.mediaID)")
+        return upload.files.map { file in
+            MediaUploadTarget(name: file.name, url: URL(string: "https://bucket.test/\(file.name)")!, expiresAt: .distantFuture)
+        }
+    }
+
+    func confirm(_ upload: MediaUpload) async throws(MediaServerError) -> ActivityMedia {
+        recorded.value.append("confirm \(upload.mediaID)")
+        throw .offline
+    }
+
+    func delete(_ mediaID: UUID, of activityID: ActivityID) async throws(MediaServerError) {}
 }

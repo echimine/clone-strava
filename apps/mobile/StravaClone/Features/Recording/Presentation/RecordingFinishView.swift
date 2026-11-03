@@ -4,7 +4,8 @@ import SwiftUI
 /// Title prefilled with the server's formula (back to it when emptied), visibility preselected
 /// on `defaultVisibility`; neither is saved with the Recording. Mini-map and the sport's final
 /// stats, without a "provisional" label. Save is disabled below the sport's minimum duration or
-/// with fewer than 2 points, with the explanation.
+/// with fewer than 2 points, with the explanation. "Photos et vidéos" (ADR-037 §6) as in
+/// "Modifier": the picked Media are exported at once and saved with the Activity.
 /// It opens with the celebration (ADR-032 §5) when the Recording is eligible, unless Reduce
 /// Motion is on; Resume then finish again plays it again (a new finish screen).
 struct RecordingFinishView: View {
@@ -68,6 +69,17 @@ struct RecordingFinishView: View {
 
     private var form: some View {
         VStack(spacing: 20) {
+            ScrollView {
+                details
+            }
+            .scrollDismissesKeyboard(.interactively)
+            footer
+        }
+        .padding(Theme.spacing)
+    }
+
+    private var details: some View {
+        VStack(spacing: 20) {
             Label(
                 RecordingFormatters.sportLabel(snapshot.recording.sport),
                 systemImage: RecordingFormatters.sportSymbol(snapshot.recording.sport)
@@ -110,8 +122,19 @@ struct RecordingFinishView: View {
                 }
             }
 
-            Spacer()
+            if store.offersMedia {
+                MediaManagementSection(
+                    draft: Bindable(store).mediaDraft,
+                    route: snapshot.trace.count >= 2 ? EncodedPolyline.thumbnail(of: snapshot.trace) : nil,
+                    sport: snapshot.recording.sport.sportType,
+                    style: .plain
+                )
+            }
+        }
+    }
 
+    private var footer: some View {
+        VStack(spacing: 20) {
             if let message = store.errorMessage {
                 Text(message).font(.footnote).foregroundStyle(.red)
             }
@@ -154,7 +177,6 @@ struct RecordingFinishView: View {
             .font(.headline)
             .buttonStyle(.plain)
         }
-        .padding(Theme.spacing)
     }
 
     static func label(_ visibility: ActivityVisibility) -> String {

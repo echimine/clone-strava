@@ -203,6 +203,12 @@ final class AppDatabase: Sendable {
             }
             try db.create(index: "media_upload_on_activity_id", on: "media_upload", columns: ["activity_id", "position"])
         }
+        // ADR-037 §6, §8: the finish screen's "Mettre en premier", sent by `create_activity`.
+        migrator.registerMigration("local_activity_media_first_v1") { db in
+            try db.alter(table: "local_activity") { table in
+                table.add(column: "media_first", .boolean).notNull().defaults(to: false)
+            }
+        }
         return migrator
     }
 }

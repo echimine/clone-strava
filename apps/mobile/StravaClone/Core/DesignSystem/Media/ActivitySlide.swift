@@ -42,3 +42,14 @@ extension ActivityPost {
         return ActivitySlide.compose(hasMap: route != nil, media: media, mediaFirst: mediaFirst)
     }
 }
+
+extension LocalActivityCard {
+    /// The local card's carousel (ADR-037 §6): the static map of the local points, then the Media
+    /// picked on the finish screen, with their ring or "Échec". Once processed, the server's card
+    /// takes them over (`ActivityPost.slides(merging:)`), without a duplicate.
+    @MainActor
+    func slides(merging uploads: MediaUploadBoard?) -> [ActivitySlide<ActivityMedia>] {
+        let media = uploads?.media(of: id, merging: []) ?? []
+        return ActivitySlide.compose(hasMap: true, media: media, mediaFirst: activity.mediaFirst)
+    }
+}

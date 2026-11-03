@@ -46,6 +46,9 @@ struct LocalActivity: Equatable, Sendable {
     let elapsedTimeS: Int
     var state: LocalActivityState = .recorded
     var failure: LocalActivityFailure?
+    /// The first Media goes before the map (ADR-037 §6, §8): sent as `mediaFirst` by
+    /// `create_activity`.
+    var mediaFirst = false
 }
 
 /// Why Delete or Retry was turned down (ADR-031 §14): Delete only before `processing` (or once
@@ -74,11 +77,12 @@ extension LocalActivity {
     }
 }
 
-/// The Save transaction (ADR-031 §11), implemented by `Core/LocalActivities`: the local
-/// Activity in `recorded`, `create_activity` in `sync_operation`, and the `recording` row
-/// deleted, all at once. The points and finished Pauses stay attached to the Activity.
+/// The Save transaction (ADR-031 §11, ADR-037 §6), implemented by `Core/LocalActivities`: the
+/// local Activity in `recorded`, `create_activity` in `sync_operation`, the `media_upload` rows
+/// of the Media picked on the finish screen, and the `recording` row deleted, all at once. The
+/// points and finished Pauses stay attached to the Activity.
 protocol LocalActivitySaving: Sendable {
-    func saveRecorded(_ activity: LocalActivity) async throws
+    func saveRecorded(_ activity: LocalActivity, media: [MediaUpload]) async throws
 }
 
 /// The visibility preselected on the finish screen (ADR-031 §11, §13): the athlete's

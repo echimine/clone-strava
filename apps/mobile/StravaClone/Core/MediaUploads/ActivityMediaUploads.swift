@@ -1,8 +1,8 @@
 import Foundation
 
 /// What a screen needs to manage an Activity's Media (ADR-037 §5, §8, §10): the board of the
-/// Media being sent, and the queue's operations. Handed by the app shell to the edit sheet (and
-/// to the finish screen, #185), so no feature imports another.
+/// Media being sent, and the queue's operations. Handed by the app shell to the edit sheet and
+/// to the finish screen, so no feature imports another.
 struct ActivityMediaUploads {
     let board: MediaUploadBoard
     let enqueue: @MainActor (_ picked: [(media: PickedMedia, position: Int)], _ activityID: ActivityID) async -> Void
@@ -14,9 +14,37 @@ struct ActivityMediaUploads {
     var delete: @MainActor (_ mediaID: UUID, _ activityID: ActivityID) async -> Bool = { _, _ in true }
     /// Where `activity_media_saved` goes.
     var analytics: any AnalyticsClient = NoAnalyticsClient()
+
+    // MARK: - Finish screen (ADR-037 §6)
+
+    /// Picked on the finish screen: exported at once, before Save.
+    var prepare: @MainActor (_ picked: [PickedMedia]) -> Void = { _ in }
+    /// Gone from the finish screen's strip, or the Recording deleted: export stopped, files deleted.
+    var release: @MainActor (_ mediaIDs: [UUID]) -> Void = { _ in }
+    /// The `media_upload` rows Save writes in its transaction.
+    var uploads: @MainActor (_ picked: [(media: PickedMedia, position: Int)], _ activityID: ActivityID) -> [MediaUpload] = { _, _ in [] }
+    /// After Save's commit: the queue takes the rows over.
+    var adopt: @MainActor (_ picked: [PickedMedia]) async -> Void = { _ in }
 }
 
 extension ActivityMediaUploads {
+    /// Every operation over the app's queue.
+    @MainActor
+    init(queue: MediaUploadQueue, analytics: any AnalyticsClient) {
+        self.init(
+            board: queue.board,
+            enqueue: { picked, activityID in await queue.enqueue(picked, to: activityID) },
+            discard: { mediaIDs in await queue.discard(mediaIDs) },
+            reorder: { order, activityID in await queue.reorder(order, of: activityID) },
+            delete: { mediaID, activityID in await queue.deleteConfirmed(mediaID, of: activityID) },
+            analytics: analytics,
+            prepare: { picked in queue.prepare(picked) },
+            release: { mediaIDs in queue.release(mediaIDs) },
+            uploads: { picked, activityID in queue.uploads(for: picked, to: activityID) },
+            adopt: { picked in await queue.adopt(picked) }
+        )
+    }
+
     /// "Enregistrer" with `draft` (#184), before the single `PATCH` (`mediaOrder`, `mediaFirst`):
     /// `activity_media_saved` is sent (nothing for an unchanged draft); a Media removed while
     /// still being sent is discarded, a confirmed one `DELETE`d; the rows being sent take their

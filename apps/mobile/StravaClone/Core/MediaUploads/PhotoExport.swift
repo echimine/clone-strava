@@ -106,6 +106,8 @@ enum PhotoExport {
 struct MediaExporter: Sendable {
     enum Failure: Error, Equatable {
         case failed
+        /// The library could not hand the original (only in iCloud, and offline).
+        case unavailable
     }
 
     var exportPhoto: @Sendable (Data, URL) throws -> ExportedMedia = { data, directory in
@@ -117,7 +119,13 @@ struct MediaExporter: Sendable {
     }
 
     func export(_ source: MediaSource, into directory: URL) async throws -> ExportedMedia {
-        switch try await source.load() {
+        let content: MediaSource.Content
+        do {
+            content = try await source.load()
+        } catch {
+            throw Failure.unavailable
+        }
+        switch content {
         case .image(let data):
             return try exportPhoto(data, directory)
         case .movie(let url):

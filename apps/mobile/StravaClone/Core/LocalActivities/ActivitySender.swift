@@ -33,6 +33,10 @@ final class ActivitySender {
     private var rerunIgnoringBackoff = false
     private var wakeUp: Task<Void, Never>?
     private var refusalContinuations: [UUID: AsyncStream<ActivityID>.Continuation] = [:]
+    /// The server has just created the Activity (`create_activity` succeeded): set by the queue
+    /// coordinator, which wakes the Media waiting for it (ADR-037 §6). Called once the local
+    /// Activity is `created` (or `processing`), before `upload_trace` goes.
+    var onCreated: @MainActor (ActivityID) -> Void = { _ in }
 
     init(
         server: any ActivityServer,
@@ -183,9 +187,13 @@ final class ActivitySender {
         guard let activity = try? await store.activity(operation.activityID) else { return nil }
         switch await attempt({ () async throws(ActivityServerError) in try await self.server.create(activity) }) {
         case .success(.awaitingTrace(let target)):
-            return try? await store.advance(operation, to: .created, next: .upload, uploadTarget: target, at: now())
+            let next = try? await store.advance(operation, to: .created, next: .upload, uploadTarget: target, at: now())
+            onCreated(operation.activityID)
+            return next
         case .success(.alreadyProcessing):
-            return try? await store.advance(operation, to: .processing, next: nil, at: now())
+            let next = try? await store.advance(operation, to: .processing, next: nil, at: now())
+            onCreated(operation.activityID)
+            return next
         case .failure(let error):
             await handle(error, of: operation)
             return nil
