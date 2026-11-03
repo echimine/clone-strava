@@ -4,8 +4,6 @@ import SwiftUI
 /// loading, error with "Réessayer", the unavailable state with "Retour", or the Activity.
 struct ActivityDetailPage: View {
     @State private var store: ActivityDetailStore
-    /// The comment thread (ADR-034 §6).
-    @State private var comments: ActivityCommentsStore
     /// Kept live while shown (ADR-034 §5).
     private let liveEvents: any ActivityLiveEventSource
     /// "⋯" > "Supprimer", waiting for its confirmation.
@@ -16,12 +14,9 @@ struct ActivityDetailPage: View {
     init(
         request: ActivityDetailRequest,
         makeStore: @MainActor (ActivityID) -> ActivityDetailStore,
-        makeCommentsStore: @MainActor (ActivityDetailRequest, ActivityDetailStore) -> ActivityCommentsStore,
         liveEvents: any ActivityLiveEventSource
     ) {
-        let store = makeStore(request.id)
-        _store = State(initialValue: store)
-        _comments = State(initialValue: makeCommentsStore(request, store))
+        _store = State(initialValue: makeStore(request.id))
         self.liveEvents = liveEvents
     }
 
@@ -38,12 +33,12 @@ struct ActivityDetailPage: View {
                 Task { await store.delete() }
                 dismiss()
             }
+            // Also on coming back from the Kudos and comments screen: the counts changed there.
             .task { await store.load() }
             .task { await store.observeEvents() }
             // Subscribed while shown, unsubscribed when the task ends with the screen.
-            .task { await ActivityLiveUpdates(events: liveEvents, detail: store, comments: comments).run() }
+            .task { await ActivityLiveUpdates(events: liveEvents, detail: store).run() }
             .toast($store.kudosNotice)
-            .toast($comments.toast)
             .accessibilityIdentifier("activityDetail")
     }
 
@@ -86,30 +81,15 @@ struct ActivityDetailPage: View {
                     .accessibilityIdentifier("activityDetail.back")
             }
         case .loaded(let detail):
-            ScrollViewReader { proxy in
-                ActivityDetailContent(detail: detail) {
-                    ActivityKudosSection(store: store, engagement: detail.engagement)
-                    ActivityCommentsSection(store: comments)
-                    Color.clear.frame(height: 1).id(ActivityCommentsSection.endAnchor)
-                }
-                .scrollDismissesKeyboard(.interactively)
-                .safeAreaInset(edge: .bottom, spacing: 0) { ActivityCommentComposer(store: comments) }
-                .onChange(of: comments.isComposerFocused, initial: true) { scrollToComments(proxy) }
-                .onChange(of: comments.comments.count) { scrollToComments(proxy) }
+            ActivityDetailContent(detail: detail) {
+                ActivityKudosSection(store: store, engagement: detail.engagement)
             }
         }
     }
-
-    /// While writing, the end of the thread stays in view; from the card's comment button the
-    /// detail opens on it (ADR-034 §6).
-    private func scrollToComments(_ proxy: ScrollViewProxy) {
-        guard comments.isComposerFocused else { return }
-        withAnimation { proxy.scrollTo(ActivityCommentsSection.endAnchor, anchor: .bottom) }
-    }
 }
 
-/// The loaded Activity: map, header, title and description, stats grid, then the engagement
-/// blocks under the stats (ADR-034 §6).
+/// The loaded Activity: map, header, title and description, stats grid, then the kudos and
+/// comments block under the stats (ADR-036 §8).
 struct ActivityDetailContent<Engagement: View>: View {
     let detail: ActivityDetail
     @ViewBuilder let engagement: () -> Engagement
@@ -218,9 +198,29 @@ private struct PreviewActivityKudosRepository: ActivityKudosRepository {
     }
 }
 
-private struct PreviewActivityLiveEventSource: ActivityLiveEventSource {
+/// No live event, for previews.
+struct PreviewActivityLiveEventSource: ActivityLiveEventSource {
     func events(of activityId: ActivityID) -> AsyncStream<ActivityLiveEvent> {
         AsyncStream { _ in }
+    }
+}
+
+extension ActivityDetailStore {
+    /// An Activity of the athlete, with 6 kudos, for previews.
+    static func preview(id: ActivityID) -> ActivityDetailStore {
+        let changes = ActivityChanges()
+        return ActivityDetailStore(
+            id: id,
+            loadDetail: LoadActivityDetail(repository: PreviewActivityDetailRepository()),
+            loadKudos: LoadKudosList(repository: PreviewActivityKudosRepository()),
+            setKudos: SetActivityKudos(repository: PreviewActivityKudosRepository()),
+            changes: changes,
+            updateActivity: UpdateActivity(repository: PreviewActivityDetailRepository()),
+            deleter: ActivityDeleter(
+                deleteActivity: DeleteActivity(repository: PreviewActivityDetailRepository()),
+                changes: changes
+            )
+        )
     }
 }
 
@@ -228,33 +228,7 @@ private struct PreviewActivityLiveEventSource: ActivityLiveEventSource {
     NavigationStack {
         ActivityDetailPage(
             request: ActivityDetailRequest(id: ActivityID()),
-            makeStore: { id in
-                let changes = ActivityChanges()
-                return ActivityDetailStore(
-                    id: id,
-                    loadDetail: LoadActivityDetail(repository: PreviewActivityDetailRepository()),
-                    loadKudos: LoadKudosList(repository: PreviewActivityKudosRepository()),
-                    setKudos: SetActivityKudos(repository: PreviewActivityKudosRepository()),
-                    changes: changes,
-                    updateActivity: UpdateActivity(repository: PreviewActivityDetailRepository()),
-                    deleter: ActivityDeleter(
-                        deleteActivity: DeleteActivity(repository: PreviewActivityDetailRepository()),
-                        changes: changes
-                    )
-                )
-            },
-            makeCommentsStore: { request, detail in
-                let repository = PreviewActivityCommentRepository()
-                return .forDetail(
-                    detail,
-                    request: request,
-                    loadComments: LoadActivityComments(repository: repository),
-                    loadComment: LoadActivityComment(repository: repository),
-                    addComment: AddActivityComment(repository: repository),
-                    editComment: EditActivityComment(repository: repository),
-                    deleteComment: DeleteActivityComment(repository: repository)
-                )
-            },
+            makeStore: { id in .preview(id: id) },
             liveEvents: PreviewActivityLiveEventSource()
         )
     }

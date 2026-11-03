@@ -2,15 +2,17 @@ import SwiftUI
 
 /// Home tab: the activity feed (ADR-029). Knows nothing of other features (ADR-007 rule 5):
 /// the app shell passes the "+" action, the content shown above the feed (e.g. the import
-/// banner), `openActivity`, the Activity detail pushed in this tab's stack, and `editActivity`
-/// and `deleteActivity` (once confirmed), "Modifier" and "Supprimer" in the context menu of my
-/// processed cards (ADR-033 §1, §7).
-struct FeedView<TopContent: View, ActivityDestination: View>: View {
+/// banner), `openActivity` and `openEngagement`, the Activity detail and the Kudos and comments
+/// screen pushed in this tab's stack (ADR-036 §10), and `editActivity` and `deleteActivity`
+/// (once confirmed), "Modifier" and "Supprimer" in the context menu of my processed cards
+/// (ADR-033 §1, §7).
+struct FeedView<TopContent: View, ActivityDestination: View, EngagementDestination: View>: View {
     @Bindable var store: FeedStore
     var onImportActivity: () -> Void = {}
     var editActivity: ((ActivityID) -> Void)?
     var deleteActivity: ((ActivityID) -> Void)?
     @ViewBuilder var openActivity: (ActivityDetailRequest) -> ActivityDestination
+    @ViewBuilder var openEngagement: (ActivityEngagementRequest) -> EngagementDestination
     @ViewBuilder var topContent: () -> TopContent
     /// "Supprimer" on a card, waiting for its confirmation.
     @State private var deletionCandidate: ActivityID?
@@ -33,6 +35,9 @@ struct FeedView<TopContent: View, ActivityDestination: View>: View {
                 }
                 .navigationDestination(for: ActivityDetailRequest.self) { request in
                     openActivity(request)
+                }
+                .navigationDestination(for: ActivityEngagementRequest.self) { request in
+                    openEngagement(request)
                 }
                 .activityDeleteConfirmation($deletionCandidate) { id in deleteActivity?(id) }
         }
@@ -91,7 +96,7 @@ struct FeedView<TopContent: View, ActivityDestination: View>: View {
                         ActivityCard(
                             post: post,
                             onToggleKudos: { Task { await store.toggleKudos(on: post.id) } },
-                            onComments: { store.open(post.id, showingComments: true) }
+                            onComments: { store.openComments(post.id) }
                         )
                         // ADR-033 §1: a tap outside the card's buttons opens the detail (the
                         // buttons keep their own action).
@@ -135,9 +140,14 @@ private extension LocalActivityCard {
     var rowID: String { "local-\(id)" }
 }
 
-extension FeedView where TopContent == EmptyView, ActivityDestination == EmptyView {
+extension FeedView where TopContent == EmptyView, ActivityDestination == EmptyView, EngagementDestination == EmptyView {
     init(store: FeedStore, onImportActivity: @escaping () -> Void = {}) {
-        self.init(store: store, onImportActivity: onImportActivity, openActivity: { _ in EmptyView() }) { EmptyView() }
+        self.init(
+            store: store,
+            onImportActivity: onImportActivity,
+            openActivity: { _ in EmptyView() },
+            openEngagement: { _ in EmptyView() }
+        ) { EmptyView() }
     }
 }
 
