@@ -48,6 +48,7 @@ export class CreateActivityUseCase {
       endedAt: new Date(request.endedAt),
       visibility: request.visibility,
       isManual: request.isManual,
+      mediaFirst: request.mediaFirst ?? false,
       source: "recorded",
     });
     const row = await this.activities.findById(request.id);
