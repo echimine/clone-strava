@@ -101,10 +101,11 @@ export class ActivitiesController {
   }
 
   /**
-   * The author edits title, description, sport or visibility of their processed activity
-   * (ADR-033 §4) and gets the detail back. `404 activity_not_found` if not visible; `403
-   * not_activity_author`; `409 activity_not_editable` unless `processed`; `422` for an empty
-   * body, an unknown sport or `activity_too_short_for_sport`.
+   * The author edits title, description, sport, visibility, `mediaFirst` or the Media order
+   * (`mediaOrder`, ADR-037 §8) of their processed activity (ADR-033 §4) and gets the detail
+   * back. `404 activity_not_found` if not visible; `403 not_activity_author`; `409
+   * activity_not_editable` unless `processed`; `422` for an empty body, an unknown sport,
+   * `activity_too_short_for_sport`, or a `mediaOrder` with duplicates or more than 8 ids.
    */
   @Patch(":id")
   @ZodResponse({ status: 200, type: ActivityDetailDto })
