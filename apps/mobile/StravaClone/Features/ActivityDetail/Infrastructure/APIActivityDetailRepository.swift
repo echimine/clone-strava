@@ -25,7 +25,8 @@ struct APIActivityDetailRepository: ActivityDetailRepository {
             title: edit.title,
             description: edit.description ?? "",
             sportTypeCode: edit.sport.code,
-            visibility: UpdateRequest.visibilityPayload(rawValue: edit.visibility.rawValue)
+            visibility: UpdateRequest.visibilityPayload(rawValue: edit.visibility.rawValue),
+            mediaOrder: edit.mediaOrder?.map { $0.uuidString.lowercased() }
         )
         do {
             let response: DetailResponse = try await apiClient.send(method: "PATCH", path: "/v1/activities/\(id)", body: body)

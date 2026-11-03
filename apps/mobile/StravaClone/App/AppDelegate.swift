@@ -50,4 +50,23 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         ))
         return true
     }
+
+    /// The Media's background session finished its uploads while the app was suspended or
+    /// killed (ADR-037 §5): the session, made at launch, receives their events, then iOS's
+    /// handler is called.
+    func application(
+        _ application: UIApplication,
+        handleEventsForBackgroundURLSession identifier: String,
+        completionHandler: @escaping () -> Void
+    ) {
+        let handler = UncheckedHandler(run: completionHandler)
+        if !di.handleEventsForBackgroundURLSession(identifier, completionHandler: { handler.run() }) {
+            completionHandler()
+        }
+    }
+}
+
+/// iOS calls this handler on the main thread once; it crosses to the session's delegate queue.
+private struct UncheckedHandler: @unchecked Sendable {
+    let run: () -> Void
 }

@@ -34,4 +34,11 @@ extension ActivityPost {
     var slides: [ActivitySlide<ActivityMedia>] {
         ActivitySlide.compose(hasMap: route != nil, media: media, mediaFirst: mediaFirst)
     }
+
+    /// The same, with the author's Media still being sent (ADR-037 §5) at their place.
+    @MainActor
+    func slides(merging uploads: MediaUploadBoard?) -> [ActivitySlide<ActivityMedia>] {
+        let media = uploads?.media(of: id, merging: media) ?? media
+        return ActivitySlide.compose(hasMap: route != nil, media: media, mediaFirst: mediaFirst)
+    }
 }

@@ -46,6 +46,7 @@ struct StravaCloneApp: App {
             )
                 .tint(Theme.accent)
                 .environment(\.imageLoader, di.imageLoader)
+                .environment(\.mediaUploads, di.mediaUploadQueue.board)
                 .environment(\.mapboxAccessToken, di.configuration.mapboxAccessToken)
                 .environment(di.locationPermission)
                 .environment(\.locationProvider, di.locationProvider)
