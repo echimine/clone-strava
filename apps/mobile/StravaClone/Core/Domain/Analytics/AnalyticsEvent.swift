@@ -72,6 +72,9 @@ enum AnalyticsEvent: Equatable, Sendable {
     /// "Plus tard" on the priming screen.
     case notificationPermissionDeferred
 
+    /// A Media tile turned "Échec" (ADR-037 §13): no id, no image data.
+    case mediaUploadFailed(kind: ActivityMedia.Kind, reason: MediaUploadFailure)
+
     var name: String {
         switch self {
         case .itineraryEditorOpened: "itinerary_editor_opened"
@@ -98,6 +101,7 @@ enum AnalyticsEvent: Equatable, Sendable {
         case .notificationPromptViewed: "notification_prompt_viewed"
         case .notificationPermissionAnswered: "notification_permission_answered"
         case .notificationPermissionDeferred: "notification_permission_deferred"
+        case .mediaUploadFailed: "media_upload_failed"
         }
     }
 
@@ -153,6 +157,8 @@ enum AnalyticsEvent: Equatable, Sendable {
             ["layout": .string(layout.rawValue)]
         case .notificationPermissionAnswered(let granted):
             ["granted": .bool(granted)]
+        case .mediaUploadFailed(let kind, let reason):
+            ["kind": .string(kind.rawValue), "reason": .string(reason.rawValue)]
         }
     }
 }

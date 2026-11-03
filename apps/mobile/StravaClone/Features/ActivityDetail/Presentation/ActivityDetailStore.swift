@@ -50,7 +50,8 @@ final class ActivityDetailStore {
         changes: ActivityChanges,
         updateActivity: UpdateActivity,
         deleter: ActivityDeleter,
-        events: (any ActivityEventSource)? = nil
+        events: (any ActivityEventSource)? = nil,
+        mediaUploads: ActivityMediaUploads? = nil
     ) {
         self.id = id
         self.deleter = deleter
@@ -59,7 +60,7 @@ final class ActivityDetailStore {
         self.setKudos = setKudos
         self.changes = changes
         self.events = events
-        editor = ActivityEditor(loadDetail: loadDetail, updateActivity: updateActivity, changes: changes)
+        editor = ActivityEditor(loadDetail: loadDetail, updateActivity: updateActivity, changes: changes, mediaUploads: mediaUploads)
         editor.onChange = { [weak self] detail in self?.phase = .loaded(detail) }
         editor.onUnavailable = { [weak self] in self?.phase = .unavailable }
     }

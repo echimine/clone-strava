@@ -57,7 +57,8 @@ final class SyncQueueCoordinator {
 
     private let activitySender: ActivitySender
     private let localActivities: GRDBLocalActivityStore
-    /// The Itinerary changes, then the Onboarding answers: sent in this order.
+    /// The Itinerary changes, the Onboarding answers, then the Media (ADR-037 §5): sent in this
+    /// order. The Media's own files go through their background `URLSession`.
     private let queues: [QueuedSender]
     private let reloadFeed: @MainActor () async -> Bool
     private let backgroundTasks: any BackgroundTaskRunning
@@ -67,12 +68,13 @@ final class SyncQueueCoordinator {
         localActivities: GRDBLocalActivityStore,
         itineraryChanges: QueuedSender,
         onboardingAnswers: QueuedSender = QueuedSender(send: {}),
+        mediaUploads: QueuedSender = QueuedSender(send: {}),
         reloadFeed: @escaping @MainActor () async -> Bool,
         backgroundTasks: any BackgroundTaskRunning = UIKitBackgroundTasks()
     ) {
         self.activitySender = activitySender
         self.localActivities = localActivities
-        self.queues = [itineraryChanges, onboardingAnswers]
+        self.queues = [itineraryChanges, onboardingAnswers, mediaUploads]
         self.reloadFeed = reloadFeed
         self.backgroundTasks = backgroundTasks
     }

@@ -16,15 +16,23 @@ final class ActivityEditor {
         var description: String
         var sport: SportType
         var visibility: ActivityVisibility
+        /// "Photos et vidéos" (ADR-037 §10).
+        var media: MediaDraft
+        /// The map tile of the strip.
+        let route: EncodedPolyline?
         /// Why the server turned the last save down (`422`).
         var errorMessage: String?
 
-        init(detail: ActivityDetail) {
+        /// - Parameter media: the Activity's Media in carousel order, those still being sent
+        ///   included; the detail's own by default.
+        init(detail: ActivityDetail, media: [ActivityMedia]? = nil) {
             id = detail.id
             title = detail.title
             description = detail.description ?? ""
             sport = detail.sport
             visibility = detail.visibility
+            route = detail.route
+            self.media = MediaDraft(media: media ?? detail.media, hasMap: detail.route != nil, mediaFirst: detail.mediaFirst)
         }
 
         /// "Enregistrer" is disabled while the title is blank.
@@ -36,7 +44,8 @@ final class ActivityEditor {
                 title: Self.trimmed(title),
                 description: description.isEmpty ? nil : description,
                 sport: sport,
-                visibility: visibility
+                visibility: visibility,
+                mediaOrder: media.hasChanges ? media.order : nil
             )
         }
 
@@ -64,20 +73,28 @@ final class ActivityEditor {
     @ObservationIgnored private let loadDetail: LoadActivityDetail
     @ObservationIgnored private let updateActivity: UpdateActivity
     @ObservationIgnored private let changes: ActivityChanges
+    /// The Media queue; nil where Media cannot be added (previews).
+    @ObservationIgnored private let mediaUploads: ActivityMediaUploads?
     /// The Activity the sheet edits, as it was when the sheet opened.
     @ObservationIgnored private var original: ActivityDetail?
 
     /// - Parameter changes: where every value shown is published, for the feed's card.
-    init(loadDetail: LoadActivityDetail, updateActivity: UpdateActivity, changes: ActivityChanges) {
+    init(
+        loadDetail: LoadActivityDetail,
+        updateActivity: UpdateActivity,
+        changes: ActivityChanges,
+        mediaUploads: ActivityMediaUploads? = nil
+    ) {
         self.loadDetail = loadDetail
         self.updateActivity = updateActivity
         self.changes = changes
+        self.mediaUploads = mediaUploads
     }
 
     /// "Modifier" on the detail: the sheet opens on what it shows.
     func edit(_ detail: ActivityDetail) {
         original = detail
-        form = Form(detail: detail)
+        form = Form(detail: detail, media: mediaUploads?.board.media(of: detail.id, merging: detail.media))
     }
 
     /// "Modifier" on a feed card: the card lacks the description and the visibility, so the
@@ -94,11 +111,15 @@ final class ActivityEditor {
         form = nil
     }
 
-    /// "Enregistrer".
+    /// "Enregistrer". The Media just picked are queued at once (ADR-037 §5): the sheet is already
+    /// closed, they show in the author's carousel and go in the background.
     func save(_ submitted: Form) async {
         guard submitted.canSave, let previous = original, previous.id == submitted.id else { return }
         form = nil
         let edit = submitted.edit
+        if submitted.media.hasChanges, let mediaUploads {
+            await mediaUploads.enqueue(submitted.media.queued, previous.id)
+        }
         show(edit.applied(to: previous))
         do {
             show(try await updateActivity(previous.id, with: edit))

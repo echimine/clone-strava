@@ -51,7 +51,8 @@ struct ActivityDetailPage: View {
                 Menu {
                     ActivityManageButtons(
                         onEdit: { store.editor.edit(detail) },
-                        onDelete: { deletionCandidate = detail.id }
+                        onDelete: { deletionCandidate = detail.id },
+                        onAddMedia: { store.editor.edit(detail) }
                     )
                 } label: {
                     Label(ActivityDetailMessages.manage, systemImage: "ellipsis")
@@ -99,6 +100,9 @@ struct ActivityDetailContent<Engagement: View>: View {
     var onTapMedia: ((ActivityMedia) -> Void)?
     @ViewBuilder let engagement: () -> Engagement
 
+    /// The author's Media still being sent, merged into the header (ADR-037 §5).
+    @Environment(\.mediaUploads) private var uploads
+
     private let columns = [GridItem(.flexible(), alignment: .leading), GridItem(.flexible(), alignment: .leading)]
 
     var body: some View {
@@ -132,7 +136,8 @@ struct ActivityDetailContent<Engagement: View>: View {
     /// The map and the Media, edge to edge (ADR-037 §10); nothing without either. A tap on the
     /// map opens the full-screen map.
     private func header(_ sections: ActivityDetailSections) -> some View {
-        let slides = ActivitySlide.compose(hasMap: sections.showsMap, media: detail.media, mediaFirst: detail.mediaFirst)
+        let media = uploads?.media(of: detail.id, merging: detail.media) ?? detail.media
+        let slides = ActivitySlide.compose(hasMap: sections.showsMap, media: media, mediaFirst: detail.mediaFirst)
         return ActivityCarousel(slides: slides, height: Self.headerHeight, onTapMedia: onTapMedia) {
             if let route = detail.route {
                 ActivityDetailMap(route: route, routeTrimmed: detail.routeTrimmed, post: detail.post, height: Self.headerHeight)

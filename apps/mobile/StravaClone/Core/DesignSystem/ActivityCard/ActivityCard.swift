@@ -11,6 +11,9 @@ struct ActivityCard: View {
     /// the card.
     var onTapMedia: ((ActivityMedia) -> Void)?
 
+    /// The author's Media still being sent, merged into the carousel (ADR-037 §5).
+    @Environment(\.mediaUploads) private var uploads
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 12) {
@@ -38,7 +41,7 @@ struct ActivityCard: View {
     /// The map and the Media; the sport icon when there is neither (ADR-037 §10). The map slide
     /// has no tap of its own: it opens the detail like the rest of the card.
     @ViewBuilder private var carousel: some View {
-        let slides = post.slides
+        let slides = post.slides(merging: uploads)
         if slides.isEmpty {
             ActivityMapImage(route: nil, sport: post.sport)
         } else {

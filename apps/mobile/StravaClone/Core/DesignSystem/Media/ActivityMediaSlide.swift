@@ -35,7 +35,12 @@ struct ActivityMediaSlide: View {
             }
             .clipped()
             .overlay {
-                if media.kind == .video, !plays {
+                if let upload = media.upload {
+                    MediaUploadOverlay(mediaID: media.id, status: upload)
+                }
+            }
+            .overlay {
+                if media.kind == .video, !plays, media.upload == nil {
                     Image(systemName: "play.fill")
                         .font(.title)
                         .foregroundStyle(.white)
@@ -95,16 +100,17 @@ struct ActivityMediaSlide: View {
     }
 
     private func updateClaim() {
-        if media.kind == .video, isShown, isCurrent {
+        if media.kind == .video, media.upload == nil, isShown, isCurrent {
             playback.claim(playbackID)
         } else {
             playback.release(playbackID)
         }
     }
 
-    /// Nil until the slide has a size, so the photo is never decoded at full size.
+    /// Nil until the slide has a size, so the photo is never decoded at full size, and while a
+    /// local Media is exported (no file yet).
     private func imageURL(for size: CGSize) -> URL? {
-        guard size.width > 0, size.height > 0 else { return nil }
+        guard size.width > 0, size.height > 0, media.upload != .exporting else { return nil }
         return media.kind == .video ? media.posterURL : media.url
     }
 

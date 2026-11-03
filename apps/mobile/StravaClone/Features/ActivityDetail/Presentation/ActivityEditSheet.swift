@@ -31,6 +31,7 @@ struct ActivityEditSheet: View {
                         .lineLimit(3 ... 8)
                         .accessibilityIdentifier("activityEdit.description")
                 }
+                MediaManagementSection(draft: $form.media, route: form.route, sport: form.sport)
                 Section {
                     Picker(ActivityDetailMessages.sportField, selection: $form.sport) {
                         ForEach(form.sports, id: \.self) { sport in
