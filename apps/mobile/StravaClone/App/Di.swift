@@ -280,6 +280,26 @@ final class Di {
         feedStore
     }
 
+    /// The Profile tab (ADR-036 §3, §10), one for the app, reset at sign-out like the feed.
+    func makeProfileStore() -> ProfileStore {
+        profileStore
+    }
+
+    private lazy var profileStore: ProfileStore = {
+        let athletes = APIAthleteRepository(apiClient: apiClient)
+        let profiles = APIProfileRepository(apiClient: apiClient)
+        return ProfileStore(
+            loadProfile: LoadProfile(repository: athletes),
+            loadYearToDateDistance: LoadYearToDateDistance(repository: athletes),
+            renameAthlete: RenameAthlete(repository: profiles),
+            setApproveFollowers: SetApproveFollowers(repository: profiles),
+            activities: ProfileActivitiesStore(
+                loadActivities: LoadProfileActivities(repository: athletes),
+                activityChanges: activityChanges
+            )
+        )
+    }()
+
     /// The detail pushed from a feed card (ADR-033 §3).
     func makeActivityDetailStore(id: ActivityID) -> ActivityDetailStore {
         ActivityDetailStore(

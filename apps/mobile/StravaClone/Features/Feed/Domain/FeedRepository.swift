@@ -1,11 +1,5 @@
 import Foundation
 
-/// One page of the feed (ADR-029): `nextCursor` is nil on the last page.
-struct FeedPage: Equatable, Sendable {
-    let posts: [ActivityPost]
-    let nextCursor: String?
-}
-
 /// Failures of the feed, as the presentation needs them.
 enum FeedError: Error, Equatable, Sendable {
     case offline

@@ -1,0 +1,152 @@
+import Foundation
+import Testing
+@testable import StravaClone
+
+@MainActor
+struct ProfileStoreTests {
+    private func makeStore(
+        _ athletes: FakeAthleteRepository = FakeAthleteRepository(),
+        _ profiles: FakeProfileRepository = FakeProfileRepository()
+    ) -> ProfileStore {
+        ProfileStore(
+            loadProfile: LoadProfile(repository: athletes),
+            loadYearToDateDistance: LoadYearToDateDistance(repository: athletes),
+            renameAthlete: RenameAthlete(repository: profiles),
+            setApproveFollowers: SetApproveFollowers(repository: profiles),
+            activities: ProfileActivitiesStore(loadActivities: LoadProfileActivities(repository: athletes))
+        )
+    }
+
+    private func loadedRepository(approveFollowers: Bool = false) -> FakeAthleteRepository {
+        let athletes = FakeAthleteRepository()
+        athletes.profileResult = .success(.fixture(approveFollowers: approveFollowers))
+        athletes.yearToDateResult = .success(Distance(meters: 412_000))
+        athletes.pages[nil] = .success(FeedPage(posts: [.fixture(viewerIsAuthor: true)], nextCursor: nil))
+        return athletes
+    }
+
+    @Test func loadingShowsMyHeaderStatisticsAndActivities() async {
+        let athletes = loadedRepository()
+        let store = makeStore(athletes)
+
+        await store.load(athleteId: "me")
+        await store.load(athleteId: "me")
+
+        #expect(store.phase == .loaded)
+        #expect(store.profile == .fixture())
+        #expect(store.yearToDateDistance == Distance(meters: 412_000))
+        #expect(store.activities.posts.count == 1)
+        #expect(athletes.profileCalls == ["me"])
+    }
+
+    @Test func aFailedLoadSaysSoAndCanBeRetried() async {
+        let athletes = FakeAthleteRepository()
+        athletes.profileResult = .failure(.offline)
+        let store = makeStore(athletes)
+
+        await store.load(athleteId: "me")
+        #expect(store.phase == .failed(message: "Vous êtes hors ligne."))
+
+        athletes.profileResult = .success(.fixture())
+        await store.refresh()
+        #expect(store.phase == .loaded)
+    }
+
+    @Test func renamingUpdatesTheHeader() async {
+        let profiles = FakeProfileRepository()
+        let store = makeStore(loadedRepository(), profiles)
+        await store.load(athleteId: "me")
+
+        let error = await store.rename(firstName: " Léa ", lastName: "Bernard")
+
+        #expect(error == nil)
+        #expect(store.profile?.athlete.displayName == "Léa Bernard")
+        #expect(profiles.renames == [ProfileName(firstName: "Léa", lastName: "Bernard")])
+    }
+
+    @Test func aRefusedRenameKeepsTheHeaderAndSaysWhy() async {
+        let profiles = FakeProfileRepository()
+        profiles.renameResult = .failure(.network)
+        let store = makeStore(loadedRepository(), profiles)
+        await store.load(athleteId: "me")
+
+        let error = await store.rename(firstName: "Léa", lastName: "Bernard")
+
+        #expect(error == "Une erreur est survenue, réessayez.")
+        #expect(store.profile?.athlete.displayName == "Camille Martin")
+    }
+
+    @Test func anInvalidNameIsNotSent() async {
+        let profiles = FakeProfileRepository()
+        let store = makeStore(loadedRepository(), profiles)
+        await store.load(athleteId: "me")
+
+        let error = await store.rename(firstName: "  ", lastName: "Bernard")
+
+        #expect(error == "Prénom et nom : de 1 à 50 caractères chacun.")
+        #expect(profiles.renames.isEmpty)
+    }
+
+    @Test func approvingFollowersShowsAtOnceThenTakesTheServersValue() async {
+        let profiles = FakeProfileRepository()
+        let (gate, open) = AsyncStream<Void>.makeStream()
+        profiles.approveGate = gate
+        let store = makeStore(loadedRepository(approveFollowers: false), profiles)
+        await store.load(athleteId: "me")
+        #expect(store.approveFollowers == false)
+
+        let toggle = Task { await store.setApproveFollowers(true) }
+        while profiles.approveCalls.isEmpty { await Task.yield() }
+        #expect(store.approveFollowers == true)
+
+        open.yield()
+        await toggle.value
+        #expect(store.approveFollowers == true)
+        #expect(store.toast == nil)
+        #expect(profiles.approveCalls == [true])
+    }
+
+    @Test func aRefusedApprovalSettingRollsBackWithAToast() async {
+        let profiles = FakeProfileRepository()
+        profiles.approveResult = .failure(.network)
+        let store = makeStore(loadedRepository(approveFollowers: true), profiles)
+        await store.load(athleteId: "me")
+
+        await store.setApproveFollowers(false)
+
+        #expect(store.approveFollowers == true)
+        #expect(store.toast == "Le réglage n'a pas pu être modifié, réessayez.")
+    }
+
+    @Test func navigationPushesTheScreensOfTheProfileStack() async {
+        let store = makeStore(loadedRepository())
+        await store.load(athleteId: "me")
+        let id = store.activities.posts[0].id
+
+        store.openSettings()
+        store.openActivity(id)
+        store.openComments(id)
+
+        #expect(store.path.count == 3)
+    }
+
+    @Test func signingOutForgetsTheProfile() async {
+        let athletes = loadedRepository()
+        let store = makeStore(athletes)
+        await store.load(athleteId: "me")
+        store.openSettings()
+        store.tab = .more
+
+        store.reset()
+
+        #expect(store.profile == nil)
+        #expect(store.phase == .idle)
+        #expect(store.yearToDateDistance == nil)
+        #expect(store.path.isEmpty)
+        #expect(store.tab == .activities)
+        #expect(store.activities.posts.isEmpty)
+
+        await store.load(athleteId: "other")
+        #expect(athletes.profileCalls == ["me", "other"])
+    }
+}

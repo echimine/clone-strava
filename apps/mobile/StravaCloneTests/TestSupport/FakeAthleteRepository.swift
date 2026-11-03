@@ -1,0 +1,93 @@
+import Foundation
+@testable import StravaClone
+
+/// In-memory `AthleteRepository` (ADR-025 §3): scripted answers, recorded calls.
+final class FakeAthleteRepository: AthleteRepository, @unchecked Sendable {
+    private let lock = NSLock()
+
+    var profileResult: Result<AthleteProfile, AthleteError> = .failure(.network)
+    /// Answers keyed by cursor (`nil` = first page).
+    var pages: [String?: Result<FeedPage, AthleteError>] = [:]
+    var yearToDateResult: Result<Distance, AthleteError> = .failure(.network)
+
+    private(set) var profileCalls: [String] = []
+    private(set) var activityCalls: [(athleteId: String, cursor: String?)] = []
+
+    func profile(of athleteId: String) async throws(AthleteError) -> AthleteProfile {
+        let result = lock.withLock {
+            profileCalls.append(athleteId)
+            return profileResult
+        }
+        return try result.get()
+    }
+
+    func activities(of athleteId: String, cursor: String?) async throws(AthleteError) -> FeedPage {
+        let result = lock.withLock {
+            activityCalls.append((athleteId, cursor))
+            return pages[cursor] ?? .failure(.network)
+        }
+        return try result.get()
+    }
+
+    func yearToDateDistance(of athleteId: String) async throws(AthleteError) -> Distance {
+        try lock.withLock { yearToDateResult }.get()
+    }
+}
+
+/// In-memory `ProfileRepository`: scripted answers, recorded calls, and a gate to observe the
+/// optimistic state of "Approuver mes abonnés".
+final class FakeProfileRepository: ProfileRepository, @unchecked Sendable {
+    private let lock = NSLock()
+
+    var renameResult: Result<ActivityAuthor, AthleteError>?
+    var approveResult: Result<Bool, AthleteError>?
+    /// Suspends `setApproveFollowers` until resumed.
+    var approveGate: AsyncStream<Void>?
+
+    private(set) var renames: [ProfileName] = []
+    private(set) var approveCalls: [Bool] = []
+
+    func rename(_ name: ProfileName) async throws(AthleteError) -> ActivityAuthor {
+        let result = lock.withLock {
+            renames.append(name)
+            return renameResult
+        } ?? .success(ActivityAuthor(id: "me", displayName: name.displayName, avatarURL: nil))
+        return try result.get()
+    }
+
+    func setApproveFollowers(_ approve: Bool) async throws(AthleteError) -> Bool {
+        lock.withLock { approveCalls.append(approve) }
+        if let gate = approveGate {
+            for await _ in gate { break }
+        }
+        return try (lock.withLock { approveResult } ?? .success(approve)).get()
+    }
+}
+
+extension AthleteProfile {
+    static func fixture(
+        id: String = "me",
+        displayName: String = "Camille Martin",
+        activityCount: Int = 42,
+        streakWeeks: Int = 5,
+        followerCount: Int = 12,
+        followingCount: Int = 8,
+        viewerFollowStatus: FollowStatus? = nil,
+        approveFollowers: Bool? = false,
+        itineraryCount: Int? = 3
+    ) -> AthleteProfile {
+        AthleteProfile(
+            athlete: ActivityAuthor(id: id, displayName: displayName, avatarURL: nil),
+            activityCount: activityCount,
+            streakWeeks: streakWeeks,
+            followerCount: followerCount,
+            followingCount: followingCount,
+            viewerFollowStatus: viewerFollowStatus,
+            followersYouKnow: [],
+            practicedSports: [.run],
+            approveFollowers: approveFollowers,
+            pendingFollowRequestCount: 0,
+            itineraryCount: itineraryCount
+        )
+    }
+}

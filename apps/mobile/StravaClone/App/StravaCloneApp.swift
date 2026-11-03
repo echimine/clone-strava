@@ -18,6 +18,7 @@ struct StravaCloneApp: App {
                 recordingStore: di.makeRecordingStore(),
                 importStore: di.makeImportStore(),
                 feedStore: di.makeFeedStore(),
+                profileStore: di.makeProfileStore(),
                 makeActivityDetailStore: { [di] id in di.makeActivityDetailStore(id: id) },
                 makeActivityEngagementStore: { [di] request in di.makeActivityEngagementStore(request: request) },
                 feedActivityEditor: di.feedActivityEditor,
@@ -66,6 +67,8 @@ struct RootView: View {
     @State var recordingStore: RecordingStore
     @State var importStore: ImportStore
     @State var feedStore: FeedStore
+    /// The Profile tab and Réglages (ADR-036 §3, §10).
+    @State var profileStore: ProfileStore
     /// Details pushed from the feed's cards (ADR-033 §1).
     let makeActivityDetailStore: @MainActor (ActivityID) -> ActivityDetailStore
     /// Kudos and comments screens, pushed from a detail or a card (ADR-036 §8).
@@ -139,6 +142,7 @@ struct RootView: View {
                 }
                     .onAppear {
                         feedStore.reset()
+                        profileStore.reset()
                         defaultVisibility.clear()
                         // ADR-030 §8: the Itinerary cache does not outlive the session.
                         Task { await itinerarySynchronizer.signOut() }
@@ -171,20 +175,8 @@ struct RootView: View {
                         onImportActivity: importStore.startImport,
                         editActivity: { [feedActivityEditor] id in Task { await feedActivityEditor.edit(id: id) } },
                         deleteActivity: { [activityDeleter] id in Task { await activityDeleter.delete(id) } },
-                        openActivity: { request in
-                            ActivityDetailPage(
-                                request: request,
-                                makeStore: makeActivityDetailStore,
-                                liveEvents: activityLiveEvents
-                            )
-                        },
-                        openEngagement: { request in
-                            ActivityEngagementPage(
-                                request: request,
-                                makeStore: makeActivityEngagementStore,
-                                liveEvents: activityLiveEvents
-                            )
-                        }
+                        openActivity: activityDetail,
+                        openEngagement: activityEngagement
                     ) {
                         if let banner = importStore.banner {
                             ImportStatusBanner(
@@ -236,24 +228,36 @@ struct RootView: View {
                     )
                     .tabItem { Label("Enregistrer", systemImage: "record.circle") }
                     .tag(AppTab.record)
-                    ProfileView(store: authStore, consent: consentStore, signOutWarning: {
-                        // ADR-031 §10, §14: one confirmation for all that a sign-out loses.
-                        SignOutWarning.message(
-                            recordingInProgress: await recordingStore.signOutWarning() != nil,
-                            unsentActivities: await syncCoordinator.unsentActivityCount(),
-                            pendingItineraryChanges: await itinerarySynchronizer.pendingChangeCount()
-                        )
-                    }, beforeSignOut: {
-                        await recordingStore.delete()
-                        await syncCoordinator.signOut()
-                    }, animationsPreview: Self.animationsPreview) {
-                        MyItinerariesView(
-                            store: itineraryListStore,
-                            makeDetailStore: makeItineraryDetailStore,
-                            makeEditFlow: makeItineraryEditFlow,
-                            onCreate: { itineraryCreation.start(from: .profile) }
-                        )
-                    }
+                    ProfileView(
+                        store: profileStore,
+                        authStore: authStore,
+                        consent: consentStore,
+                        signOutWarning: {
+                            // ADR-031 §10, §14: one confirmation for all that a sign-out loses.
+                            SignOutWarning.message(
+                                recordingInProgress: await recordingStore.signOutWarning() != nil,
+                                unsentActivities: await syncCoordinator.unsentActivityCount(),
+                                pendingItineraryChanges: await itinerarySynchronizer.pendingChangeCount()
+                            )
+                        },
+                        beforeSignOut: {
+                            await recordingStore.delete()
+                            await syncCoordinator.signOut()
+                        },
+                        animationsPreview: Self.animationsPreview,
+                        itineraries: {
+                            MyItinerariesView(
+                                store: itineraryListStore,
+                                makeDetailStore: makeItineraryDetailStore,
+                                makeEditFlow: makeItineraryEditFlow,
+                                onCreate: { itineraryCreation.start(from: .profile) }
+                            )
+                        },
+                        openActivity: activityDetail,
+                        openEngagement: activityEngagement
+                    )
+                    // A detail opened from the profile can delete its Activity too (ADR-033 §7).
+                    .toast($activityDeleter.toast)
                     .tabItem { Label("Profil", systemImage: "person") }
                     .tag(AppTab.profile)
                 }
@@ -332,6 +336,16 @@ struct RootView: View {
     /// names the account "Prénom Nom" if the code creates it.
     private func createAccountScreen(name: String, back: @escaping () -> Void) -> AccountView {
         AccountView(mode: .createAccount, authStore: authStore, name: name, onBack: back)
+    }
+
+    /// The Activity detail, pushed in the feed's and the profile's stacks (ADR-036 §10).
+    private func activityDetail(_ request: ActivityDetailRequest) -> ActivityDetailPage {
+        ActivityDetailPage(request: request, makeStore: makeActivityDetailStore, liveEvents: activityLiveEvents)
+    }
+
+    /// The Kudos and comments screen, pushed in the feed's and the profile's stacks (ADR-036 §8).
+    private func activityEngagement(_ request: ActivityEngagementRequest) -> ActivityEngagementPage {
+        ActivityEngagementPage(request: request, makeStore: makeActivityEngagementStore, liveEvents: activityLiveEvents)
     }
 
     /// After Save (ADR-031 §11): the Home tab at the top of the feed, and the Activity leaves
