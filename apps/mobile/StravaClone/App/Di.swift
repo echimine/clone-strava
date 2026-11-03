@@ -296,9 +296,18 @@ final class Di {
             activities: ProfileActivitiesStore(
                 loadActivities: LoadProfileActivities(repository: athletes),
                 activityChanges: activityChanges
-            )
+            ),
+            progress: ProfileProgressStore(loadProgress: LoadProgress(repository: APIProgressRepository(apiClient: apiClient)))
         )
     }()
+
+    /// Statistiques of an athlete (ADR-036 §4), one per pushed screen.
+    func makeAthleteStatisticsStore(request: AthleteStatisticsRequest) -> AthleteStatisticsStore {
+        AthleteStatisticsStore(
+            request: request,
+            loadStats: LoadAthleteStats(repository: APIAthleteStatsRepository(apiClient: apiClient))
+        )
+    }
 
     /// The detail pushed from a feed card (ADR-033 §3).
     func makeActivityDetailStore(id: ActivityID) -> ActivityDetailStore {

@@ -27,6 +27,24 @@ struct LoadYearToDateDistance: Sendable {
     }
 }
 
+/// Statistiques of any athlete, for one sport or all (ADR-036 §4).
+struct LoadAthleteStats: Sendable {
+    let repository: any AthleteStatsRepository
+
+    func callAsFunction(athleteId: String, sport: SportType?) async throws(AthleteError) -> AthleteStats {
+        try await repository.stats(of: athleteId, sport: sport)
+    }
+}
+
+/// My Progrès for one sport (ADR-036 §4).
+struct LoadProgress: Sendable {
+    let repository: any ProgressRepository
+
+    func callAsFunction(sport: SportType) async throws(AthleteError) -> AthleteProgress {
+        try await repository.progress(sport: sport)
+    }
+}
+
 /// "Modifier le profil" (ADR-036 §3).
 struct RenameAthlete: Sendable {
     let repository: any ProfileRepository
