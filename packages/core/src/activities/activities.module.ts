@@ -8,12 +8,14 @@ import { ActivityRepository } from "./repositories/activity.repository.js";
 import { ActivityStatsRepository } from "./repositories/activity-stats.repository.js";
 import { ActivityTrackRepository } from "./repositories/activity-track.repository.js";
 import { ActivityAnalysisRepository } from "./repositories/activity-analysis.repository.js";
+import { ActivityMediaRepository } from "./repositories/activity-media.repository.js";
 import { CreateActivityUseCase } from "./use-cases/create-activity.use-case.js";
 import { RequestUploadUrlUseCase } from "./use-cases/request-upload-url.use-case.js";
 import { CompleteActivityUseCase } from "./use-cases/complete-activity.use-case.js";
 import { ProcessActivityUseCase } from "./use-cases/process-activity.use-case.js";
 import { ReconcileStuckActivitiesUseCase } from "./use-cases/reconcile-stuck-activities.use-case.js";
 import { GetActivitiesUseCase } from "./use-cases/get-activities.use-case.js";
+import { GetActivityMediaUseCase } from "./use-cases/get-activity-media.use-case.js";
 import { ActivityImportRepository } from "./repositories/activity-import.repository.js";
 import { CreateActivityImportUseCase } from "./use-cases/create-activity-import.use-case.js";
 import { RequestImportUploadUrlUseCase } from "./use-cases/request-import-upload-url.use-case.js";
@@ -60,12 +62,14 @@ import { ActivitiesService } from "./activities.service.js";
     ActivityStatsRepository,
     ActivityTrackRepository,
     ActivityAnalysisRepository,
+    ActivityMediaRepository,
     CreateActivityUseCase,
     RequestUploadUrlUseCase,
     CompleteActivityUseCase,
     ProcessActivityUseCase,
     ReconcileStuckActivitiesUseCase,
     GetActivitiesUseCase,
+    GetActivityMediaUseCase,
     ActivityImportRepository,
     ImportRateLimiter,
     ImportJobEnqueuer,

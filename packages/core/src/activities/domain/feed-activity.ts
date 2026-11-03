@@ -22,6 +22,8 @@ export interface FeedActivity extends ActivityRecord {
   locationName: string | null;
   /** The privacy zone removed the start or end of the route (ADR-036 §5). */
   routeTrimmed: boolean;
+  /** The first Media comes before the map (ADR-037 §8). */
+  mediaFirst: boolean;
 }
 
 export interface FeedActivityPage {

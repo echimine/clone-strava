@@ -129,7 +129,9 @@ struct APIAthleteRepositoryTests {
             "author": { "id": "\(athleteId)", "displayName": "Camille Martin", "avatarUrl": null },
             "engagement": { "kudosCount": 2, "commentCount": 0, "viewerHasKudoed": false },
             "recentKudos": [],
-            "viewerIsAuthor": true
+            "viewerIsAuthor": true,
+            "media": [],
+            "mediaFirst": false
           }],
           "nextCursor": "next"
         }

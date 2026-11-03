@@ -23,6 +23,7 @@ import { ensureTestDatabaseMigrated, TEST_DATABASE_URL, TEST_REDIS_URL } from ".
 import { SessionGuard } from "../auth/session.guard.js";
 import { GlobalExceptionFilter } from "../common/global-exception.filter.js";
 import { FeedAssembler } from "../feed/feed-assembler.js";
+import { MediaAssembler } from "../media/media-assembler.js";
 import { FeedController } from "../feed/feed.controller.js";
 import { AthleteIdentities } from "../identities/athlete-identities.js";
 import { AthleteProfileAssembler } from "./athlete-profile-assembler.js";
@@ -57,6 +58,7 @@ describe("Athlete profile (integration)", () => {
     hike: randomUUID(),
     processingRun: randomUUID(),
   };
+  const hikePhoto = randomUUID();
 
   async function sql(text: string, params: unknown[]) {
     return (await app.get<Database>(DATABASE).$client.query(text, params)).rows;
@@ -132,6 +134,7 @@ describe("Athlete profile (integration)", () => {
         AthleteIdentities,
         AthleteProfileAssembler,
         FeedAssembler,
+        MediaAssembler,
         {
           provide: AuthService,
           useValue: {
@@ -182,6 +185,11 @@ describe("Athlete profile (integration)", () => {
     await insertActivity(ids.secondWalk, athlete, "walk", "2026-02-25T07:00:00Z");
     await insertActivity(ids.hike, athlete, "hike", "2026-02-26T07:00:00Z");
     await insertActivity(ids.processingRun, athlete, "run", "2026-03-17T07:00:00Z", { status: "processing" });
+    await sql(
+      `insert into activities.activity_media (id, activity_id, s3_key, kind, width, height)
+       values ($1, $2, $3, 'photo', 2048, 1536)`,
+      [hikePhoto, ids.hike, `activities/${athlete}/${ids.hike}/media/${hikePhoto}/`],
+    );
 
     for (const itinerary of [randomUUID(), randomUUID()]) {
       await sql(
@@ -272,7 +280,17 @@ describe("Athlete profile (integration)", () => {
         engagement: { kudosCount: 0, commentCount: 0, viewerHasKudoed: false },
         recentKudos: [],
         viewerIsAuthor: true,
+        media: [],
+        mediaFirst: false,
       });
+      // ADR-037 §7: profile Activities are feed items, Media included.
+      expect(body.items[3]?.media).toEqual([
+        expect.objectContaining({
+          id: hikePhoto,
+          kind: "photo",
+          url: expect.stringMatching(new RegExp(`/media/${hikePhoto}/original\\.jpg\\?.*X-Amz-Expires=3600`)),
+        }),
+      ]);
       expect(body.nextCursor).toBeNull();
     });
 

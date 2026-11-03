@@ -44,4 +44,9 @@ struct ActivityPost: Identifiable, Hashable, Sendable {
     /// The most recent kudos givers, newest first (at most 3, ADR-036 §5).
     var recentKudos: [ActivityAuthor]
     let viewerIsAuthor: Bool
+    /// All the Activity's Media, in order (ADR-037 §7).
+    var media: [ActivityMedia] = []
+    /// The first Media comes before the map in the carousel (ADR-037 §8); no effect without a
+    /// map or Media.
+    var mediaFirst = false
 }

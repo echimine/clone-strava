@@ -19,6 +19,7 @@ import { CompleteActivityUseCase } from "./use-cases/complete-activity.use-case.
 import { ProcessActivityUseCase } from "./use-cases/process-activity.use-case.js";
 import { ReconcileStuckActivitiesUseCase } from "./use-cases/reconcile-stuck-activities.use-case.js";
 import { GetActivitiesUseCase } from "./use-cases/get-activities.use-case.js";
+import { GetActivityMediaUseCase } from "./use-cases/get-activity-media.use-case.js";
 import {
   CreateActivityImportUseCase,
   type CreateActivityImportResult,
@@ -46,6 +47,7 @@ import {
 import { GetAthleteActivitiesPageUseCase } from "./use-cases/get-athlete-activities-page.use-case.js";
 import { SweepBucketUseCase } from "./use-cases/sweep-bucket.use-case.js";
 import type { ActivityDetailRecord } from "./domain/activity-detail.js";
+import type { ActivityMediaRecord } from "./domain/activity-media.js";
 import type { ActivityRecord } from "./domain/activity-record.js";
 import type { FeedActivityPage } from "./domain/feed-activity.js";
 
@@ -63,6 +65,7 @@ export class ActivitiesService {
     private readonly processActivityUseCase: ProcessActivityUseCase,
     private readonly reconcileStuckActivitiesUseCase: ReconcileStuckActivitiesUseCase,
     private readonly getActivitiesUseCase: GetActivitiesUseCase,
+    private readonly getActivityMediaUseCase: GetActivityMediaUseCase,
     private readonly createActivityImportUseCase: CreateActivityImportUseCase,
     private readonly requestImportUploadUrlUseCase: RequestImportUploadUrlUseCase,
     private readonly completeActivityImportUseCase: CompleteActivityImportUseCase,
@@ -125,6 +128,14 @@ export class ActivitiesService {
   /** Batch read (ADR-021 §2 rule 6): used by `engagement`, `segments` and list screens. */
   getMany(ids: string[]): Promise<ActivityRecord[]> {
     return this.getActivitiesUseCase.execute(ids);
+  }
+
+  /**
+   * The Media of these Activities in one batch read, in order (ADR-037 §7), `[]` for an Activity
+   * without any. The caller passes only Activities the viewer may see, then signs the files.
+   */
+  getMedia(activityIds: string[]): Promise<Map<string, ActivityMediaRecord[]>> {
+    return this.getActivityMediaUseCase.execute(activityIds);
   }
 
   /** Feed steps 1-2 (ADR-021 §6, ADR-029): the caller adds authors and engagement. */

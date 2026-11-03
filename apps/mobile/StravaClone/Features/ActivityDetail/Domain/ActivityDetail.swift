@@ -36,6 +36,10 @@ struct ActivityDetail: Hashable, Sendable {
     let author: ActivityAuthor
     var engagement: ActivityEngagement
     let viewerIsAuthor: Bool
+    /// All the Activity's Media, in order, whatever its processing state (ADR-037 §7).
+    var media: [ActivityMedia] = []
+    /// The first Media comes before the map (ADR-037 §8).
+    var mediaFirst = false
 
     /// The feed card of this Activity, as the change stream hands it to the feed (ADR-033 §7).
     /// The card-only `recentKudos` are not known here: the feed keeps its own.
@@ -55,7 +59,9 @@ struct ActivityDetail: Hashable, Sendable {
             author: author,
             engagement: engagement,
             recentKudos: [],
-            viewerIsAuthor: viewerIsAuthor
+            viewerIsAuthor: viewerIsAuthor,
+            media: media,
+            mediaFirst: mediaFirst
         )
     }
 }
