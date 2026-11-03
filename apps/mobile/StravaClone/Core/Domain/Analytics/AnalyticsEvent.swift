@@ -79,6 +79,9 @@ enum AnalyticsEvent: Equatable, Sendable {
     /// The Avatar was not sent, or not stored.
     case avatarUploadFailed(reason: AvatarUploadFailure)
 
+    /// The full-screen viewer opened on a Media (ADR-037 §13); its swipes are not tracked.
+    case mediaViewerOpened(source: MediaViewerSource, kind: ActivityMedia.Kind, isOwn: Bool)
+
     var name: String {
         switch self {
         case .itineraryEditorOpened: "itinerary_editor_opened"
@@ -108,6 +111,7 @@ enum AnalyticsEvent: Equatable, Sendable {
         case .avatarChanged: "avatar_changed"
         case .avatarRemoved: "avatar_removed"
         case .avatarUploadFailed: "avatar_upload_failed"
+        case .mediaViewerOpened: "media_viewer_opened"
         }
     }
 
@@ -167,6 +171,8 @@ enum AnalyticsEvent: Equatable, Sendable {
             ["source": .string(source.rawValue), "entry": .string(entry.rawValue)]
         case .avatarUploadFailed(let reason):
             ["reason": .string(reason.rawValue)]
+        case .mediaViewerOpened(let source, let kind, let isOwn):
+            ["source": .string(source.rawValue), "kind": .string(kind.rawValue), "isOwn": .bool(isOwn)]
         }
     }
 }

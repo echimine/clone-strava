@@ -41,6 +41,7 @@ struct ActivityDetailPage: View {
             // Subscribed while shown, unsubscribed when the task ends with the screen.
             .task { await ActivityLiveUpdates(events: liveEvents, detail: store).run() }
             .toast($store.kudosNotice)
+            .mediaViewer($store.mediaViewer)
             .accessibilityIdentifier("activityDetail")
     }
 
@@ -83,7 +84,7 @@ struct ActivityDetailPage: View {
                     .accessibilityIdentifier("activityDetail.back")
             }
         case .loaded(let detail):
-            ActivityDetailContent(detail: detail) {
+            ActivityDetailContent(detail: detail, onTapMedia: store.openMedia) {
                 ActivityKudosSection(store: store, detail: detail)
             }
         }

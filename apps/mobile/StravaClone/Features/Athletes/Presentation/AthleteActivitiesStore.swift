@@ -13,8 +13,17 @@ final class AthleteActivitiesStore {
     @ObservationIgnored private let setKudos: SetAthleteActivityKudos
     @ObservationIgnored private let activityChanges: ActivityChanges?
     @ObservationIgnored private var kudosInFlight: Set<ActivityID> = []
+    @ObservationIgnored private let analytics: any AnalyticsClient
+    /// The full-screen viewer, opened by a tap on a card's Media (ADR-037 §10).
+    var mediaViewer: MediaViewerRequest?
 
-    init(loadActivities: LoadAthleteActivities, setKudos: SetAthleteActivityKudos, activityChanges: ActivityChanges? = nil) {
+    init(
+        loadActivities: LoadAthleteActivities,
+        setKudos: SetAthleteActivityKudos,
+        activityChanges: ActivityChanges? = nil,
+        analytics: any AnalyticsClient = NoAnalyticsClient()
+    ) {
+        self.analytics = analytics
         pager = AthleteActivitiesPager(
             load: { athleteId, cursor async throws(AthleteError) in
                 try await loadActivities(athleteId: athleteId, cursor: cursor)
@@ -73,6 +82,14 @@ final class AthleteActivitiesStore {
             }
             notice = AthletesMessages.kudosFailed(error)
         }
+    }
+
+    /// A tap on a Media of a card's carousel: the viewer on the Activity's Media (ADR-037 §10).
+    func openMedia(_ media: ActivityMedia, of id: ActivityID) {
+        guard let post = posts.first(where: { $0.id == id }),
+              let request = MediaViewerRequest.activity(post, at: media) else { return }
+        analytics.capture(request.openedEvent(source: .profileActivities, isOwn: post.viewerIsAuthor))
+        mediaViewer = request
     }
 
     /// A change made in a detail (ADR-033 §7); Activities the list does not show are ignored.

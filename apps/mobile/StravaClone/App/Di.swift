@@ -170,6 +170,7 @@ final class Di {
         events: RealtimeFeedEventSource(client: webSocketClient),
         localActivities: LocalActivityFeed(store: localActivities, sender: activitySender),
         activityChanges: activityChanges,
+        analytics: analytics,
         onPullToRefresh: { [weak self] in await self?.syncCoordinator.pullToRefresh() }
     )
 
@@ -295,7 +296,8 @@ final class Di {
             setApproveFollowers: SetApproveFollowers(repository: profiles),
             activities: ProfileActivitiesStore(
                 loadActivities: LoadProfileActivities(repository: athletes),
-                activityChanges: activityChanges
+                activityChanges: activityChanges,
+                analytics: analytics
             ),
             progress: ProfileProgressStore(loadProgress: LoadProgress(repository: APIProgressRepository(apiClient: apiClient))),
             avatar: makeAvatarEditor()
@@ -320,7 +322,8 @@ final class Di {
             changes: activityChanges,
             updateActivity: UpdateActivity(repository: activityDetailRepository),
             deleter: activityDeleter,
-            events: RealtimeActivityEventSource(channel: webSocketClient)
+            events: RealtimeActivityEventSource(channel: webSocketClient),
+            analytics: analytics
         )
     }
 
