@@ -30,6 +30,32 @@ _Avoid_: Stop, break
 A shared stretch of road or trail with a leaderboard, matched against Activities.
 _Avoid_: Section, lap
 
+**Split**:
+The part of an Activity covering one kilometre of its distance, with the time it took and its change in altitude; the last Split covers whatever distance is left. Shown as "Temps intermédiaires" in the app.
+_Avoid_: Lap, segment, interval
+
+**Activity analysis**:
+What the server derives from an Activity's trace beyond its official values: its Splits and the curves of speed, altitude and heart rate along the distance.
+_Avoid_: Streams, charts data
+
+### Athletes
+
+**Athlete profile**:
+What an athlete shows of themselves: name, counts, Streak, statistics and Activities. To another athlete it only ever reflects the Activities that athlete may see. Shown as "Profil" in the app.
+_Avoid_: Account (that is the sign-in identity), user page
+
+**Follow**:
+One athlete's subscription to another's Activities. A Follow is either accepted or, when the followed athlete approves their followers, a Follow request until they accept it. Shown as "Abonnement" in the app; the followed athlete's side is "Abonné".
+_Avoid_: Friend, connection, subscription (that is Premium)
+
+**Follow request**:
+A Follow waiting for the followed athlete's approval. It gives no access to their Activities until accepted. Shown as "Demande d'abonnement" in the app.
+_Avoid_: Invitation, pending friend
+
+**Streak**:
+The number of consecutive weeks, up to the current one, in which an athlete has at least one Activity. The current week, while still empty, does not break it. Shown as "Série" in the app.
+_Avoid_: Chain, run (ambiguous with the sport)
+
 ### Planning
 
 **Itinerary**:

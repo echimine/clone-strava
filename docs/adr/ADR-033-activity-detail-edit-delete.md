@@ -42,13 +42,16 @@ Kudos, comments and live updates on the detail are in [ADR-034](ADR-034-activity
 
 - Open to any viewer who can see the Activity, through `getVisibleActivity` (rules above). Not visible or unknown: `404 activity_not_found`.
 - The author keeps seeing their Activity **in any state** with `processingStatus` and `processingError`: the app's resync of Activities in `processing` relies on it (ADR-008 §6). Other viewers only ever get `processed` Activities.
-- Response (`activityDetailSchema`, contracts → OpenAPI → Swift, ADR-026): `id, title, description, sportTypeCode, startedAt, endedAt, visibility, processingStatus, processingError, locationName, stats {distanceM, movingTimeS, elapsedTimeS, elevationGainM, avgSpeedMs, maxSpeedMs, avgHeartRate, maxHeartRate, calories} | null, map {polyline, precision: 5} | null, author {id, displayName, avatarUrl}, engagement {kudosCount, commentCount, viewerHasKudoed}, viewerIsAuthor, updatedAt`.
+- Response (`activityDetailSchema`, contracts → OpenAPI → Swift, ADR-026): `id, title, description, sportTypeCode, startedAt, endedAt, visibility, processingStatus, processingError, locationName, stats {distanceM, movingTimeS, elapsedTimeS, elevationGainM, avgSpeedMs, maxSpeedMs, avgHeartRate, maxHeartRate, calories} | null, map {polyline, precision: 5} | null, author {id, displayName, avatarUrl}, engagement {kudosCount, commentCount, viewerHasKudoed}, viewerIsAuthor, updatedAt`. *Amended by [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md) §6*: plus `source`, `routeTrimmed` and `analysis {splits, series} | null`.
 - Assembled like the feed (ADR-029 §2): `activities` returns the Activity with its stats and track fields; **`apps/api`** adds the author (`users` + `auth` fallback) and engagement through the same assembler, since `activities` may not call `engagement` (ADR-021 §2).
 
 ### 3. Detail screen (iOS)
 
+*Amended by [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md) §9*: map about 300 pt on top with a full-screen map, tappable author, source line, kudos row and action bar, then Temps intermédiaires, Allure and Fréquence cardiaque; comments move to their own screen (ADR-036 §8).
+
+
 - **Map**: an interactive Mapbox `MapView` (pan, zoom) drawing `map.polyline`, camera fitted to its bounds, start and end pins. No new trace endpoint: the privacy-zoned polyline of ADR-029 §3 is enough.
-- **Header**: author avatar and name (not tappable: no athlete profile exists), relative date, sport, place.
+- **Header**: author avatar and name (not tappable: no athlete profile exists; *amended by [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md)*: tappable, opens the athlete profile), relative date, sport, place.
 - **Title and description** (description hidden when empty).
 - **Stats grid**: a stat is shown only when it is not null **and** the sport tracks it (`tracksDistance`, `tracksElevation`); pace or speed follows the sport's `paceUnit`; heart rate and calories only when present. Formatting reuses `ActivityCard`'s.
 - **Toolbar "⋯"** for the author only: "Modifier", "Supprimer" (destructive).
@@ -74,6 +77,7 @@ Fixing the sport is the main reason to edit (a ride saved as a run lost every po
 - **Failure**: BullMQ retries with backoff; after the last attempt the old values stay, the error is logged, and nothing changes for the athlete (no `failed` state for a processed Activity).
 - **Reconciliation**: the existing recurring reconciliation (ADR-019 §7) also enqueues `reprocess-activity` for processed Activities whose `computed_for_sport_type_code` differs from `sport_type_code` (covers a crash between commit and enqueue). *Amended 2026-10-17 (review of #88/#89)*: it uses the job id of the last edit, so a reprocessing that failed for good is not re-enqueued (a job already holds that id) and the old values stay; any later `PATCH` (of any field) sets a new `updated_at`, hence a new job id, so after the next edit the sweep retries it.
 - **Success**: emits `activities.activity.updated` with `changedFields: ["stats"]`.
+- *Amended by [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md) §6, §7*: the job also computes the Activity analysis (splits, series) and `route_trimmed`, and runs when the analysis is missing or outdated; the sweep backfills processed Activities with job id `reprocess-{activityId}-analysis-v{version}`, emitting no event unless the sport changed.
 
 ### 6. `DELETE /v1/activities/:id` for processed Activities (amends ADR-031 §13, ADR-028)
 
@@ -156,4 +160,5 @@ Photos and videos (`activity_attachment`); charts, splits, streams, elevation pr
 
 - **Depends on**: [ADR-019](ADR-019-activity-creation-flow.md), [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md), [ADR-029](ADR-029-activity-feed-and-card.md), [ADR-031](ADR-031-live-recording-on-ios.md)
 - **Amends**: [ADR-008](ADR-008-mobile-offline-sync.md) (§1 detail read from the API, §3 no queue for edit and delete of processed Activities), [ADR-010](ADR-010-backend-realtime.md) (`activity.updated`, `activity.deleted` events), [ADR-017](ADR-017-data-model.md) (`activity.updated_at`, `activity_stats.computed_for_sport_type_code`), [ADR-019](ADR-019-activity-creation-flow.md) (§9 `GET` and `DELETE`, §7 reconciliation also covers reprocessing), [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md) (§5 `reprocess-activity` job, `activities.activity.updated` / `deleted` events), [ADR-028](ADR-028-activity-import-from-file.md) (original file deleted with its Activity), [ADR-031](ADR-031-live-recording-on-ios.md) (§13 `GET` for visible Activities, `DELETE` of processed Activities)
+- **Amended by**: [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md) (§2 detail fields, §3 detail screen, §5 analysis and backfill)
 - **Related**: [ADR-007](ADR-007-mobile-architecture.md), [ADR-026](ADR-026-openapi-swift-codegen.md), [ADR-030](ADR-030-itineraries-on-ios.md), [ADR-034](ADR-034-activity-engagement-and-live-detail.md)

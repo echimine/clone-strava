@@ -25,7 +25,7 @@ Several things the card needs do not exist: a place name, a map image of the tra
 
 - **Content**: the viewer's own `processed` activities (any visibility) plus the `public` and `followers` activities of **accepted** followees. Pending follows, private activities and activities still in processing are excluded.
 - **Pagination**: keyset on `(started_at desc, id desc)` through an opaque cursor (base64url of `startedAt|id`), `?cursor=&limit=` (1–50, default 20), `nextCursor: null` on the last page. Page numbers (`common/pagination.ts`) would duplicate or skip items when activities are inserted while scrolling. An invalid cursor is `422 invalid_cursor`.
-- **Response item**: `id, title, sportTypeCode, startedAt, visibility, locationName, stats {distanceM, movingTimeS, elapsedTimeS, elevationGainM}, map {polyline, precision: 5} | null, author {id, displayName, avatarUrl}, engagement {kudosCount, commentCount, viewerHasKudoed}, viewerIsAuthor` (`packages/contracts/src/activities/feed.ts`).
+- **Response item**: `id, title, sportTypeCode, startedAt, visibility, locationName, stats {distanceM, movingTimeS, elapsedTimeS, elevationGainM}, map {polyline, precision: 5} | null, author {id, displayName, avatarUrl}, engagement {kudosCount, commentCount, viewerHasKudoed}, viewerIsAuthor` (`packages/contracts/src/activities/feed.ts`). *Amended by [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md) §5*: items also carry `stats.avgSpeedMs`, `routeTrimmed` and `recentKudos` (3 identities); the same response serves `GET /v1/athletes/:id/activities`.
 
 ### 2. Where the feed is assembled
 
@@ -54,6 +54,7 @@ ADR-021 §6 steps 1–2 (followees, then a page of activities with stats and map
 - `Features/Feed` owns `FeedStore` (refresh, infinite scroll, optimistic kudos) and reloads on the realtime `activity.processed` event (ADR-010), not on `activity_import.completed`, which fires while the activity is still processing.
 - `APIClient` now decodes ISO 8601 dates with or without fractional seconds.
 - *Amended by [ADR-033](ADR-033-activity-detail-edit-delete.md)*: tapping a processed card opens the Activity detail; a long press on one of the viewer's own cards offers Modifier / Supprimer; the card reflects what changed on the detail when the athlete comes back.
+- *Amended by [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md) §5*: stats follow the sport's `paceUnit` (Distance · Allure · Temps, or Distance · Dénivelé · Temps for `speed`), a "Départ et arrivée masqués" label, the 3 latest kudos avatars, a tappable author, and the comment button opens the Kudos and comments screen.
 
 ## Alternatives Considered
 
@@ -88,5 +89,5 @@ ADR-021 §6 steps 1–2 (followees, then a page of activities with stats and map
 
 - **Depends on**: [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md), [ADR-019](ADR-019-activity-creation-flow.md), [ADR-028](ADR-028-activity-import-from-file.md)
 - **Amends**: [ADR-017](ADR-017-data-model.md) (`activity_track.map_polyline`, `location_name`), [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md) (§6 feed assembled in `apps/api`, `geocoding` platform module, auth identity fallback), [ADR-026](ADR-026-openapi-swift-codegen.md) (first documented response bodies)
-- **Amended by**: [ADR-033](ADR-033-activity-detail-edit-delete.md) (§6 card opens the detail, context menu), [ADR-034](ADR-034-activity-engagement-and-live-detail.md) (§5 comments screen, realtime per Activity)
+- **Amended by**: [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md) (§1 item fields, §6 card), [ADR-033](ADR-033-activity-detail-edit-delete.md) (§6 card opens the detail, context menu), [ADR-034](ADR-034-activity-engagement-and-live-detail.md) (§5 comments screen, realtime per Activity)
 - **Related**: [ADR-007](ADR-007-mobile-architecture.md), [ADR-008](ADR-008-mobile-offline-sync.md), [ADR-010](ADR-010-backend-realtime.md), [ADR-011](ADR-011-backend-worker.md), [ADR-027](ADR-027-user-location-on-maps.md)
