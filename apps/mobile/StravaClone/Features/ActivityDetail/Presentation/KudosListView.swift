@@ -1,25 +1,14 @@
 import SwiftUI
 
-/// Everyone who gave kudos, most recent first, loaded page by page (ADR-034 §1). Athletes are
-/// not tappable: there is no athlete profile yet.
-struct KudosListSheet: View {
+/// The Kudos segment of the Kudos and comments screen (ADR-036 §8): everyone who gave kudos,
+/// most recent first, loaded page by page (ADR-034 §1).
+struct KudosListView: View {
     let store: KudosListStore
 
-    @Environment(\.dismiss) private var dismiss
-
     var body: some View {
-        NavigationStack {
-            content
-                .navigationTitle(ActivityDetailMessages.kudosTitle)
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("OK") { dismiss() }
-                    }
-                }
-        }
-        .task { await store.load() }
-        .accessibilityIdentifier("kudosList")
+        content
+            .task { await store.load() }
+            .accessibilityIdentifier("kudosList")
     }
 
     @ViewBuilder private var content: some View {
@@ -36,6 +25,8 @@ struct KudosListSheet: View {
                 Button(ActivityDetailMessages.retry) { Task { await store.load() } }
                     .buttonStyle(.borderedProminent)
             }
+        case .loaded where store.givers.isEmpty:
+            ContentUnavailableView(ActivityEngagementMessages.noKudos, systemImage: "hand.thumbsup")
         case .loaded:
             List {
                 ForEach(store.givers) { giver in

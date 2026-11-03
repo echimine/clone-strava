@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { SocialModule } from "@repo/core/social";
 import { SportsModule } from "@repo/core/sports";
 import { SubscriptionsModule } from "@repo/core/subscriptions";
 import { UsersModule } from "@repo/core/users";
@@ -8,7 +9,7 @@ import { OnboardingAnswersController } from "./onboarding-answers.controller.js"
 import { SportsActiveCatalog } from "./sports-active-catalog.js";
 
 @Module({
-  imports: [AuthModule, SportsModule, SubscriptionsModule, UsersModule],
+  imports: [AuthModule, SocialModule, SportsModule, SubscriptionsModule, UsersModule],
   controllers: [MeController, OnboardingAnswersController],
   providers: [SportsActiveCatalog],
 })

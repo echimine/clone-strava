@@ -13,7 +13,7 @@ struct ActivityCommentsStoreTests {
         onCountChange: @escaping @MainActor (Int) -> Void = { _ in }
     ) -> ActivityCommentsStore {
         ActivityCommentsStore(
-            request: ActivityDetailRequest(id: activityId),
+            request: ActivityEngagementRequest(activityId: activityId, tab: .comments),
             repository: repository,
             viewer: { repository.author },
             onCountChange: onCountChange
