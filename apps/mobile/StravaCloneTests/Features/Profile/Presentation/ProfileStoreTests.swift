@@ -6,14 +6,16 @@ import Testing
 struct ProfileStoreTests {
     private func makeStore(
         _ athletes: FakeAthleteRepository = FakeAthleteRepository(),
-        _ profiles: FakeProfileRepository = FakeProfileRepository()
+        _ profiles: FakeProfileRepository = FakeProfileRepository(),
+        progress: FakeProgressRepository = FakeProgressRepository()
     ) -> ProfileStore {
         ProfileStore(
             loadProfile: LoadProfile(repository: athletes),
             loadYearToDateDistance: LoadYearToDateDistance(repository: athletes),
             renameAthlete: RenameAthlete(repository: profiles),
             setApproveFollowers: SetApproveFollowers(repository: profiles),
-            activities: ProfileActivitiesStore(loadActivities: LoadProfileActivities(repository: athletes))
+            activities: ProfileActivitiesStore(loadActivities: LoadProfileActivities(repository: athletes)),
+            progress: ProfileProgressStore(loadProgress: LoadProgress(repository: progress))
         )
     }
 
@@ -130,6 +132,31 @@ struct ProfileStoreTests {
         #expect(store.path.count == 3)
     }
 
+    @Test func theStatisticsRowOpensMyStatisticsWithMySports() async {
+        let store = makeStore(loadedRepository())
+        store.openStatistics()
+        #expect(store.path.isEmpty)
+
+        await store.load(athleteId: "me")
+        store.openStatistics()
+
+        #expect(store.statisticsRequest == AthleteStatisticsRequest(athleteId: "me", sports: [.run]))
+        #expect(store.path.count == 1)
+    }
+
+    @Test func pullToRefreshReloadsTheProgressOnceShown() async {
+        let progress = FakeProgressRepository()
+        progress.results[.run] = .success(.fixture(sport: .run))
+        let store = makeStore(loadedRepository(), progress: progress)
+        await store.load(athleteId: "me")
+        #expect(progress.calls.isEmpty)
+
+        await store.progress.load(practicedSports: [.run])
+        await store.refresh()
+
+        #expect(progress.calls == [.run, .run])
+    }
+
     @Test func signingOutForgetsTheProfile() async {
         let athletes = loadedRepository()
         let store = makeStore(athletes)
@@ -145,6 +172,7 @@ struct ProfileStoreTests {
         #expect(store.path.isEmpty)
         #expect(store.tab == .activities)
         #expect(store.activities.posts.isEmpty)
+        #expect(store.progress.phase == .idle)
 
         await store.load(athleteId: "other")
         #expect(athletes.profileCalls == ["me", "other"])

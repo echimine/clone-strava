@@ -37,6 +37,7 @@ final class ProfileStore {
     var toast: String?
 
     let activities: ProfileActivitiesStore
+    let progress: ProfileProgressStore
 
     @ObservationIgnored private let loadProfile: LoadProfile
     @ObservationIgnored private let loadYearToDateDistance: LoadYearToDateDistance
@@ -51,13 +52,15 @@ final class ProfileStore {
         loadYearToDateDistance: LoadYearToDateDistance,
         renameAthlete: RenameAthlete,
         setApproveFollowers: SetApproveFollowers,
-        activities: ProfileActivitiesStore
+        activities: ProfileActivitiesStore,
+        progress: ProfileProgressStore
     ) {
         self.loadProfile = loadProfile
         self.loadYearToDateDistance = loadYearToDateDistance
         self.renameAthlete = renameAthlete
         self.setApproveFollowersUseCase = setApproveFollowers
         self.activities = activities
+        self.progress = progress
     }
 
     /// "Approuver mes abonnés", as shown: the server's value, or the one just chosen.
@@ -79,6 +82,7 @@ final class ProfileStore {
             phase = .loading
         }
         async let activitiesLoaded: Void = activities.refresh(athleteId: athleteId)
+        async let progressLoaded: Void = refreshProgressIfShown()
         async let distance = try? loadYearToDateDistance(athleteId: athleteId)
         do {
             let loaded = try await loadProfile(athleteId: athleteId)
@@ -93,6 +97,7 @@ final class ProfileStore {
         }
         let yearToDate = await distance
         await activitiesLoaded
+        await progressLoaded
         guard current == generation else { return }
         yearToDateDistance = yearToDate ?? yearToDateDistance
     }
@@ -136,6 +141,17 @@ final class ProfileStore {
         path.append(Destination.itineraries)
     }
 
+    /// My Statistiques (ADR-036 §4), with my sports for its picker; nil until my profile loads.
+    var statisticsRequest: AthleteStatisticsRequest? {
+        profile.map { AthleteStatisticsRequest(athleteId: $0.athlete.id, sports: $0.practicedSports) }
+    }
+
+    /// Plus's Statistiques row.
+    func openStatistics() {
+        guard let statisticsRequest else { return }
+        path.append(statisticsRequest)
+    }
+
     /// A tap on a card outside its buttons (ADR-033 §1).
     func openActivity(_ id: ActivityID) {
         path.append(ActivityDetailRequest(id: id))
@@ -157,5 +173,12 @@ final class ProfileStore {
         path = NavigationPath()
         toast = nil
         activities.reset()
+        progress.reset()
+    }
+
+    /// Progrès loads when its tab first appears: pull-to-refresh only reloads it once shown.
+    private func refreshProgressIfShown() async {
+        guard progress.phase != .idle else { return }
+        await progress.refresh()
     }
 }

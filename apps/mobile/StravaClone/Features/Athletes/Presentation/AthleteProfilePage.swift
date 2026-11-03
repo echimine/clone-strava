@@ -3,7 +3,7 @@ import SwiftUI
 /// Another athlete's profile (ADR-036 §3, §10), pushed in the current tab's stack: back and an
 /// empty "⋯" (no "Partager"), their header, counters and follow button, then Activités · Plus.
 /// Knows nothing of other features (ADR-007 rule 5): the app shell pushes the Activity detail,
-/// the Kudos and comments screen and, once it exists here, the Statistiques screen.
+/// the Kudos and comments screen and the Statistiques screen.
 struct AthleteProfilePage: View {
     @State private var store: AthleteProfileStore
     private let openActivity: @MainActor (ActivityDetailRequest) -> Void

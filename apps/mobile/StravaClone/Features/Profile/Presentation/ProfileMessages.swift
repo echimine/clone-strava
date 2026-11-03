@@ -7,7 +7,6 @@ enum ProfileMessages {
     static let editProfile = "Modifier le profil"
     static let settings = "Réglages"
     static let search = "Rechercher des athlètes"
-    static let progressPlaceholder = "Vos progrès arrivent bientôt."
     static let emptyActivitiesTitle = "Aucune activité"
     static let emptyActivitiesDescription = "Enregistrez ou importez une activité : elle apparaîtra ici."
     static let statistics = "Statistiques"

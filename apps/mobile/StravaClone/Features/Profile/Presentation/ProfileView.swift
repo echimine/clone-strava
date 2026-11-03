@@ -4,9 +4,15 @@ import SwiftUI
 /// magnifier and the gear to Réglages at the top right. The header scrolls away and leaves my
 /// name in the navigation bar. Knows nothing of other features (ADR-007 rule 5): the app shell
 /// passes the search, "Mes Itinéraires" (ADR-030), the Activity detail, the Kudos and comments
-/// screen and another athlete's profile pushed in this tab's own stack, and what a sign-out
-/// would lose (ADR-030 §8).
-struct ProfileView<Itineraries: View, ActivityDestination: View, EngagementDestination: View, AthleteDestination: View>: View {
+/// screen, Statistiques and another athlete's profile pushed in this tab's own stack, and what
+/// a sign-out would lose (ADR-030 §8).
+struct ProfileView<
+    Itineraries: View,
+    ActivityDestination: View,
+    EngagementDestination: View,
+    StatisticsDestination: View,
+    AthleteDestination: View
+>: View {
     @Bindable var store: ProfileStore
     let authStore: AuthStore
     let consent: MeasurementConsentStore
@@ -19,6 +25,8 @@ struct ProfileView<Itineraries: View, ActivityDestination: View, EngagementDesti
     @ViewBuilder var itineraries: () -> Itineraries
     @ViewBuilder var openActivity: (ActivityDetailRequest) -> ActivityDestination
     @ViewBuilder var openEngagement: (ActivityEngagementRequest) -> EngagementDestination
+    /// Statistiques (ADR-036 §4), the same screen as on another athlete's profile.
+    @ViewBuilder var openStatistics: (AthleteStatisticsRequest) -> StatisticsDestination
     @ViewBuilder var openAthlete: (AthleteProfileRequest) -> AthleteDestination
 
     @State private var isEditingName = false
@@ -63,6 +71,9 @@ struct ProfileView<Itineraries: View, ActivityDestination: View, EngagementDesti
                 }
                 .navigationDestination(for: ActivityEngagementRequest.self) { request in
                     openEngagement(request)
+                }
+                .navigationDestination(for: AthleteStatisticsRequest.self) { request in
+                    openStatistics(request)
                 }
                 .navigationDestination(for: AthleteProfileRequest.self) { request in
                     openAthlete(request)
@@ -138,7 +149,7 @@ struct ProfileView<Itineraries: View, ActivityDestination: View, EngagementDesti
     @ViewBuilder private func tabContent(_ profile: AthleteProfile) -> some View {
         switch store.tab {
         case .progress:
-            ProfileProgressTab()
+            ProfileProgressTab(store: store.progress, practicedSports: profile.practicedSports)
         case .activities:
             ProfileActivitiesTab(
                 store: store.activities,
@@ -150,6 +161,7 @@ struct ProfileView<Itineraries: View, ActivityDestination: View, EngagementDesti
             ProfileMoreTab(
                 yearToDateDistance: store.yearToDateDistance,
                 itineraryCount: profile.itineraryCount,
+                openStatistics: store.openStatistics,
                 openItineraries: store.openItineraries
             )
         }

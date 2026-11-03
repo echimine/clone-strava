@@ -22,6 +22,7 @@ struct StravaCloneApp: App {
                 makeActivityDetailStore: { [di] id in di.makeActivityDetailStore(id: id) },
                 makeActivityEngagementStore: { [di] request in di.makeActivityEngagementStore(request: request) },
                 makeAthleteProfileStore: { [di] id in di.makeAthleteProfileStore(athleteId: id) },
+                makeAthleteStatisticsStore: { [di] request in di.makeAthleteStatisticsStore(request: request) },
                 feedActivityEditor: di.feedActivityEditor,
                 activityDeleter: di.activityDeleter,
                 reloadUpdatedActivities: di.makeReloadUpdatedActivities(),
@@ -76,6 +77,8 @@ struct RootView: View {
     let makeActivityEngagementStore: @MainActor (ActivityEngagementRequest) -> ActivityEngagementStore
     /// Another athlete's profile, pushed from wherever an athlete is shown (ADR-036 §10).
     let makeAthleteProfileStore: @MainActor (String) -> AthleteProfileStore
+    /// Statistiques of an athlete, mine or another's (ADR-036 §4).
+    let makeAthleteStatisticsStore: @MainActor (AthleteStatisticsRequest) -> AthleteStatisticsStore
     /// "Modifier" in the context menu of my feed cards (ADR-033 §1).
     @State var feedActivityEditor: ActivityEditor
     /// "Supprimer" in that menu and in a detail's "⋯" (ADR-033 §7); its toast shows over the feed.
@@ -180,7 +183,8 @@ struct RootView: View {
                         deleteActivity: { [activityDeleter] id in Task { await activityDeleter.delete(id) } },
                         openActivity: activityDetail,
                         openEngagement: activityEngagement,
-                        openAthlete: { athleteProfile($0, path: $feedStore.path) }
+                        openAthlete: { athleteProfile($0, path: $feedStore.path) },
+                        openStatistics: athleteStatistics
                     ) {
                         if let banner = importStore.banner {
                             ImportStatusBanner(
@@ -260,6 +264,7 @@ struct RootView: View {
                         },
                         openActivity: activityDetail,
                         openEngagement: activityEngagement,
+                        openStatistics: athleteStatistics,
                         openAthlete: { athleteProfile($0, path: $profileStore.path) }
                     )
                     .environment(\.openAthlete, openAthlete(in: $profileStore.path))
@@ -361,7 +366,10 @@ struct RootView: View {
             request: request,
             makeStore: makeAthleteProfileStore,
             openActivity: { path.wrappedValue.append($0) },
-            openEngagement: { path.wrappedValue.append($0) }
+            openEngagement: { path.wrappedValue.append($0) },
+            openStatistics: { profile in
+                path.wrappedValue.append(AthleteStatisticsRequest(athleteId: profile.athlete.id, sports: profile.practicedSports))
+            }
         )
     }
 
@@ -378,6 +386,12 @@ struct RootView: View {
                 path.wrappedValue.append(request)
             }
         }
+    }
+
+    /// Statistiques (ADR-036 §4), pushed from my Plus tab, and from another athlete's for the
+    /// stacks that show other profiles.
+    private func athleteStatistics(_ request: AthleteStatisticsRequest) -> AthleteStatisticsView {
+        AthleteStatisticsView(store: makeAthleteStatisticsStore(request))
     }
 
     /// After Save (ADR-031 §11): the Home tab at the top of the feed, and the Activity leaves
