@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import type { OnboardingAnswersRequest } from "@repo/contracts";
 import { GetUserSummariesUseCase } from "./use-cases/get-user-summaries.use-case.js";
+import { SearchUsersByNameUseCase } from "./use-cases/search-users-by-name.use-case.js";
 import { SubmitOnboardingAnswersUseCase } from "./use-cases/submit-onboarding-answers.use-case.js";
 import type { ActiveSportCatalog } from "./domain/active-sport-catalog.js";
 import type { UserSummary } from "./domain/user-summary.js";
@@ -20,7 +21,17 @@ export class UsersService {
     private readonly getUserSummaries: GetUserSummariesUseCase,
     private readonly userProfiles: UserProfileRepository,
     private readonly submitOnboarding: SubmitOnboardingAnswersUseCase,
+    private readonly searchUsersByName: SearchUsersByNameUseCase,
   ) {}
+
+  /**
+   * Athlete search (ADR-036 §2): ids of at most 20 users whose profile name
+   * contains `query` (trimmed, 2 to 50 characters, else `422 invalid_query`),
+   * ignoring case and accents, word starts first, `excludeUserId` left out.
+   */
+  searchByName(query: string | undefined, excludeUserId: string): Promise<string[]> {
+    return this.searchUsersByName.execute(query, excludeUserId);
+  }
 
   /** Batch read (ADR-021 §2 rule 6), e.g. for feed authors or a profile screen. */
   getSummaries(userIds: string[]): Promise<UserSummary[]> {
