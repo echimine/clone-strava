@@ -163,7 +163,7 @@ private struct MediaViewerPage: View {
         Color.clear
             .aspectRatio(aspectRatio, contentMode: .fit)
             .overlay {
-                RemoteImage(url: media.kind == .video ? media.posterURL : media.url) {
+                RemoteImage(url: media.stillURL) {
                     ProgressView().tint(.white)
                 }
             }

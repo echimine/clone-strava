@@ -112,7 +112,7 @@ struct ActivityMediaSlide: View {
     /// local Media is exported (no file yet).
     private func imageURL(for size: CGSize) -> URL? {
         guard size.width > 0, size.height > 0, media.upload != .exporting else { return nil }
-        return media.kind == .video ? media.posterURL : media.url
+        return media.stillURL
     }
 
     private func maxPixelSize(for size: CGSize) -> CGFloat? {

@@ -126,7 +126,7 @@ final class MediaUploadQueue {
 
     /// "Enregistrer": one `exporting` row per Media, at its index in the Activity's order, then
     /// the exports start in this order.
-    func enqueue(_ picked: [(media: PickedMedia, position: Int)], to activityID: ActivityID) async {
+    func enqueue(_ picked: [QueuedMedia], to activityID: ActivityID) async {
         guard !picked.isEmpty else { return }
         let date = now()
         let uploads = picked.map { item in
@@ -422,10 +422,8 @@ final class MediaUploadQueue {
     /// and the confirmed one.
     private func prime(_ media: ActivityMedia, from upload: MediaUpload) async {
         guard let imageLoader else { return }
-        let original = upload.kind == .photo ? MediaUploadFile.originalPhoto : MediaUploadFile.poster
-        let remoteOriginal = upload.kind == .photo ? media.url : media.posterURL
-        if let remoteOriginal {
-            await imageLoader.store(contentsOf: files.url(of: original, mediaID: upload.mediaID), as: remoteOriginal)
+        if let remoteStill = media.stillURL {
+            await imageLoader.store(contentsOf: files.url(of: upload.kind.stillFile, mediaID: upload.mediaID), as: remoteStill)
         }
         await imageLoader.store(contentsOf: files.url(of: MediaUploadFile.thumb, mediaID: upload.mediaID), as: media.thumbURL)
     }

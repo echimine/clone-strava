@@ -22,6 +22,7 @@ import { GlobalExceptionFilter } from "../common/global-exception.filter.js";
 import { MediaAssembler } from "../media/media-assembler.js";
 import { listenOnLoopback } from "../testing/listen-on-loopback.js";
 import { InMemoryStorage } from "../testing/in-memory-storage.js";
+import { signedMediaUrl } from "../testing/signed-urls.js";
 import { ActivityMediaController } from "./activity-media.controller.js";
 
 /** In-memory bucket: S3 is the only third-party service faked here (ADR-024 §2). */
@@ -256,14 +257,6 @@ describe("Media upload API /v1/activities/:id/media (integration)", () => {
     };
     const putPhoto = (activityId: string, mediaId: string) =>
       put(activityId, mediaId, { "original.jpg": jpeg(), "thumb.jpg": jpeg(512) });
-    /** A Media as the app reads it, its URLs without their (per-response) signature. */
-    const unsigned = (media: Record<string, unknown>) =>
-      Object.fromEntries(
-        Object.entries(media).map(([key, value]) => [
-          key,
-          typeof value === "string" && value.startsWith("https://") ? value.split("?")[0] : value,
-        ]),
-      );
 
     it("confirms a photo whose files are in the bucket (201), then replays it (200, same body)", async () => {
       const activityId = await activity("processing");
@@ -274,18 +267,19 @@ describe("Media upload API /v1/activities/:id/media (integration)", () => {
 
       expect(first.status).toBe(201);
       const created = ((await first.json()) as { media: Record<string, unknown> }).media;
-      const folder = `https://bucket.test/${activityMediaPrefix(author, activityId, mediaId)}`;
-      expect(unsigned(created)).toEqual({
+      const folder = activityMediaPrefix(author, activityId, mediaId);
+      // Each response signs its URLs anew: matched, never copied from another response.
+      const expected = {
         id: mediaId,
         kind: "photo",
         width: 2048,
         height: 1536,
         durationMs: null,
-        url: `${folder}original.jpg`,
+        url: signedMediaUrl(folder, "original.jpg"),
         posterUrl: null,
-        thumbUrl: `${folder}thumb.jpg`,
-      });
-      expect(new URL(created.url as string).searchParams.get("X-Amz-Expires")).toBe("3600");
+        thumbUrl: signedMediaUrl(folder, "thumb.jpg"),
+      };
+      expect(created).toEqual(expected);
       expect(
         await sql("select position, s3_key from activities.activity_media where id = $1", [mediaId]),
       ).toEqual([{ position: 3, s3_key: activityMediaPrefix(author, activityId, mediaId) }]);
@@ -293,7 +287,7 @@ describe("Media upload API /v1/activities/:id/media (integration)", () => {
       const replay = await confirm(activityId, photo(mediaId, 3));
 
       expect(replay.status).toBe(200);
-      expect(unsigned(((await replay.json()) as { media: Record<string, unknown> }).media)).toEqual(unsigned(created));
+      expect(((await replay.json()) as { media: Record<string, unknown> }).media).toEqual(expected);
       expect(await sql("select 1 from activities.activity_media where id = $1", [mediaId])).toHaveLength(1);
     });
 

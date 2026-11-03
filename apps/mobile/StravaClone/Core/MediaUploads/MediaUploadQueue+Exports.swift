@@ -44,7 +44,7 @@ extension MediaUploadQueue {
 
     /// The rows Save writes in its transaction, each at its `position`: `uploading` with its
     /// files when the export is over, `exporting` otherwise.
-    func uploads(for picked: [(media: PickedMedia, position: Int)], to activityID: ActivityID) -> [MediaUpload] {
+    func uploads(for picked: [QueuedMedia], to activityID: ActivityID) -> [MediaUpload] {
         let date = now()
         return picked.map { item in
             var upload = MediaUpload(

@@ -32,6 +32,11 @@ struct ActivityMedia: Identifiable, Hashable, Sendable {
     var upload: MediaUploadStatus? = nil
 }
 
+extension ActivityMedia {
+    /// The still image of the carousel and viewer (ADR-037 §7): a video's poster, else the photo.
+    var stillURL: URL? { kind == .video ? posterURL : url }
+}
+
 /// A Media not confirmed yet, as the author's screens show it (ADR-037 §5).
 enum MediaUploadStatus: Hashable, Sendable {
     /// The library original is being converted: no local file to show yet.

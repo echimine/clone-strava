@@ -60,9 +60,7 @@ export class DeleteActivityUseCase {
     // The row is gone: files left behind are unreachable, so a failure is only logged and the
     // daily `bucket-sweep` catches them (ADR-037 §11).
     try {
-      const listed = await this.storage.listKeys(activityPrefix(userId, activity.id));
-      const keys = listed.map((object) => object.key);
-      await this.storage.deleteObjects(importKey ? [...keys, importKey] : keys);
+      await this.storage.deleteFolder(activityPrefix(userId, activity.id), importKey ? [importKey] : []);
     } catch (error: unknown) {
       this.logger.warn(`Files of deleted activity ${activity.id} not removed: ${String(error)}`);
     }

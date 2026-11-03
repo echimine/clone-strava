@@ -161,3 +161,17 @@ enum AvatarMenuChoice: Equatable, Sendable {
         (cameraAvailable ? [.camera] : []) + [.library] + (hasPhoto ? [.remove] : [])
     }
 }
+
+#if DEBUG
+/// An Avatar editor that sends nothing, for the previews of the screens offering it.
+extension AvatarEditor {
+    static var preview: AvatarEditor {
+        AvatarEditor(repository: PreviewAvatarRepository(), analytics: NoAnalyticsClient(), imageLoader: .shared, isOnline: { true })
+    }
+}
+
+private struct PreviewAvatarRepository: AvatarRepository {
+    func upload(_ jpeg: Data) async throws(AvatarError) -> URL? { nil }
+    func remove() async throws(AvatarError) {}
+}
+#endif

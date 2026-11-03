@@ -21,7 +21,6 @@ export interface PresignedUrl {
 /** An object found by {@link StorageService.listKeys}. */
 export interface ListedObject {
   key: string;
-  sizeBytes: number;
   lastModified: Date;
 }
 
@@ -198,16 +197,21 @@ export class StorageService {
       );
       for (const object of output.Contents ?? []) {
         if (object.Key !== undefined) {
-          objects.push({
-            key: object.Key,
-            sizeBytes: object.Size ?? 0,
-            lastModified: object.LastModified ?? new Date(0),
-          });
+          objects.push({ key: object.Key, lastModified: object.LastModified ?? new Date(0) });
         }
       }
       continuationToken = output.IsTruncated ? output.NextContinuationToken : undefined;
     } while (continuationToken);
     return objects;
+  }
+
+  /**
+   * Deletes every object under `prefix` (a folder, ending with `/`), plus `alsoKeys` outside it,
+   * in one go (ADR-037 §11). Throws like {@link deleteObjects}.
+   */
+  async deleteFolder(prefix: string, alsoKeys: readonly string[] = []): Promise<void> {
+    const listed = await this.listKeys(prefix);
+    await this.deleteObjects([...listed.map((object) => object.key), ...alsoKeys]);
   }
 
   /**

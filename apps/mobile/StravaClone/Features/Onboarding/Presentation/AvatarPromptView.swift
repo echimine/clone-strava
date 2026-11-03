@@ -81,20 +81,10 @@ struct AvatarPromptView: View {
 }
 
 #if DEBUG
-private struct PreviewAvatarRepository: AvatarRepository {
-    func upload(_ jpeg: Data) async throws(AvatarError) -> URL? { nil }
-    func remove() async throws(AvatarError) {}
-}
-
 #Preview {
     AvatarPromptView(
         name: "Ada Lovelace",
-        editor: AvatarEditor(
-            repository: PreviewAvatarRepository(),
-            analytics: NoAnalyticsClient(),
-            imageLoader: .shared,
-            isOnline: { true }
-        ),
+        editor: .preview,
         chosen: {},
         later: {}
     )

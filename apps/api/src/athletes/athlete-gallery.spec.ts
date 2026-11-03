@@ -7,7 +7,7 @@ import { Test } from "@nestjs/testing";
 import { Redis } from "ioredis";
 import { ZodSerializerInterceptor, ZodValidationPipe } from "nestjs-zod";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import type { GalleryResponse } from "@repo/contracts";
+import { activityMediaPrefix, type GalleryResponse } from "@repo/contracts";
 import { ActivitiesModule } from "@repo/core/activities";
 import { AnalyticsModule } from "@repo/core/analytics";
 import { AuthService } from "@repo/core/auth";
@@ -23,6 +23,7 @@ import { GlobalExceptionFilter } from "../common/global-exception.filter.js";
 import { AthleteIdentities } from "../identities/athlete-identities.js";
 import { MediaAssembler } from "../media/media-assembler.js";
 import { listenOnLoopback } from "../testing/listen-on-loopback.js";
+import { signedMediaUrl } from "../testing/signed-urls.js";
 import { AthleteGalleryController } from "./athlete-gallery.controller.js";
 
 /**
@@ -207,15 +208,15 @@ describe("Athlete Gallery (integration)", () => {
       width: 1536,
       height: 2048,
       durationMs: null,
-      url: expect.stringMatching(new RegExp(`/media/${media.newestPhoto}/original\\.jpg\\?.*X-Amz-Expires=3600`)),
+      url: signedMediaUrl(activityMediaPrefix(athlete, activities.newest, media.newestPhoto), "original.jpg"),
       posterUrl: null,
-      thumbUrl: expect.stringMatching(new RegExp(`/media/${media.newestPhoto}/thumb\\.jpg\\?.*X-Amz-Expires=3600`)),
+      thumbUrl: signedMediaUrl(activityMediaPrefix(athlete, activities.newest, media.newestPhoto), "thumb.jpg"),
       activity: { id: activities.newest, title: "Sortie du lundi", startedAt: "2026-03-16T07:00:00.000Z" },
     });
     expect(body.items[1]).toMatchObject({
       kind: "video",
       durationMs: 10_000,
-      posterUrl: expect.stringMatching(new RegExp(`/media/${media.newestVideo}/poster\\.jpg\\?`)),
+      posterUrl: signedMediaUrl(activityMediaPrefix(athlete, activities.newest, media.newestVideo), "poster.jpg"),
     });
   });
 

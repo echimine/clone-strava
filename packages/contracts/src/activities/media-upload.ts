@@ -1,35 +1,7 @@
 import { z } from "zod";
-import { mediaKindSchema, type MediaKind } from "../common/enums.js";
+import { mediaKindSchema } from "../common/enums.js";
 import { ACTIVITY_MEDIA_MAX, mediaSchema } from "./media.js";
-
-const MB = 1024 * 1024;
-
-/** The file names of a Media's folder (ADR-037 §3). */
-export const mediaFileNameSchema = z.enum(["original.jpg", "original.mp4", "poster.jpg", "thumb.jpg"]);
-export type MediaFileName = z.infer<typeof mediaFileNameSchema>;
-
-/** Content types of Media files, signed in each pre-signed `PUT`. */
-export const mediaContentTypeSchema = z.enum(["image/jpeg", "video/mp4"]);
-export type MediaContentType = z.infer<typeof mediaContentTypeSchema>;
-
-export interface MediaFileSpec {
-  name: MediaFileName;
-  contentType: MediaContentType;
-  maxBytes: number;
-}
-
-/** Every file a Media must have, with its content type and largest size (ADR-037 §3). */
-export const MEDIA_FILE_SPECS = {
-  photo: [
-    { name: "original.jpg", contentType: "image/jpeg", maxBytes: 8 * MB },
-    { name: "thumb.jpg", contentType: "image/jpeg", maxBytes: MB },
-  ],
-  video: [
-    { name: "original.mp4", contentType: "video/mp4", maxBytes: 60 * MB },
-    { name: "poster.jpg", contentType: "image/jpeg", maxBytes: MB },
-    { name: "thumb.jpg", contentType: "image/jpeg", maxBytes: MB },
-  ],
-} as const satisfies Record<MediaKind, readonly MediaFileSpec[]>;
+import { MEDIA_FILE_SPECS, mediaContentTypeSchema, mediaFileNameSchema, type MediaFileSpec } from "./media-files.js";
 
 /** How long a Media file's pre-signed `PUT` stays valid (ADR-037 §4: 24 hours, for background uploads). */
 export const MEDIA_UPLOAD_URL_EXPIRES_IN_SECONDS = 24 * 60 * 60;
@@ -57,7 +29,7 @@ export const mediaUploadUrlsRequestSchema = z
   })
   .superRefine((request, context) => {
     const specs: readonly MediaFileSpec[] = MEDIA_FILE_SPECS[request.kind];
-    const names = request.files.map((file) => file.name);
+    const names: readonly string[] = request.files.map((file) => file.name);
     if (names.length !== specs.length || specs.some((spec) => !names.includes(spec.name))) {
       context.addIssue({
         code: "custom",

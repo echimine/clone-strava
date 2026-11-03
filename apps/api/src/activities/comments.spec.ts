@@ -23,7 +23,7 @@ import { CommentAssembler } from "./comment-assembler.js";
 import { AthleteIdentities } from "../identities/athlete-identities.js";
 import { CommentsController } from "./comments.controller.js";
 import { listenOnLoopback } from "../testing/listen-on-loopback.js";
-import { signedAvatarUrl } from "../testing/signed-avatar-url.js";
+import { signedAvatarUrl } from "../testing/signed-urls.js";
 
 /**
  * `/v1/activities/:id/comments` over real HTTP and Postgres (ADR-024 §2

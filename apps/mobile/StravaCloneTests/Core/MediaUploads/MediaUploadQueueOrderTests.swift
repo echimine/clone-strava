@@ -17,7 +17,7 @@ extension MediaUploadQueueTests {
         let first = ActivityMedia.fixture(), second = ActivityMedia.fixture()
         let photo = MediaUploadHarness.photo()
         photoID.value = photo.id
-        await queue.enqueue([(photo, 2)], to: harness.activityID)
+        await queue.enqueue([QueuedMedia(media: photo, position: 2)], to: harness.activityID)
         #expect(await eventually { transfer.started.count == 2 })
 
         // "Mettre en premier" on the photo being sent, then "Modifier l'ordre": photo, second, first.

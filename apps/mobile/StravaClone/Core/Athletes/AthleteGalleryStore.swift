@@ -1,15 +1,6 @@
 import Foundation
 import Observation
 
-/// One page of an athlete's Gallery (ADR-037 §9).
-struct LoadAthleteGallery: Sendable {
-    let repository: any AthleteGalleryRepository
-
-    func callAsFunction(athleteId: String, cursor: String? = nil) async throws(AthleteError) -> GalleryPage {
-        try await repository.gallery(of: athleteId, cursor: cursor)
-    }
-}
-
 /// The profile's Galerie tab (ADR-037 §9, §10), shared by my Profile tab and another athlete's
 /// profile: every Media the viewer may see, loaded when the tab first opens, with infinite
 /// scroll, and the full-screen viewer over all of them. `gallery_viewed` each time the tab opens.

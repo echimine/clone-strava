@@ -1,4 +1,4 @@
-import { ConflictException, Injectable } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import {
   ACTIVITY_MEDIA_MAX,
   MEDIA_UPLOAD_URL_EXPIRES_IN_SECONDS,
@@ -9,14 +9,7 @@ import {
 import { StorageService } from "../../storage/index.js";
 import { ActivityMediaRepository } from "../repositories/activity-media.repository.js";
 import { AuthorActivityResolver } from "../services/author-activity-resolver.js";
-
-/** `409 media_limit_reached` (ADR-037 §4): the Activity already has its 8 confirmed Media. */
-export function mediaLimitReached(): ConflictException {
-  return new ConflictException({
-    code: "media_limit_reached",
-    message: `An activity holds at most ${ACTIVITY_MEDIA_MAX} Media`,
-  });
-}
+import { mediaLimitReached } from "../services/media-errors.js";
 
 /**
  * `POST /v1/activities/:id/media/upload-urls` (ADR-037 §4): a 24-hour pre-signed `PUT` per file

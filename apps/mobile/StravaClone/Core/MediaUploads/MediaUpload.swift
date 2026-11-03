@@ -54,6 +54,13 @@ struct MediaUploadFile: Codable, Hashable, Sendable {
     static let thumb = "thumb.jpg"
 }
 
+extension ActivityMedia.Kind {
+    /// The photo or video itself, in a Media's folder.
+    var originalFile: String { self == .photo ? MediaUploadFile.originalPhoto : MediaUploadFile.originalVideo }
+    /// The still image (`ActivityMedia.stillURL`): a video's poster, else the photo.
+    var stillFile: String { self == .photo ? MediaUploadFile.originalPhoto : MediaUploadFile.poster }
+}
+
 /// One row of `media_upload` (migration `media_upload_v1`).
 struct MediaUpload: Hashable, Sendable {
     let mediaID: UUID
@@ -105,6 +112,13 @@ struct MediaSource: Sendable {
 
 /// A Media picked on a screen, before its row exists: `id` is the future `mediaId`, made by the
 /// phone, so the screen can already place it in `mediaOrder` (ADR-037 §8).
+/// A Media picked in a session, at its index in the Activity's order: the `position` its row
+/// gets and its confirmation sends (ADR-037 §8).
+struct QueuedMedia: Sendable {
+    let media: PickedMedia
+    let position: Int
+}
+
 struct PickedMedia: Identifiable, Sendable {
     let id: UUID
     let source: MediaSource

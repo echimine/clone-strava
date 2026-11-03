@@ -36,11 +36,6 @@ struct ProfileHeader: View {
 }
 
 #if DEBUG
-private struct PreviewAvatarRepository: AvatarRepository {
-    func upload(_ jpeg: Data) async throws(AvatarError) -> URL? { nil }
-    func remove() async throws(AvatarError) {}
-}
-
 #Preview {
     ProfileHeader(
         profile: AthleteProfile(
@@ -56,12 +51,7 @@ private struct PreviewAvatarRepository: AvatarRepository {
             pendingFollowRequestCount: 0,
             itineraryCount: 3
         ),
-        avatar: AvatarEditor(
-            repository: PreviewAvatarRepository(),
-            analytics: NoAnalyticsClient(),
-            imageLoader: .shared,
-            isOnline: { true }
-        ),
+        avatar: .preview,
         onAvatar: {},
         onEdit: {}
     )

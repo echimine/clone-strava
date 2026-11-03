@@ -5,7 +5,7 @@ import Foundation
 /// to the finish screen, so no feature imports another.
 struct ActivityMediaUploads {
     let board: MediaUploadBoard
-    let enqueue: @MainActor (_ picked: [(media: PickedMedia, position: Int)], _ activityID: ActivityID) async -> Void
+    let enqueue: @MainActor (_ picked: [QueuedMedia], _ activityID: ActivityID) async -> Void
     /// Media still being sent, removed: tasks cancelled, rows and local files deleted.
     var discard: @MainActor (_ mediaIDs: [UUID]) async -> Void = { _ in }
     /// The rows of the Activity take their index in the full order as their `position`.
@@ -22,7 +22,7 @@ struct ActivityMediaUploads {
     /// Gone from the finish screen's strip, or the Recording deleted: export stopped, files deleted.
     var release: @MainActor (_ mediaIDs: [UUID]) -> Void = { _ in }
     /// The `media_upload` rows Save writes in its transaction.
-    var uploads: @MainActor (_ picked: [(media: PickedMedia, position: Int)], _ activityID: ActivityID) -> [MediaUpload] = { _, _ in [] }
+    var uploads: @MainActor (_ picked: [QueuedMedia], _ activityID: ActivityID) -> [MediaUpload] = { _, _ in [] }
     /// After Save's commit: the queue takes the rows over.
     var adopt: @MainActor (_ picked: [PickedMedia]) async -> Void = { _ in }
 }
@@ -63,13 +63,20 @@ extension ActivityMediaUploads {
         await reorder(draft.order, activityID)
         await enqueue(draft.queued, activityID)
         // After the queue has its rows: counting the cut videos may wait for a library copy.
-        if let saved = await draft.saved() {
-            analytics.capture(.activityMediaSaved(entry: entry, saved))
-        }
+        await reportSaved(draft, entry: entry)
         var deleted = true
         for mediaID in confirmed {
             if await !delete(mediaID, activityID) { deleted = false }
         }
         return deleted
+    }
+
+    /// `activity_media_saved` for the session `draft` (ADR-037 §13); nothing when it changed
+    /// nothing. May wait for a library copy (counting the cut videos).
+    @MainActor
+    func reportSaved(_ draft: MediaDraft, entry: AnalyticsEvent.ActivityMediaSavedEntry) async {
+        if let saved = await draft.saved() {
+            analytics.capture(.activityMediaSaved(entry: entry, saved))
+        }
     }
 }

@@ -7,7 +7,7 @@ import { Test } from "@nestjs/testing";
 import { Redis } from "ioredis";
 import { ZodSerializerInterceptor, ZodValidationPipe } from "nestjs-zod";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import type { FeedResponse, KudosResponse } from "@repo/contracts";
+import { activityMediaPrefix, type FeedResponse, type KudosResponse } from "@repo/contracts";
 import { ActivitiesModule, ActivitiesService } from "@repo/core/activities";
 import { AnalyticsModule } from "@repo/core/analytics";
 import { AuthService } from "@repo/core/auth";
@@ -26,7 +26,7 @@ import { MediaAssembler } from "../media/media-assembler.js";
 import { AthleteIdentities } from "../identities/athlete-identities.js";
 import { FeedController } from "./feed.controller.js";
 import { listenOnLoopback } from "../testing/listen-on-loopback.js";
-import { signedAvatarUrl } from "../testing/signed-avatar-url.js";
+import { signedAvatarUrl, signedMediaUrl } from "../testing/signed-urls.js";
 
 /**
  * `GET /v1/feed` and `/v1/activities/:id/kudos` over real HTTP and Postgres
@@ -211,7 +211,7 @@ describe("/v1/feed and kudos (integration)", () => {
     getMedia.mockRestore();
 
     const byId = new Map(body.items.map((item) => [item.id, item]));
-    const folder = (mediaId: string) => `https://bucket.test/test/activities/${friend}/${ids.friendPublic}/media/${mediaId}/`;
+    const folder = (mediaId: string) => activityMediaPrefix(friend, ids.friendPublic, mediaId);
     expect(byId.get(ids.friendPublic)?.mediaFirst).toBe(true);
     expect(byId.get(ids.friendPublic)?.media).toEqual([
       {
@@ -220,9 +220,9 @@ describe("/v1/feed and kudos (integration)", () => {
         width: 1280,
         height: 720,
         durationMs: 8000,
-        url: expect.stringMatching(new RegExp(`^${folder(media.video)}original\\.mp4\\?.*X-Amz-Expires=3600`)),
-        posterUrl: expect.stringMatching(new RegExp(`^${folder(media.video)}poster\\.jpg\\?`)),
-        thumbUrl: expect.stringMatching(new RegExp(`^${folder(media.video)}thumb\\.jpg\\?`)),
+        url: signedMediaUrl(folder(media.video), "original.mp4"),
+        posterUrl: signedMediaUrl(folder(media.video), "poster.jpg"),
+        thumbUrl: signedMediaUrl(folder(media.video), "thumb.jpg"),
       },
       {
         id: media.photo,
@@ -230,9 +230,9 @@ describe("/v1/feed and kudos (integration)", () => {
         width: 2048,
         height: 1536,
         durationMs: null,
-        url: expect.stringMatching(new RegExp(`^${folder(media.photo)}original\\.jpg\\?.*X-Amz-Expires=3600`)),
+        url: signedMediaUrl(folder(media.photo), "original.jpg"),
         posterUrl: null,
-        thumbUrl: expect.stringMatching(new RegExp(`^${folder(media.photo)}thumb\\.jpg\\?`)),
+        thumbUrl: signedMediaUrl(folder(media.photo), "thumb.jpg"),
       },
     ]);
     expect(byId.get(ids.mine)).toMatchObject({ media: [], mediaFirst: false });

@@ -1,10 +1,7 @@
 import { Injectable } from "@nestjs/common";
-import { MEDIA_FILES, type Media } from "@repo/contracts";
+import { MEDIA_FILES, MEDIA_URL_EXPIRES_IN_SECONDS, type Media } from "@repo/contracts";
 import { ActivitiesService, type ActivityMediaRecord } from "@repo/core/activities";
 import { StorageService } from "@repo/core/storage";
-
-/** Lifetime of a Media's pre-signed `GET` (ADR-037 §1). */
-export const MEDIA_URL_TTL_SECONDS = 3600;
 
 /**
  * The single Media assembly of the API (ADR-037 §7, §12): turns `activity_media` rows into the
@@ -56,6 +53,6 @@ export class MediaAssembler {
   }
 
   private async signFile(record: ActivityMediaRecord, file: string): Promise<string> {
-    return (await this.storage.presignGet(`${record.folderKey}${file}`, MEDIA_URL_TTL_SECONDS)).url;
+    return (await this.storage.presignGet(`${record.folderKey}${file}`, MEDIA_URL_EXPIRES_IN_SECONDS)).url;
   }
 }
