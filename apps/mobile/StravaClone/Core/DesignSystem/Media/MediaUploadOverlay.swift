@@ -12,6 +12,16 @@ enum MediaUploadMessages {
     static let sending = "Envoi en cours"
     static let preparing = "Préparation"
     static let addMedia = "Ajouter des photos ou vidéos"
+    static let mediaTitle = "Média"
+    static let putFirst = "Mettre en premier"
+    static let putMapFirst = "Remettre la carte en premier"
+    static let delete = "Supprimer"
+    static let reorder = "Modifier l'ordre"
+    static let orderTitle = "Ordre des médias"
+    static let done = "OK"
+    static let photo = "Photo"
+    static let video = "Vidéo"
+    static let tapHint = "Touchez un média pour le mettre en premier ou le supprimer."
 
     /// "5/8".
     static func counter(_ count: Int, limit: Int) -> String { "\(count)/\(limit)" }

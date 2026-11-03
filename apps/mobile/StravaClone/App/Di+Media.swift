@@ -30,9 +30,14 @@ extension Di {
     /// The edit sheet's "Photos et vidéos" (and the finish screen's, #185).
     var activityMediaUploads: ActivityMediaUploads {
         let queue = mediaUploadQueue
-        return ActivityMediaUploads(board: queue.board) { picked, activityID in
-            await queue.enqueue(picked, to: activityID)
-        }
+        return ActivityMediaUploads(
+            board: queue.board,
+            enqueue: { picked, activityID in await queue.enqueue(picked, to: activityID) },
+            discard: { mediaIDs in await queue.discard(mediaIDs) },
+            reorder: { order, activityID in await queue.reorder(order, of: activityID) },
+            delete: { mediaID, activityID in await queue.deleteConfirmed(mediaID, of: activityID) },
+            analytics: analytics
+        )
     }
 
     /// The coordinator's triggers (foreground, network back) and the sign-out (ADR-031 §14).

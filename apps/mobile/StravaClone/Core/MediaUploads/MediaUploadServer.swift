@@ -29,6 +29,8 @@ protocol MediaUploadServer: Sendable {
     func uploadTargets(for upload: MediaUpload) async throws(MediaServerError) -> [MediaUploadTarget]
     /// `POST /v1/activities/:id/media`: the confirmed Media (`201`, or `200` on a replay).
     func confirm(_ upload: MediaUpload) async throws(MediaServerError) -> ActivityMedia
+    /// `DELETE /v1/activities/:id/media/:mediaId`: `204`, the Media already gone too.
+    func delete(_ mediaID: UUID, of activityID: ActivityID) async throws(MediaServerError)
 }
 
 /// `MediaUploadServer` over the API (`APIClient`, generated OpenAPI types, ADR-026).
@@ -84,6 +86,12 @@ struct APIMediaUploadServer: MediaUploadServer {
         }
         guard let media = response.media.model else { throw .unavailable }
         return media
+    }
+
+    func delete(_ mediaID: UUID, of activityID: ActivityID) async throws(MediaServerError) {
+        let _: NoContent = try await call { () async throws(APIError) in
+            try await apiClient.send(method: "DELETE", path: "/v1/activities/\(activityID)/media/\(Self.id(mediaID))")
+        }
     }
 
     private static func id(_ uuid: UUID) -> String { uuid.uuidString.lowercased() }

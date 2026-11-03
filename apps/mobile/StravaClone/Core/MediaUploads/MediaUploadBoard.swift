@@ -38,6 +38,11 @@ final class MediaUploadBoard {
         pending[activityID]?.count ?? 0
     }
 
+    /// Ids of the Media of `activityID` that still have a `media_upload` row.
+    func pendingIDs(of activityID: ActivityID) -> Set<UUID> {
+        Set((pending[activityID] ?? []).map(\.media.id))
+    }
+
     /// Locals in `position` order, each inserted at its index (or at the end), after the
     /// remote ones it does not duplicate.
     nonisolated static func merge(remote: [ActivityMedia], local: [Entry]) -> [ActivityMedia] {
@@ -75,6 +80,16 @@ final class MediaUploadBoard {
         pending[activityID]?.removeAll { $0.media.id == media.id }
         confirmed[activityID, default: []].removeAll { $0.media.id == media.id }
         confirmed[activityID, default: []].append(Entry(position: position, media: media))
+    }
+
+    /// A new order (#184): each local Media listed takes its index (`positions`).
+    func reorder(_ positions: [UUID: Int], of activityID: ActivityID) {
+        pending[activityID] = pending[activityID].map { Self.moved($0, to: positions) }
+        confirmed[activityID] = confirmed[activityID].map { Self.moved($0, to: positions) }
+    }
+
+    private nonisolated static func moved(_ entries: [Entry], to positions: [UUID: Int]) -> [Entry] {
+        entries.map { Entry(position: positions[$0.media.id] ?? $0.position, media: $0.media) }
     }
 
     /// A confirmed Media deleted since (`DELETE …/media/:mediaId`, #184), or a row removed.

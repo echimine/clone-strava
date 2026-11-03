@@ -5,8 +5,10 @@ import SwiftUI
 /// "Photos et vidéos" (ADR-037 §10), in the edit sheet's `Form` (and the finish screen, #185):
 /// a "5/8" counter and a horizontal strip, the map (a wider tile labelled "Carte"), the Media in
 /// carousel order with their `thumbURL`, then "Ajouter photos/vidéo", a `PhotosPicker` with an
-/// ordered selection limited to what remains; greyed at 8/8 ("Limite de 8 atteinte"). A failed
-/// tile offers "Réessayer" and "Retirer".
+/// ordered selection limited to what remains; greyed at 8/8 ("Limite de 8 atteinte"). A tap on
+/// a Media offers "Mettre en premier" (or "Remettre la carte en premier") and "Supprimer";
+/// "Modifier l'ordre" (from 2 Media) opens a list with handles. A failed tile offers
+/// "Réessayer" and "Retirer".
 struct MediaManagementSection: View {
     @Binding var draft: MediaDraft
     let route: EncodedPolyline?
@@ -14,20 +16,18 @@ struct MediaManagementSection: View {
 
     @State private var picked: [PhotosPickerItem] = []
     @State private var failedTile: ActivityMedia?
+    @State private var actionTarget: MediaDraft.Item?
+    @State private var reorders = false
     @Environment(\.mediaUploads) private var uploads
 
     var body: some View {
         Section {
-            ScrollView(.horizontal) {
-                HStack(spacing: 6) {
-                    ForEach(draft.slides) { slide in
-                        tile(slide)
-                    }
-                    addTile
-                }
+            strip
+            if draft.canReorder {
+                Button(MediaUploadMessages.reorder) { reorders = true }
+                    .font(.subheadline.weight(.semibold))
+                    .accessibilityIdentifier("mediaSection.reorder")
             }
-            .scrollIndicators(.hidden)
-            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
         } header: {
             HStack {
                 Text(MediaUploadMessages.sectionTitle)
@@ -37,19 +37,63 @@ struct MediaManagementSection: View {
                     .foregroundStyle(draft.remaining == 0 ? Color.red : .secondary)
                     .accessibilityIdentifier("mediaSection.counter")
             }
-        }
-        .confirmationDialog(
-            MediaUploadMessages.failed,
-            isPresented: Binding(get: { failedTile != nil }, set: { if !$0 { failedTile = nil } }),
-            presenting: failedTile
-        ) { media in
-            if case .failed(_, true) = media.upload {
-                Button(MediaUploadMessages.retry) { uploads?.retry(media.id) }
+        } footer: {
+            if draft.count > 0 {
+                Text(MediaUploadMessages.tapHint)
             }
-            Button(MediaUploadMessages.remove, role: .destructive) { uploads?.remove(media.id) }
-        } message: { media in
-            if case .failed(let reason, _) = media.upload {
-                Text(MediaUploadMessages.failure(reason))
+        }
+    }
+
+    /// The strip, one row of the section; the menus hang on it (a modifier on a `Section`
+    /// would go to each of its rows).
+    private var strip: some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: 6) {
+                ForEach(draft.slides) { slide in
+                    tile(slide)
+                }
+                addTile
+            }
+        }
+        .scrollIndicators(.hidden)
+        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+        .confirmationDialog(
+            MediaUploadMessages.mediaTitle,
+            isPresented: Binding(get: { actionTarget != nil }, set: { if !$0 { actionTarget = nil } }),
+            presenting: actionTarget
+        ) { item in
+            ForEach(draft.actions(for: item.id), id: \.self) { action in
+                switch action {
+                case .putFirst:
+                    Button(MediaUploadMessages.putFirst) { draft.putFirst(item.id) }
+                case .putMapFirst:
+                    Button(MediaUploadMessages.putMapFirst) { draft.putMapFirst() }
+                case .remove:
+                    Button(MediaUploadMessages.delete, role: .destructive) { draft.remove(item.id) }
+                }
+            }
+        }
+        .sheet(isPresented: $reorders) {
+            MediaOrderSheet(draft: $draft)
+        }
+        .background {
+            // A second dialog on its own view: two on the same view can step on each other.
+            Color.clear.confirmationDialog(
+                MediaUploadMessages.failed,
+                isPresented: Binding(get: { failedTile != nil }, set: { if !$0 { failedTile = nil } }),
+                presenting: failedTile
+            ) { media in
+                if case .failed(_, true) = media.upload {
+                    Button(MediaUploadMessages.retry) { uploads?.retry(media.id) }
+                }
+                Button(MediaUploadMessages.remove, role: .destructive) {
+                    uploads?.remove(media.id)
+                    draft.discard(media.id)
+                }
+            } message: { media in
+                if case .failed(let reason, _) = media.upload {
+                    Text(MediaUploadMessages.failure(reason))
+                }
             }
         }
     }
@@ -84,13 +128,15 @@ struct MediaManagementSection: View {
             }
             .contentShape(.rect)
             .onTapGesture {
-                if case .failed = media.upload { failedTile = media }
+                if case .failed = media.upload { failedTile = media } else { actionTarget = .existing(media) }
             }
             .accessibilityIdentifier("mediaSection.media")
         case .media(.added(let media)):
             PickedMediaPreview(media: media)
                 .frame(width: Self.tileWidth, height: Self.tileHeight)
                 .clipShape(.rect(cornerRadius: 8))
+                .contentShape(.rect)
+                .onTapGesture { actionTarget = .added(media) }
                 .accessibilityIdentifier("mediaSection.added")
         }
     }
@@ -141,7 +187,7 @@ extension PickedMedia {
 }
 
 /// A picked photo before "Enregistrer": decoded small from the library original.
-private struct PickedMediaPreview: View {
+struct PickedMediaPreview: View {
     let media: PickedMedia
     @State private var image: UIImage?
 

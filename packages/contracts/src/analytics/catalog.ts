@@ -133,6 +133,8 @@ export const APP_ANALYTICS_EVENTS = {
   AVATAR_PROMPT_DEFERRED: "avatar_prompt_deferred",
   /** The full-screen viewer opened on a Media; its swipes are not tracked. */
   MEDIA_VIEWER_OPENED: "media_viewer_opened",
+  /** "Enregistrer" with the Media changed, once per session (end of Recording or "Modifier"). */
+  ACTIVITY_MEDIA_SAVED: "activity_media_saved",
   /** The profile's Galerie tab opened, on one's own profile or another athlete's. */
   GALLERY_VIEWED: "gallery_viewed",
 } as const;
@@ -171,6 +173,20 @@ export const mediaViewerOpenedPropertiesSchema = z.object({
 });
 export type MediaViewerOpenedProperties = z.infer<typeof mediaViewerOpenedPropertiesSchema>;
 
+/**
+ * `activity_media_saved`: the screen, what the session changed, and the
+ * Activity's Media once saved. No `mediaId` or `activityId`.
+ */
+export const activityMediaSavedPropertiesSchema = z.object({
+  entry: z.enum(["recording", "edit"]),
+  photosAdded: z.number().int().nonnegative(),
+  videosAdded: z.number().int().nonnegative(),
+  videosTrimmed: z.number().int().nonnegative(),
+  mediaRemoved: z.number().int().nonnegative(),
+  mediaFirst: z.boolean(),
+  mediaCount: z.number().int().min(0).max(8),
+});
+export type ActivityMediaSavedProperties = z.infer<typeof activityMediaSavedPropertiesSchema>;
 /** `gallery_viewed`: whether the Gallery is the viewer's own. */
 export const galleryViewedPropertiesSchema = z.object({ isOwn: z.boolean() });
 export type GalleryViewedProperties = z.infer<typeof galleryViewedPropertiesSchema>;
@@ -183,5 +199,6 @@ export const appAnalyticsEventPropertiesSchemas = {
   [APP_ANALYTICS_EVENTS.AVATAR_PROMPT_VIEWED]: avatarPromptViewedPropertiesSchema,
   [APP_ANALYTICS_EVENTS.AVATAR_PROMPT_DEFERRED]: avatarPromptDeferredPropertiesSchema,
   [APP_ANALYTICS_EVENTS.MEDIA_VIEWER_OPENED]: mediaViewerOpenedPropertiesSchema,
+  [APP_ANALYTICS_EVENTS.ACTIVITY_MEDIA_SAVED]: activityMediaSavedPropertiesSchema,
   [APP_ANALYTICS_EVENTS.GALLERY_VIEWED]: galleryViewedPropertiesSchema,
 } as const satisfies Record<AppAnalyticsEventName, z.ZodType>;
