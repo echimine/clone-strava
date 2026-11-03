@@ -995,6 +995,127 @@
         ]
       }
     },
+    "/v1/activities/{id}/media/upload-urls": {
+      "post": {
+        "operationId": "ActivityMediaController_requestUploadUrls",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaUploadUrlsRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaUploadUrlsResponseDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "ActivityMedia"
+        ]
+      }
+    },
+    "/v1/activities/{id}/media": {
+      "post": {
+        "operationId": "ActivityMediaController_confirm",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmMediaRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Replayed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfirmMediaResponseDto_Output"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Confirmed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfirmMediaResponseDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "ActivityMedia"
+        ]
+      }
+    },
+    "/v1/activities/{id}/media/{mediaId}": {
+      "delete": {
+        "operationId": "ActivityMediaController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mediaId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          }
+        },
+        "tags": [
+          "ActivityMedia"
+        ]
+      }
+    },
     "/v1/activities/{id}/kudos": {
       "get": {
         "operationId": "KudosController_list",
@@ -3282,6 +3403,170 @@
           "fileName",
           "sizeBytes"
         ]
+      },
+      "MediaUploadFile": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "enum": [
+              "original.jpg",
+              "original.mp4",
+              "poster.jpg",
+              "thumb.jpg"
+            ]
+          },
+          "contentType": {
+            "type": "string",
+            "enum": [
+              "image/jpeg",
+              "video/mp4"
+            ]
+          },
+          "contentLength": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "name",
+          "contentType",
+          "contentLength"
+        ]
+      },
+      "MediaUploadUrlsRequestDto": {
+        "type": "object",
+        "properties": {
+          "mediaId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "photo",
+              "video"
+            ]
+          },
+          "files": {
+            "minItems": 1,
+            "maxItems": 3,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MediaUploadFile"
+            }
+          }
+        },
+        "required": [
+          "mediaId",
+          "kind",
+          "files"
+        ]
+      },
+      "MediaUploadUrl_Output": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "enum": [
+              "original.jpg",
+              "original.mp4",
+              "poster.jpg",
+              "thumb.jpg"
+            ]
+          },
+          "uploadUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          }
+        },
+        "required": [
+          "name",
+          "uploadUrl",
+          "expiresAt"
+        ],
+        "additionalProperties": false
+      },
+      "MediaUploadUrlsResponseDto_Output": {
+        "type": "object",
+        "properties": {
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MediaUploadUrl_Output"
+            }
+          }
+        },
+        "required": [
+          "files"
+        ],
+        "additionalProperties": false
+      },
+      "ConfirmMediaRequestDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "photo",
+              "video"
+            ]
+          },
+          "width": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "height": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "durationMs": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "position": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 7
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "width",
+          "height",
+          "position"
+        ]
+      },
+      "ConfirmMediaResponseDto_Output": {
+        "type": "object",
+        "properties": {
+          "media": {
+            "$ref": "#/components/schemas/Media_Output"
+          }
+        },
+        "required": [
+          "media"
+        ],
+        "additionalProperties": false
       },
       "ListKudosResponseDto_Output": {
         "type": "object",
