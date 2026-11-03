@@ -4,4 +4,5 @@ export * from "./import.js";
 export * from "./jobs.js";
 export * from "./trace.js";
 export * from "./feed.js";
+export * from "./media.js";
 export * from "./athlete-stats.js";

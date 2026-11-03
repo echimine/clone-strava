@@ -7,6 +7,7 @@ import {
 } from "../common/enums.js";
 import { sportTypeCodeSchema } from "../sports/sport-type.js";
 import { feedActivityMapSchema, feedAuthorSchema, feedEngagementSchema } from "./feed.js";
+import { ACTIVITY_MEDIA_MAX, mediaSchema } from "./media.js";
 
 /** Provisional values computed by the app (ADR-019 §1): compared, never trusted, by the worker. */
 export const provisionalActivityValuesSchema = z.object({
@@ -177,6 +178,10 @@ export const activityDetailSchema = z.object({
   author: feedAuthorSchema,
   engagement: feedEngagementSchema,
   viewerIsAuthor: z.boolean(),
+  /** All the Activity's Media, in order, whatever the processing state (ADR-037 §7). */
+  media: z.array(mediaSchema).max(ACTIVITY_MEDIA_MAX),
+  /** The first Media comes before the map (ADR-037 §8). */
+  mediaFirst: z.boolean(),
   updatedAt: z.iso.datetime(),
 });
 export type ActivityDetail = z.infer<typeof activityDetailSchema>;

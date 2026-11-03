@@ -21,6 +21,7 @@ import { ensureTestDatabaseMigrated, TEST_DATABASE_URL, TEST_REDIS_URL } from ".
 import { SessionGuard } from "../auth/session.guard.js";
 import { GlobalExceptionFilter } from "../common/global-exception.filter.js";
 import { FeedAssembler } from "../feed/feed-assembler.js";
+import { MediaAssembler } from "../media/media-assembler.js";
 import { FeedController } from "../feed/feed.controller.js";
 import { AthleteIdentities } from "../identities/athlete-identities.js";
 import { AthleteFollowsController } from "./athlete-follows.controller.js";
@@ -99,6 +100,7 @@ describe("follows (integration)", () => {
         AthleteIdentities,
         FollowListAssembler,
         FeedAssembler,
+        MediaAssembler,
         {
           provide: AuthService,
           useValue: {

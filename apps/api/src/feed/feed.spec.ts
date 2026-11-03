@@ -6,9 +6,9 @@ import { EventEmitterModule } from "@nestjs/event-emitter";
 import { Test } from "@nestjs/testing";
 import { Redis } from "ioredis";
 import { ZodSerializerInterceptor, ZodValidationPipe } from "nestjs-zod";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { FeedResponse, KudosResponse } from "@repo/contracts";
-import { ActivitiesModule } from "@repo/core/activities";
+import { ActivitiesModule, ActivitiesService } from "@repo/core/activities";
 import { AnalyticsModule } from "@repo/core/analytics";
 import { AuthService } from "@repo/core/auth";
 import { EngagementModule } from "@repo/core/engagement";
@@ -22,6 +22,7 @@ import { ensureTestDatabaseMigrated, TEST_DATABASE_URL, TEST_REDIS_URL } from ".
 import { SessionGuard } from "../auth/session.guard.js";
 import { GlobalExceptionFilter } from "../common/global-exception.filter.js";
 import { FeedAssembler } from "./feed-assembler.js";
+import { MediaAssembler } from "../media/media-assembler.js";
 import { AthleteIdentities } from "../identities/athlete-identities.js";
 import { FeedController } from "./feed.controller.js";
 import { listenOnLoopback } from "../testing/listen-on-loopback.js";
@@ -51,6 +52,8 @@ describe("/v1/feed and kudos (integration)", () => {
     strangerPublic: randomUUID(),
     strangerFollowers: randomUUID(),
   };
+
+  const media = { video: randomUUID(), photo: randomUUID() };
 
   async function sql(text: string, params: unknown[]) {
     return (await app.get<Database>(DATABASE).$client.query(text, params)).rows;
@@ -110,6 +113,7 @@ describe("/v1/feed and kudos (integration)", () => {
       providers: [
         SessionGuard,
         FeedAssembler,
+        MediaAssembler,
         AthleteIdentities,
         KudosAssembler,
         {
@@ -149,6 +153,13 @@ describe("/v1/feed and kudos (integration)", () => {
     await insertActivity(ids.pendingFriendPublic, pendingFriend, 5);
     await insertActivity(ids.strangerPublic, stranger, 6);
     await insertActivity(ids.strangerFollowers, stranger, 7, { visibility: "followers" });
+    await sql("update activities.activity set media_first = true where id = $1", [ids.friendPublic]);
+    await sql(
+      `insert into activities.activity_media (id, activity_id, s3_key, kind, width, height, duration_ms, position)
+       values ($1, $3, $4, 'photo', 2048, 1536, null, 1), ($2, $3, $5, 'video', 1280, 720, 8000, 0)`,
+      [media.photo, media.video, ids.friendPublic, `activities/${friend}/${ids.friendPublic}/media/${media.photo}/`,
+        `activities/${friend}/${ids.friendPublic}/media/${media.video}/`],
+    );
     await sql("insert into engagement.kudos (user_id, activity_id) values ($1, $2)", [friend, ids.mine]);
     await sql("insert into engagement.comment (user_id, activity_id, body) values ($1, $2, 'Bravo'), ($1, $2, 'Supprimé')", [friend, ids.mine]);
     await sql("update engagement.comment set deleted_at = now() where body = 'Supprimé' and activity_id = $1", [ids.mine]);
@@ -186,6 +197,41 @@ describe("/v1/feed and kudos (integration)", () => {
     });
     expect(friendPublic?.routeTrimmed).toBe(true);
     expect(friendPublic?.author).toEqual({ id: friend, displayName: "Camille Martin", avatarUrl: "https://cdn.test/a.png" });
+  });
+
+  it("gives each card its signed Media in order and mediaFirst, with one Media read per page", async () => {
+    const getMedia = vi.spyOn(app.get(ActivitiesService), "getMedia");
+    const body = (await (await call("/feed", viewer)).json()) as FeedResponse;
+    expect(getMedia).toHaveBeenCalledTimes(1);
+    expect(getMedia).toHaveBeenCalledWith([ids.mine, ids.friendPublic, ids.friendFollowers]);
+    getMedia.mockRestore();
+
+    const byId = new Map(body.items.map((item) => [item.id, item]));
+    const folder = (mediaId: string) => `https://bucket.test/test/activities/${friend}/${ids.friendPublic}/media/${mediaId}/`;
+    expect(byId.get(ids.friendPublic)?.mediaFirst).toBe(true);
+    expect(byId.get(ids.friendPublic)?.media).toEqual([
+      {
+        id: media.video,
+        kind: "video",
+        width: 1280,
+        height: 720,
+        durationMs: 8000,
+        url: expect.stringMatching(new RegExp(`^${folder(media.video)}original\\.mp4\\?.*X-Amz-Expires=3600`)),
+        posterUrl: expect.stringMatching(new RegExp(`^${folder(media.video)}poster\\.jpg\\?`)),
+        thumbUrl: expect.stringMatching(new RegExp(`^${folder(media.video)}thumb\\.jpg\\?`)),
+      },
+      {
+        id: media.photo,
+        kind: "photo",
+        width: 2048,
+        height: 1536,
+        durationMs: null,
+        url: expect.stringMatching(new RegExp(`^${folder(media.photo)}original\\.jpg\\?.*X-Amz-Expires=3600`)),
+        posterUrl: null,
+        thumbUrl: expect.stringMatching(new RegExp(`^${folder(media.photo)}thumb\\.jpg\\?`)),
+      },
+    ]);
+    expect(byId.get(ids.mine)).toMatchObject({ media: [], mediaFirst: false });
   });
 
   it("gives each card its 3 most recent kudos givers, newest first", async () => {

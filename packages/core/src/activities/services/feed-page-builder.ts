@@ -67,6 +67,7 @@ export class FeedPageBuilder {
         mapPolyline: track?.mapPolyline ?? null,
         locationName: track?.locationName ?? null,
         routeTrimmed: track?.routeTrimmed ?? false,
+        mediaFirst: row.mediaFirst,
       };
     });
 

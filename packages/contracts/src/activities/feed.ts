@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { visibilitySchema } from "../common/enums.js";
 import { sportTypeCodeSchema } from "../sports/sport-type.js";
+import { ACTIVITY_MEDIA_MAX, mediaSchema } from "./media.js";
 
 /** `GET /v1/feed` query (ADR-029): opaque keyset cursor, no page numbers. */
 export const feedQuerySchema = z.object({
@@ -56,6 +57,10 @@ export const feedItemSchema = z.object({
   /** The last 3 kudos givers, most recent first (ADR-036 §5). */
   recentKudos: z.array(feedAuthorSchema).max(3),
   viewerIsAuthor: z.boolean(),
+  /** All the Activity's Media, in order (ADR-037 §7). */
+  media: z.array(mediaSchema).max(ACTIVITY_MEDIA_MAX),
+  /** The first Media comes before the map (ADR-037 §8); no effect without a map or Media. */
+  mediaFirst: z.boolean(),
 });
 export type FeedItem = z.infer<typeof feedItemSchema>;
 
