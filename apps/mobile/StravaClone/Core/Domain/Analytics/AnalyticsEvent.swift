@@ -72,6 +72,13 @@ enum AnalyticsEvent: Equatable, Sendable {
     /// "Plus tard" on the priming screen.
     case notificationPermissionDeferred
 
+    /// A new Avatar is stored (ADR-037 §13). Never any image data.
+    case avatarChanged(source: AvatarSource, entry: AvatarEntry)
+    /// "Supprimer la photo" went through.
+    case avatarRemoved
+    /// The Avatar was not sent, or not stored.
+    case avatarUploadFailed(reason: AvatarUploadFailure)
+
     var name: String {
         switch self {
         case .itineraryEditorOpened: "itinerary_editor_opened"
@@ -98,6 +105,9 @@ enum AnalyticsEvent: Equatable, Sendable {
         case .notificationPromptViewed: "notification_prompt_viewed"
         case .notificationPermissionAnswered: "notification_permission_answered"
         case .notificationPermissionDeferred: "notification_permission_deferred"
+        case .avatarChanged: "avatar_changed"
+        case .avatarRemoved: "avatar_removed"
+        case .avatarUploadFailed: "avatar_upload_failed"
         }
     }
 
@@ -122,7 +132,7 @@ enum AnalyticsEvent: Equatable, Sendable {
         case .itineraryOfflineEditBlocked(let action):
             ["action": .string(action.rawValue)]
         case .welcomeViewed, .onboardingStarted, .authGoogleCancelled, .notificationPromptViewed,
-             .notificationPermissionDeferred:
+             .notificationPermissionDeferred, .avatarRemoved:
             [:]
         case .onboardingStepViewed(let step, let resumed):
             ["step": .string(step.rawValue), "resumed": .bool(resumed)]
@@ -153,6 +163,10 @@ enum AnalyticsEvent: Equatable, Sendable {
             ["layout": .string(layout.rawValue)]
         case .notificationPermissionAnswered(let granted):
             ["granted": .bool(granted)]
+        case .avatarChanged(let source, let entry):
+            ["source": .string(source.rawValue), "entry": .string(entry.rawValue)]
+        case .avatarUploadFailed(let reason):
+            ["reason": .string(reason.rawValue)]
         }
     }
 }

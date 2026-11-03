@@ -77,6 +77,16 @@ struct ImageLoaderTests {
         #expect(ImageURLProtocolStub.requests.value.count == 1)
     }
 
+    /// The Avatar just sent (ADR-037 §2): every screen shows it without downloading it again.
+    @Test func anImageTheAppAlreadyHasIsServedFromTheCache() async {
+        let loader = makeLoader(status: 500)
+
+        await loader.store(Self.png, for: signed)
+
+        #expect(await loader.load(resigned).image != nil)
+        #expect(ImageURLProtocolStub.requests.value.isEmpty)
+    }
+
     @Test func unsignedURLsStillLoadEachPath() async {
         let loader = makeLoader()
         let mapA = URL(string: "https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/static/path-a/auto/360x203@2x?padding=40&access_token=pk")!

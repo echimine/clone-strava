@@ -297,7 +297,8 @@ final class Di {
                 loadActivities: LoadProfileActivities(repository: athletes),
                 activityChanges: activityChanges
             ),
-            progress: ProfileProgressStore(loadProgress: LoadProgress(repository: APIProgressRepository(apiClient: apiClient)))
+            progress: ProfileProgressStore(loadProgress: LoadProgress(repository: APIProgressRepository(apiClient: apiClient))),
+            avatar: makeAvatarEditor()
         )
     }()
 
