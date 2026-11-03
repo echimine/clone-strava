@@ -101,8 +101,9 @@ struct ActivitySenderHarness: Sendable {
         return ActivitySender(server: server, store: store, sessionRefresher: refresher, backoff: backoff, now: { Self.now }, sleep: sleep)
     }
 
-    /// A 10-minute run with a Pause, finished and saved: 3 points, one finished Pause.
-    func saveRecordedActivity(startingAt start: Date = Self.start) async throws {
+    /// A 10-minute run with a Pause, finished and saved: 3 points, one finished Pause; `media`
+    /// rows in the Save's transaction (ADR-037 §6).
+    func saveRecordedActivity(startingAt start: Date = Self.start, mediaFirst: Bool = false, media: [MediaUpload] = []) async throws {
         let recordings = GRDBRecordingRepository(database: database)
         var recording = Recording(id: id, sport: .run, startedAt: start)
         try await recordings.create(recording)
@@ -124,8 +125,9 @@ struct ActivitySenderHarness: Sendable {
             endedAt: start.addingTimeInterval(600),
             distance: Distance(meters: 1_500),
             movingTimeS: 540,
-            elapsedTimeS: 600
-        ))
+            elapsedTimeS: 600,
+            mediaFirst: mediaFirst
+        ), media: media)
     }
 
     private func sample(_ start: Date, _ seconds: TimeInterval, north: Double) -> LocationSample {

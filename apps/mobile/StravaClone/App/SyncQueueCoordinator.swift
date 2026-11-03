@@ -33,12 +33,14 @@ private final class BackgroundTaskBox {
 }
 
 /// A feature's queue the coordinator wakes besides the Activities' (ADR-031 §14), seen through
-/// its three actions: `send` what is pending without the backoff delay, `stop` the pass in
-/// flight when iOS takes the background time back, `clear` it at sign-out.
+/// its actions: `send` what is pending without the backoff delay, `stop` the pass in flight
+/// when iOS takes the background time back, `clear` it at sign-out, and `activityCreated` once
+/// the server has created a local Activity (the Media waiting for it, ADR-037 §6).
 struct QueuedSender {
     var send: @MainActor () async -> Void
     var stop: @MainActor @Sendable () -> Void = {}
     var clear: @MainActor () async -> Void = {}
+    var activityCreated: @MainActor (ActivityID) async -> Void = { _ in }
 }
 
 /// The queue coordinator of ADR-031 §14: wakes `ActivitySender`, the Itinerary changes and the
@@ -77,6 +79,14 @@ final class SyncQueueCoordinator {
         self.queues = [itineraryChanges, onboardingAnswers, mediaUploads]
         self.reloadFeed = reloadFeed
         self.backgroundTasks = backgroundTasks
+        // ADR-037 §6: at `created`, the Media go in parallel with `upload_trace` and
+        // `complete_activity`, which do not wait for them.
+        let created = queues.map(\.activityCreated)
+        activitySender.onCreated = { id in
+            for activityCreated in created {
+                Task { await activityCreated(id) }
+            }
+        }
     }
 
     /// Right after Save: the whole chain starts at once, under a background task, then the

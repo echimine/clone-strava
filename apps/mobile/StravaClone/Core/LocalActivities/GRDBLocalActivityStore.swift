@@ -44,6 +44,13 @@ struct GRDBLocalActivityStore {
         }
     }
 
+    /// Whether the server has the Activity `id` (ADR-037 §6): the Media wait for it. An Activity
+    /// with no local copy is the server's (opened from the feed, or processed and wiped).
+    func isKnownToServer(_ id: ActivityID) async -> Bool {
+        guard let activity = try? await self.activity(id) else { return true }
+        return activity.isKnownToServer
+    }
+
     func activityIDs(in state: LocalActivityState) async throws -> [ActivityID] {
         try await database.writer.read { db in
             try LocalActivityRow.filter(Column("state") == state.rawValue).fetchAll(db).compactMap(\.activity?.id)
@@ -303,6 +310,7 @@ struct LocalActivityRow: Codable, FetchableRecord, PersistableRecord {
     var state: String
     var failureReason: String?
     var failureResumeState: String?
+    var mediaFirst: Bool
 
     init(_ activity: LocalActivity, state: LocalActivityState) {
         id = activity.id.description
@@ -315,6 +323,7 @@ struct LocalActivityRow: Codable, FetchableRecord, PersistableRecord {
         movingTimeS = activity.movingTimeS
         elapsedTimeS = activity.elapsedTimeS
         self.state = state.rawValue
+        mediaFirst = activity.mediaFirst
     }
 
     var activity: LocalActivity? {
@@ -339,7 +348,8 @@ struct LocalActivityRow: Codable, FetchableRecord, PersistableRecord {
             movingTimeS: movingTimeS,
             elapsedTimeS: elapsedTimeS,
             state: state,
-            failure: failure
+            failure: failure,
+            mediaFirst: mediaFirst
         )
     }
 }
