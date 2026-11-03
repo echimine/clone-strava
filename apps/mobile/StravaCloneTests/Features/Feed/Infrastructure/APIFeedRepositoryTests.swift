@@ -60,7 +60,16 @@ struct APIFeedRepositoryTests {
               { "id": "0b6f2f0e-5b1c-4f3e-9d43-3c2a1b0e9f01", "displayName": "Léa Bernard", "avatarUrl": "https://cdn.test/l.png" },
               { "id": "0b6f2f0e-5b1c-4f3e-9d43-3c2a1b0e9f02", "displayName": "Hugo Petit", "avatarUrl": null }
             ],
-            "viewerIsAuthor": false
+            "viewerIsAuthor": false,
+            "media": [
+              { "id": "3f1c2a4e-8b6d-4e2f-9a1b-5c7d8e9f0a11", "kind": "video", "width": 1280, "height": 720, "durationMs": 10500,
+                "url": "https://bucket.test/m1/original.mp4?X-Amz-Signature=a", "posterUrl": "https://bucket.test/m1/poster.jpg?X-Amz-Signature=b",
+                "thumbUrl": "https://bucket.test/m1/thumb.jpg?X-Amz-Signature=c" },
+              { "id": "3f1c2a4e-8b6d-4e2f-9a1b-5c7d8e9f0a12", "kind": "photo", "width": 2048, "height": 1536, "durationMs": null,
+                "url": "https://bucket.test/m2/original.jpg?X-Amz-Signature=d", "posterUrl": null,
+                "thumbUrl": "https://bucket.test/m2/thumb.jpg?X-Amz-Signature=e" }
+            ],
+            "mediaFirst": true
           }],
           "nextCursor": "abc"
         }
@@ -104,6 +113,39 @@ struct APIFeedRepositoryTests {
         #expect(post.recentKudos == [
             ActivityAuthor(id: "0b6f2f0e-5b1c-4f3e-9d43-3c2a1b0e9f01", displayName: "Léa Bernard", avatarURL: URL(string: "https://cdn.test/l.png")),
             ActivityAuthor(id: "0b6f2f0e-5b1c-4f3e-9d43-3c2a1b0e9f02", displayName: "Hugo Petit", avatarURL: nil),
+        ])
+    }
+
+    /// ADR-037 §7: the card's Media in order, with their signed URLs, and "media first".
+    @Test func decodesTheMediaOfACard() async throws {
+        let repository = makeRepository()
+        let json = feedJSON
+        FeedURLProtocolStub.handler.value = { _ in (200, json) }
+
+        let post = try #require(try await repository.page(cursor: nil).posts.first)
+
+        #expect(post.mediaFirst)
+        #expect(post.media == [
+            ActivityMedia(
+                id: UUID(uuidString: "3f1c2a4e-8b6d-4e2f-9a1b-5c7d8e9f0a11")!,
+                kind: .video,
+                width: 1_280,
+                height: 720,
+                duration: .milliseconds(10_500),
+                url: URL(string: "https://bucket.test/m1/original.mp4?X-Amz-Signature=a")!,
+                posterURL: URL(string: "https://bucket.test/m1/poster.jpg?X-Amz-Signature=b"),
+                thumbURL: URL(string: "https://bucket.test/m1/thumb.jpg?X-Amz-Signature=c")!
+            ),
+            ActivityMedia(
+                id: UUID(uuidString: "3f1c2a4e-8b6d-4e2f-9a1b-5c7d8e9f0a12")!,
+                kind: .photo,
+                width: 2_048,
+                height: 1_536,
+                duration: nil,
+                url: URL(string: "https://bucket.test/m2/original.jpg?X-Amz-Signature=d")!,
+                posterURL: nil,
+                thumbURL: URL(string: "https://bucket.test/m2/thumb.jpg?X-Amz-Signature=e")!
+            ),
         ])
     }
 

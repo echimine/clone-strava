@@ -113,7 +113,9 @@ private extension Components.Schemas.ActivityDetailDto_Output {
                 commentCount: engagement.commentCount,
                 viewerHasKudoed: engagement.viewerHasKudoed
             ),
-            viewerIsAuthor: viewerIsAuthor
+            viewerIsAuthor: viewerIsAuthor,
+            media: media.models,
+            mediaFirst: mediaFirst
         )
     }
 }
