@@ -7,5 +7,6 @@ export interface UserSummary {
   userId: string;
   firstName: string | null;
   lastName: string | null;
-  avatarUrl: string | null;
+  /** ADR-037 §2: the Avatar object key; the API signs it, never exposes it. */
+  avatarKey: string | null;
 }

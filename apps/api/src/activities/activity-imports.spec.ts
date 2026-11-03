@@ -19,16 +19,11 @@ import { SessionGuard } from "../auth/session.guard.js";
 import { GlobalExceptionFilter } from "../common/global-exception.filter.js";
 import { ActivityImportsController } from "./activity-imports.controller.js";
 import { listenOnLoopback } from "../testing/listen-on-loopback.js";
+import { InMemoryStorage } from "../testing/in-memory-storage.js";
 
 /** In-memory bucket: S3 is the only third-party service faked here (ADR-024 §2). */
-const objects = new Map<string, Uint8Array>();
-const storage = {
-  head: async (key: string) => (objects.has(key) ? { sizeBytes: objects.get(key)!.byteLength } : undefined),
-  presignPut: async (key: string) => ({
-    url: `https://bucket.test/${key}`,
-    expiresAt: new Date(Date.now() + 900_000),
-  }),
-};
+const storage = new InMemoryStorage();
+const objects = storage.objects;
 
 /**
  * `/v1/activity-imports` over real HTTP, Postgres and Redis (ADR-024 §2

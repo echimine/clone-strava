@@ -32,17 +32,11 @@ import { FeedAssembler } from "../feed/feed-assembler.js";
 import { AthleteIdentities } from "../identities/athlete-identities.js";
 import { ActivitiesController } from "./activities.controller.js";
 import { listenOnLoopback } from "../testing/listen-on-loopback.js";
+import { InMemoryStorage } from "../testing/in-memory-storage.js";
 
 /** In-memory bucket: S3 is the only third-party service faked here (ADR-024 §2). */
-const objects = new Map<string, Uint8Array>();
-const storage = {
-  head: async (key: string) => (objects.has(key) ? { sizeBytes: objects.get(key)!.byteLength } : undefined),
-  getObject: async (key: string) => objects.get(key),
-  presignPut: async (key: string) => ({
-    url: `https://bucket.test/${key}?sig=${randomUUID()}`,
-    expiresAt: new Date(Date.now() + 900_000),
-  }),
-};
+const storage = new InMemoryStorage();
+const objects = storage.objects;
 
 /** A gzipped trace v2 (ADR-031 §12): 10 minutes of running, one point per minute, ~111 m apart. */
 function runTrace(points = 11): Uint8Array {

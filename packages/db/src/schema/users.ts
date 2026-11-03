@@ -30,7 +30,8 @@ export const userProfile = usersSchema.table("user_profile", {
     .references(() => user.id, { onDelete: "cascade" }),
   firstName: text("first_name"),
   lastName: text("last_name"),
-  avatarUrl: text("avatar_url"),
+  /** ADR-037 §2: `avatars/{userId}/{avatarId}.jpg`, signed by the API when read; null = initials. */
+  avatarKey: text("avatar_key"),
   country: text("country"),
   city: text("city"),
   birthDate: date("birth_date"),
