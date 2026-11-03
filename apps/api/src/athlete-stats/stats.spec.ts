@@ -14,10 +14,13 @@ import { AuthService } from "@repo/core/auth";
 import { CoreInfrastructureModule, DATABASE, type Database } from "@repo/core/infrastructure";
 import { GeocodingModule } from "@repo/core/geocoding";
 import { StorageModule } from "@repo/core/storage";
+import { UsersModule } from "@repo/core/users";
 import { ensureTestDatabaseMigrated, TEST_DATABASE_URL, TEST_REDIS_URL } from "../auth/test-auth-app.js";
 import { SessionGuard } from "../auth/session.guard.js";
 import { GlobalExceptionFilter } from "../common/global-exception.filter.js";
+import { AthleteIdentities } from "../identities/athlete-identities.js";
 import { AthleteStatsController } from "./stats.controller.js";
+import { listenOnLoopback } from "../testing/listen-on-loopback.js";
 
 /**
  * `GET /v1/me/progress` and `GET /v1/athletes/:id/stats` (ADR-036 §4) over real HTTP and Postgres.
@@ -82,10 +85,12 @@ describe("Progress and statistics (integration)", () => {
         }),
         GeocodingModule.forRoot({}),
         ActivitiesModule,
+        UsersModule,
       ],
       controllers: [AthleteStatsController],
       providers: [
         SessionGuard,
+        AthleteIdentities,
         {
           provide: AuthService,
           useValue: {
@@ -107,9 +112,7 @@ describe("Progress and statistics (integration)", () => {
 
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix("v1");
-    await app.listen(0);
-    const address = app.getHttpServer().address();
-    baseUrl = `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}`;
+    baseUrl = await listenOnLoopback(app);
 
     for (const [index, id] of [athlete, follower, stranger].entries()) {
       await sql('insert into "user" (id, name, email) values ($1, $2, $3)', [id, `User ${index}`, `${id}@test.local`]);

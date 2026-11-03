@@ -31,6 +31,7 @@ import { GlobalExceptionFilter } from "../common/global-exception.filter.js";
 import { FeedAssembler } from "../feed/feed-assembler.js";
 import { AthleteIdentities } from "../identities/athlete-identities.js";
 import { ActivitiesController } from "./activities.controller.js";
+import { listenOnLoopback } from "../testing/listen-on-loopback.js";
 
 /** In-memory bucket: S3 is the only third-party service faked here (ADR-024 §2). */
 const objects = new Map<string, Uint8Array>();
@@ -191,9 +192,7 @@ describe("/v1/activities (integration)", () => {
 
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix("v1");
-    await app.listen(0);
-    const address = app.getHttpServer().address();
-    baseUrl = `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}`;
+    baseUrl = await listenOnLoopback(app);
 
     for (const id of [userA, userB]) {
       await sql('insert into "user" (id, name, email) values ($1, $2, $3)', [id, "Test", `${id}@test.local`]);

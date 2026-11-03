@@ -11,6 +11,7 @@ import { AuthModule as CoreAuthModule, AUTH_INSTANCE } from "@repo/core/auth";
 import { NotificationsService } from "@repo/core/notifications";
 import { runMigrations } from "@repo/db/migrate";
 import { GlobalExceptionFilter } from "../common/global-exception.filter.js";
+import { listenOnLoopback } from "../testing/listen-on-loopback.js";
 import { AdminGuard } from "./admin.guard.js";
 import { SessionGuard } from "./session.guard.js";
 
@@ -141,11 +142,7 @@ export async function bootstrapTestAuthApp(
   }
 
   await app.init();
-  await app.listen(0);
-  const server = app.getHttpServer();
-  const address = server.address();
-  const port = typeof address === "object" && address !== null ? address.port : 0;
-  const baseUrl = `http://127.0.0.1:${port}`;
+  const baseUrl = await listenOnLoopback(app);
 
   const notificationsService = app.get(NotificationsService);
 

@@ -15,6 +15,7 @@ import { SessionGuard } from "../auth/session.guard.js";
 import { GlobalExceptionFilter } from "../common/global-exception.filter.js";
 import { AthleteIdentities } from "../identities/athlete-identities.js";
 import { AthleteSearchController } from "./athlete-search.controller.js";
+import { listenOnLoopback } from "../testing/listen-on-loopback.js";
 
 /**
  * `GET /v1/athletes/search?q=` (ADR-036 §2) over real HTTP and Postgres:
@@ -100,9 +101,7 @@ describe("athlete search (integration)", () => {
 
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix("v1");
-    await app.listen(0);
-    const address = app.getHttpServer().address();
-    baseUrl = `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}`;
+    baseUrl = await listenOnLoopback(app);
   }, 30_000);
 
   afterAll(async () => {
