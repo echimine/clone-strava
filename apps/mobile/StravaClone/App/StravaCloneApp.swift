@@ -10,6 +10,12 @@ struct StravaCloneApp: App {
 
     var body: some Scene {
         WindowGroup {
+            if Self.showsMediaPrototype {
+                MediaPrototypeView()
+                    .tint(Theme.accent)
+                    .environment(\.imageLoader, di.imageLoader)
+                    .environment(\.mapboxAccessToken, di.configuration.mapboxAccessToken)
+            } else {
             RootView(
                 authStore: di.makeAuthStore(),
                 consentStore: di.makeMeasurementConsentStore(),
@@ -52,7 +58,17 @@ struct StravaCloneApp: App {
                     // Routes the Google sign-in callback back into the SDK (ADR-022).
                     GIDSignIn.sharedInstance.handle(url)
                 }
+            }
         }
+    }
+
+    /// PROTOTYPE (#162), debug builds only: the media prototype instead of the app.
+    private static var showsMediaPrototype: Bool {
+        #if DEBUG
+        ProcessInfo.processInfo.arguments.contains(MediaPrototype.launchArgument)
+        #else
+        false
+        #endif
     }
 }
 
