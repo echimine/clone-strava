@@ -100,6 +100,8 @@ struct AthleteProfilePage: View {
             .padding(.top, 8)
         }
         .refreshable { await store.refresh() }
+        // ADR-037 §1: an expired pre-signed Media or Avatar URL brings fresh ones.
+        .onImageURLExpired { await store.refresh() }
     }
 
     @ViewBuilder private func tabContent(_ profile: AthleteProfile) -> some View {

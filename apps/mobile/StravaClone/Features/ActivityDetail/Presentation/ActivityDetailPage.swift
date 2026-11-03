@@ -35,6 +35,8 @@ struct ActivityDetailPage: View {
             }
             // Also on coming back from the Kudos and comments screen: the counts changed there.
             .task { await store.load() }
+            // ADR-037 §1: an expired pre-signed Media or Avatar URL brings fresh ones.
+            .onImageURLExpired { await store.load() }
             .task { await store.observeEvents() }
             // Subscribed while shown, unsubscribed when the task ends with the screen.
             .task { await ActivityLiveUpdates(events: liveEvents, detail: store).run() }
@@ -93,6 +95,8 @@ struct ActivityDetailPage: View {
 /// Allure (Vitesse) and Fréquence cardiaque when the analysis has them.
 struct ActivityDetailContent<Engagement: View>: View {
     let detail: ActivityDetail
+    /// A tap on a Media of the header (the viewer); without it, nothing happens.
+    var onTapMedia: ((ActivityMedia) -> Void)?
     @ViewBuilder let engagement: () -> Engagement
 
     private let columns = [GridItem(.flexible(), alignment: .leading), GridItem(.flexible(), alignment: .leading)]
@@ -101,9 +105,7 @@ struct ActivityDetailContent<Engagement: View>: View {
         let sections = ActivityDetailSections(detail: detail)
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.spacing) {
-                if sections.showsMap, let route = detail.route {
-                    ActivityDetailMap(route: route, routeTrimmed: detail.routeTrimmed, post: detail.post)
-                }
+                header(sections)
                 VStack(alignment: .leading, spacing: Theme.spacing) {
                     ActivityCardHeader(post: detail.post)
                     Text(detail.title)
@@ -126,6 +128,19 @@ struct ActivityDetailContent<Engagement: View>: View {
             .padding(.bottom, Theme.spacing)
         }
     }
+
+    /// The map and the Media, edge to edge (ADR-037 §10); nothing without either. A tap on the
+    /// map opens the full-screen map.
+    private func header(_ sections: ActivityDetailSections) -> some View {
+        let slides = ActivitySlide.compose(hasMap: sections.showsMap, media: detail.media, mediaFirst: detail.mediaFirst)
+        return ActivityCarousel(slides: slides, height: Self.headerHeight, onTapMedia: onTapMedia) {
+            if let route = detail.route {
+                ActivityDetailMap(route: route, routeTrimmed: detail.routeTrimmed, post: detail.post, height: Self.headerHeight)
+            }
+        }
+    }
+
+    private static var headerHeight: CGFloat { 330 }
 
     private var sourceLine: some View {
         Label(ActivityAnalysisMessages.source(detail.source), systemImage: sourceSymbol)
