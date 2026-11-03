@@ -160,6 +160,10 @@ private struct PreviewFeedRepository: FeedRepository {
     func setKudos(_ given: Bool, activityId: ActivityID) async throws(FeedError) -> KudosState {
         KudosState(kudosCount: given ? 4 : 3, viewerHasKudoed: given)
     }
+
+    func recentKudos(activityId: ActivityID) async throws(FeedError) -> [ActivityAuthor] {
+        ActivityPost.preview.recentKudos
+    }
 }
 
 private struct PreviewFeedEvents: FeedEventSource {
@@ -172,6 +176,7 @@ private struct PreviewFeedEvents: FeedEventSource {
         store: FeedStore(
             loadFeed: LoadFeed(repository: repository),
             toggleKudos: ToggleKudos(repository: repository),
+            loadRecentKudos: LoadRecentKudos(repository: repository),
             events: PreviewFeedEvents()
         )
     )

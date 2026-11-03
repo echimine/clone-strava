@@ -38,6 +38,7 @@ struct ActivityDetail: Hashable, Sendable {
     let viewerIsAuthor: Bool
 
     /// The feed card of this Activity, as the change stream hands it to the feed (ADR-033 §7).
+    /// The card-only `routeTrimmed` and `recentKudos` are not known here: the feed keeps its own.
     var post: ActivityPost {
         ActivityPost(
             id: id,
@@ -48,9 +49,12 @@ struct ActivityDetail: Hashable, Sendable {
             distance: stats?.distance,
             movingTime: stats?.movingTime,
             elevationGain: stats?.elevationGain,
+            avgSpeedMs: stats?.avgSpeedMs,
             route: route,
+            routeTrimmed: false,
             author: author,
             engagement: engagement,
+            recentKudos: [],
             viewerIsAuthor: viewerIsAuthor
         )
     }
