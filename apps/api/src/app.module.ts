@@ -11,6 +11,7 @@ import { RealtimeBridgeModule } from "@repo/core/realtime";
 import { StorageModule } from "@repo/core/storage";
 import { AdminModule } from "./admin/admin.module.js";
 import { ActivitiesModule } from "./activities/activities.module.js";
+import { AthleteStatsModule } from "./athlete-stats/athlete-stats.module.js";
 import { AuthModule } from "./auth/auth.module.js";
 import { FeedModule } from "./feed/feed.module.js";
 import { AppBullModule } from "./bull/bull.module.js";
@@ -69,6 +70,7 @@ const config = loadConfig();
     MeModule,
     FeedModule,
     ActivitiesModule,
+    AthleteStatsModule,
     ItinerariesModule,
     RealtimeTokenModule,
     WebhooksModule,
