@@ -3,7 +3,7 @@ import Testing
 @testable import StravaClone
 
 /// What follows a sign-in (ADR-035 §1, §5): at the end of the Onboarding the answers are sent
-/// without the flow waiting for them, and the Paywall follows; "Se connecter" on an account it has just created goes
+/// without the flow waiting for them, and the photo screen or the Paywall follows; "Se connecter" on an account it has just created goes
 /// through the Onboarding, an existing account never does.
 @MainActor
 struct AuthStoreOnboardingTests {
@@ -67,7 +67,7 @@ struct AuthStoreOnboardingTests {
 
         await signInWithACode(harness, entry: .onboarding(name: "Ada Lovelace"), as: ada)
 
-        #expect(await eventually { harness.authStore.state == .paywall(ada) })
+        #expect(await eventually { harness.authStore.state == .avatarPrompt(ada) })
         #expect(harness.submissions.value.count == 1)
         #expect(harness.pendingRequest.waiting == 1)
         harness.pendingRequest.wakeAll()
@@ -114,7 +114,7 @@ struct AuthStoreOnboardingTests {
 
         harness.authStore.finishOnboarding()
 
-        #expect(harness.authStore.state == .paywall(ada))
+        #expect(harness.authStore.state == .avatarPrompt(ada))
         #expect(await eventually { harness.submissions.value.count == 1 })
         harness.pendingRequest.wakeAll()
     }

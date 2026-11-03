@@ -127,6 +127,10 @@ export const APP_ANALYTICS_EVENTS = {
   AVATAR_REMOVED: "avatar_removed",
   /** The Avatar was not sent, or not stored. */
   AVATAR_UPLOAD_FAILED: "avatar_upload_failed",
+  /** "Ajoute une photo de profil" is shown, before the Paywall. */
+  AVATAR_PROMPT_VIEWED: "avatar_prompt_viewed",
+  /** "Plus tard" on "Ajoute une photo de profil". */
+  AVATAR_PROMPT_DEFERRED: "avatar_prompt_deferred",
   /** The full-screen viewer opened on a Media; its swipes are not tracked. */
   MEDIA_VIEWER_OPENED: "media_viewer_opened",
 } as const;
@@ -148,6 +152,12 @@ export const avatarUploadFailedPropertiesSchema = z.object({
 });
 export type AvatarUploadFailedProperties = z.infer<typeof avatarUploadFailedPropertiesSchema>;
 
+export const avatarPromptViewedPropertiesSchema = z.object({});
+export type AvatarPromptViewedProperties = z.infer<typeof avatarPromptViewedPropertiesSchema>;
+
+export const avatarPromptDeferredPropertiesSchema = z.object({});
+export type AvatarPromptDeferredProperties = z.infer<typeof avatarPromptDeferredPropertiesSchema>;
+
 /**
  * `media_viewer_opened`: the screen it was opened from, the kind of the Media
  * touched, whether the Activity is the viewer's. No `mediaId` or `activityId`.
@@ -164,5 +174,7 @@ export const appAnalyticsEventPropertiesSchemas = {
   [APP_ANALYTICS_EVENTS.AVATAR_CHANGED]: avatarChangedPropertiesSchema,
   [APP_ANALYTICS_EVENTS.AVATAR_REMOVED]: avatarRemovedPropertiesSchema,
   [APP_ANALYTICS_EVENTS.AVATAR_UPLOAD_FAILED]: avatarUploadFailedPropertiesSchema,
+  [APP_ANALYTICS_EVENTS.AVATAR_PROMPT_VIEWED]: avatarPromptViewedPropertiesSchema,
+  [APP_ANALYTICS_EVENTS.AVATAR_PROMPT_DEFERRED]: avatarPromptDeferredPropertiesSchema,
   [APP_ANALYTICS_EVENTS.MEDIA_VIEWER_OPENED]: mediaViewerOpenedPropertiesSchema,
 } as const satisfies Record<AppAnalyticsEventName, z.ZodType>;
