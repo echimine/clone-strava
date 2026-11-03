@@ -5,7 +5,7 @@ import Foundation
 extension Di {
     /// The queue over the app's background session, its files in Application Support. The
     /// session must exist at launch: iOS hands it the events of uploads finished meanwhile. A
-    /// row waits until the server has its Activity (ADR-037 §6).
+    /// row waits until the server has its Activity, and while its Delete waits (ADR-037 §6).
     static func makeMediaUploadQueue(
         database: AppDatabase,
         localActivities: GRDBLocalActivityStore,
@@ -28,7 +28,7 @@ extension Di {
             analytics: analytics,
             imageLoader: imageLoader,
             runInBackground: { name, work in await UIKitBackgroundTasks().run(name, work) },
-            canSend: { activityID in await localActivities.isKnownToServer(activityID) }
+            canSend: { activityID in await localActivities.canSendMedia(of: activityID) }
         )
     }
 
@@ -39,13 +39,29 @@ extension Di {
 
     /// The coordinator's triggers (foreground, network back) and the sign-out (ADR-031 §14).
     var mediaUploadSender: QueuedSender {
-        let queue = mediaUploadQueue
-        return QueuedSender(
+        Self.mediaUploadSender(queue: mediaUploadQueue, localActivities: localActivities)
+    }
+
+    /// `queue` on the coordinator's triggers, following the local Activities (ADR-037 §6).
+    static func mediaUploadSender(queue: MediaUploadQueue, localActivities: GRDBLocalActivityStore) -> QueuedSender {
+        QueuedSender(
             send: { await queue.send(ignoringBackoff: true) },
             stop: { queue.stopPass() },
             clear: { await queue.clear() },
-            // The finish screen's Media were waiting for their Activity (ADR-037 §6).
-            activityCreated: { _ in await queue.send() }
+            // The finish screen's Media were waiting for their Activity.
+            activityCreated: { _ in await queue.send() },
+            activityDeletion: { activityID, deletion in
+                switch deletion {
+                case .pending: await queue.hold(mediaOf: activityID)
+                case .deleted: await queue.discard(mediaOf: activityID)
+                // Back in `processing`: its Media go on, without holding up the Activities' pass.
+                case .refused: Task { await queue.send(ignoringBackoff: true) }
+                }
+            },
+            unsentCount: {
+                let givenUp = (try? await localActivities.activityIDsBeingDeleted()) ?? []
+                return await queue.unsentCount(excluding: givenUp)
+            }
         )
     }
 

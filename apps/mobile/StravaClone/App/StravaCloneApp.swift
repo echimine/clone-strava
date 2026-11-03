@@ -262,6 +262,7 @@ struct RootView: View {
                             SignOutWarning.message(
                                 recordingInProgress: await recordingStore.signOutWarning() != nil,
                                 unsentActivities: await syncCoordinator.unsentActivityCount(),
+                                unsentMedia: await syncCoordinator.unsentMediaCount(),
                                 pendingItineraryChanges: await itinerarySynchronizer.pendingChangeCount()
                             )
                         },

@@ -51,6 +51,22 @@ struct GRDBLocalActivityStore {
         return activity.isKnownToServer
     }
 
+    /// Whether the Media of `id` may go (ADR-037 §6): the server has the Activity and no Delete
+    /// waits for it (the Media are held until the server answers it).
+    func canSendMedia(of id: ActivityID) async -> Bool {
+        guard await isKnownToServer(id) else { return false }
+        let pending = try? await operation(for: id)
+        return pending?.step != .delete
+    }
+
+    /// The Activities waiting for the server to confirm their Delete: already given up.
+    func activityIDsBeingDeleted() async throws -> Set<ActivityID> {
+        try await database.writer.read { db in
+            let keys = try String.fetchAll(db, Self.beingDeleted)
+            return Set(keys.compactMap { key in UUID(uuidString: key).map { ActivityID($0) } })
+        }
+    }
+
     func activityIDs(in state: LocalActivityState) async throws -> [ActivityID] {
         try await database.writer.read { db in
             try LocalActivityRow.filter(Column("state") == state.rawValue).fetchAll(db).compactMap(\.activity?.id)
