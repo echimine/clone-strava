@@ -5,6 +5,8 @@ enum StatisticsMessages {
     static let title = "Statistiques"
     static let errorTitle = "Statistiques indisponibles"
     static let progressErrorTitle = "Progrès indisponibles"
+    static let noActivityTitle = "Aucune activité pour l'instant"
+    static let noActivityMessage = "Vos progrès apparaîtront ici après votre première activité."
     static let recentTitle = "ACTIVITÉ"
     static let yearToDateTitle = "DEPUIS LE DÉBUT DE L'ANNÉE"
     static let allTimeTitle = "DE TOUT TEMPS"

@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// Another athlete's profile (ADR-036 §3, §10), pushed in the current tab's stack: back and an
-/// empty "⋯" (no "Partager"), their header, counters and follow button, then Activités · Plus.
+/// Another athlete's profile (ADR-036 §3, §10), pushed in the current tab's stack: back (no "⋯":
+/// "Partager le profil" is not shown and nothing else goes there), their header, counters and
+/// follow button, then Activités · Plus.
 /// Knows nothing of other features (ADR-007 rule 5): the app shell pushes the Activity detail,
 /// the Kudos and comments screen and the Statistiques screen.
 struct AthleteProfilePage: View {
@@ -36,16 +37,6 @@ struct AthleteProfilePage: View {
             .background(Color(.systemGroupedBackground))
             .navigationTitle(store.profile?.athlete.displayName ?? "")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    // Empty for now: no public web profile to share (ADR-036 §10).
-                    Menu {
-                    } label: {
-                        Label(AthletesMessages.more, systemImage: "ellipsis")
-                    }
-                    .accessibilityIdentifier("athleteProfile.more")
-                }
-            }
             .task { await store.load() }
             .toast(Binding(get: { store.follows.toast }, set: { store.follows.toast = $0 }))
             .toast(Binding(get: { store.activities.notice }, set: { store.activities.notice = $0 }))

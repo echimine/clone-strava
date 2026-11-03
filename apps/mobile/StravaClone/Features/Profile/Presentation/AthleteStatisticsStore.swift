@@ -2,7 +2,8 @@ import Foundation
 import Observation
 
 /// The Statistiques screen (ADR-036 §4) of any athlete: a sport picker, then ACTIVITÉ, DEPUIS
-/// LE DÉBUT DE L'ANNÉE and DE TOUT TEMPS for that sport. One per screen.
+/// LE DÉBUT DE L'ANNÉE and DE TOUT TEMPS for that sport; all sports, without a picker, for an
+/// athlete without practiced sports (ADR-036 §3). One per screen.
 @Observable
 @MainActor
 final class AthleteStatisticsStore {
@@ -14,9 +15,10 @@ final class AthleteStatisticsStore {
     }
 
     let athleteId: String
-    /// The picker's sports: the athlete's practiced sports, else the active ones.
+    /// The picker's sports: the athlete's practiced sports; empty hides the picker.
     let sports: [SportType]
-    private(set) var sport: SportType
+    /// Nil: all sports.
+    private(set) var sport: SportType?
     private(set) var stats: AthleteStats?
     private(set) var phase: Phase = .idle
 
@@ -25,8 +27,8 @@ final class AthleteStatisticsStore {
 
     init(request: AthleteStatisticsRequest, loadStats: LoadAthleteStats) {
         athleteId = request.athleteId
-        sports = request.sports.isEmpty ? SportType.active : request.sports
-        sport = sports[0]
+        sports = request.sports
+        sport = sports.first
         self.loadStats = loadStats
     }
 

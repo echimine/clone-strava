@@ -10,7 +10,6 @@ enum AthletesMessages {
     static let followFailed = "L'abonnement n'a pas abouti, réessayez."
     static let unfollowFailed = "Le désabonnement n'a pas abouti, réessayez."
     static let cancelFailed = "La demande n'a pas pu être annulée, réessayez."
-    static let more = "Plus d'options"
     static let errorTitle = "Profil indisponible"
     static let retry = "Réessayer"
     static let statistics = "Statistiques"

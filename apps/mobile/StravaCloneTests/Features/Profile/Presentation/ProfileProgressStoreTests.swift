@@ -26,14 +26,30 @@ struct ProfileProgressStoreTests {
         #expect(repository.calls == [.ride])
     }
 
-    @Test func withoutPracticedSportsItOffersTheActiveSports() async {
+    /// ADR-036 §3: an empty list hides the pills; nothing to load, Progrès says so.
+    @Test func withoutPracticedSportsItHasNoPillsAndShowsTheEmptyState() async {
         let repository = FakeProgressRepository()
-        repository.results[.run] = .success(.fixture(sport: .run))
         let store = makeStore(repository)
 
         await store.load(practicedSports: [])
 
-        #expect(store.sports == SportType.active)
+        #expect(store.sports.isEmpty)
+        #expect(store.sport == nil)
+        #expect(store.progress == nil)
+        #expect(store.phase == .empty)
+        #expect(repository.calls.isEmpty)
+    }
+
+    @Test func practicedSportsThatAppearLaterAreLoaded() async {
+        let repository = FakeProgressRepository()
+        repository.results[.run] = .success(.fixture(sport: .run))
+        let store = makeStore(repository)
+        await store.load(practicedSports: [])
+
+        await store.load(practicedSports: [.run])
+
+        #expect(store.sport == .run)
+        #expect(store.phase == .loaded)
         #expect(repository.calls == [.run])
     }
 

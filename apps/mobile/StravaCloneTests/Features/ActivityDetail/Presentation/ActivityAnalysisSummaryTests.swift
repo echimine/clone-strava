@@ -14,12 +14,13 @@ struct ActivityAnalysisSummaryTests {
     }
 
     /// The rest of the distance (140 m in 30 s, faster) is not a split to beat.
-    @Test func aRunShowsMovingPacePaceOverElapsedTimeElapsedTimeAndFastestSplit() {
+    @Test func aRunShowsMovingPaceMovingTimePaceOverElapsedTimeElapsedTimeAndFastestSplit() {
         let stats = ActivityStats.fixture(distanceM: 10_000, movingTimeS: 3_000, elapsedTimeS: 3_200, avgSpeedMs: 10_000.0 / 3_000.0)
         let splits = [split(1_000, 300), split(1_000, 280), split(1_000, 310), split(140, 30)]
 
         #expect(shown(ActivityAnalysisSummary.speedRows(stats: stats, splits: splits, sport: .run)) == [
             "Allure moyenne: 5:00 /km",
+            "Durée de déplacement: 50 min 0 s",
             "Allure sur le temps écoulé: 5:20 /km",
             "Temps écoulé: 53 min 20 s",
             "Split le plus rapide: 4:40 /km",
@@ -32,6 +33,7 @@ struct ActivityAnalysisSummaryTests {
 
         #expect(shown(ActivityAnalysisSummary.speedRows(stats: stats, splits: splits, sport: .ride)) == [
             "Vitesse moyenne: 36,0 km/h",
+            "Durée de déplacement: 1 h 06 min",
             "Vitesse sur le temps écoulé: 28,8 km/h",
             "Temps écoulé: 1 h 23 min",
             "Split le plus rapide: 45,0 km/h",
@@ -44,6 +46,7 @@ struct ActivityAnalysisSummaryTests {
 
         #expect(shown(ActivityAnalysisSummary.speedRows(stats: stats, splits: [split(800, 240)], sport: .run)) == [
             "Allure moyenne: 5:00 /km",
+            "Durée de déplacement: 4 min 0 s",
         ])
     }
 

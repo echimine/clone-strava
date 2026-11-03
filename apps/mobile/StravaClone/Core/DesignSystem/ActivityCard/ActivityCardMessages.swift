@@ -4,6 +4,7 @@ import Foundation
 enum ActivityCardMessages {
     static let distance = "Distance"
     static let pace = "Allure"
+    static let speed = "Vitesse"
     static let elevation = "Dénivelé"
     static let time = "Temps"
     static let routeTrimmed = "Départ et arrivée masqués"
