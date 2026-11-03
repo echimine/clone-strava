@@ -3,8 +3,10 @@ import {
   boolean,
   index,
   integer,
+  jsonb,
   pgSchema,
   real,
+  smallint,
   text,
   timestamp,
   uniqueIndex,
@@ -122,6 +124,8 @@ export const activityTrack = activitiesSchema.table(
     mapPolyline: text("map_polyline"),
     // ADR-029: reverse-geocoded place of the (privacy-zoned) start point, e.g. "Annecy, Haute-Savoie".
     locationName: text("location_name"),
+    // ADR-036 §5: true when the privacy zone removed at least one point of `route`.
+    routeTrimmed: boolean("route_trimmed").notNull().default(false),
   },
   (table) => [
     // ADR-017 "Main indexes": spatial search, segment detection.
@@ -129,6 +133,21 @@ export const activityTrack = activitiesSchema.table(
     index("activity_track_start_point_gist_idx").using("gist", table.startPoint),
   ],
 );
+
+/**
+ * ADR-036 §6: the Activity analysis (splits and series), computed by the worker on the cleaned
+ * trace before the privacy zone. `version` is the code's `ACTIVITY_ANALYSIS_VERSION`; a lower
+ * one is picked again by the backfill (§7).
+ */
+export const activityAnalysis = activitiesSchema.table("activity_analysis", {
+  activityId: uuid("activity_id")
+    .primaryKey()
+    .references(() => activity.id, { onDelete: "cascade" }),
+  version: smallint("version").notNull(),
+  splits: jsonb("splits").notNull(),
+  series: jsonb("series"),
+  computedAt: timestamp("computed_at", { withTimezone: true }).notNull().defaultNow(),
+});
 
 export const activityAttachment = activitiesSchema.table("activity_attachment", {
   id: uuid("id").defaultRandom().primaryKey(),
