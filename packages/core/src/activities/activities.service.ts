@@ -2,12 +2,15 @@ import { Injectable } from "@nestjs/common";
 import type {
   ActivityImport,
   AthleteStatsResponse,
+  ConfirmMediaRequest,
   CreateActivityImportRequest,
   CreateActivityRequest,
   UpdateActivityRequest,
   ImportActivityJob,
   ListActivityImportsQuery,
   ListActivityImportsResponse,
+  MediaUploadUrlsRequest,
+  MediaUploadUrlsResponse,
   ProcessActivityJob,
   ProgressResponse,
   ReprocessActivityJob,
@@ -46,6 +49,9 @@ import {
 } from "./use-cases/get-athlete-profile-figures.use-case.js";
 import { GetAthleteActivitiesPageUseCase } from "./use-cases/get-athlete-activities-page.use-case.js";
 import { SweepBucketUseCase } from "./use-cases/sweep-bucket.use-case.js";
+import { RequestMediaUploadUrlsUseCase } from "./use-cases/request-media-upload-urls.use-case.js";
+import { ConfirmMediaUseCase, type ConfirmMediaResult } from "./use-cases/confirm-media.use-case.js";
+import { DeleteMediaUseCase } from "./use-cases/delete-media.use-case.js";
 import type { ActivityDetailRecord } from "./domain/activity-detail.js";
 import type { ActivityMediaRecord } from "./domain/activity-media.js";
 import type { ActivityRecord } from "./domain/activity-record.js";
@@ -83,6 +89,9 @@ export class ActivitiesService {
     private readonly getAthleteProfileFiguresUseCase: GetAthleteProfileFiguresUseCase,
     private readonly getAthleteActivitiesPageUseCase: GetAthleteActivitiesPageUseCase,
     private readonly sweepBucketUseCase: SweepBucketUseCase,
+    private readonly requestMediaUploadUrlsUseCase: RequestMediaUploadUrlsUseCase,
+    private readonly confirmMediaUseCase: ConfirmMediaUseCase,
+    private readonly deleteMediaUseCase: DeleteMediaUseCase,
   ) {}
 
   create(userId: string, request: CreateActivityRequest): Promise<CreateActivityResult> {
@@ -180,6 +189,30 @@ export class ActivitiesService {
   /** The author deletes their activity unless it is `processing` (ADR-031 §13, ADR-033 §6). */
   delete(userId: string, activityId: string): Promise<void> {
     return this.deleteActivityUseCase.execute(userId, activityId);
+  }
+
+  // --- Media upload (ADR-037 §4) ---
+
+  /** Pre-signed `PUT`s for a Media's files, for the author in any state; writes nothing. */
+  requestMediaUploadUrls(
+    userId: string,
+    activityId: string,
+    request: MediaUploadUrlsRequest,
+  ): Promise<MediaUploadUrlsResponse> {
+    return this.requestMediaUploadUrlsUseCase.execute(userId, activityId, request);
+  }
+
+  /**
+   * Confirms a Media whose files are in the bucket and inserts its row, idempotent on its id. The
+   * caller signs the returned record.
+   */
+  confirmMedia(userId: string, activityId: string, request: ConfirmMediaRequest): Promise<ConfirmMediaResult> {
+    return this.confirmMediaUseCase.execute(userId, activityId, request);
+  }
+
+  /** Deletes a Media's row, then its folder; also when the Media is already gone. */
+  deleteMedia(userId: string, activityId: string, mediaId: string): Promise<void> {
+    return this.deleteMediaUseCase.execute(userId, activityId, mediaId);
   }
 
   // --- Progrès and Statistiques (ADR-036 §4) ---

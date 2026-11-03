@@ -32,6 +32,8 @@ export const createActivityRequestSchema = z
     endedAt: z.iso.datetime(),
     visibility: visibilitySchema,
     isManual: z.boolean(),
+    /** The first Media comes before the map (ADR-037 §6, §8), chosen on the finish screen; `false` when absent. */
+    mediaFirst: z.boolean().optional(),
     ...provisionalActivityValuesSchema.shape,
   })
   .refine((body) => Date.parse(body.endedAt) > Date.parse(body.startedAt), {
@@ -44,6 +46,11 @@ export type CreateActivityRequest = z.infer<typeof createActivityRequestSchema>;
  * `PATCH /v1/activities/:id` request body (ADR-033 §4): any non-empty subset of the fields the
  * athlete may edit, with the limits of `createActivityRequestSchema`. `description` `null` or
  * empty clears it.
+ *
+ * `mediaOrder` (ADR-037 §8) is the full wanted order of the Activity's Media, Media still being
+ * sent included: the server sets `position = index` for the ids it knows and ignores the others;
+ * a confirmed Media left out goes after them, in its current order. 8 distinct ids at most, an
+ * empty list is accepted. `mediaFirst`: the first Media comes before the map.
  */
 export const updateActivityRequestSchema = z
   .object({
@@ -51,6 +58,12 @@ export const updateActivityRequestSchema = z
     description: z.string().max(10_000).nullable().optional(),
     sportTypeCode: sportTypeCodeSchema.optional(),
     visibility: visibilitySchema.optional(),
+    mediaFirst: z.boolean().optional(),
+    mediaOrder: z
+      .array(z.uuid())
+      .max(ACTIVITY_MEDIA_MAX)
+      .refine((ids) => new Set(ids).size === ids.length, { message: "Media ids must be distinct" })
+      .optional(),
   })
   .refine((body) => Object.values(body).some((value) => value !== undefined), {
     message: "At least one field must be provided",
