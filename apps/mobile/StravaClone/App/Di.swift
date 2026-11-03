@@ -166,6 +166,7 @@ final class Di {
     private(set) lazy var feedStore: FeedStore = FeedStore(
         loadFeed: LoadFeed(repository: feedRepository),
         toggleKudos: ToggleKudos(repository: feedRepository),
+        loadRecentKudos: LoadRecentKudos(repository: feedRepository),
         events: RealtimeFeedEventSource(client: webSocketClient),
         localActivities: LocalActivityFeed(store: localActivities, sender: activitySender),
         activityChanges: activityChanges,
