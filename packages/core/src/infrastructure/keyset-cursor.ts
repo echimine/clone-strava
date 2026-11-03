@@ -6,10 +6,12 @@ export class InvalidCursorError extends Error {
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const MICROS_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/;
 
 /**
- * A keyset position (ADR-034 §1, §3): a sort value (a timestamp) and the row's UUID as the
- * tie-breaker. Opaque to clients: base64url of `{position}|{id}`.
+ * A keyset position (ADR-034 §1, §3; ADR-036 §1): a sort value (a timestamp) and the row's UUID
+ * as the tie-breaker. Opaque to clients: base64url of `{position}|{id}`. Shared by every module
+ * that pages by keyset (`engagement`, `social`).
  */
 export function encodeKeysetCursor(position: string, id: string): string {
   return Buffer.from(`${position}|${id}`, "utf8").toString("base64url");
@@ -29,4 +31,12 @@ export function decodeKeysetCursor(
     throw new InvalidCursorError(message);
   }
   return { position, id };
+}
+
+/**
+ * A PostgreSQL timestamp in UTC with its microseconds, `YYYY-MM-DDTHH:MM:SS.ffffffZ` (a JS
+ * `Date` would truncate them, so a page boundary could skip or repeat a row).
+ */
+export function isMicrosecondTimestamp(value: string): boolean {
+  return MICROS_UTC.test(value) && !Number.isNaN(new Date(value).getTime());
 }

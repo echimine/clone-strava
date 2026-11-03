@@ -1,9 +1,9 @@
 import { Injectable } from "@nestjs/common";
+import { readKeysetPage, type PageQuery } from "../../infrastructure/index.js";
 import { ActivitiesService, activityNotFound } from "../../activities/index.js";
 import { decodeKudosCursor, encodeKudosCursor } from "../domain/kudos-cursor.js";
 import type { KudosPage } from "../domain/kudos-view.js";
 import { KudosRepository } from "../repositories/kudos.repository.js";
-import { readKeysetPage } from "../services/keyset-page.js";
 
 /**
  * `GET /v1/activities/:id/kudos` (ADR-034 §1): who gave kudos to an
@@ -17,7 +17,7 @@ export class ListKudosUseCase {
     private readonly kudos: KudosRepository,
   ) {}
 
-  async execute(viewerId: string, activityId: string, query: { cursor?: string; limit: number }): Promise<KudosPage> {
+  async execute(viewerId: string, activityId: string, query: PageQuery): Promise<KudosPage> {
     if (!(await this.activities.getVisible(viewerId, activityId))) {
       throw activityNotFound();
     }

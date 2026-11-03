@@ -5,3 +5,10 @@ export {
   type CoreInfrastructureOptions,
 } from "./infrastructure.module.js";
 export { DEFAULT_JOB_RETRY, enqueueUnique } from "./enqueue-unique.js";
+export {
+  decodeKeysetCursor,
+  encodeKeysetCursor,
+  InvalidCursorError,
+  isMicrosecondTimestamp,
+} from "./keyset-cursor.js";
+export { readKeysetPage, type PageQuery } from "./keyset-page.js";

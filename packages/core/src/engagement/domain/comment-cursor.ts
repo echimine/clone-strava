@@ -1,4 +1,4 @@
-import { decodeKeysetCursor, encodeKeysetCursor } from "./keyset-cursor.js";
+import { decodeKeysetCursor, encodeKeysetCursor } from "../../infrastructure/index.js";
 
 /** Keyset position in an Activity's comments (ADR-034 §3): `created_at desc, id desc`. */
 export interface CommentCursor {

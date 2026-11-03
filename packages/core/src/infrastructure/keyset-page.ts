@@ -1,5 +1,8 @@
 import { UnprocessableEntityException } from "@nestjs/common";
-import { InvalidCursorError } from "../domain/keyset-cursor.js";
+import { InvalidCursorError } from "./keyset-cursor.js";
+
+/** A keyset page request: the client's opaque cursor, if any, and the page size. */
+export type PageQuery = { cursor?: string; limit: number };
 
 /**
  * One keyset page (ADR-034 §1, §3): decodes the client's cursor (`422 invalid_cursor` if this
@@ -7,7 +10,7 @@ import { InvalidCursorError } from "../domain/keyset-cursor.js";
  * returns the page with its last row when one does, the position of the next cursor.
  */
 export async function readKeysetPage<Cursor, Row>(
-  query: { cursor?: string; limit: number },
+  query: PageQuery,
   decode: (cursor: string) => Cursor,
   fetch: (cursor: Cursor | undefined, take: number) => Promise<Row[]>,
 ): Promise<{ rows: Row[]; boundary: Row | undefined }> {

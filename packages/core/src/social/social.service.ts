@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import type { PageQuery } from "../infrastructure/index.js";
 import type { FollowListKind, FollowListPage } from "./domain/follow-list.js";
 import type { FollowCounts, FollowRelation, FollowState } from "./domain/follow-state.js";
 import { FollowSettingsRepository } from "./repositories/follow-settings.repository.js";
@@ -7,13 +8,12 @@ import { FollowStatusesReader } from "./services/follow-statuses-reader.js";
 import { AcceptFollowRequestUseCase } from "./use-cases/accept-follow-request.use-case.js";
 import { FollowAthleteUseCase } from "./use-cases/follow-athlete.use-case.js";
 import { GetFolloweeIdsUseCase } from "./use-cases/get-followee-ids.use-case.js";
+import { ListFollowRequestsUseCase } from "./use-cases/list-follow-requests.use-case.js";
 import { ListFollowsUseCase } from "./use-cases/list-follows.use-case.js";
 import { RefuseFollowRequestUseCase } from "./use-cases/refuse-follow-request.use-case.js";
 import { RemoveFollowerUseCase } from "./use-cases/remove-follower.use-case.js";
 import { UnfollowAthleteUseCase } from "./use-cases/unfollow-athlete.use-case.js";
 import { UpdateFollowSettingsUseCase } from "./use-cases/update-follow-settings.use-case.js";
-
-type PageQuery = { cursor?: string; limit: number };
 
 /**
  * Public facade of the `social` module (ADR-021 §1: layer 1, may depend on
@@ -26,6 +26,7 @@ export class SocialService {
     private readonly followAthlete: FollowAthleteUseCase,
     private readonly unfollowAthlete: UnfollowAthleteUseCase,
     private readonly listFollowsUseCase: ListFollowsUseCase,
+    private readonly listFollowRequestsUseCase: ListFollowRequestsUseCase,
     private readonly acceptFollowRequest: AcceptFollowRequestUseCase,
     private readonly refuseFollowRequest: RefuseFollowRequestUseCase,
     private readonly removeFollowerUseCase: RemoveFollowerUseCase,
@@ -53,7 +54,7 @@ export class SocialService {
 
   /** The viewer's incoming pending requests, most recent first; `since` is when each was made. */
   listFollowRequests(userId: string, query: PageQuery): Promise<FollowListPage> {
-    return this.listFollowsUseCase.execute(userId, userId, "requests", query);
+    return this.listFollowRequestsUseCase.execute(userId, query);
   }
 
   /** `404 follow_request_not_found` without a pending request from `followerId`. */
