@@ -4,6 +4,7 @@ import { UserSportRepository } from "./repositories/user-sport.repository.js";
 import { GetUserSummariesUseCase } from "./use-cases/get-user-summaries.use-case.js";
 import { SearchUsersByNameUseCase } from "./use-cases/search-users-by-name.use-case.js";
 import { SubmitOnboardingAnswersUseCase } from "./use-cases/submit-onboarding-answers.use-case.js";
+import { SweepAvatarsUseCase } from "./use-cases/sweep-avatars.use-case.js";
 import { UsersService } from "./users.service.js";
 
 /** `users` module (ADR-021 §1, layer 0). Exports only its service. */
@@ -14,6 +15,7 @@ import { UsersService } from "./users.service.js";
     GetUserSummariesUseCase,
     SubmitOnboardingAnswersUseCase,
     SearchUsersByNameUseCase,
+    SweepAvatarsUseCase,
     UsersService,
   ],
   exports: [UsersService],

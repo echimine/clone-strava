@@ -3,6 +3,7 @@ import type { OnboardingAnswersRequest } from "@repo/contracts";
 import { GetUserSummariesUseCase } from "./use-cases/get-user-summaries.use-case.js";
 import { SearchUsersByNameUseCase } from "./use-cases/search-users-by-name.use-case.js";
 import { SubmitOnboardingAnswersUseCase } from "./use-cases/submit-onboarding-answers.use-case.js";
+import { SweepAvatarsUseCase } from "./use-cases/sweep-avatars.use-case.js";
 import type { ActiveSportCatalog } from "./domain/active-sport-catalog.js";
 import type { UserSummary } from "./domain/user-summary.js";
 import { UserProfileRepository } from "./repositories/user-profile.repository.js";
@@ -24,6 +25,7 @@ export class UsersService {
     private readonly submitOnboarding: SubmitOnboardingAnswersUseCase,
     private readonly userSports: UserSportRepository,
     private readonly searchUsersByName: SearchUsersByNameUseCase,
+    private readonly sweepAvatarsUseCase: SweepAvatarsUseCase,
   ) {}
 
   /**
@@ -57,6 +59,14 @@ export class UsersService {
    */
   updateName(userId: string, name: { firstName: string; lastName: string }): Promise<void> {
     return this.userProfiles.upsertName(userId, name);
+  }
+
+  /**
+   * Called by `apps/worker`'s daily `bucket-sweep` (ADR-037 §11): deletes the Avatars that are no
+   * athlete's current `avatar_key`, once 7 days old. Returns the number of objects deleted.
+   */
+  sweepAvatars(): Promise<number> {
+    return this.sweepAvatarsUseCase.execute();
   }
 
   /** Default visibility and privacy zone radius for a new activity. */

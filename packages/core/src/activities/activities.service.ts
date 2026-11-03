@@ -45,6 +45,7 @@ import {
   type AthleteProfileFigures,
 } from "./use-cases/get-athlete-profile-figures.use-case.js";
 import { GetAthleteActivitiesPageUseCase } from "./use-cases/get-athlete-activities-page.use-case.js";
+import { SweepBucketUseCase } from "./use-cases/sweep-bucket.use-case.js";
 import type { ActivityDetailRecord } from "./domain/activity-detail.js";
 import type { ActivityMediaRecord } from "./domain/activity-media.js";
 import type { ActivityRecord } from "./domain/activity-record.js";
@@ -81,6 +82,7 @@ export class ActivitiesService {
     private readonly getAthleteStatsUseCase: GetAthleteStatsUseCase,
     private readonly getAthleteProfileFiguresUseCase: GetAthleteProfileFiguresUseCase,
     private readonly getAthleteActivitiesPageUseCase: GetAthleteActivitiesPageUseCase,
+    private readonly sweepBucketUseCase: SweepBucketUseCase,
   ) {}
 
   create(userId: string, request: CreateActivityRequest): Promise<CreateActivityResult> {
@@ -113,6 +115,14 @@ export class ActivitiesService {
   /** Called by `apps/worker`'s reconciliation schedule (ADR-019 §7). */
   reconcileStuck(): Promise<number> {
     return this.reconcileStuckActivitiesUseCase.execute();
+  }
+
+  /**
+   * Called by `apps/worker`'s daily `bucket-sweep` (ADR-037 §11): deletes the Activity, Media and
+   * import folders that no row references, once 7 days old. Returns the number of objects deleted.
+   */
+  sweepBucket(): Promise<number> {
+    return this.sweepBucketUseCase.execute();
   }
 
   /** Batch read (ADR-021 §2 rule 6): used by `engagement`, `segments` and list screens. */

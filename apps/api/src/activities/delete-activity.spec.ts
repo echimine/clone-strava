@@ -13,6 +13,9 @@ import {
   ACTIVITIES_QUEUE_NAME,
   ACTIVITY_DELETED_EVENT,
   TRACE_SCHEMA_VERSION,
+  activityMediaKey,
+  activityMediaPrefix,
+  activityPrefix,
   activityTraceKey,
   processActivityJobId,
 } from "@repo/contracts";
@@ -209,6 +212,32 @@ describe("DELETE /v1/activities/:id (integration)", () => {
     expect(emit).toHaveBeenCalledWith(ACTIVITY_DELETED_EVENT, { activityId: id, userId: userA });
     expect((await call(`/${id}`, userA, { method: "GET" })).status).toBe(404);
     expect((await remove(id)).status).toBe(404);
+  });
+
+  it("deletes everything under the activity's folder: trace, confirmed Media and Media never confirmed", async () => {
+    const id = await processedActivity();
+    const confirmed = randomUUID();
+    const neverConfirmed = randomUUID();
+    await sql(
+      `insert into activities.activity_media (id, activity_id, s3_key, kind, width, height, position)
+       values ($1, $2, $3, 'photo', 2048, 1536, 0)`,
+      [confirmed, id, activityMediaPrefix(userA, id, confirmed)],
+    );
+    for (const key of [
+      activityMediaKey(userA, id, confirmed, "original.jpg"),
+      activityMediaKey(userA, id, confirmed, "thumb.jpg"),
+      activityMediaKey(userA, id, neverConfirmed, "original.mp4"),
+      activityMediaKey(userA, id, neverConfirmed, "poster.jpg"),
+    ]) {
+      objects.set(key, new Uint8Array([0xff, 0xd8, 0xff]));
+    }
+    // Another Activity of the same athlete: kept.
+    const other = await processedActivity();
+
+    expect((await remove(id)).status).toBe(204);
+
+    expect([...objects.keys()].filter((key) => key.startsWith(activityPrefix(userA, id)))).toEqual([]);
+    expect(objects.has(activityTraceKey(userA, other))).toBe(true);
   });
 
   it("deletes the author's pending activity (204), its trace with it", async () => {
