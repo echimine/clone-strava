@@ -101,11 +101,10 @@ enum PhotoExport {
     }
 }
 
-/// Turns a picked Media into its files (ADR-037 §3). Photos only for now; the video branch
-/// (MP4 720p, poster, thumb, 1 min at most) comes with #183.
+/// Turns a picked Media into its files (ADR-037 §3): ImageIO for a photo (`PhotoExport`),
+/// AVFoundation for a video (`VideoExport`: MP4 720p, poster, thumb, 1 min at most).
 struct MediaExporter: Sendable {
     enum Failure: Error, Equatable {
-        case unsupported
         case failed
     }
 
@@ -113,12 +112,16 @@ struct MediaExporter: Sendable {
         try PhotoExport.export(data, into: directory)
     }
 
+    var exportVideo: @Sendable (URL, URL) async throws -> ExportedMedia = { movie, directory in
+        try await VideoExport.export(movie, into: directory).media
+    }
+
     func export(_ source: MediaSource, into directory: URL) async throws -> ExportedMedia {
         switch try await source.load() {
         case .image(let data):
             return try exportPhoto(data, directory)
-        case .movie:
-            throw Failure.unsupported
+        case .movie(let url):
+            return try await exportVideo(url, directory)
         }
     }
 }

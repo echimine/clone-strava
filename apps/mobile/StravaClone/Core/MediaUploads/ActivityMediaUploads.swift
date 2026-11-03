@@ -24,8 +24,7 @@ extension ActivityMediaUploads {
     /// not go through.
     @MainActor
     func save(_ draft: MediaDraft, to activityID: ActivityID, entry: AnalyticsEvent.ActivityMediaSavedEntry) async -> Bool {
-        guard let saved = draft.saved else { return true }
-        analytics.capture(.activityMediaSaved(entry: entry, saved))
+        guard draft.hasChanges else { return true }
         let sending = board.pendingIDs(of: activityID)
         let removed = draft.removed.map(\.id)
         let confirmed = removed.filter { !sending.contains($0) }
@@ -35,6 +34,10 @@ extension ActivityMediaUploads {
         }
         await reorder(draft.order, activityID)
         await enqueue(draft.queued, activityID)
+        // After the queue has its rows: counting the cut videos may wait for a library copy.
+        if let saved = await draft.saved() {
+            analytics.capture(.activityMediaSaved(entry: entry, saved))
+        }
         var deleted = true
         for mediaID in confirmed {
             if await !delete(mediaID, activityID) { deleted = false }

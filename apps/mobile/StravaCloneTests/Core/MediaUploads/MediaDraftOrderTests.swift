@@ -99,7 +99,7 @@ struct MediaDraftOrderTests {
         #expect(!MediaDraft(media: [a], hasMap: true, mediaFirst: false).canReorder)
     }
 
-    @Test func aSessionThatComesBackToTheStartHasNoChanges() {
+    @Test func aSessionThatComesBackToTheStartHasNoChanges() async {
         var draft = draft()
 
         draft.putFirst(b.id)
@@ -108,31 +108,32 @@ struct MediaDraftOrderTests {
 
         #expect(draft.order == [a.id, b.id, c.id])
         #expect(!draft.hasChanges)
-        #expect(draft.saved == nil)
+        #expect(await draft.saved() == nil)
     }
 
-    @Test func theSavedEventCountsWhatTheSessionChanged() {
+    @Test func theSavedEventCountsWhatTheSessionChanged() async throws {
         var draft = draft()
         draft.remove(b.id)
         draft.add([MediaUploadHarness.photo(Data()), MediaUploadHarness.photo(Data())])
         draft.putFirst(c.id)
 
-        #expect(draft.saved == ActivityMediaSaved(
+        let saved = try #require(await draft.saved())
+        #expect(saved == ActivityMediaSaved(
             photosAdded: 2, videosAdded: 0, videosTrimmed: 0, mediaRemoved: 1, mediaFirst: true, mediaCount: 4
         ))
-        #expect(AnalyticsEvent.activityMediaSaved(entry: .edit, draft.saved!).properties == [
+        #expect(AnalyticsEvent.activityMediaSaved(entry: .edit, saved).properties == [
             "entry": "edit", "photosAdded": 2, "videosAdded": 0, "videosTrimmed": 0,
             "mediaRemoved": 1, "mediaFirst": true, "mediaCount": 4,
         ])
-        #expect(AnalyticsEvent.activityMediaSaved(entry: .edit, draft.saved!).name == "activity_media_saved")
+        #expect(AnalyticsEvent.activityMediaSaved(entry: .edit, saved).name == "activity_media_saved")
     }
 
-    @Test func mediaFirstIsReportedFalseWithoutAMap() {
+    @Test func mediaFirstIsReportedFalseWithoutAMap() async {
         var draft = draft(hasMap: false)
 
         draft.putFirst(c.id)
 
-        #expect(draft.saved?.mediaFirst == false)
+        #expect(await draft.saved()?.mediaFirst == false)
     }
 }
 

@@ -75,12 +75,20 @@ struct MediaSource: Sendable {
     enum Content: Sendable {
         /// The image's bytes (HEIC, JPEG…; a Live Photo's key still).
         case image(Data)
-        /// A movie file the exporter may read (#183).
+        /// A movie file the exporter may read.
         case movie(URL)
     }
 
     let kind: ActivityMedia.Kind
+    /// A picked video's copy, for its tile and `videosTrimmed`; nil for a photo.
+    let movie: PickedMovie?
     let load: @Sendable () async throws -> Content
+
+    init(kind: ActivityMedia.Kind, movie: PickedMovie? = nil, load: @escaping @Sendable () async throws -> Content) {
+        self.kind = kind
+        self.movie = movie
+        self.load = load
+    }
 }
 
 /// A Media picked on a screen, before its row exists: `id` is the future `mediaId`, made by the

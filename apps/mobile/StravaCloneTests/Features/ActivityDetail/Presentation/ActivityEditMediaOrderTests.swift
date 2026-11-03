@@ -92,6 +92,23 @@ struct ActivityEditMediaOrderTests {
         ))])
     }
 
+    @Test func theSavedEventCountsThePickedVideosCutToAMinute() async throws {
+        let repository = FakeActivityDetailRepository(.success(previous))
+        let analytics = FakeAnalyticsClient()
+        let editor = makeEditor(repository, analytics: analytics, calls: Calls())
+        editor.edit(previous)
+        var form = try #require(editor.form)
+        let long = MediaUploadHarness.video(try await TestMovie.make(seconds: 70, audio: false))
+        let short = MediaUploadHarness.video(try await TestMovie.make(seconds: 5, audio: false))
+
+        form.media.add([long, MediaUploadHarness.photo(Data()), short])
+        await editor.save(form)
+
+        #expect(analytics.events == [.activityMediaSaved(entry: .edit, ActivityMediaSaved(
+            photosAdded: 1, videosAdded: 2, videosTrimmed: 1, mediaRemoved: 0, mediaFirst: false, mediaCount: 6
+        ))])
+    }
+
     @Test func removingDeletesAConfirmedMediaAndDiscardsOneBeingSentBeforeThePatch() async throws {
         let repository = FakeActivityDetailRepository(.success(previous))
         let calls = Calls()

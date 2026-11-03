@@ -13,6 +13,8 @@ extension Di {
         imageLoader: ImageLoader,
         transfer: BackgroundMediaTransfer
     ) -> MediaUploadQueue {
+        // No picked video outlives the app: the copies a killed run left go.
+        PickedMovie.deleteLeftovers()
         let files = (try? MediaUploadFiles.applicationSupport())
             ?? MediaUploadFiles(root: FileManager.default.temporaryDirectory.appendingPathComponent("MediaUploads"))
         return MediaUploadQueue(

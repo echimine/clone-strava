@@ -1,4 +1,3 @@
-import ImageIO
 import PhotosUI
 import SwiftUI
 
@@ -120,6 +119,9 @@ struct MediaManagementSection: View {
             }
             .frame(width: Self.tileWidth, height: Self.tileHeight)
             .clipShape(.rect(cornerRadius: 8))
+            .overlay(alignment: .topTrailing) {
+                if let duration = media.duration { VideoDurationBadge(duration: duration) }
+            }
             .overlay {
                 if let upload = media.upload {
                     MediaUploadOverlay(mediaID: media.id, status: upload, compact: true)
@@ -147,7 +149,7 @@ struct MediaManagementSection: View {
             selection: $picked,
             maxSelectionCount: max(remaining, 1),
             selectionBehavior: .ordered,
-            matching: .images,
+            matching: .any(of: [.images, .videos]),
             photoLibrary: .shared()
         ) {
             VStack(spacing: 6) {
@@ -167,52 +169,11 @@ struct MediaManagementSection: View {
         .accessibilityIdentifier("mediaSection.add")
         .onChange(of: picked) { _, items in
             guard !items.isEmpty else { return }
-            draft.add(items.map(PickedMedia.init(photo:)))
+            draft.add(items.map(PickedMedia.init(item:)))
             picked = []
         }
     }
 
     private nonisolated static let tileWidth: CGFloat = 100
     private nonisolated static let tileHeight: CGFloat = 110
-}
-
-extension PickedMedia {
-    /// A photo of the library, read only when exported (a Live Photo gives its key still).
-    init(photo item: PhotosPickerItem) {
-        self.init(source: MediaSource(kind: .photo) {
-            guard let data = try await item.loadTransferable(type: Data.self) else { throw MediaExporter.Failure.failed }
-            return .image(data)
-        })
-    }
-}
-
-/// A picked photo before "Enregistrer": decoded small from the library original.
-struct PickedMediaPreview: View {
-    let media: PickedMedia
-    @State private var image: UIImage?
-
-    var body: some View {
-        Color(.tertiarySystemFill)
-            .overlay {
-                if let image {
-                    Image(uiImage: image).resizable().scaledToFill()
-                }
-            }
-            .clipped()
-            .task(id: media.id) {
-                image = await Self.thumbnail(of: media.source)
-            }
-    }
-
-    private static func thumbnail(of source: MediaSource) async -> UIImage? {
-        guard case .image(let data)? = try? await source.load(),
-              let imageSource = CGImageSourceCreateWithData(data as CFData, nil)
-        else { return nil }
-        let options = [
-            kCGImageSourceCreateThumbnailFromImageAlways: true,
-            kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: 256,
-        ] as CFDictionary
-        return CGImageSourceCreateThumbnailAtIndex(imageSource, 0, options).map(UIImage.init(cgImage:))
-    }
 }

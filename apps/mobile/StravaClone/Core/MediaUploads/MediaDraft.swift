@@ -95,22 +95,29 @@ struct MediaDraft: Equatable {
         }
     }
 
-    /// `activity_media_saved` (ADR-037 §13); nil for a session that changed nothing.
-    var saved: ActivityMediaSaved? {
+    /// `activity_media_saved` (ADR-037 §13); nil for a session that changed nothing. Async for
+    /// `videosTrimmed`: it reads the picked videos' durations (their copies, made for the tiles).
+    func saved() async -> ActivityMediaSaved? {
         guard hasChanges else { return nil }
         return ActivityMediaSaved(
             photosAdded: added.count { $0.kind == .photo },
             videosAdded: added.count { $0.kind == .video },
-            videosTrimmed: videosTrimmed,
+            videosTrimmed: await videosTrimmed(),
             mediaRemoved: removed.count,
             mediaFirst: showsMediaFirst,
             mediaCount: count
         )
     }
 
-    /// The added videos cut at their first minute ("Vidéo coupée à 1 min"). #183 counts them;
-    /// until then no video can be picked.
-    private var videosTrimmed: Int { 0 }
+    /// The videos picked during this session that are cut at their first minute ("Vidéo coupée
+    /// à 1 min").
+    func videosTrimmed() async -> Int {
+        var count = 0
+        for picked in added where await picked.isTrimmed() {
+            count += 1
+        }
+        return count
+    }
 
     /// The tap menu of the Media `id`.
     func actions(for id: UUID) -> [Action] {
