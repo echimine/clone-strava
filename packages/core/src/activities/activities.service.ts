@@ -48,12 +48,13 @@ import {
   type AthleteProfileFigures,
 } from "./use-cases/get-athlete-profile-figures.use-case.js";
 import { GetAthleteActivitiesPageUseCase } from "./use-cases/get-athlete-activities-page.use-case.js";
+import { GetAthleteGalleryPageUseCase } from "./use-cases/get-athlete-gallery-page.use-case.js";
 import { SweepBucketUseCase } from "./use-cases/sweep-bucket.use-case.js";
 import { RequestMediaUploadUrlsUseCase } from "./use-cases/request-media-upload-urls.use-case.js";
 import { ConfirmMediaUseCase, type ConfirmMediaResult } from "./use-cases/confirm-media.use-case.js";
 import { DeleteMediaUseCase } from "./use-cases/delete-media.use-case.js";
 import type { ActivityDetailRecord } from "./domain/activity-detail.js";
-import type { ActivityMediaRecord } from "./domain/activity-media.js";
+import type { ActivityMediaRecord, GalleryMediaPage } from "./domain/activity-media.js";
 import type { ActivityRecord } from "./domain/activity-record.js";
 import type { FeedActivityPage } from "./domain/feed-activity.js";
 
@@ -88,6 +89,7 @@ export class ActivitiesService {
     private readonly getAthleteStatsUseCase: GetAthleteStatsUseCase,
     private readonly getAthleteProfileFiguresUseCase: GetAthleteProfileFiguresUseCase,
     private readonly getAthleteActivitiesPageUseCase: GetAthleteActivitiesPageUseCase,
+    private readonly getAthleteGalleryPageUseCase: GetAthleteGalleryPageUseCase,
     private readonly sweepBucketUseCase: SweepBucketUseCase,
     private readonly requestMediaUploadUrlsUseCase: RequestMediaUploadUrlsUseCase,
     private readonly confirmMediaUseCase: ConfirmMediaUseCase,
@@ -162,6 +164,18 @@ export class ActivitiesService {
     query: { cursor?: string; limit: number },
   ): Promise<FeedActivityPage> {
     return this.getAthleteActivitiesPageUseCase.execute(viewerId, athleteId, query);
+  }
+
+  /**
+   * The Media of an athlete's processed Activities that `viewerId` may see, as a Gallery page
+   * (ADR-037 §9). The caller checks the athlete exists and signs the files.
+   */
+  getAthleteGalleryPage(
+    viewerId: string,
+    athleteId: string,
+    query: { cursor?: string; limit: number },
+  ): Promise<GalleryMediaPage> {
+    return this.getAthleteGalleryPageUseCase.execute(viewerId, athleteId, query);
   }
 
   /** The activity if `viewerId` may see it, `null` otherwise (ADR-029). */

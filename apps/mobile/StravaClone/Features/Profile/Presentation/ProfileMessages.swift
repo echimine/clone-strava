@@ -25,6 +25,7 @@ enum ProfileMessages {
         switch tab {
         case .progress: "Progrès"
         case .activities: "Activités"
+        case .gallery: GalleryMessages.tab
         case .more: "Plus"
         }
     }

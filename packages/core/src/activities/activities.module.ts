@@ -39,6 +39,7 @@ import { GetProgressUseCase } from "./use-cases/get-progress.use-case.js";
 import { GetAthleteStatsUseCase } from "./use-cases/get-athlete-stats.use-case.js";
 import { GetAthleteProfileFiguresUseCase } from "./use-cases/get-athlete-profile-figures.use-case.js";
 import { GetAthleteActivitiesPageUseCase } from "./use-cases/get-athlete-activities-page.use-case.js";
+import { GetAthleteGalleryPageUseCase } from "./use-cases/get-athlete-gallery-page.use-case.js";
 import { FeedPageBuilder } from "./services/feed-page-builder.js";
 import { BucketReferencesRepository } from "./repositories/bucket-references.repository.js";
 import { SweepBucketUseCase } from "./use-cases/sweep-bucket.use-case.js";
@@ -97,6 +98,7 @@ import { ActivitiesService } from "./activities.service.js";
     GetAthleteStatsUseCase,
     GetAthleteProfileFiguresUseCase,
     GetAthleteActivitiesPageUseCase,
+    GetAthleteGalleryPageUseCase,
     FeedPageBuilder,
     BucketReferencesRepository,
     SweepBucketUseCase,

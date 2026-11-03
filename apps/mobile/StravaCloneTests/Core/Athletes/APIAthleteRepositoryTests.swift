@@ -27,17 +27,19 @@ struct APIAthleteRepositoryTests {
     private let athleteId = "0b6f2f0e-5b1c-4f3e-9d43-3c2a1b0e9f01"
 
     private func makeRepository() -> APIAthleteRepository {
+        APIAthleteRepository(apiClient: makeAPIClient())
+    }
+
+    private func makeAPIClient() -> APIClient {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [AthleteURLProtocolStub.self]
         let authSession = AuthSession(service: "test.athletes.\(UUID())")
         authSession.clear()
         AthleteURLProtocolStub.requests.value = []
-        return APIAthleteRepository(
-            apiClient: APIClient(
-                baseURL: URL(string: "https://api.test")!,
-                session: URLSession(configuration: configuration),
-                authSession: authSession
-            )
+        return APIClient(
+            baseURL: URL(string: "https://api.test")!,
+            session: URLSession(configuration: configuration),
+            authSession: authSession
         )
     }
 
@@ -146,5 +148,41 @@ struct APIAthleteRepositoryTests {
         #expect(page.posts.map(\.title) == ["Sortie du matin"])
         #expect(page.posts.first?.distance == Distance(meters: 10_000))
         #expect(page.posts.first?.viewerIsAuthor == true)
+    }
+
+    @Test func listsTheAthletesGalleryWithEachMediasActivity() async throws {
+        let repository = APIAthleteGalleryRepository(apiClient: makeAPIClient())
+        let mediaId = "3f2b8e1a-6c4d-4e9f-8a7b-1c2d3e4f5a6b"
+        respond(200, """
+        {
+          "items": [{
+            "id": "\(mediaId)",
+            "kind": "video",
+            "width": 1080,
+            "height": 1920,
+            "durationMs": 10000,
+            "url": "https://bucket.test/m/original.mp4?X-Amz-Expires=3600",
+            "posterUrl": "https://bucket.test/m/poster.jpg?X-Amz-Expires=3600",
+            "thumbUrl": "https://bucket.test/m/thumb.jpg?X-Amz-Expires=3600",
+            "activity": { "id": "7c9e6679-7425-40de-944b-e07fc1f90ae7", "title": "Sortie du matin", "startedAt": "2026-10-02T12:32:00.000Z" }
+          }],
+          "nextCursor": "next"
+        }
+        """)
+
+        let page = try await repository.gallery(of: athleteId, cursor: "prev")
+
+        let components = try lastRequestComponents()
+        #expect(components.path == "/v1/athletes/\(athleteId)/media")
+        #expect(components.queryItems == [URLQueryItem(name: "limit", value: "30"), URLQueryItem(name: "cursor", value: "prev")])
+        #expect(page.nextCursor == "next")
+        let item = try #require(page.items.first)
+        #expect(item.media.id == UUID(uuidString: mediaId))
+        #expect(item.media.kind == .video)
+        #expect(item.media.duration == .seconds(10))
+        #expect(item.media.thumbURL.lastPathComponent == "thumb.jpg")
+        #expect(item.activity.id.description == "7c9e6679-7425-40de-944b-e07fc1f90ae7")
+        #expect(item.activity.title == "Sortie du matin")
+        #expect(item.activity.startedAt == Date(timeIntervalSince1970: 1_790_944_320))
     }
 }

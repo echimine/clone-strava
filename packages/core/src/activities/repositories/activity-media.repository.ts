@@ -1,9 +1,27 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, asc, count, eq, inArray } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, sql, type AnyColumn } from "drizzle-orm";
+import type { Visibility } from "@repo/contracts";
 import { schema, type Database } from "@repo/db";
 import { DATABASE, type DbExecutor } from "../../infrastructure/index.js";
 import type { ActivityMediaRecord } from "../domain/activity-media.js";
+import type { GalleryCursor } from "../domain/gallery-cursor.js";
 import { mediaPositions } from "../domain/media-order.js";
+
+/** A Gallery row: the Media, its keyset position and its Activity. */
+export interface GalleryRow extends ActivityMediaRecord {
+  position: number;
+  /** `created_at` in UTC with its microseconds. */
+  createdAtMicros: string;
+  activityTitle: string;
+  activityStartedAt: Date;
+  /** The Activity's `started_at` in UTC with its microseconds. */
+  activityStartedAtMicros: string;
+}
+
+/** A timestamp in UTC to the microsecond, `YYYY-MM-DDTHH:MM:SS.ffffffZ` (a JS `Date` keeps milliseconds). */
+function micros(column: AnyColumn) {
+  return sql<string>`to_char(${column} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
+}
 
 /** Reads and writes on `activities.activity_media` only (ADR-021 §6, ADR-037 §12). */
 @Injectable()
@@ -24,6 +42,52 @@ export class ActivityMediaRepository {
       .from(table)
       .where(inArray(table.activityId, activityIds))
       .orderBy(asc(table.activityId), asc(table.position), asc(table.createdAt), asc(table.id));
+  }
+
+  /**
+   * One page of an athlete's Gallery (ADR-037 §9): the Media of their processed Activities with
+   * one of `visibilities`, newest Activity first (`started_at desc, id desc`, as their Activities
+   * tab), then the read order within it. Reads `limit` rows; timestamps come back with their
+   * microseconds for the next cursor.
+   */
+  findGalleryPage(params: {
+    userId: string;
+    visibilities: readonly Visibility[];
+    after: GalleryCursor | undefined;
+    limit: number;
+  }): Promise<GalleryRow[]> {
+    const { userId, visibilities, after, limit } = params;
+    const media = schema.activityMedia;
+    const activity = schema.activity;
+    const startedAtMicros = micros(activity.startedAt);
+    const createdAtMicros = micros(media.createdAt);
+    // Activities descend and Media ascend: no single row comparison covers both.
+    const following = after
+      ? sql`((${activity.startedAt}, ${activity.id}) < (${after.activityStartedAt}::timestamptz, ${after.activityId}::uuid)
+          or ((${activity.startedAt}, ${activity.id}) = (${after.activityStartedAt}::timestamptz, ${after.activityId}::uuid)
+            and (${media.position}, ${media.createdAt}, ${media.id}) > (${after.position}, ${after.createdAt}::timestamptz, ${after.mediaId}::uuid)))`
+      : undefined;
+    return this.db
+      .select({
+        ...RECORD,
+        position: media.position,
+        createdAtMicros,
+        activityTitle: activity.title,
+        activityStartedAt: activity.startedAt,
+        activityStartedAtMicros: startedAtMicros,
+      })
+      .from(media)
+      .innerJoin(activity, eq(activity.id, media.activityId))
+      .where(
+        and(
+          eq(activity.userId, userId),
+          eq(activity.processingStatus, "processed"),
+          inArray(activity.visibility, [...visibilities]),
+          following,
+        ),
+      )
+      .orderBy(desc(activity.startedAt), desc(activity.id), asc(media.position), asc(media.createdAt), asc(media.id))
+      .limit(limit);
   }
 
   // --- Upload API (ADR-037 §4) ---
