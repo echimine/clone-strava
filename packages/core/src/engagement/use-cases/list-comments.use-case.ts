@@ -1,9 +1,9 @@
 import { Injectable } from "@nestjs/common";
+import { readKeysetPage } from "../../infrastructure/index.js";
 import { decodeCommentCursor, encodeCommentCursor } from "../domain/comment-cursor.js";
 import { toCommentView, type CommentPage } from "../domain/comment-view.js";
 import { CommentRepository } from "../repositories/comment.repository.js";
 import { CommentableActivity } from "../services/commentable-activity.service.js";
-import { readKeysetPage } from "../services/keyset-page.js";
 
 /**
  * `GET /v1/activities/:id/comments` (ADR-034 §3): the newest page of

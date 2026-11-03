@@ -22,6 +22,7 @@ import { GlobalExceptionFilter } from "../common/global-exception.filter.js";
 import { AthleteIdentities } from "../identities/athlete-identities.js";
 import { KudosAssembler } from "./kudos-assembler.js";
 import { KudosController } from "./kudos.controller.js";
+import { listenOnLoopback } from "../testing/listen-on-loopback.js";
 
 /**
  * `GET /v1/activities/:id/kudos` over real HTTP and Postgres (ADR-024 §2
@@ -116,9 +117,7 @@ describe("GET /v1/activities/:id/kudos (integration)", () => {
 
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix("v1");
-    await app.listen(0);
-    const address = app.getHttpServer().address();
-    baseUrl = `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}`;
+    baseUrl = await listenOnLoopback(app);
 
     for (const [index, id] of [author, follower, stranger, ...givers].entries()) {
       await sql('insert into "user" (id, name, email, image) values ($1, $2, $3, $4)', [

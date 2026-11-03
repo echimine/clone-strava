@@ -1,16 +1,24 @@
 import { gunzipSync } from "node:zlib";
 import { Injectable } from "@nestjs/common";
-import { ACTIVITY_TRACE_MAX_BYTES, activityTraceKey, traceSchema, type Trace } from "@repo/contracts";
+import {
+  ACTIVITY_TRACE_MAX_BYTES,
+  activityTraceKey,
+  traceSchema,
+  type ActivityAnalysis,
+  type Trace,
+} from "@repo/contracts";
 import type { schema } from "@repo/db";
 import { simplifyTrack } from "@repo/geo";
 import { GeocodingService } from "../../geocoding/index.js";
 import type { DbExecutor } from "../../infrastructure/index.js";
 import { ObjectTooLargeError, StorageService } from "../../storage/index.js";
 import { UsersService } from "../../users/index.js";
+import { ActivityAnalysisRepository } from "../repositories/activity-analysis.repository.js";
 import { ActivityStatsRepository } from "../repositories/activity-stats.repository.js";
 import { ActivityTrackRepository } from "../repositories/activity-track.repository.js";
 import { applyPrivacyZone } from "../domain/apply-privacy-zone.js";
 import { cleanTrace, MAX_TRACE_ACCURACY_M, maxPlausibleSpeedMs } from "../domain/clean-trace.js";
+import { ACTIVITY_ANALYSIS_VERSION, computeAnalysis } from "../domain/compute-analysis.js";
 import { computeMetrics } from "../domain/compute-metrics.js";
 import { feedPolyline } from "../domain/feed-polyline.js";
 import { computeHeartRate } from "../domain/heart-rate.js";
@@ -35,19 +43,22 @@ export type LoadedTrace = { trace: Trace } | { problem: TraceProblem };
 export interface OfficialValues {
   stats: typeof schema.activityStats.$inferInsert;
   track: typeof schema.activityTrack.$inferInsert;
+  /** Splits and series (ADR-036 §6), from the cleaned trace before the privacy zone. */
+  analysis: ActivityAnalysis;
 }
 
 /**
  * The steps shared by `process-activity` and `reprocess-activity` (ADR-019 §5, ADR-033 §5):
  * read the stored trace, clean it with the sport's plausible speed, compute the metrics,
  * apply the privacy zone, build the route, polyline and place name, and write
- * `activity_stats` / `activity_track`.
+ * `activity_stats` / `activity_track` / `activity_analysis` (ADR-036 §6).
  */
 @Injectable()
 export class OfficialValuesService {
   constructor(
     private readonly activityStats: ActivityStatsRepository,
     private readonly activityTracks: ActivityTrackRepository,
+    private readonly activityAnalyses: ActivityAnalysisRepository,
     private readonly users: UsersService,
     private readonly storage: StorageService,
     private readonly geocoding: GeocodingService,
@@ -104,8 +115,11 @@ export class OfficialValuesService {
 
     const metrics = computeMetrics(points, { pauses: trace.pauses });
     const heartRate = computeHeartRate(points);
+    // ADR-036 §6: no coordinates in it, so the untrimmed points reveal nothing the zone hides.
+    const analysis = computeAnalysis(points, { pauses: trace.pauses });
     const { privacyZoneRadiusM } = await this.users.getActivityDefaults(activity.userId);
-    const shown = simplifyTrack(applyPrivacyZone(points, { radiusM: privacyZoneRadiusM }), ROUTE_TOLERANCE_M);
+    const zoned = applyPrivacyZone(points, { radiusM: privacyZoneRadiusM });
+    const shown = simplifyTrack(zoned, ROUTE_TOLERANCE_M);
     // ADR-029: feed card data, from the privacy-zoned route only.
     const mapPolyline = feedPolyline(shown);
     const locationName = shown.length >= 2 ? await this.geocoding.reverse(shown[0]!) : null;
@@ -130,15 +144,28 @@ export class OfficialValuesService {
         startPoint: shown.length >= 2 ? toPointEwkt(shown[0]!) : null,
         rawPointsS3Key: activityTraceKey(activity.userId, activity.id),
         pointCount: points.length,
+        // ADR-036 §5: the card says "Départ et arrivée masqués".
+        routeTrimmed: zoned.length < points.length,
         mapPolyline,
         locationName,
       },
+      analysis,
     };
   }
 
-  /** Upserts `activity_stats` and `activity_track`, inside the caller's transaction. */
+  /** Upserts `activity_stats`, `activity_track` and `activity_analysis`, inside the caller's transaction. */
   async save(values: OfficialValues, tx: DbExecutor): Promise<void> {
     await this.activityStats.upsert(values.stats, tx);
     await this.activityTracks.upsert(values.track, tx);
+    await this.saveAnalysis(values.stats.activityId, values.analysis, tx);
+  }
+
+  /**
+   * Upserts the analysis alone, at the current {@link ACTIVITY_ANALYSIS_VERSION}: an Activity
+   * without a usable GPS trace gets `splits: []`, `series: null` so the backfill skips it
+   * (ADR-036 §6-7).
+   */
+  async saveAnalysis(activityId: string, analysis: ActivityAnalysis, tx: DbExecutor): Promise<void> {
+    await this.activityAnalyses.upsert(activityId, ACTIVITY_ANALYSIS_VERSION, analysis, tx);
   }
 }

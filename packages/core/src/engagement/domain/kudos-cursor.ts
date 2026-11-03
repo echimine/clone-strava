@@ -1,4 +1,4 @@
-import { decodeKeysetCursor, encodeKeysetCursor } from "./keyset-cursor.js";
+import { decodeKeysetCursor, encodeKeysetCursor, isMicrosecondTimestamp } from "../../infrastructure/index.js";
 
 /**
  * Keyset position in an Activity's kudos (ADR-034 §1): `created_at desc,
@@ -11,8 +11,6 @@ export interface KudosCursor {
   userId: string;
 }
 
-const MICROS_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/;
-
 /** Opaque to clients: base64url of `{at}|{userId}`. */
 export function encodeKudosCursor(cursor: KudosCursor): string {
   return encodeKeysetCursor(cursor.at, cursor.userId);
@@ -22,7 +20,7 @@ export function encodeKudosCursor(cursor: KudosCursor): string {
 export function decodeKudosCursor(value: string): KudosCursor {
   const { position, id } = decodeKeysetCursor(
     value,
-    (at) => MICROS_UTC.test(at) && !Number.isNaN(new Date(at).getTime()),
+    isMicrosecondTimestamp,
     "Invalid kudos cursor",
   );
   return { at: position, userId: id };

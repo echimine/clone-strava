@@ -22,7 +22,7 @@ The decisions were worked out in the same grilling session as ADR-033 (2026-10-1
 
 - The detail shows the count, the kudos button (hidden on the viewer's own Activity, which cannot receive their kudos) and a row of up to **5 avatars** of the most recent kudos. Tapping the row opens a sheet with the full list.
 - **`GET /v1/activities/:id/kudos?cursor=&limit=`** (1–50, default 20): `{ items: [{ athlete {id, displayName, avatarUrl}, givenAt }], nextCursor }`, most recent first, keyset on `(created_at desc, user_id)`. Not visible: `404 activity_not_found`. Identities are assembled in `apps/api` as in the feed (ADR-029 §2).
-- Athletes in the list are not tappable (no athlete profile).
+- Athletes in the list are not tappable (no athlete profile). *Amended by [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md) §8*: the list moves to the Kudos tab of a separate Kudos and comments screen, and athletes are tappable.
 
 ### 2. Comment model (amends ADR-017)
 
@@ -95,12 +95,15 @@ A replayed `POST` (`200`) or a repeated `DELETE` emits nothing. `PUT` / `DELETE`
 
 ### 6. iOS
 
+*Amended by [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md) §8*: kudos and comments, with the pinned composer, move to a separate screen (Kudos · N / Commentaires · N) opened from the detail and the card; the behaviour below is unchanged, only the place.
+
+
 - **Layout**: under the stats (ADR-033 §3), the kudos block, then the comments in chronological order with "Voir les commentaires précédents" at the top when `previousCursor` is set, and a **composer pinned to the bottom** of the screen. Opening the detail from the card's comment button scrolls to the comments and focuses the composer.
 - **Sending is optimistic**: the comment appears at once, greyed, with "Envoi…", using its app-generated id; on failure it shows "Échec · Réessayer" and keeps its text; retrying replays the same `POST`.
 - **Long press on a comment**: "Modifier" and "Supprimer" on my comments, only "Supprimer" on others' comments when I am the Activity's author. "Modifier" loads the text into the composer with a "Modification… ✕" banner; sending issues the `PATCH`. "Supprimer" asks for confirmation.
 - **Edits and deletes** are optimistic too, rolled back with a toast on failure (same rule as ADR-033 §7).
 - **Feed counts**: the comment and kudos counts changed on the detail reach the card through ADR-033 §7's change stream when the athlete comes back.
-- Athletes (comment authors, kudos list) are not tappable.
+- Athletes (comment authors, kudos list) are not tappable (*amended by [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md)*: they open the athlete profile).
 
 ### 7. Out of scope
 
@@ -141,4 +144,5 @@ Mentions, handles, athlete profiles and tappable athletes (§2 keeps room for me
 
 - **Depends on**: [ADR-010](ADR-010-backend-realtime.md), [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md), [ADR-029](ADR-029-activity-feed-and-card.md), [ADR-033](ADR-033-activity-detail-edit-delete.md)
 - **Amends**: [ADR-008](ADR-008-mobile-offline-sync.md) (§3 kudos and comments are not queued), [ADR-010](ADR-010-backend-realtime.md) (§3 subscription grants, §4 `activity:{id}` topic, §5 `sub` with `grant`, comment and kudos events), [ADR-017](ADR-017-data-model.md) (`comment.updated_at`, app-generated comment id), [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md) (§5 `engagement` events in the bridge table), [ADR-029](ADR-029-activity-feed-and-card.md) (§5 comments get a screen)
+- **Amended by**: [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md) (§1, §6 separate Kudos and comments screen, tappable athletes)
 - **Related**: [ADR-006](ADR-006-mobile-stack.md), [ADR-007](ADR-007-mobile-architecture.md), [ADR-026](ADR-026-openapi-swift-codegen.md)

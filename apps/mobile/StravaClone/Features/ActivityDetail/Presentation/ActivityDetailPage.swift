@@ -4,8 +4,6 @@ import SwiftUI
 /// loading, error with "Réessayer", the unavailable state with "Retour", or the Activity.
 struct ActivityDetailPage: View {
     @State private var store: ActivityDetailStore
-    /// The comment thread (ADR-034 §6).
-    @State private var comments: ActivityCommentsStore
     /// Kept live while shown (ADR-034 §5).
     private let liveEvents: any ActivityLiveEventSource
     /// "⋯" > "Supprimer", waiting for its confirmation.
@@ -16,12 +14,9 @@ struct ActivityDetailPage: View {
     init(
         request: ActivityDetailRequest,
         makeStore: @MainActor (ActivityID) -> ActivityDetailStore,
-        makeCommentsStore: @MainActor (ActivityDetailRequest, ActivityDetailStore) -> ActivityCommentsStore,
         liveEvents: any ActivityLiveEventSource
     ) {
-        let store = makeStore(request.id)
-        _store = State(initialValue: store)
-        _comments = State(initialValue: makeCommentsStore(request, store))
+        _store = State(initialValue: makeStore(request.id))
         self.liveEvents = liveEvents
     }
 
@@ -38,12 +33,12 @@ struct ActivityDetailPage: View {
                 Task { await store.delete() }
                 dismiss()
             }
+            // Also on coming back from the Kudos and comments screen: the counts changed there.
             .task { await store.load() }
             .task { await store.observeEvents() }
             // Subscribed while shown, unsubscribed when the task ends with the screen.
-            .task { await ActivityLiveUpdates(events: liveEvents, detail: store, comments: comments).run() }
+            .task { await ActivityLiveUpdates(events: liveEvents, detail: store).run() }
             .toast($store.kudosNotice)
-            .toast($comments.toast)
             .accessibilityIdentifier("activityDetail")
     }
 
@@ -86,30 +81,16 @@ struct ActivityDetailPage: View {
                     .accessibilityIdentifier("activityDetail.back")
             }
         case .loaded(let detail):
-            ScrollViewReader { proxy in
-                ActivityDetailContent(detail: detail) {
-                    ActivityKudosSection(store: store, engagement: detail.engagement)
-                    ActivityCommentsSection(store: comments)
-                    Color.clear.frame(height: 1).id(ActivityCommentsSection.endAnchor)
-                }
-                .scrollDismissesKeyboard(.interactively)
-                .safeAreaInset(edge: .bottom, spacing: 0) { ActivityCommentComposer(store: comments) }
-                .onChange(of: comments.isComposerFocused, initial: true) { scrollToComments(proxy) }
-                .onChange(of: comments.comments.count) { scrollToComments(proxy) }
+            ActivityDetailContent(detail: detail) {
+                ActivityKudosSection(store: store, detail: detail)
             }
         }
     }
-
-    /// While writing, the end of the thread stays in view; from the card's comment button the
-    /// detail opens on it (ADR-034 §6).
-    private func scrollToComments(_ proxy: ScrollViewProxy) {
-        guard comments.isComposerFocused else { return }
-        withAnimation { proxy.scrollTo(ActivityCommentsSection.endAnchor, anchor: .bottom) }
-    }
 }
 
-/// The loaded Activity: map, header, title and description, stats grid, then the engagement
-/// blocks under the stats (ADR-034 §6).
+/// The loaded Activity, top to bottom (ADR-036 §9): the map, the header, title and
+/// description, the stats grid, the source, the kudos row and action bar, then the splits,
+/// Allure (Vitesse) and Fréquence cardiaque when the analysis has them.
 struct ActivityDetailContent<Engagement: View>: View {
     let detail: ActivityDetail
     @ViewBuilder let engagement: () -> Engagement
@@ -117,12 +98,11 @@ struct ActivityDetailContent<Engagement: View>: View {
     private let columns = [GridItem(.flexible(), alignment: .leading), GridItem(.flexible(), alignment: .leading)]
 
     var body: some View {
+        let sections = ActivityDetailSections(detail: detail)
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.spacing) {
-                if let route = detail.route {
-                    ActivityRouteMap(route: route)
-                        .aspectRatio(4 / 3, contentMode: .fit)
-                        .frame(maxWidth: .infinity)
+                if sections.showsMap, let route = detail.route {
+                    ActivityDetailMap(route: route, routeTrimmed: detail.routeTrimmed, post: detail.post)
                 }
                 VStack(alignment: .leading, spacing: Theme.spacing) {
                     ActivityCardHeader(post: detail.post)
@@ -137,11 +117,47 @@ struct ActivityDetailContent<Engagement: View>: View {
                     if let stats = detail.stats {
                         statsGrid(ActivityStatItem.items(for: stats, sport: detail.sport))
                     }
+                    sourceLine
                     engagement()
+                    analysis(sections)
                 }
                 .padding(.horizontal, Theme.spacing)
             }
             .padding(.bottom, Theme.spacing)
+        }
+    }
+
+    private var sourceLine: some View {
+        Label(ActivityAnalysisMessages.source(detail.source), systemImage: sourceSymbol)
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .accessibilityIdentifier("activityDetail.source")
+    }
+
+    private var sourceSymbol: String {
+        switch detail.source {
+        case .recorded: "record.circle"
+        case .imported: "square.and.arrow.down"
+        case .manual: "square.and.pencil"
+        }
+    }
+
+    /// Sections 8 to 10, hidden without an analysis that has splits.
+    @ViewBuilder private func analysis(_ sections: ActivityDetailSections) -> some View {
+        if let splits = sections.splits {
+            ActivitySplitsSection(table: splits)
+        }
+        if let chart = sections.speedChart {
+            ActivitySpeedSection(
+                chart: chart,
+                rows: ActivityAnalysisSummary.speedRows(stats: detail.stats, splits: detail.analysis?.splits ?? [], sport: detail.sport)
+            )
+        }
+        if let chart = sections.heartRateChart {
+            ActivityHeartRateSection(
+                chart: chart,
+                rows: ActivityAnalysisSummary.heartRateRows(stats: detail.stats, series: detail.analysis?.series)
+            )
         }
     }
 
@@ -179,6 +195,7 @@ private struct PreviewActivityDetailRepository: ActivityDetailRepository {
             visibility: .public,
             startedAt: post.startedAt,
             locationName: post.locationName,
+            source: .recorded,
             stats: ActivityStats(
                 distance: post.distance,
                 movingTime: post.movingTime,
@@ -191,6 +208,8 @@ private struct PreviewActivityDetailRepository: ActivityDetailRepository {
                 calories: 712
             ),
             route: post.route,
+            routeTrimmed: true,
+            analysis: .preview,
             author: post.author,
             engagement: post.engagement,
             viewerIsAuthor: true
@@ -202,6 +221,33 @@ private struct PreviewActivityDetailRepository: ActivityDetailRepository {
     }
 
     func delete(id: ActivityID) async throws(ActivityDetailError) {}
+}
+
+extension ActivityAnalysis {
+    /// 10,14 km with a climb, heart rate on, for previews.
+    static var preview: ActivityAnalysis {
+        let paces: [Double] = [298, 305, 312, 296, 289, 318, 330, 301, 293, 285, 280]
+        let splits = paces.enumerated().map { index, secondsPerKm in
+            let meters = index == paces.count - 1 ? 140.0 : 1_000
+            return ActivitySplit(
+                distance: Distance(meters: meters),
+                movingTime: .seconds(Int((secondsPerKm * meters / 1_000).rounded())),
+                elevationDiff: [4, 12, -3, 8, -10, 22, 18, -15, -20, -6, 1][index],
+                avgHeartRate: 140 + index * 3
+            )
+        }
+        let samples = 200
+        let distances = (0..<samples).map { Double($0) * 10_140 / Double(samples - 1) }
+        return ActivityAnalysis(
+            splits: splits,
+            series: ActivitySeries(
+                distanceM: distances,
+                speedMs: distances.map { 3.3 + 0.3 * sin($0 / 900) + ($0 > 6_000 && $0 < 6_100 ? -3.3 : 0) },
+                altitudeM: distances.map { 450 + 35 * sin($0 / 2_500) },
+                heartRateBpm: distances.map { 138 + Int(25 * $0 / 10_140) }
+            )
+        )
+    }
 }
 
 private struct PreviewActivityKudosRepository: ActivityKudosRepository {
@@ -218,9 +264,29 @@ private struct PreviewActivityKudosRepository: ActivityKudosRepository {
     }
 }
 
-private struct PreviewActivityLiveEventSource: ActivityLiveEventSource {
+/// No live event, for previews.
+struct PreviewActivityLiveEventSource: ActivityLiveEventSource {
     func events(of activityId: ActivityID) -> AsyncStream<ActivityLiveEvent> {
         AsyncStream { _ in }
+    }
+}
+
+extension ActivityDetailStore {
+    /// An Activity of the athlete, with 6 kudos, for previews.
+    static func preview(id: ActivityID) -> ActivityDetailStore {
+        let changes = ActivityChanges()
+        return ActivityDetailStore(
+            id: id,
+            loadDetail: LoadActivityDetail(repository: PreviewActivityDetailRepository()),
+            loadKudos: LoadKudosList(repository: PreviewActivityKudosRepository()),
+            setKudos: SetActivityKudos(repository: PreviewActivityKudosRepository()),
+            changes: changes,
+            updateActivity: UpdateActivity(repository: PreviewActivityDetailRepository()),
+            deleter: ActivityDeleter(
+                deleteActivity: DeleteActivity(repository: PreviewActivityDetailRepository()),
+                changes: changes
+            )
+        )
     }
 }
 
@@ -228,33 +294,7 @@ private struct PreviewActivityLiveEventSource: ActivityLiveEventSource {
     NavigationStack {
         ActivityDetailPage(
             request: ActivityDetailRequest(id: ActivityID()),
-            makeStore: { id in
-                let changes = ActivityChanges()
-                return ActivityDetailStore(
-                    id: id,
-                    loadDetail: LoadActivityDetail(repository: PreviewActivityDetailRepository()),
-                    loadKudos: LoadKudosList(repository: PreviewActivityKudosRepository()),
-                    setKudos: SetActivityKudos(repository: PreviewActivityKudosRepository()),
-                    changes: changes,
-                    updateActivity: UpdateActivity(repository: PreviewActivityDetailRepository()),
-                    deleter: ActivityDeleter(
-                        deleteActivity: DeleteActivity(repository: PreviewActivityDetailRepository()),
-                        changes: changes
-                    )
-                )
-            },
-            makeCommentsStore: { request, detail in
-                let repository = PreviewActivityCommentRepository()
-                return .forDetail(
-                    detail,
-                    request: request,
-                    loadComments: LoadActivityComments(repository: repository),
-                    loadComment: LoadActivityComment(repository: repository),
-                    addComment: AddActivityComment(repository: repository),
-                    editComment: EditActivityComment(repository: repository),
-                    deleteComment: DeleteActivityComment(repository: repository)
-                )
-            },
+            makeStore: { id in .preview(id: id) },
             liveEvents: PreviewActivityLiveEventSource()
         )
     }

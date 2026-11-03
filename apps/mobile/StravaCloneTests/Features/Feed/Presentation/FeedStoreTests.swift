@@ -8,6 +8,7 @@ struct FeedStoreTests {
         FeedStore(
             loadFeed: LoadFeed(repository: repository),
             toggleKudos: ToggleKudos(repository: repository),
+            loadRecentKudos: LoadRecentKudos(repository: repository),
             events: events
         )
     }
@@ -81,6 +82,41 @@ struct FeedStoreTests {
         #expect(repository.kudosCalls.first?.given == true)
     }
 
+    @Test func aKudosFromTheCardUpdatesItsAvatars() async {
+        let repository = FakeFeedRepository()
+        let other = ActivityAuthor(id: "u2", displayName: "Léa Bernard", avatarURL: nil)
+        let viewer = ActivityAuthor(id: "u3", displayName: "Hugo Petit", avatarURL: nil)
+        let post = ActivityPost.fixture(kudos: 1, recentKudos: [other])
+        repository.pages[nil] = .success(FeedPage(posts: [post], nextCursor: nil))
+        repository.kudosResult = .success(KudosState(kudosCount: 2, viewerHasKudoed: true))
+        repository.recentKudosResult = .success([viewer, other])
+        let store = makeStore(repository)
+        await store.refresh()
+
+        await store.toggleKudos(on: post.id)
+
+        #expect(store.posts[0].engagement.kudosCount == 2)
+        #expect(store.posts[0].recentKudos == [viewer, other])
+        #expect(repository.recentKudosCalls == [post.id])
+    }
+
+    @Test func theAvatarsStayWhenTheGiversCannotBeLoaded() async {
+        let repository = FakeFeedRepository()
+        let other = ActivityAuthor(id: "u2", displayName: "Léa Bernard", avatarURL: nil)
+        let post = ActivityPost.fixture(kudos: 1, recentKudos: [other])
+        repository.pages[nil] = .success(FeedPage(posts: [post], nextCursor: nil))
+        repository.kudosResult = .success(KudosState(kudosCount: 2, viewerHasKudoed: true))
+        repository.recentKudosResult = .failure(.network)
+        let store = makeStore(repository)
+        await store.refresh()
+
+        await store.toggleKudos(on: post.id)
+
+        #expect(store.posts[0].engagement.kudosCount == 2)
+        #expect(store.posts[0].recentKudos == [other])
+        #expect(store.notice == nil)
+    }
+
     @Test func aFailedKudosRollsBack() async {
         let repository = FakeFeedRepository()
         let post = ActivityPost.fixture(kudos: 2, viewerHasKudoed: true)
@@ -94,6 +130,7 @@ struct FeedStoreTests {
         #expect(repository.kudosCalls.first?.given == false)
         #expect(store.posts[0].engagement == post.engagement)
         #expect(store.notice == "Kudos non envoyé : vous êtes hors ligne.")
+        #expect(repository.recentKudosCalls.isEmpty)
     }
 
     @Test func noKudosOnOwnActivity() async {

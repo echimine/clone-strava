@@ -9,15 +9,18 @@ import { AnalyticsModule } from "@repo/core/analytics";
 import { AuthService } from "@repo/core/auth";
 import { CoreInfrastructureModule, DATABASE, type Database } from "@repo/core/infrastructure";
 import { SubscriptionsService } from "@repo/core/subscriptions";
+import { SocialModule } from "@repo/core/social";
 import { UsersModule } from "@repo/core/users";
 import { ensureTestDatabaseMigrated, TEST_DATABASE_URL, TEST_REDIS_URL } from "../auth/test-auth-app.js";
 import { SessionGuard } from "../auth/session.guard.js";
 import { GlobalExceptionFilter } from "../common/global-exception.filter.js";
 import { MeController } from "./me.controller.js";
+import { listenOnLoopback } from "../testing/listen-on-loopback.js";
 
 /**
  * `GET /v1/me` over real HTTP and Postgres (ADR-024 §2): the default
- * visibility of a new Activity comes from `user_profile` (ADR-031 §13).
+ * visibility of a new Activity comes from `user_profile` (ADR-031 §13),
+ * "Approuver mes abonnés" from `social.follow_settings` (ADR-036 §1).
  * Sessions come from `x-test-user` through a fake `AuthService`.
  */
 describe("GET /v1/me (integration)", () => {
@@ -43,6 +46,7 @@ describe("GET /v1/me (integration)", () => {
         CoreInfrastructureModule.forRoot({ databaseUrl: TEST_DATABASE_URL, redisUrl: TEST_REDIS_URL }),
         // Global in every app; `users` sends `onboarding_answers_received` (ADR-035 §8).
         AnalyticsModule.forRoot({}),
+        SocialModule,
         UsersModule,
       ],
       controllers: [MeController],
@@ -74,9 +78,7 @@ describe("GET /v1/me (integration)", () => {
 
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix("v1");
-    await app.listen(0);
-    const address = app.getHttpServer().address();
-    baseUrl = `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}`;
+    baseUrl = await listenOnLoopback(app);
 
     for (const id of [withProfile, withoutProfile]) {
       await sql('insert into "user" (id, name, email) values ($1, $2, $3)', [id, "Test", `${id}@test.local`]);
@@ -97,5 +99,11 @@ describe("GET /v1/me (integration)", () => {
 
   it("falls back to public without a profile row", async () => {
     expect((await me(withoutProfile)).defaultVisibility).toBe("public");
+  });
+
+  it("exposes \"Approuver mes abonnés\", false until the athlete turns it on (ADR-036 §1)", async () => {
+    expect((await me(withoutProfile)).approveFollowers).toBe(false);
+    await sql("insert into social.follow_settings (user_id, approve_followers) values ($1, true)", [withProfile]);
+    expect((await me(withProfile)).approveFollowers).toBe(true);
   });
 });

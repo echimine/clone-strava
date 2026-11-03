@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import type { PageQuery } from "../infrastructure/index.js";
 import { GiveKudosUseCase } from "./use-cases/give-kudos.use-case.js";
 import { AddCommentUseCase, type AddCommentResult } from "./use-cases/add-comment.use-case.js";
 import { ListCommentsUseCase } from "./use-cases/list-comments.use-case.js";
@@ -40,13 +41,21 @@ export class EngagementService {
   }
 
   /** `GET /v1/activities/:id/kudos` (ADR-034 §1): most recent first, keyset pages. */
-  listKudos(viewerId: string, activityId: string, query: { cursor?: string; limit: number }): Promise<KudosPage> {
+  listKudos(viewerId: string, activityId: string, query: PageQuery): Promise<KudosPage> {
     return this.listKudosUseCase.execute(viewerId, activityId, query);
   }
 
   /** Batch read (ADR-029): which of `activityIds` the viewer gave kudos to. */
   getKudoedBy(userId: string, activityIds: string[]): Promise<Set<string>> {
     return this.kudos.findKudoedActivityIds(userId, activityIds);
+  }
+
+  /**
+   * Batch read (ADR-036 §5): the user ids of the last `perActivity` kudos givers of each
+   * activity, most recent first. Activities without kudos are absent.
+   */
+  getRecentKudoers(activityIds: string[], perActivity: number): Promise<Map<string, string[]>> {
+    return this.kudos.findRecentGiverIds(activityIds, perActivity);
   }
 
   /** `GET /v1/activities/:id/comments` (ADR-034 §3). */

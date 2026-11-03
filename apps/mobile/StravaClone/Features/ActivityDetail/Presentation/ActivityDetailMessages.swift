@@ -7,12 +7,6 @@ enum ActivityDetailMessages {
     static let unavailableTitle = "Cette activité n'est plus disponible"
     static let back = "Retour"
 
-    static let kudosTitle = "Kudos"
-
-    static func kudosCount(_ count: Int) -> String {
-        count == 1 ? "1 kudos" : "\(count.formatted()) kudos"
-    }
-
     static func kudosFailed(_ error: ActivityDetailError) -> String {
         switch error {
         case .offline: "Kudos non envoyé : vous êtes hors ligne."

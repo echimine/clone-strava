@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import Testing
 @testable import StravaClone
 
@@ -14,6 +15,7 @@ struct FeedStoreActivityDetailTests {
         FeedStore(
             loadFeed: LoadFeed(repository: repository),
             toggleKudos: ToggleKudos(repository: repository),
+            loadRecentKudos: LoadRecentKudos(repository: repository),
             events: FakeFeedEventSource(),
             localActivities: local,
             activityChanges: changes
@@ -36,13 +38,25 @@ struct FeedStoreActivityDetailTests {
         #expect(store.path.isEmpty)
 
         store.open(post.id)
-        #expect(store.path == [ActivityDetailRequest(id: post.id)])
-
-        // The comment button opens the same detail, asking for the comments (ADR-034).
-        store.path = []
-        store.open(post.id, showingComments: true)
-        #expect(store.path == [ActivityDetailRequest(id: post.id, showsComments: true)])
+        #expect(store.path == NavigationPath([ActivityDetailRequest(id: post.id)]))
         observation.cancel()
+    }
+
+    /// The card's comment button opens the Kudos and comments screen on Commentaires, the
+    /// composer focused (ADR-036 §8); a local card has none.
+    @Test func theCommentButtonOpensTheCommentsWithTheComposerFocused() async {
+        let repository = FakeFeedRepository()
+        let post = ActivityPost.fixture()
+        repository.pages[nil] = .success(FeedPage(posts: [post], nextCursor: nil))
+        let store = makeStore(repository)
+        await store.refresh()
+
+        store.openComments(ActivityID())
+        #expect(store.path.isEmpty)
+
+        store.openComments(post.id)
+        let expected = ActivityEngagementRequest(activityId: post.id, tab: .comments, focusComposer: true)
+        #expect(store.path == NavigationPath([expected]))
     }
 
     @Test func theCardsFollowWhatTheDetailPublishes() async {
@@ -66,6 +80,44 @@ struct FeedStoreActivityDetailTests {
         #expect(await eventually { store.posts.last?.engagement == engagement })
         #expect(store.posts.map(\.id) == [edited.id, commented.id])
         #expect(store.posts.first == renamed)
+    }
+
+    /// The detail does not know the card's kudos avatars nor whether the route was trimmed
+    /// (ADR-036 §5): an edit keeps the card's.
+    @Test func anEditFromTheDetailKeepsTheAvatarsAndTheMaskedLabel() async {
+        let repository = FakeFeedRepository()
+        let giver = ActivityAuthor(id: "u2", displayName: "Léa Bernard", avatarURL: nil)
+        let post = ActivityPost.fixture(routeTrimmed: true, recentKudos: [giver])
+        repository.pages[nil] = .success(FeedPage(posts: [post], nextCursor: nil))
+        let changes = ActivityChanges()
+        let store = makeStore(repository, changes: changes)
+        await store.refresh()
+
+        changes.publish(.updated(ActivityPost.fixture(id: post.id, title: "Sortie vélo")))
+
+        #expect(await eventually { store.posts.first?.title == "Sortie vélo" })
+        #expect(store.posts.first?.recentKudos == [giver])
+        #expect(store.posts.first?.routeTrimmed == true)
+    }
+
+    /// A kudos given on the detail changes the count: the card reloads its avatars too.
+    @Test func aKudosFromTheDetailReloadsTheAvatars() async {
+        let repository = FakeFeedRepository()
+        let viewer = ActivityAuthor(id: "u3", displayName: "Hugo Petit", avatarURL: nil)
+        let kudoed = ActivityPost.fixture(kudos: 0)
+        let commented = ActivityPost.fixture(kudos: 0)
+        repository.pages[nil] = .success(FeedPage(posts: [kudoed, commented], nextCursor: nil))
+        repository.recentKudosResult = .success([viewer])
+        let changes = ActivityChanges()
+        let store = makeStore(repository, changes: changes)
+        await store.refresh()
+
+        changes.publish(.engagement(commented.id, ActivityEngagement(kudosCount: 0, commentCount: 1, viewerHasKudoed: false)))
+        changes.publish(.engagement(kudoed.id, ActivityEngagement(kudosCount: 1, commentCount: 0, viewerHasKudoed: true)))
+
+        #expect(await eventually { store.posts.first?.recentKudos == [viewer] })
+        #expect(store.posts.first?.engagement.kudosCount == 1)
+        #expect(repository.recentKudosCalls == [kudoed.id])
     }
 
     /// ADR-033 §1: the long-press menu ("Modifier") is only on my processed cards, never on

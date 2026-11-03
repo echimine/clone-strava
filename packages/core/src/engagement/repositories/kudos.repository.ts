@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, count, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, lte, sql } from "drizzle-orm";
 import { schema, type Database } from "@repo/db";
 import { DATABASE } from "../../infrastructure/index.js";
 import type { KudosCursor } from "../domain/kudos-cursor.js";
@@ -37,6 +37,40 @@ export class KudosRepository {
       .from(schema.kudos)
       .where(and(eq(schema.kudos.userId, userId), inArray(schema.kudos.activityId, activityIds)));
     return new Set(rows.map((row) => row.activityId));
+  }
+
+  /**
+   * The user ids of the last `perActivity` kudos of each activity, most recent first
+   * (ADR-036 §5), in one query: `row_number()` per activity over
+   * `kudos_activity_created_at_idx`. Activities without kudos are absent.
+   */
+  async findRecentGiverIds(activityIds: string[], perActivity: number): Promise<Map<string, string[]>> {
+    if (activityIds.length === 0 || perActivity <= 0) {
+      return new Map();
+    }
+    const { activityId, createdAt, userId } = schema.kudos;
+    const ranked = this.db
+      .select({
+        activityId,
+        userId,
+        rank: sql<number>`row_number() over (partition by ${activityId} order by ${createdAt} desc, ${userId} desc)`.as(
+          "rank",
+        ),
+      })
+      .from(schema.kudos)
+      .where(inArray(activityId, activityIds))
+      .as("ranked");
+    const rows = await this.db
+      .select({ activityId: ranked.activityId, userId: ranked.userId })
+      .from(ranked)
+      .where(lte(ranked.rank, perActivity))
+      .orderBy(asc(ranked.activityId), asc(ranked.rank));
+
+    const giverIds = new Map<string, string[]>();
+    for (const row of rows) {
+      giverIds.set(row.activityId, [...(giverIds.get(row.activityId) ?? []), row.userId]);
+    }
+    return giverIds;
   }
 
   /**

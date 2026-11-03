@@ -166,6 +166,7 @@ final class Di {
     private(set) lazy var feedStore: FeedStore = FeedStore(
         loadFeed: LoadFeed(repository: feedRepository),
         toggleKudos: ToggleKudos(repository: feedRepository),
+        loadRecentKudos: LoadRecentKudos(repository: feedRepository),
         events: RealtimeFeedEventSource(client: webSocketClient),
         localActivities: LocalActivityFeed(store: localActivities, sender: activitySender),
         activityChanges: activityChanges,
@@ -279,6 +280,35 @@ final class Di {
         feedStore
     }
 
+    /// The Profile tab (ADR-036 §3, §10), one for the app, reset at sign-out like the feed.
+    func makeProfileStore() -> ProfileStore {
+        profileStore
+    }
+
+    private lazy var profileStore: ProfileStore = {
+        let athletes = APIAthleteRepository(apiClient: apiClient)
+        let profiles = APIProfileRepository(apiClient: apiClient)
+        return ProfileStore(
+            loadProfile: LoadProfile(repository: athletes),
+            loadYearToDateDistance: LoadYearToDateDistance(repository: APIAthleteStatsRepository(apiClient: apiClient)),
+            renameAthlete: RenameAthlete(repository: profiles),
+            setApproveFollowers: SetApproveFollowers(repository: profiles),
+            activities: ProfileActivitiesStore(
+                loadActivities: LoadProfileActivities(repository: athletes),
+                activityChanges: activityChanges
+            ),
+            progress: ProfileProgressStore(loadProgress: LoadProgress(repository: APIProgressRepository(apiClient: apiClient)))
+        )
+    }()
+
+    /// Statistiques of an athlete (ADR-036 §4), one per pushed screen.
+    func makeAthleteStatisticsStore(request: AthleteStatisticsRequest) -> AthleteStatisticsStore {
+        AthleteStatisticsStore(
+            request: request,
+            loadStats: LoadAthleteStats(repository: APIAthleteStatsRepository(apiClient: apiClient))
+        )
+    }
+
     /// The detail pushed from a feed card (ADR-033 §3).
     func makeActivityDetailStore(id: ActivityID) -> ActivityDetailStore {
         ActivityDetailStore(
@@ -318,17 +348,23 @@ final class Di {
         )
     }
 
-    /// The comment thread of a detail (ADR-034 §6), wired to that detail's count.
-    func makeActivityCommentsStore(request: ActivityDetailRequest, detail: ActivityDetailStore) -> ActivityCommentsStore {
+    /// The Kudos and comments screen (ADR-036 §8): its Activity's own store holds the counts,
+    /// which reach the feed card (ADR-034 §6).
+    func makeActivityEngagementStore(request: ActivityEngagementRequest) -> ActivityEngagementStore {
+        let detail = makeActivityDetailStore(id: request.activityId)
         let repository = APIActivityCommentRepository(apiClient: apiClient)
-        return .forDetail(
-            detail,
+        return ActivityEngagementStore(
             request: request,
-            loadComments: LoadActivityComments(repository: repository),
-            loadComment: LoadActivityComment(repository: repository),
-            addComment: AddActivityComment(repository: repository),
-            editComment: EditActivityComment(repository: repository),
-            deleteComment: DeleteActivityComment(repository: repository)
+            detail: detail,
+            comments: .forDetail(
+                detail,
+                request: request,
+                loadComments: LoadActivityComments(repository: repository),
+                loadComment: LoadActivityComment(repository: repository),
+                addComment: AddActivityComment(repository: repository),
+                editComment: EditActivityComment(repository: repository),
+                deleteComment: DeleteActivityComment(repository: repository)
+            )
         )
     }
 

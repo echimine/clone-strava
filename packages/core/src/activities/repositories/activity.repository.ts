@@ -1,9 +1,10 @@
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
-import { and, desc, eq, gt, inArray, lt, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { schema, type Database } from "@repo/db";
 import { DATABASE, type DbExecutor } from "../../infrastructure/index.js";
 
 type ProcessingStatus = (typeof schema.processingStatusEnum.enumValues)[number];
+type Visibility = (typeof schema.activityVisibilityEnum.enumValues)[number];
 
 /** Reads and writes on `activities.activity` only (ADR-021 §6). */
 @Injectable()
@@ -72,6 +73,34 @@ export class ActivityRepository {
       .limit(limit + 1);
   }
 
+  /**
+   * One page of an athlete's processed Activities with one of `visibilities` (ADR-036 §3), same
+   * keyset and `limit + 1` rows as `findFeedPage`. Uses `activity_user_started_at_idx`.
+   */
+  findAthletePage(params: {
+    userId: string;
+    visibilities: readonly Visibility[];
+    before?: { startedAt: Date; id: string };
+    limit: number;
+  }) {
+    const { userId, visibilities, before, limit } = params;
+    return this.db
+      .select()
+      .from(schema.activity)
+      .where(
+        and(
+          eq(schema.activity.userId, userId),
+          eq(schema.activity.processingStatus, "processed"),
+          inArray(schema.activity.visibility, [...visibilities]),
+          before
+            ? sql`(${schema.activity.startedAt}, ${schema.activity.id}) < (${before.startedAt.toISOString()}::timestamptz, ${before.id}::uuid)`
+            : undefined,
+        ),
+      )
+      .orderBy(desc(schema.activity.startedAt), desc(schema.activity.id))
+      .limit(limit + 1);
+  }
+
   /** ADR-019 §7: `activity_processing_status_idx` (partial index, status != 'processed'). */
   findStuckProcessing(olderThanMinutes: number, limit = 100) {
     return this.db
@@ -103,6 +132,24 @@ export class ActivityRepository {
         and(
           eq(schema.activity.processingStatus, "processed"),
           sql`${schema.activityStats.computedForSportTypeCode} is distinct from ${schema.activity.sportTypeCode}`,
+        ),
+      )
+      .limit(limit);
+  }
+
+  /**
+   * ADR-036 §7 backfill: processed activities with no `activity_analysis` row, or one computed
+   * by an older version of the analysis.
+   */
+  findWithOutdatedAnalysis(currentVersion: number, limit = 100) {
+    return this.db
+      .select({ id: schema.activity.id, userId: schema.activity.userId })
+      .from(schema.activity)
+      .leftJoin(schema.activityAnalysis, eq(schema.activityAnalysis.activityId, schema.activity.id))
+      .where(
+        and(
+          eq(schema.activity.processingStatus, "processed"),
+          or(isNull(schema.activityAnalysis.activityId), lt(schema.activityAnalysis.version, currentVersion)),
         ),
       )
       .limit(limit);

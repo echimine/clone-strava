@@ -7,6 +7,7 @@ import { SocialModule } from "../social/index.js";
 import { ActivityRepository } from "./repositories/activity.repository.js";
 import { ActivityStatsRepository } from "./repositories/activity-stats.repository.js";
 import { ActivityTrackRepository } from "./repositories/activity-track.repository.js";
+import { ActivityAnalysisRepository } from "./repositories/activity-analysis.repository.js";
 import { CreateActivityUseCase } from "./use-cases/create-activity.use-case.js";
 import { RequestUploadUrlUseCase } from "./use-cases/request-upload-url.use-case.js";
 import { CompleteActivityUseCase } from "./use-cases/complete-activity.use-case.js";
@@ -30,6 +31,13 @@ import { OfficialValuesService } from "./services/official-values.js";
 import { ImportRateLimiter } from "./services/import-rate-limiter.js";
 import { ImportJobEnqueuer } from "./services/import-job-enqueuer.js";
 import { ReprocessJobEnqueuer } from "./services/reprocess-job-enqueuer.js";
+import { ActivityAggregateRepository } from "./repositories/activity-aggregate.repository.js";
+import { AggregateScopeResolver } from "./services/aggregate-scope-resolver.js";
+import { GetProgressUseCase } from "./use-cases/get-progress.use-case.js";
+import { GetAthleteStatsUseCase } from "./use-cases/get-athlete-stats.use-case.js";
+import { GetAthleteProfileFiguresUseCase } from "./use-cases/get-athlete-profile-figures.use-case.js";
+import { GetAthleteActivitiesPageUseCase } from "./use-cases/get-athlete-activities-page.use-case.js";
+import { FeedPageBuilder } from "./services/feed-page-builder.js";
 import { ActivitiesService } from "./activities.service.js";
 
 /**
@@ -49,6 +57,7 @@ import { ActivitiesService } from "./activities.service.js";
     ActivityRepository,
     ActivityStatsRepository,
     ActivityTrackRepository,
+    ActivityAnalysisRepository,
     CreateActivityUseCase,
     RequestUploadUrlUseCase,
     CompleteActivityUseCase,
@@ -72,6 +81,13 @@ import { ActivitiesService } from "./activities.service.js";
     UpdateActivityUseCase,
     ReprocessActivityUseCase,
     OfficialValuesService,
+    ActivityAggregateRepository,
+    AggregateScopeResolver,
+    GetProgressUseCase,
+    GetAthleteStatsUseCase,
+    GetAthleteProfileFiguresUseCase,
+    GetAthleteActivitiesPageUseCase,
+    FeedPageBuilder,
     ActivitiesService,
   ],
   exports: [ActivitiesService],

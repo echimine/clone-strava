@@ -1,81 +1,18 @@
 import Foundation
 
-/// `APIClient` adapter of `FeedRepository`: `GET /v1/feed` and
-/// `PUT`/`DELETE /v1/activities/:id/kudos` (ADR-029).
+/// `APIClient` adapter of `FeedRepository`: `GET /v1/feed`, `PUT`/`DELETE
+/// /v1/activities/:id/kudos` (ADR-029) and the most recent givers of `GET
+/// /v1/activities/:id/kudos` (ADR-034 §1), decoded with the generated OpenAPI types (ADR-026).
 struct APIFeedRepository: FeedRepository {
+    private typealias FeedResponse = Components.Schemas.FeedResponseDto_Output
+    private typealias KudosResponse = Components.Schemas.KudosResponseDto_Output
+    private typealias KudosListResponse = Components.Schemas.ListKudosResponseDto_Output
+
+    /// The card shows at most this many kudos avatars (ADR-036 §5).
+    static let recentKudosLimit = 3
+
     let apiClient: APIClient
     var pageSize = 20
-
-    private struct FeedResponse: Decodable {
-        let items: [ItemDTO]
-        let nextCursor: String?
-    }
-
-    private struct ItemDTO: Decodable {
-        struct Stats: Decodable {
-            let distanceM: Double?
-            let movingTimeS: Int?
-            let elevationGainM: Double?
-        }
-
-        struct MapDTO: Decodable {
-            let polyline: String
-            let precision: Int
-        }
-
-        struct Author: Decodable {
-            let id: String
-            let displayName: String
-            let avatarUrl: String?
-        }
-
-        let id: UUID
-        let title: String
-        let sportTypeCode: String
-        let startedAt: Date
-        let locationName: String?
-        let stats: Stats
-        let map: MapDTO?
-        let author: Author
-        let engagement: EngagementDTO
-        let viewerIsAuthor: Bool
-
-        var model: ActivityPost {
-            ActivityPost(
-                id: ActivityID(id),
-                title: title,
-                sport: SportType(code: sportTypeCode),
-                startedAt: startedAt,
-                locationName: locationName,
-                distance: stats.distanceM.map { Distance(meters: $0) },
-                movingTime: stats.movingTimeS.map { .seconds($0) },
-                elevationGain: stats.elevationGainM,
-                route: map.map { EncodedPolyline(value: $0.polyline, precision: $0.precision) },
-                author: ActivityAuthor(
-                    id: author.id,
-                    displayName: author.displayName,
-                    avatarURL: author.avatarUrl.flatMap(URL.init(string:))
-                ),
-                engagement: engagement.model,
-                viewerIsAuthor: viewerIsAuthor
-            )
-        }
-    }
-
-    private struct EngagementDTO: Decodable {
-        let kudosCount: Int
-        let commentCount: Int
-        let viewerHasKudoed: Bool
-
-        var model: ActivityEngagement {
-            ActivityEngagement(kudosCount: kudosCount, commentCount: commentCount, viewerHasKudoed: viewerHasKudoed)
-        }
-    }
-
-    private struct KudosResponse: Decodable {
-        let kudosCount: Int
-        let viewerHasKudoed: Bool
-    }
 
     private struct ErrorEnvelope: Decodable {
         struct Body: Decodable { let code: String }
@@ -90,7 +27,19 @@ struct APIFeedRepository: FeedRepository {
         let response: FeedResponse = try await call { () async throws(APIError) in
             try await apiClient.get("/v1/feed", query: query)
         }
-        return FeedPage(posts: response.items.map(\.model), nextCursor: response.nextCursor)
+        return response.page
+    }
+
+    func recentKudos(activityId: ActivityID) async throws(FeedError) -> [ActivityAuthor] {
+        let response: KudosListResponse = try await call { () async throws(APIError) in
+            try await apiClient.get(
+                "/v1/activities/\(activityId)/kudos",
+                query: [URLQueryItem(name: "limit", value: String(Self.recentKudosLimit))]
+            )
+        }
+        return response.items.prefix(Self.recentKudosLimit).map {
+            ActivityAuthor(id: $0.athlete.id, displayName: $0.athlete.displayName, avatarUrl: $0.athlete.avatarUrl)
+        }
     }
 
     func setKudos(_ given: Bool, activityId: ActivityID) async throws(FeedError) -> KudosState {

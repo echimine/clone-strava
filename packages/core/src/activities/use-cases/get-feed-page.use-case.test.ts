@@ -1,6 +1,7 @@
 import { UnprocessableEntityException } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
 import { decodeFeedCursor, encodeFeedCursor } from "../domain/feed-cursor.js";
+import { FeedPageBuilder } from "../services/feed-page-builder.js";
 import { GetFeedPageUseCase } from "./get-feed-page.use-case.js";
 
 const VIEWER = "11111111-1111-4111-8111-111111111111";
@@ -31,7 +32,8 @@ function setup(rows: ReturnType<typeof activity>[], followeeIds: string[] = []) 
       ids.map((activityId) => ({ activityId, mapPolyline: "_p~iF~ps|U", locationName: "Annecy, Haute-Savoie" })),
     ),
   };
-  const useCase = new GetFeedPageUseCase(social as never, activities as never, stats as never, tracks as never);
+  const pages = new FeedPageBuilder(stats as never, tracks as never);
+  const useCase = new GetFeedPageUseCase(social as never, activities as never, pages);
   return { useCase, social, activities, stats, tracks };
 }
 

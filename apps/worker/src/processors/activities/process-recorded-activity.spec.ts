@@ -80,6 +80,16 @@ describe("process-activity of a recorded activity (integration)", () => {
     expect(detail.stats?.distanceM).toBeCloseTo(1000, -1);
     expect(detail.stats?.elapsedTimeS).toBe(720);
     expect(detail.stats?.movingTimeS).toBe(540);
+    // No profile: the default 200 m privacy zone cut the start and end of the route (ADR-036 §5).
+    expect(detail.routeTrimmed).toBe(true);
+    expect(detail.source).toBe("recorded");
+    // ADR-036 §6: computed on the untrimmed route, the Pause skipped like the official distance.
+    expect(detail.analysis?.splits).toEqual([
+      { distanceM: 1000, movingTimeS: 540, elevationDiffM: 0, avgHeartRate: null },
+    ]);
+    expect(detail.analysis?.series?.distanceM.at(-1)).toBeCloseTo(1000, -1);
+    expect(new Set(detail.analysis?.series?.altitudeM)).toEqual(new Set([35]));
+    expect(detail.analysis?.series?.heartRateBpm).toBeNull();
 
     const feed = await activities.getFeedPage(userId, { limit: 20 });
     expect(feed.items.map((item) => item.id)).toContain(id);
@@ -91,5 +101,40 @@ describe("process-activity of a recorded activity (integration)", () => {
       return mine.includes("activity.processed") ? mine : undefined;
     });
     expect(types).toContain("activity.processed");
+  }, 30_000);
+
+  it("keeps the whole route, not trimmed, when the author has no privacy zone", async () => {
+    const otherUserId = randomUUID();
+    await ctx.db.$client.query('insert into "user" (id, name, email) values ($1, $2, $3)', [
+      otherUserId,
+      "No privacy zone",
+      `${otherUserId}@test.local`,
+    ]);
+    await ctx.db.$client.query("insert into users.user_profile (user_id, privacy_zone_radius_m) values ($1, 0)", [
+      otherUserId,
+    ]);
+    try {
+      const id = randomUUID();
+      const start = new Date(Date.now() - 2 * 3_600_000);
+      await activities.create(otherUserId, {
+        id,
+        sportTypeCode: "run",
+        title: "Sans zone de confidentialité",
+        startedAt: start.toISOString(),
+        endedAt: new Date(start.getTime() + 12 * 60_000).toISOString(),
+        visibility: "public",
+        isManual: false,
+      });
+      ctx.storage.objects.set(activityTraceKey(otherUserId, id), recordedRun(start));
+      await activities.complete(otherUserId, id, "req-untrimmed");
+
+      const detail = await waitFor(async () => {
+        const own = await activities.getDetail(otherUserId, id);
+        return own.processingStatus === "processed" ? own : undefined;
+      });
+      expect(detail.routeTrimmed).toBe(false);
+    } finally {
+      await ctx.db.$client.query('delete from "user" where id = $1', [otherUserId]);
+    }
   }, 30_000);
 });

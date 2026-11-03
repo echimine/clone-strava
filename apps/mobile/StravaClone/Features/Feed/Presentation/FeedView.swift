@@ -2,15 +2,16 @@ import SwiftUI
 
 /// Home tab: the activity feed (ADR-029). Knows nothing of other features (ADR-007 rule 5):
 /// the app shell passes the "+" action, the content shown above the feed (e.g. the import
-/// banner), `openActivity`, the Activity detail pushed in this tab's stack, and `editActivity`
-/// and `deleteActivity` (once confirmed), "Modifier" and "Supprimer" in the context menu of my
-/// processed cards (ADR-033 §1, §7).
-struct FeedView<TopContent: View, ActivityDestination: View>: View {
+/// banner), the screens every tab's stack pushes (`AppDestinations`: the Activity detail, the
+/// Kudos and comments screen, another athlete's profile, their Statistiques and their followers
+/// and following lists, ADR-036 §10), and `editActivity` and `deleteActivity` (once confirmed),
+/// "Modifier" and "Supprimer" in the context menu of my processed cards (ADR-033 §1, §7).
+struct FeedView<TopContent: View>: View {
     @Bindable var store: FeedStore
     var onImportActivity: () -> Void = {}
     var editActivity: ((ActivityID) -> Void)?
     var deleteActivity: ((ActivityID) -> Void)?
-    @ViewBuilder var openActivity: (ActivityDetailRequest) -> ActivityDestination
+    let destinations: AppDestinations
     @ViewBuilder var topContent: () -> TopContent
     /// "Supprimer" on a card, waiting for its confirmation.
     @State private var deletionCandidate: ActivityID?
@@ -31,9 +32,7 @@ struct FeedView<TopContent: View, ActivityDestination: View>: View {
                 ) {
                     Button("OK", role: .cancel) {}
                 }
-                .navigationDestination(for: ActivityDetailRequest.self) { request in
-                    openActivity(request)
-                }
+                .registerAppDestinations(destinations)
                 .activityDeleteConfirmation($deletionCandidate) { id in deleteActivity?(id) }
         }
     }
@@ -91,7 +90,7 @@ struct FeedView<TopContent: View, ActivityDestination: View>: View {
                         ActivityCard(
                             post: post,
                             onToggleKudos: { Task { await store.toggleKudos(on: post.id) } },
-                            onComments: { store.open(post.id, showingComments: true) }
+                            onComments: { store.openComments(post.id) }
                         )
                         // ADR-033 §1: a tap outside the card's buttons opens the detail (the
                         // buttons keep their own action).
@@ -135,9 +134,9 @@ private extension LocalActivityCard {
     var rowID: String { "local-\(id)" }
 }
 
-extension FeedView where TopContent == EmptyView, ActivityDestination == EmptyView {
+extension FeedView where TopContent == EmptyView {
     init(store: FeedStore, onImportActivity: @escaping () -> Void = {}) {
-        self.init(store: store, onImportActivity: onImportActivity, openActivity: { _ in EmptyView() }) { EmptyView() }
+        self.init(store: store, onImportActivity: onImportActivity, destinations: .none) { EmptyView() }
     }
 }
 
@@ -149,6 +148,10 @@ private struct PreviewFeedRepository: FeedRepository {
 
     func setKudos(_ given: Bool, activityId: ActivityID) async throws(FeedError) -> KudosState {
         KudosState(kudosCount: given ? 4 : 3, viewerHasKudoed: given)
+    }
+
+    func recentKudos(activityId: ActivityID) async throws(FeedError) -> [ActivityAuthor] {
+        ActivityPost.preview.recentKudos
     }
 }
 
@@ -162,6 +165,7 @@ private struct PreviewFeedEvents: FeedEventSource {
         store: FeedStore(
             loadFeed: LoadFeed(repository: repository),
             toggleKudos: ToggleKudos(repository: repository),
+            loadRecentKudos: LoadRecentKudos(repository: repository),
             events: PreviewFeedEvents()
         )
     )

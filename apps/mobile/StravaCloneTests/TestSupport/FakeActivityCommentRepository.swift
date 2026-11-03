@@ -113,7 +113,7 @@ final class FakeActivityCommentRepository: ActivityCommentRepository, @unchecked
 extension ActivityCommentsStore {
     /// A thread over a fake repository, every use case on it.
     convenience init(
-        request: ActivityDetailRequest,
+        request: ActivityEngagementRequest,
         repository: FakeActivityCommentRepository,
         viewer: @escaping @MainActor () -> ActivityAuthor,
         onCountChange: @escaping @MainActor (Int) -> Void
@@ -133,7 +133,7 @@ extension ActivityCommentsStore {
     /// `detail`'s thread over a fake repository, as the app shell wires it.
     static func forDetail(
         _ detail: ActivityDetailStore,
-        request: ActivityDetailRequest,
+        request: ActivityEngagementRequest,
         repository: FakeActivityCommentRepository
     ) -> ActivityCommentsStore {
         .forDetail(

@@ -1,6 +1,7 @@
 import type { Server } from "node:http";
 import express from "express";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { LOOPBACK, loopbackUrl } from "../testing/listen-on-loopback.js";
 import { jsonBodyParser } from "./json-body.js";
 
 /** ~200 kB: over express's 100 kB default, under the Itinerary limit. */
@@ -24,10 +25,9 @@ describe("jsonBodyParser", () => {
       res.status(200).json({ bytes: JSON.stringify(req.body).length });
     });
     await new Promise<void>((resolve) => {
-      server = app.listen(0, () => resolve());
+      server = app.listen(0, LOOPBACK, () => resolve());
     });
-    const address = server.address();
-    baseUrl = `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}`;
+    baseUrl = loopbackUrl(server);
   });
 
   afterAll(async () => {

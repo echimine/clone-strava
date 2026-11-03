@@ -6,6 +6,8 @@ export interface FeedActivityStats {
   movingTimeS: number | null;
   elapsedTimeS: number | null;
   elevationGainM: number | null;
+  /** The card's Allure for `pace` sports (ADR-036 §5). */
+  avgSpeedMs: number | null;
 }
 
 /**
@@ -18,6 +20,8 @@ export interface FeedActivity extends ActivityRecord {
   /** polyline5 of the privacy-zoned route, null when nothing can be shown. */
   mapPolyline: string | null;
   locationName: string | null;
+  /** The privacy zone removed the start or end of the route (ADR-036 §5). */
+  routeTrimmed: boolean;
 }
 
 export interface FeedActivityPage {

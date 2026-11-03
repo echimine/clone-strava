@@ -1,11 +1,7 @@
 import { z } from "zod";
-import { visibilitySchema } from "../common/enums.js";
+import { activityImportFormatSchema, visibilitySchema, type ActivityImportFormat } from "../common/enums.js";
 import { sportTypeCodeSchema } from "../sports/sport-type.js";
 import { uploadUrlResponseSchema } from "./activity.js";
-
-/** `activity_import.format` (ADR-028 §1). */
-export const activityImportFormatSchema = z.enum(["gpx", "tcx", "fit"]);
-export type ActivityImportFormat = z.infer<typeof activityImportFormatSchema>;
 
 /** `activity_import.status` (ADR-028 §2). */
 export const activityImportStatusSchema = z.enum([

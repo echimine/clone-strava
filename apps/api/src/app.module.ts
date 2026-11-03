@@ -11,8 +11,12 @@ import { RealtimeBridgeModule } from "@repo/core/realtime";
 import { StorageModule } from "@repo/core/storage";
 import { AdminModule } from "./admin/admin.module.js";
 import { ActivitiesModule } from "./activities/activities.module.js";
+import { AthleteSearchModule } from "./athlete-search/athlete-search.module.js";
+import { AthleteStatsModule } from "./athlete-stats/athlete-stats.module.js";
+import { AthletesModule } from "./athletes/athletes.module.js";
 import { AuthModule } from "./auth/auth.module.js";
 import { FeedModule } from "./feed/feed.module.js";
+import { FollowsModule } from "./follows/follows.module.js";
 import { AppBullModule } from "./bull/bull.module.js";
 import { GlobalExceptionFilter } from "./common/global-exception.filter.js";
 import { ConfigModule } from "./config/config.module.js";
@@ -67,12 +71,20 @@ const config = loadConfig();
     AuthModule,
     HealthModule,
     MeModule,
+    // Before every module routing `athletes/:id`: Express matches routes in
+    // registration order, and `search` must not be read as an athlete id.
+    AthleteSearchModule,
     FeedModule,
+    FollowsModule,
     ActivitiesModule,
+    AthleteStatsModule,
     ItinerariesModule,
     RealtimeTokenModule,
     WebhooksModule,
     AdminModule,
+    // Last: `GET /v1/athletes/:id` (UUID only) must come after every fixed `athletes/...` route,
+    // or Express would hand it `athletes/search` and the UUID pipe would answer 400.
+    AthletesModule,
   ],
   providers: [
     { provide: APP_PIPE, useClass: ZodValidationPipe },

@@ -92,6 +92,13 @@
       "when": 1793631737939,
       "tag": "0012_session_auth_method",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1793695526704,
+      "tag": "0013_profile_follows_analysis",
+      "breakpoints": true
     }
   ]
 }

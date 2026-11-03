@@ -22,6 +22,21 @@ import { GlobalExceptionFilter } from "../common/global-exception.filter.js";
 import { FeedAssembler } from "../feed/feed-assembler.js";
 import { AthleteIdentities } from "../identities/athlete-identities.js";
 import { ActivitiesController } from "./activities.controller.js";
+import { listenOnLoopback } from "../testing/listen-on-loopback.js";
+
+/** A stored Activity analysis (ADR-036 §6), as the worker writes it. */
+const ANALYSIS = {
+  splits: [
+    { distanceM: 1000, movingTimeS: 305, elevationDiffM: 12.5, avgHeartRate: 148 },
+    { distanceM: 234.5, movingTimeS: 70, elevationDiffM: -3, avgHeartRate: 155 },
+  ],
+  series: {
+    distanceM: [0, 617.3, 1234.5],
+    speedMs: [3.2, 3.4, 0],
+    altitudeM: [450, 462.5, 459.5],
+    heartRateBpm: [140, 150, 156],
+  },
+};
 
 /**
  * `GET /v1/activities/:id` for every viewer who can see the Activity (ADR-033 §2) over real
@@ -44,6 +59,7 @@ describe("GET /v1/activities/:id (integration)", () => {
     pending: randomUUID(),
     processing: randomUUID(),
     failed: randomUUID(),
+    importedWithoutFile: randomUUID(),
   };
   const startedAt = new Date("2026-10-12T07:30:00.000Z");
   const updatedAt = new Date("2026-10-13T18:00:00.000Z");
@@ -59,14 +75,21 @@ describe("GET /v1/activities/:id (integration)", () => {
 
   async function insertActivity(
     id: string,
-    options: { visibility?: string; status?: string; error?: string; withResults?: boolean } = {},
+    options: {
+      visibility?: string;
+      status?: string;
+      error?: string;
+      withResults?: boolean;
+      source?: string;
+      routeTrimmed?: boolean;
+    } = {},
   ) {
     await sql(
       `insert into activities.activity
-         (id, user_id, sport_type_code, title, description, started_at, ended_at, visibility, processing_status, processing_error, updated_at)
-       values ($1, $2, 'run', 'Sortie au lac', 'Belle lumière', $3, $4, $5, $6, $7, $8)`,
+         (id, user_id, sport_type_code, title, description, started_at, ended_at, visibility, processing_status, processing_error, updated_at, source)
+       values ($1, $2, 'run', 'Sortie au lac', 'Belle lumière', $3, $4, $5, $6, $7, $8, $9)`,
       [id, author, startedAt, new Date(startedAt.getTime() + 3_600_000), options.visibility ?? "public",
-        options.status ?? "processed", options.error ?? null, updatedAt],
+        options.status ?? "processed", options.error ?? null, updatedAt, options.source ?? "recorded"],
     );
     if (options.withResults ?? true) {
       await sql(
@@ -76,9 +99,9 @@ describe("GET /v1/activities/:id (integration)", () => {
         [id],
       );
       await sql(
-        `insert into activities.activity_track (activity_id, map_polyline, location_name)
-         values ($1, '_p~iF~ps|U', 'Annecy, Haute-Savoie')`,
-        [id],
+        `insert into activities.activity_track (activity_id, map_polyline, location_name, route_trimmed)
+         values ($1, '_p~iF~ps|U', 'Annecy, Haute-Savoie', $2)`,
+        [id, options.routeTrimmed ?? false],
       );
     }
   }
@@ -130,9 +153,7 @@ describe("GET /v1/activities/:id (integration)", () => {
 
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix("v1");
-    await app.listen(0);
-    const address = app.getHttpServer().address();
-    baseUrl = `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}`;
+    baseUrl = await listenOnLoopback(app);
 
     for (const [index, id] of users.entries()) {
       await sql('insert into "user" (id, name, email) values ($1, $2, $3)', [id, `User ${index}`, `${id}@test.local`]);
@@ -146,8 +167,18 @@ describe("GET /v1/activities/:id (integration)", () => {
       [follower, pendingFollower, author],
     );
 
-    await insertActivity(ids.publicProcessed);
-    await insertActivity(ids.followersProcessed, { visibility: "followers" });
+    await insertActivity(ids.publicProcessed, { source: "imported", routeTrimmed: true });
+    await sql(
+      `insert into activities.activity_import (id, user_id, format, original_file_name, size_bytes, status, activity_id)
+       values ($1, $2, 'fit', 'lac.fit', 1024, 'imported', $3)`,
+      [randomUUID(), author, ids.publicProcessed],
+    );
+    await insertActivity(ids.importedWithoutFile, { source: "imported" });
+    await insertActivity(ids.followersProcessed, { visibility: "followers", source: "manual" });
+    await sql(
+      "insert into activities.activity_analysis (activity_id, version, splits, series) values ($1, 1, $2, $3), ($4, 1, '[]', null)",
+      [ids.publicProcessed, JSON.stringify(ANALYSIS.splits), JSON.stringify(ANALYSIS.series), ids.followersProcessed],
+    );
     await insertActivity(ids.privateProcessed, { visibility: "private" });
     await insertActivity(ids.pending, { status: "pending", withResults: false });
     await insertActivity(ids.processing, { status: "processing", withResults: false });
@@ -170,7 +201,7 @@ describe("GET /v1/activities/:id (integration)", () => {
     await bullConnection?.quit();
   });
 
-  it("gives another athlete a public processed Activity in full: author, map, place, stats, engagement", async () => {
+  it("gives another athlete a public processed Activity in full: author, map, place, stats, engagement, source", async () => {
     const { status, body } = await get(ids.publicProcessed, stranger);
     expect(status).toBe(200);
     expect(activityDetailSchema.parse(body)).toEqual(body);
@@ -178,6 +209,8 @@ describe("GET /v1/activities/:id (integration)", () => {
       id: ids.publicProcessed,
       title: "Sortie au lac",
       description: "Belle lumière",
+      source: "imported",
+      importFormat: "fit",
       sportTypeCode: "run",
       startedAt: startedAt.toISOString(),
       endedAt: "2026-10-12T08:30:00.000Z",
@@ -196,6 +229,8 @@ describe("GET /v1/activities/:id (integration)", () => {
         calories: 812,
       },
       map: { polyline: "_p~iF~ps|U", precision: 5 },
+      routeTrimmed: true,
+      analysis: ANALYSIS,
       author: { id: author, displayName: "Camille Martin", avatarUrl: "https://cdn.test/a.png" },
       engagement: { kudosCount: 2, commentCount: 1, viewerHasKudoed: true },
       viewerIsAuthor: false,
@@ -211,7 +246,16 @@ describe("GET /v1/activities/:id (integration)", () => {
     const { status, body } = await get(id(), author);
     expect(status).toBe(200);
     expect(activityDetailSchema.parse(body)).toEqual(body);
-    expect(body).toMatchObject({ id: id(), processingStatus: state, stats: null, map: null, viewerIsAuthor: true });
+    expect(body).toMatchObject({
+      id: id(),
+      processingStatus: state,
+      source: "recorded",
+      stats: null,
+      map: null,
+      routeTrimmed: false,
+      analysis: null,
+      viewerIsAuthor: true,
+    });
     expect(body.processingError).toBe(error);
     expect(body.locationName).toBeUndefined();
   });
@@ -226,10 +270,27 @@ describe("GET /v1/activities/:id (integration)", () => {
     }
   });
 
+  it("gives no import format to an imported Activity whose import is unknown, nor to a manual one", async () => {
+    const imported = await get(ids.importedWithoutFile, stranger);
+    expect(imported.status).toBe(200);
+    expect(imported.body.source).toBe("imported");
+    expect(imported.body.importFormat).toBeUndefined();
+    const manual = await get(ids.followersProcessed, follower);
+    expect(manual.body.importFormat).toBeUndefined();
+  });
+
   it("gives an accepted follower a followers Activity", async () => {
     const { status, body } = await get(ids.followersProcessed, follower);
     expect(status).toBe(200);
-    expect(body).toMatchObject({ id: ids.followersProcessed, visibility: "followers", viewerIsAuthor: false });
+    expect(body).toMatchObject({
+      id: ids.followersProcessed,
+      visibility: "followers",
+      source: "manual",
+      routeTrimmed: false,
+      // ADR-036 §6: no trace, an empty analysis.
+      analysis: { splits: [], series: null },
+      viewerIsAuthor: false,
+    });
   });
 
   it.each([

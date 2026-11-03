@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import SwiftUI
 
 /// State of the Home feed (ADR-029): first load and pull-to-refresh, infinite scroll,
 /// optimistic kudos, and reload when one of the user's activities finishes processing.
@@ -27,6 +28,9 @@ final class FeedStore {
     @ObservationIgnored let prefetchDistance = 3
     @ObservationIgnored private let loadFeed: LoadFeed
     @ObservationIgnored private let toggleKudos: ToggleKudos
+    /// Reloads a card's kudos avatars once its kudos count changed (ADR-036 §5); without it the
+    /// avatars wait for the next refresh.
+    @ObservationIgnored private let loadRecentKudos: LoadRecentKudos?
     @ObservationIgnored private let events: any FeedEventSource
     @ObservationIgnored private var nextCursor: String?
     @ObservationIgnored private var refreshGeneration = 0
@@ -37,8 +41,9 @@ final class FeedStore {
     @ObservationIgnored private let localActivities: (any LocalActivityFeedSource)?
     /// Bumped to bring the list back to its top (after Save, ADR-031 §11).
     private(set) var scrollToTopRequest = 0
-    /// Navigation of the Home tab: the Activity details opened from the feed.
-    var path: [ActivityDetailRequest] = []
+    /// Navigation of the Home tab: the Activity details and Kudos and comments screens opened
+    /// from the feed, and whatever they push in turn (ADR-036 §10).
+    var path = NavigationPath()
     /// Applies the change stream for the store's lifetime, even while a detail covers the feed.
     @ObservationIgnored private var changeObservation: Task<Void, Never>?
     /// The cards a `.deleted` change removed since the last refresh, with their place, for a
@@ -48,6 +53,7 @@ final class FeedStore {
     init(
         loadFeed: LoadFeed,
         toggleKudos: ToggleKudos,
+        loadRecentKudos: LoadRecentKudos? = nil,
         events: any FeedEventSource,
         localActivities: (any LocalActivityFeedSource)? = nil,
         activityChanges: ActivityChanges? = nil,
@@ -55,6 +61,7 @@ final class FeedStore {
     ) {
         self.loadFeed = loadFeed
         self.toggleKudos = toggleKudos
+        self.loadRecentKudos = loadRecentKudos
         self.events = events
         self.localActivities = localActivities
         self.onPullToRefresh = onPullToRefresh
@@ -88,14 +95,21 @@ final class FeedStore {
         nextCursor = nil
         phase = .idle
         notice = nil
-        path = []
+        path = NavigationPath()
     }
 
-    /// Tap on a card outside its buttons, or its comment button: only a processed card, one the
-    /// server returned, opens the detail; local cards are not tappable (ADR-033 §1).
-    func open(_ id: ActivityID, showingComments: Bool = false) {
+    /// Tap on a card outside its buttons: only a processed card, one the server returned, opens
+    /// the detail; local cards are not tappable (ADR-033 §1).
+    func open(_ id: ActivityID) {
         guard posts.contains(where: { $0.id == id }) else { return }
-        path.append(ActivityDetailRequest(id: id, showsComments: showingComments))
+        path.append(ActivityDetailRequest(id: id))
+    }
+
+    /// The card's comment button: the Kudos and comments screen on Commentaires, composer
+    /// focused (ADR-036 §8).
+    func openComments(_ id: ActivityID) {
+        guard posts.contains(where: { $0.id == id }) else { return }
+        path.append(ActivityEngagementRequest.comments(id))
     }
 
     /// Long press (ADR-033 §1): the "Modifier" menu is only on my processed cards, the ones the
@@ -108,8 +122,11 @@ final class FeedStore {
     /// ignored: the change stream never adds a card, it only puts back one it removed.
     func apply(_ change: ActivityChange) {
         switch change {
-        case .updated(let post):
+        case .updated(var post):
             guard let index = posts.firstIndex(where: { $0.id == post.id }) else { return }
+            // The detail does not know these card-only values (ADR-036 §5).
+            post.routeTrimmed = posts[index].routeTrimmed
+            post.recentKudos = posts[index].recentKudos
             posts[index] = post
         case .deleted(let id):
             guard let index = posts.firstIndex(where: { $0.id == id }) else { return }
@@ -118,7 +135,11 @@ final class FeedStore {
             guard let removed = removedPosts.removeValue(forKey: id), !posts.contains(where: { $0.id == id }) else { return }
             posts.insert(removed.post, at: min(removed.index, posts.count))
         case .engagement(let id, let engagement):
+            let kudosChanged = posts.first { $0.id == id }.map { $0.engagement.kudosCount != engagement.kudosCount } ?? false
             update(id) { $0 = engagement }
+            if kudosChanged {
+                Task { await reloadRecentKudos(of: id) }
+            }
         }
     }
 
@@ -214,7 +235,17 @@ final class FeedStore {
         } catch {
             update(id) { $0 = previous }
             notice = FeedMessages.kudosFailed(error)
+            return
         }
+        await reloadRecentKudos(of: id)
+    }
+
+    /// The card's avatars after its kudos changed; on failure the shown ones stay until the
+    /// next refresh.
+    private func reloadRecentKudos(of id: ActivityID) async {
+        guard let loadRecentKudos, let givers = try? await loadRecentKudos(activityId: id) else { return }
+        guard let index = posts.firstIndex(where: { $0.id == id }) else { return }
+        posts[index].recentKudos = givers
     }
 
     /// Runs for the lifetime of the view (`.task`): reloads when an activity finishes processing.

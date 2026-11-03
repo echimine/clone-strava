@@ -1,11 +1,5 @@
 import Foundation
 
-/// One page of the feed (ADR-029): `nextCursor` is nil on the last page.
-struct FeedPage: Equatable, Sendable {
-    let posts: [ActivityPost]
-    let nextCursor: String?
-}
-
 /// Failures of the feed, as the presentation needs them.
 enum FeedError: Error, Equatable, Sendable {
     case offline
@@ -22,6 +16,8 @@ protocol FeedRepository: Sendable {
     func page(cursor: String?) async throws(FeedError) -> FeedPage
     /// Gives (`true`) or removes (`false`) kudos; returns the server's state.
     func setKudos(_ given: Bool, activityId: ActivityID) async throws(FeedError) -> KudosState
+    /// The most recent kudos givers, newest first, as the card shows them (ADR-036 §5).
+    func recentKudos(activityId: ActivityID) async throws(FeedError) -> [ActivityAuthor]
 }
 
 /// Signals that the signed-in user's activities changed (e.g. `activity.processed`, ADR-010).

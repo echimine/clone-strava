@@ -18,8 +18,13 @@ struct StravaCloneApp: App {
                 recordingStore: di.makeRecordingStore(),
                 importStore: di.makeImportStore(),
                 feedStore: di.makeFeedStore(),
+                profileStore: di.makeProfileStore(),
                 makeActivityDetailStore: { [di] id in di.makeActivityDetailStore(id: id) },
-                makeActivityCommentsStore: { [di] request, detail in di.makeActivityCommentsStore(request: request, detail: detail) },
+                makeActivityEngagementStore: { [di] request in di.makeActivityEngagementStore(request: request) },
+                makeAthleteProfileStore: { [di] id in di.makeAthleteProfileStore(athleteId: id) },
+                makeAthleteStatisticsStore: { [di] request in di.makeAthleteStatisticsStore(request: request) },
+                makeFollowListStore: { [di] request in di.makeFollowListStore(request: request) },
+                makeAthleteSearchStore: di.makeAthleteSearchStore,
                 feedActivityEditor: di.feedActivityEditor,
                 activityDeleter: di.activityDeleter,
                 reloadUpdatedActivities: di.makeReloadUpdatedActivities(),
@@ -66,10 +71,20 @@ struct RootView: View {
     @State var recordingStore: RecordingStore
     @State var importStore: ImportStore
     @State var feedStore: FeedStore
+    /// The Profile tab and Réglages (ADR-036 §3, §10).
+    @State var profileStore: ProfileStore
     /// Details pushed from the feed's cards (ADR-033 §1).
     let makeActivityDetailStore: @MainActor (ActivityID) -> ActivityDetailStore
-    /// Their comment threads (ADR-034 §6).
-    let makeActivityCommentsStore: @MainActor (ActivityDetailRequest, ActivityDetailStore) -> ActivityCommentsStore
+    /// Kudos and comments screens, pushed from a detail or a card (ADR-036 §8).
+    let makeActivityEngagementStore: @MainActor (ActivityEngagementRequest) -> ActivityEngagementStore
+    /// Another athlete's profile, pushed from wherever an athlete is shown (ADR-036 §10).
+    let makeAthleteProfileStore: @MainActor (String) -> AthleteProfileStore
+    /// Statistiques of an athlete, mine or another's (ADR-036 §4).
+    let makeAthleteStatisticsStore: @MainActor (AthleteStatisticsRequest) -> AthleteStatisticsStore
+    /// Followers and following lists, mine or another athlete's (ADR-036 §1).
+    let makeFollowListStore: @MainActor (AthleteFollowsRequest) -> FollowListStore
+    /// The search behind the profile's magnifier (ADR-036 §2).
+    let makeAthleteSearchStore: @MainActor () -> AthleteSearchStore
     /// "Modifier" in the context menu of my feed cards (ADR-033 §1).
     @State var feedActivityEditor: ActivityEditor
     /// "Supprimer" in that menu and in a detail's "⋯" (ADR-033 §7); its toast shows over the feed.
@@ -139,6 +154,7 @@ struct RootView: View {
                 }
                     .onAppear {
                         feedStore.reset()
+                        profileStore.reset()
                         defaultVisibility.clear()
                         // ADR-030 §8: the Itinerary cache does not outlive the session.
                         Task { await itinerarySynchronizer.signOut() }
@@ -171,14 +187,7 @@ struct RootView: View {
                         onImportActivity: importStore.startImport,
                         editActivity: { [feedActivityEditor] id in Task { await feedActivityEditor.edit(id: id) } },
                         deleteActivity: { [activityDeleter] id in Task { await activityDeleter.delete(id) } },
-                        openActivity: { request in
-                            ActivityDetailPage(
-                                request: request,
-                                makeStore: makeActivityDetailStore,
-                                makeCommentsStore: makeActivityCommentsStore,
-                                liveEvents: activityLiveEvents
-                            )
-                        }
+                        destinations: appDestinations(path: $feedStore.path)
                     ) {
                         if let banner = importStore.banner {
                             ImportStatusBanner(
@@ -190,6 +199,7 @@ struct RootView: View {
                         }
                     }
                     .animation(.default, value: importStore.banner)
+                    .environment(\.openAthlete, openAthlete(in: $feedStore.path))
                     .activityEditing(feedActivityEditor)
                     .toast($activityDeleter.toast)
                     .fileImporter(
@@ -230,24 +240,38 @@ struct RootView: View {
                     )
                     .tabItem { Label("Enregistrer", systemImage: "record.circle") }
                     .tag(AppTab.record)
-                    ProfileView(store: authStore, consent: consentStore, signOutWarning: {
-                        // ADR-031 §10, §14: one confirmation for all that a sign-out loses.
-                        SignOutWarning.message(
-                            recordingInProgress: await recordingStore.signOutWarning() != nil,
-                            unsentActivities: await syncCoordinator.unsentActivityCount(),
-                            pendingItineraryChanges: await itinerarySynchronizer.pendingChangeCount()
-                        )
-                    }, beforeSignOut: {
-                        await recordingStore.delete()
-                        await syncCoordinator.signOut()
-                    }, animationsPreview: Self.animationsPreview) {
-                        MyItinerariesView(
-                            store: itineraryListStore,
-                            makeDetailStore: makeItineraryDetailStore,
-                            makeEditFlow: makeItineraryEditFlow,
-                            onCreate: { itineraryCreation.start(from: .profile) }
-                        )
-                    }
+                    ProfileView(
+                        store: profileStore,
+                        account: profileAccount,
+                        consent: consentStore,
+                        signOut: { [authStore] in await authStore.signOut() },
+                        signOutWarning: {
+                            // ADR-031 §10, §14: one confirmation for all that a sign-out loses.
+                            SignOutWarning.message(
+                                recordingInProgress: await recordingStore.signOutWarning() != nil,
+                                unsentActivities: await syncCoordinator.unsentActivityCount(),
+                                pendingItineraryChanges: await itinerarySynchronizer.pendingChangeCount()
+                            )
+                        },
+                        beforeSignOut: {
+                            await recordingStore.delete()
+                            await syncCoordinator.signOut()
+                        },
+                        animationsPreview: Self.animationsPreview,
+                        destinations: appDestinations(path: $profileStore.path),
+                        itineraries: {
+                            MyItinerariesView(
+                                store: itineraryListStore,
+                                makeDetailStore: makeItineraryDetailStore,
+                                makeEditFlow: makeItineraryEditFlow,
+                                onCreate: { itineraryCreation.start(from: .profile) }
+                            )
+                        },
+                        search: { AthleteSearchPage(makeStore: makeAthleteSearchStore) }
+                    )
+                    .environment(\.openAthlete, openAthlete(in: $profileStore.path))
+                    // A detail opened from the profile can delete its Activity too (ADR-033 §7).
+                    .toast($activityDeleter.toast)
                     .tabItem { Label("Profil", systemImage: "person") }
                     .tag(AppTab.profile)
                 }
@@ -326,6 +350,76 @@ struct RootView: View {
     /// names the account "Prénom Nom" if the code creates it.
     private func createAccountScreen(name: String, back: @escaping () -> Void) -> AccountView {
         AccountView(mode: .createAccount, authStore: authStore, name: name, onBack: back)
+    }
+
+    /// The signed-in account, for the Profile tab and its Réglages (ADR-007 rule 5: Profile does
+    /// not read the Auth feature's store).
+    private var profileAccount: ProfileAccount? {
+        guard case .signedIn(let user) = authStore.state else { return nil }
+        return ProfileAccount(id: user.id, name: user.name, email: user.email)
+    }
+
+    /// The screens a tab's stack pushes (ADR-036 §10); another athlete's profile pushes its own
+    /// destinations in the same stack, `path`.
+    private func appDestinations(path: Binding<NavigationPath>) -> AppDestinations {
+        AppDestinations(
+            activity: { AnyView(activityDetail($0)) },
+            engagement: { AnyView(activityEngagement($0)) },
+            athleteProfile: { AnyView(athleteProfile($0, path: path)) },
+            statistics: { AnyView(athleteStatistics($0)) },
+            follows: { AnyView(followLists($0)) }
+        )
+    }
+
+    /// The Activity detail, pushed in the feed's and the profile's stacks (ADR-036 §10).
+    private func activityDetail(_ request: ActivityDetailRequest) -> ActivityDetailPage {
+        ActivityDetailPage(request: request, makeStore: makeActivityDetailStore, liveEvents: activityLiveEvents)
+    }
+
+    /// The Kudos and comments screen, pushed in the feed's and the profile's stacks (ADR-036 §8).
+    private func activityEngagement(_ request: ActivityEngagementRequest) -> ActivityEngagementPage {
+        ActivityEngagementPage(request: request, makeStore: makeActivityEngagementStore, liveEvents: activityLiveEvents)
+    }
+
+    /// Another athlete's profile, pushed in the stack of the tab it was opened from (ADR-036 §10).
+    private func athleteProfile(_ request: AthleteProfileRequest, path: Binding<NavigationPath>) -> AthleteProfilePage {
+        AthleteProfilePage(
+            request: request,
+            makeStore: makeAthleteProfileStore,
+            openActivity: { path.wrappedValue.append($0) },
+            openEngagement: { path.wrappedValue.append($0) },
+            openStatistics: { profile in
+                path.wrappedValue.append(AthleteStatisticsRequest(athleteId: profile.athlete.id, sports: profile.practicedSports))
+            },
+            openFollows: { path.wrappedValue.append($0) }
+        )
+    }
+
+    /// Followers and following lists (ADR-036 §1), pushed from a profile's counters in the
+    /// stack of that profile's tab.
+    private func followLists(_ request: AthleteFollowsRequest) -> FollowListPage {
+        FollowListPage(request: request, makeStore: makeFollowListStore)
+    }
+
+    /// A tap on an athlete in a tab's stack (ADR-036 §10): their profile pushed in that stack,
+    /// or the Profile tab, at its top, for the viewer themself.
+    private func openAthlete(in path: Binding<NavigationPath>) -> OpenAthleteAction {
+        OpenAthleteAction { [authStore, profileStore] id in
+            let viewerId: String? = if case .signedIn(let user) = authStore.state { user.id } else { nil }
+            switch AthleteProfileRequest.destination(of: id, viewerId: viewerId) {
+            case .ownProfile:
+                profileStore.path = NavigationPath()
+                selectedTab = .profile
+            case .push(let request):
+                path.wrappedValue.append(request)
+            }
+        }
+    }
+
+    /// Statistiques (ADR-036 §4), pushed from my Plus tab, and from another athlete's for the
+    /// stacks that show other profiles.
+    private func athleteStatistics(_ request: AthleteStatisticsRequest) -> AthleteStatisticsView {
+        AthleteStatisticsView(store: makeAthleteStatisticsStore(request))
     }
 
     /// After Save (ADR-031 §11): the Home tab at the top of the feed, and the Activity leaves

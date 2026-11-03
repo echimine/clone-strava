@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, sql } from "drizzle-orm";
 import { schema, type Database } from "@repo/db";
 import type { ItineraryElevationSource } from "@repo/contracts";
 import type { LonLat } from "@repo/geo";
@@ -28,6 +28,12 @@ const updatedAtMicros = sql<string>`to_char(${t.updatedAt} at time zone 'UTC', '
 @Injectable()
 export class ItineraryRepository {
   constructor(@Inject(DATABASE) private readonly db: Database) {}
+
+  /** How many Itineraries the athlete has saved. */
+  async countByUser(userId: string): Promise<number> {
+    const [row] = await this.db.select({ total: count() }).from(t).where(eq(t.userId, userId));
+    return row?.total ?? 0;
+  }
 
   /** Owner of an id, whoever it is: tells a replay from an id conflict. */
   findOwnerId(id: string): Promise<string | undefined> {
