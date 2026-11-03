@@ -11,6 +11,7 @@ import { RealtimeBridgeModule } from "@repo/core/realtime";
 import { StorageModule } from "@repo/core/storage";
 import { AdminModule } from "./admin/admin.module.js";
 import { ActivitiesModule } from "./activities/activities.module.js";
+import { AthleteSearchModule } from "./athlete-search/athlete-search.module.js";
 import { AthleteStatsModule } from "./athlete-stats/athlete-stats.module.js";
 import { AthletesModule } from "./athletes/athletes.module.js";
 import { AuthModule } from "./auth/auth.module.js";
@@ -70,6 +71,9 @@ const config = loadConfig();
     AuthModule,
     HealthModule,
     MeModule,
+    // Before every module routing `athletes/:id`: Express matches routes in
+    // registration order, and `search` must not be read as an athlete id.
+    AthleteSearchModule,
     FeedModule,
     FollowsModule,
     ActivitiesModule,
