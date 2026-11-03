@@ -27,12 +27,10 @@ export type Media = z.infer<typeof mediaSchema>;
 /** The most Media an Activity holds (ADR-037 §4, §7). */
 export const ACTIVITY_MEDIA_MAX = 8;
 
-/** Bucket folder of one Media, stored as `activity_media.s3_key` (ADR-037 §1, §12). */
-export function activityMediaFolderKey(userId: string, activityId: string, mediaId: string): string {
-  return `activities/${userId}/${activityId}/media/${mediaId}/`;
-}
-
-/** The files in a Media's folder, all made on the iPhone (ADR-037 §3). */
+/**
+ * The files in a Media's folder (`activityMediaPrefix`, stored as `activity_media.s3_key`), all
+ * made on the iPhone (ADR-037 §3).
+ */
 export const MEDIA_FILES = {
   photo: { original: "original.jpg", poster: null, thumb: "thumb.jpg" },
   video: { original: "original.mp4", poster: "poster.jpg", thumb: "thumb.jpg" },
