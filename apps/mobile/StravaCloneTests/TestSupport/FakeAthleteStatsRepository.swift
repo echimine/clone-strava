@@ -9,6 +9,13 @@ final class FakeAthleteStatsRepository: AthleteStatsRepository, @unchecked Senda
     var results: [SportType?: Result<AthleteStats, AthleteError>] = [:]
     private(set) var calls: [(athleteId: String, sport: SportType?)] = []
 
+    /// Answers all sports with `AthleteStats.fixture(sport: nil)`: 412 km this year.
+    static func allSports() -> FakeAthleteStatsRepository {
+        let repository = FakeAthleteStatsRepository()
+        repository.results[nil] = .success(.fixture(sport: nil))
+        return repository
+    }
+
     func stats(of athleteId: String, sport: SportType?) async throws(AthleteError) -> AthleteStats {
         let result = lock.withLock {
             calls.append((athleteId, sport))

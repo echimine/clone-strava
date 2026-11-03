@@ -11,7 +11,7 @@ struct AthleteProfileStoreTests {
         AthleteProfileStore(
             athleteId: "lea",
             loadProfile: LoadAthleteProfile(repository: athletes),
-            loadYearToDateDistance: LoadAthleteYearToDateDistance(repository: athletes),
+            loadYearToDateDistance: LoadAthleteYearToDateDistance(repository: FakeAthleteStatsRepository.allSports()),
             follows: FollowStore(followAthlete: FollowAthlete(repository: follows), unfollowAthlete: UnfollowAthlete(repository: follows)),
             activities: AthleteActivitiesStore(
                 loadActivities: LoadAthleteActivities(repository: athletes),
@@ -23,7 +23,6 @@ struct AthleteProfileStoreTests {
     private func repository(status: FollowStatus, followers: Int = 10) -> FakeAthleteRepository {
         let athletes = FakeAthleteRepository()
         athletes.profileResult = .success(.lea(status: status, followers: followers))
-        athletes.yearToDateResult = .success(Distance(meters: 412_000))
         athletes.pages[nil] = .success(FeedPage(posts: [.fixture()], nextCursor: nil))
         return athletes
     }

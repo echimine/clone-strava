@@ -3,43 +3,29 @@ import SwiftUI
 /// Profile tab (ADR-036 §3, §10): my header, then Progrès · Activités · Plus, with the
 /// magnifier and the gear to Réglages at the top right. The header scrolls away and leaves my
 /// name in the navigation bar. Knows nothing of other features (ADR-007 rule 5): the app shell
-/// passes the search, "Mes Itinéraires" (ADR-030), the Activity detail, the Kudos and comments
-/// screen, Statistiques, the followers and following lists and another athlete's profile pushed
-/// in this tab's own stack, and what a sign-out would lose (ADR-030 §8).
-struct ProfileView<
-    Itineraries: View,
-    ActivityDestination: View,
-    EngagementDestination: View,
-    StatisticsDestination: View,
-    AthleteDestination: View,
-    Search: View,
-    FollowsDestination: View
->: View {
+/// passes the signed-in account and the sign-out, the search, "Mes Itinéraires" (ADR-030), the
+/// screens every tab's stack pushes (`AppDestinations`: the Activity detail, the Kudos and
+/// comments screen, Statistiques, the followers and following lists and another athlete's
+/// profile), and what a sign-out would lose (ADR-030 §8).
+struct ProfileView<Itineraries: View, Search: View>: View {
     @Bindable var store: ProfileStore
-    let authStore: AuthStore
+    let account: ProfileAccount?
     let consent: MeasurementConsentStore
+    let signOut: @MainActor () async -> Void
     var signOutWarning: @MainActor () async -> String? = { nil }
     var beforeSignOut: @MainActor () async -> Void = {}
     /// Debug builds only: the app shell passes its animations preview screen.
     var animationsPreview: AnyView?
+    let destinations: AppDestinations
     @ViewBuilder var itineraries: () -> Itineraries
-    @ViewBuilder var openActivity: (ActivityDetailRequest) -> ActivityDestination
-    @ViewBuilder var openEngagement: (ActivityEngagementRequest) -> EngagementDestination
-    /// Statistiques (ADR-036 §4), the same screen as on another athlete's profile.
-    @ViewBuilder var openStatistics: (AthleteStatisticsRequest) -> StatisticsDestination
-    @ViewBuilder var openAthlete: (AthleteProfileRequest) -> AthleteDestination
     /// The magnifier: the athlete search (ADR-036 §2).
     @ViewBuilder var search: () -> Search
-    /// The followers and following lists, mine or another athlete's (ADR-036 §1).
-    @ViewBuilder var openFollows: (AthleteFollowsRequest) -> FollowsDestination
 
     @State private var isEditingName = false
     /// The header has scrolled away: the name shows in the navigation bar.
     @State private var isHeaderHidden = false
 
-    private var userId: String? {
-        if case .signedIn(let user) = authStore.state { user.id } else { nil }
-    }
+    private var userId: String? { account?.id }
 
     var body: some View {
         NavigationStack(path: $store.path) {
@@ -60,8 +46,9 @@ struct ProfileView<
                     case .settings:
                         SettingsView(
                             store: store,
-                            authStore: authStore,
+                            account: account,
                             consent: consent,
+                            signOut: signOut,
                             signOutWarning: signOutWarning,
                             beforeSignOut: beforeSignOut,
                             animationsPreview: animationsPreview
@@ -72,21 +59,7 @@ struct ProfileView<
                         search()
                     }
                 }
-                .navigationDestination(for: ActivityDetailRequest.self) { request in
-                    openActivity(request)
-                }
-                .navigationDestination(for: ActivityEngagementRequest.self) { request in
-                    openEngagement(request)
-                }
-                .navigationDestination(for: AthleteStatisticsRequest.self) { request in
-                    openStatistics(request)
-                }
-                .navigationDestination(for: AthleteProfileRequest.self) { request in
-                    openAthlete(request)
-                }
-                .navigationDestination(for: AthleteFollowsRequest.self) { request in
-                    openFollows(request)
-                }
+                .registerAppDestinations(destinations)
         }
         .toast($store.toast)
     }

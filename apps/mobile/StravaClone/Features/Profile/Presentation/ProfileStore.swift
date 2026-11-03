@@ -148,12 +148,12 @@ final class ProfileStore {
     }
 
     /// My followers or following lists (ADR-036 §1), from my counters; nil until my profile loads.
-    func followsRequest(_ list: AthleteFollowsRequest.List) -> AthleteFollowsRequest? {
+    func followsRequest(_ list: AthleteFollowsRequest.Kind) -> AthleteFollowsRequest? {
         profile.map { AthleteFollowsRequest(profile: $0, list: list) }
     }
 
     /// A tap on "N abonnés" or "N abonnements".
-    func openFollows(_ list: AthleteFollowsRequest.List) {
+    func openFollows(_ list: AthleteFollowsRequest.Kind) {
         guard let request = followsRequest(list) else { return }
         path.append(request)
     }

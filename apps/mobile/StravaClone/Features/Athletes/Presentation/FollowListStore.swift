@@ -8,7 +8,7 @@ import Observation
 @Observable
 @MainActor
 final class FollowListStore {
-    typealias List = AthleteFollowsRequest.List
+    typealias Kind = AthleteFollowsRequest.Kind
 
     enum Phase: Equatable {
         case idle
@@ -18,7 +18,7 @@ final class FollowListStore {
     }
 
     /// One list's rows and paging.
-    struct Section {
+    struct Listing {
         var items: [AthleteListItem] = []
         var phase = Phase.idle
         var nextCursor: String?
@@ -28,11 +28,11 @@ final class FollowListStore {
     let athleteId: String
     let athleteName: String
     let isOwn: Bool
-    var selected: List
+    var selected: Kind
     private(set) var followerCount: Int
     private(set) var followingCount: Int
     private(set) var pendingRequestCount: Int
-    private(set) var sections: [List: Section] = [:]
+    private(set) var listings: [Kind: Listing] = [:]
     /// What went wrong with a page or a removal.
     var toast: String?
 
@@ -44,7 +44,7 @@ final class FollowListStore {
     @ObservationIgnored private let loadList: LoadFollowList
     @ObservationIgnored private let removeFollowerUseCase: RemoveFollower
     @ObservationIgnored private let ownCountsChanged: @MainActor (FollowCountsChange) -> Void
-    @ObservationIgnored private var generations: [List: Int] = [:]
+    @ObservationIgnored private var generations: [Kind: Int] = [:]
     @ObservationIgnored private var removing: Set<String> = []
 
     /// `ownCountsChanged` hears what this screen changes to the viewer's followers and requests,
@@ -79,9 +79,9 @@ final class FollowListStore {
         }
     }
 
-    func items(of list: List) -> [AthleteListItem] { sections[list]?.items ?? [] }
-    func phase(of list: List) -> Phase { sections[list]?.phase ?? .idle }
-    func isLoadingMore(_ list: List) -> Bool { sections[list]?.isLoadingMore ?? false }
+    func items(of list: Kind) -> [AthleteListItem] { listings[list]?.items ?? [] }
+    func phase(of list: Kind) -> Phase { listings[list]?.phase ?? .idle }
+    func isLoadingMore(_ list: Kind) -> Bool { listings[list]?.isLoadingMore ?? false }
 
     /// "Demandes d'abonnement", above my followers while someone asks.
     var showsRequestsRow: Bool { isOwn && selected == .followers && pendingRequestCount > 0 }
@@ -94,7 +94,7 @@ final class FollowListStore {
     }
 
     /// A segment chosen: its list loads the first time it shows.
-    func show(_ list: List) async {
+    func show(_ list: Kind) async {
         selected = list
         guard phase(of: list) == .idle else { return }
         await refresh(list)
@@ -108,22 +108,22 @@ final class FollowListStore {
     func loadMoreIfNeeded(current item: AthleteListItem) async {
         let list = selected
         guard
-            let section = sections[list],
-            let cursor = section.nextCursor,
-            !section.isLoadingMore,
-            let index = section.items.firstIndex(where: { $0.id == item.id }),
-            index >= section.items.count - prefetchDistance
+            let listing = listings[list],
+            let cursor = listing.nextCursor,
+            !listing.isLoadingMore,
+            let index = listing.items.firstIndex(where: { $0.id == item.id }),
+            index >= listing.items.count - prefetchDistance
         else { return }
-        sections[list]?.isLoadingMore = true
-        defer { sections[list]?.isLoadingMore = false }
+        listings[list]?.isLoadingMore = true
+        defer { listings[list]?.isLoadingMore = false }
         let current = generations[list]
         do {
             let page = try await loadList(list, of: athleteId, cursor: cursor)
             guard current == generations[list] else { return }
             track(page.items)
             let known = Set(items(of: list).map(\.id))
-            sections[list]?.items.append(contentsOf: page.items.filter { !known.contains($0.id) })
-            sections[list]?.nextCursor = page.nextCursor
+            listings[list]?.items.append(contentsOf: page.items.filter { !known.contains($0.id) })
+            listings[list]?.nextCursor = page.nextCursor
         } catch {
             toast = AthletesMessages.message(for: error)
         }
@@ -136,7 +136,7 @@ final class FollowListStore {
             canRemoveFollowers,
             !removing.contains(followerId),
             let index = items(of: .followers).firstIndex(where: { $0.id == followerId }),
-            let item = sections[.followers]?.items.remove(at: index)
+            let item = listings[.followers]?.items.remove(at: index)
         else { return }
         removing.insert(followerId)
         defer { removing.remove(followerId) }
@@ -146,27 +146,27 @@ final class FollowListStore {
             ownCountsChanged(FollowCountsChange(followers: -1))
         } catch {
             let position = min(index, items(of: .followers).count)
-            sections[.followers]?.items.insert(item, at: position)
+            listings[.followers]?.items.insert(item, at: position)
             followerCount += 1
             toast = AthletesMessages.message(for: error)
         }
     }
 
-    private func refresh(_ list: List) async {
+    private func refresh(_ list: Kind) async {
         let current = (generations[list] ?? 0) + 1
         generations[list] = current
         if items(of: list).isEmpty {
-            sections[list, default: Section()].phase = .loading
+            listings[list, default: Listing()].phase = .loading
         }
         do {
             let page = try await loadList(list, of: athleteId)
             guard current == generations[list] else { return }
             track(page.items)
-            sections[list] = Section(items: page.items, phase: .loaded, nextCursor: page.nextCursor)
+            listings[list] = Listing(items: page.items, phase: .loaded, nextCursor: page.nextCursor)
         } catch {
             guard current == generations[list] else { return }
             if items(of: list).isEmpty {
-                sections[list, default: Section()].phase = .failed(message: AthletesMessages.message(for: error))
+                listings[list, default: Listing()].phase = .failed(message: AthletesMessages.message(for: error))
             } else {
                 toast = AthletesMessages.message(for: error)
             }
@@ -184,7 +184,7 @@ final class FollowListStore {
         let item = AthleteListItem(athlete: request.athlete, viewerFollowStatus: request.viewerFollowStatus)
         follows.track(item.id, status: item.viewerFollowStatus)
         if phase(of: .followers) == .loaded, !items(of: .followers).contains(where: { $0.id == item.id }) {
-            sections[.followers]?.items.insert(item, at: 0)
+            listings[.followers]?.items.insert(item, at: 0)
         }
         change(FollowCountsChange(followers: 1, pendingRequests: -1))
     }

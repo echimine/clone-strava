@@ -25,7 +25,7 @@ struct FollowRequestPage: Equatable, Sendable {
 /// Implemented over the API in `Infrastructure`, faked in tests.
 protocol FollowListRepository: Sendable {
     /// Accepted follows only; any athlete's lists.
-    func list(_ list: AthleteFollowsRequest.List, of athleteId: String, cursor: String?) async throws(AthleteError) -> AthleteListPage
+    func list(_ list: AthleteFollowsRequest.Kind, of athleteId: String, cursor: String?) async throws(AthleteError) -> AthleteListPage
     func followRequests(cursor: String?) async throws(AthleteError) -> FollowRequestPage
     /// "Accepter": they become a follower.
     func acceptRequest(from followerId: String) async throws(AthleteError)

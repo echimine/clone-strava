@@ -4,7 +4,7 @@ import SwiftUI
 /// follow counters, which open my lists, and "Modifier le profil".
 struct ProfileHeader: View {
     let profile: AthleteProfile
-    var onFollows: ((AthleteFollowsRequest.List) -> Void)?
+    var onFollows: ((AthleteFollowsRequest.Kind) -> Void)?
     let onEdit: () -> Void
 
     var body: some View {

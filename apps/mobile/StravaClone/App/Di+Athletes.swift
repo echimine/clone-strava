@@ -9,7 +9,7 @@ extension Di {
         return AthleteProfileStore(
             athleteId: athleteId,
             loadProfile: LoadAthleteProfile(repository: athletes),
-            loadYearToDateDistance: LoadAthleteYearToDateDistance(repository: athletes),
+            loadYearToDateDistance: LoadAthleteYearToDateDistance(repository: APIAthleteStatsRepository(apiClient: apiClient)),
             follows: makeFollowStore(),
             activities: AthleteActivitiesStore(
                 loadActivities: LoadAthleteActivities(repository: athletes),

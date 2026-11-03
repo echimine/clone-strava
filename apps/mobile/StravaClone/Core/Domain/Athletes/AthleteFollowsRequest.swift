@@ -5,7 +5,8 @@ import Foundation
 /// `NavigationStack` that shows a profile registers it. Carries the counters the lists start
 /// from, since the lists themselves have no total.
 struct AthleteFollowsRequest: Hashable, Sendable {
-    enum List: Hashable, Sendable, CaseIterable {
+    /// Which of the two lists.
+    enum Kind: Hashable, Sendable, CaseIterable {
         case followers, following
     }
 
@@ -13,7 +14,7 @@ struct AthleteFollowsRequest: Hashable, Sendable {
     /// The lists' title.
     let athleteName: String
     /// The list shown first.
-    let list: List
+    let list: Kind
     /// The viewer's own lists: the "Demandes d'abonnement" row and removing a follower.
     let isOwn: Bool
     let followerCount: Int
@@ -21,7 +22,7 @@ struct AthleteFollowsRequest: Hashable, Sendable {
     /// Own lists only.
     let pendingRequestCount: Int
 
-    init(profile: AthleteProfile, list: List) {
+    init(profile: AthleteProfile, list: Kind) {
         athleteId = profile.athlete.id
         athleteName = profile.athlete.displayName
         self.list = list

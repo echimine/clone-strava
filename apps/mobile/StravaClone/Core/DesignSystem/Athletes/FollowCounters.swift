@@ -7,7 +7,7 @@ struct FollowCounters: View {
     let followers: String
     /// "8 abonnements".
     let following: String
-    var open: ((AthleteFollowsRequest.List) -> Void)?
+    var open: ((AthleteFollowsRequest.Kind) -> Void)?
 
     var body: some View {
         HStack(spacing: 4) {
@@ -19,7 +19,7 @@ struct FollowCounters: View {
         .monospacedDigit()
     }
 
-    @ViewBuilder private func counter(_ label: String, _ list: AthleteFollowsRequest.List) -> some View {
+    @ViewBuilder private func counter(_ label: String, _ list: AthleteFollowsRequest.Kind) -> some View {
         if let open {
             Button(label) { open(list) }
                 .buttonStyle(.plain)

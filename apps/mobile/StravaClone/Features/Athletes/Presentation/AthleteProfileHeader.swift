@@ -5,7 +5,7 @@ import SwiftUI
 /// follow button. Each counter opens its list.
 struct AthleteProfileHeader<FollowButtonContent: View>: View {
     let profile: AthleteProfile
-    var onFollows: ((AthleteFollowsRequest.List) -> Void)?
+    var onFollows: ((AthleteFollowsRequest.Kind) -> Void)?
     @ViewBuilder let followButton: () -> FollowButtonContent
 
     var body: some View {

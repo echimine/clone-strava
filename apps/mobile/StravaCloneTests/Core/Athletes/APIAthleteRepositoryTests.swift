@@ -145,22 +145,4 @@ struct APIAthleteRepositoryTests {
         #expect(page.posts.first?.distance == Distance(meters: 10_000))
         #expect(page.posts.first?.viewerIsAuthor == true)
     }
-
-    @Test func yearToDateDistanceIsAllSports() async throws {
-        let repository = makeRepository()
-        respond(200, """
-        {
-          "recent": { "weeks": 4, "activitiesPerWeek": 1.5, "movingTimeSPerWeek": 3600, "distanceMPerWeek": 12000 },
-          "yearToDate": { "activityCount": 40, "movingTimeS": 90000, "distanceM": 412345.6, "elevationGainM": 3000 },
-          "allTime": { "activityCount": 80, "distanceM": 900000, "elevationGainM": 7000 }
-        }
-        """)
-
-        let distance = try await repository.yearToDateDistance(of: athleteId)
-
-        let components = try lastRequestComponents()
-        #expect(components.path == "/v1/athletes/\(athleteId)/stats")
-        #expect(components.queryItems == nil)
-        #expect(distance == Distance(meters: 412_345.6))
-    }
 }

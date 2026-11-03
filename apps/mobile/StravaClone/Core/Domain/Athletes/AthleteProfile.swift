@@ -42,12 +42,10 @@ enum AthleteError: Error, Equatable, Sendable {
     case network
 }
 
-/// Reads any athlete's profile, Activities and statistics (ADR-036 §3, §4). Implemented over
-/// the API in `Core/Athletes`, faked in tests.
+/// Reads any athlete's profile and Activities (ADR-036 §3); statistics are
+/// `AthleteStatsRepository`'s. Implemented over the API in `Core/Athletes`, faked in tests.
 protocol AthleteRepository: Sendable {
     func profile(of athleteId: String) async throws(AthleteError) -> AthleteProfile
     /// The athlete's visible processed Activities, newest first, as feed cards.
     func activities(of athleteId: String, cursor: String?) async throws(AthleteError) -> FeedPage
-    /// "Cette année : X km": the distance since 1 January, all sports.
-    func yearToDateDistance(of athleteId: String) async throws(AthleteError) -> Distance
 }

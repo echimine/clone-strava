@@ -8,7 +8,6 @@ final class FakeAthleteRepository: AthleteRepository, @unchecked Sendable {
     var profileResult: Result<AthleteProfile, AthleteError> = .failure(.network)
     /// Answers keyed by cursor (`nil` = first page).
     var pages: [String?: Result<FeedPage, AthleteError>] = [:]
-    var yearToDateResult: Result<Distance, AthleteError> = .failure(.network)
 
     private(set) var profileCalls: [String] = []
     private(set) var activityCalls: [(athleteId: String, cursor: String?)] = []
@@ -27,10 +26,6 @@ final class FakeAthleteRepository: AthleteRepository, @unchecked Sendable {
             return pages[cursor] ?? .failure(.network)
         }
         return try result.get()
-    }
-
-    func yearToDateDistance(of athleteId: String) async throws(AthleteError) -> Distance {
-        try lock.withLock { yearToDateResult }.get()
     }
 }
 

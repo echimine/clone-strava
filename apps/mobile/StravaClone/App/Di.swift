@@ -290,7 +290,7 @@ final class Di {
         let profiles = APIProfileRepository(apiClient: apiClient)
         return ProfileStore(
             loadProfile: LoadProfile(repository: athletes),
-            loadYearToDateDistance: LoadYearToDateDistance(repository: athletes),
+            loadYearToDateDistance: LoadYearToDateDistance(repository: APIAthleteStatsRepository(apiClient: apiClient)),
             renameAthlete: RenameAthlete(repository: profiles),
             setApproveFollowers: SetApproveFollowers(repository: profiles),
             activities: ProfileActivitiesStore(

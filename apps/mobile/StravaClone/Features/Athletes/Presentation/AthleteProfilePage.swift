@@ -120,7 +120,7 @@ struct AthleteProfilePage: View {
         }
     }
 
-    private func followsAction(_ profile: AthleteProfile) -> ((AthleteFollowsRequest.List) -> Void)? {
+    private func followsAction(_ profile: AthleteProfile) -> ((AthleteFollowsRequest.Kind) -> Void)? {
         guard let openFollows else { return nil }
         return { openFollows(AthleteFollowsRequest(profile: profile, list: $0)) }
     }

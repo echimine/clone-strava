@@ -24,14 +24,14 @@ private extension Components.Schemas.FeedResponseDto_Output.itemsPayloadPayload 
             avgSpeedMs: stats.avgSpeedMs,
             route: map.map { EncodedPolyline(value: $0.polyline, precision: Int($0.precision)) },
             routeTrimmed: routeTrimmed,
-            author: ActivityAuthor(id: author.id, displayName: author.displayName, avatarURL: author.avatarUrl.flatMap(URL.init(string:))),
+            author: ActivityAuthor(id: author.id, displayName: author.displayName, avatarUrl: author.avatarUrl),
             engagement: ActivityEngagement(
                 kudosCount: engagement.kudosCount,
                 commentCount: engagement.commentCount,
                 viewerHasKudoed: engagement.viewerHasKudoed
             ),
             recentKudos: recentKudos.map {
-                ActivityAuthor(id: $0.id, displayName: $0.displayName, avatarURL: $0.avatarUrl.flatMap(URL.init(string:)))
+                ActivityAuthor(id: $0.id, displayName: $0.displayName, avatarUrl: $0.avatarUrl)
             },
             viewerIsAuthor: viewerIsAuthor
         )
