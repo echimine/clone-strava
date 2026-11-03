@@ -1,9 +1,9 @@
 import MapboxMaps
 import SwiftUI
 
-/// The Activity's privacy-zoned polyline (ADR-029 §3) on an interactive Outdoors map: pan and
-/// zoom, camera first framed on the trace, start and finish markers (ADR-033 §3). Unlike the
-/// feed's static image, this is the place where moving around the trace is worth a `MapView`.
+/// The Activity's privacy-zoned polyline (ADR-029 §3) on an Outdoors map: camera framed on
+/// the trace, start and finish markers (ADR-033 §3). The detail shows it without gestures;
+/// panning and zooming happen on the full-screen map (ADR-036 §9).
 struct ActivityRouteMap: View {
     let route: EncodedPolyline
 

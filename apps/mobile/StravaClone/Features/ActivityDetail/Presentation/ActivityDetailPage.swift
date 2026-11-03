@@ -82,14 +82,15 @@ struct ActivityDetailPage: View {
             }
         case .loaded(let detail):
             ActivityDetailContent(detail: detail) {
-                ActivityKudosSection(store: store, engagement: detail.engagement)
+                ActivityKudosSection(store: store, detail: detail)
             }
         }
     }
 }
 
-/// The loaded Activity: map, header, title and description, stats grid, then the kudos and
-/// comments block under the stats (ADR-036 §8).
+/// The loaded Activity, top to bottom (ADR-036 §9): the map, the header, title and
+/// description, the stats grid, the source, the kudos row and action bar, then the splits,
+/// Allure (Vitesse) and Fréquence cardiaque when the analysis has them.
 struct ActivityDetailContent<Engagement: View>: View {
     let detail: ActivityDetail
     @ViewBuilder let engagement: () -> Engagement
@@ -97,12 +98,11 @@ struct ActivityDetailContent<Engagement: View>: View {
     private let columns = [GridItem(.flexible(), alignment: .leading), GridItem(.flexible(), alignment: .leading)]
 
     var body: some View {
+        let sections = ActivityDetailSections(detail: detail)
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.spacing) {
-                if let route = detail.route {
-                    ActivityRouteMap(route: route)
-                        .aspectRatio(4 / 3, contentMode: .fit)
-                        .frame(maxWidth: .infinity)
+                if sections.showsMap, let route = detail.route {
+                    ActivityDetailMap(route: route, routeTrimmed: detail.routeTrimmed, post: detail.post)
                 }
                 VStack(alignment: .leading, spacing: Theme.spacing) {
                     ActivityCardHeader(post: detail.post)
@@ -117,11 +117,47 @@ struct ActivityDetailContent<Engagement: View>: View {
                     if let stats = detail.stats {
                         statsGrid(ActivityStatItem.items(for: stats, sport: detail.sport))
                     }
+                    sourceLine
                     engagement()
+                    analysis(sections)
                 }
                 .padding(.horizontal, Theme.spacing)
             }
             .padding(.bottom, Theme.spacing)
+        }
+    }
+
+    private var sourceLine: some View {
+        Label(ActivityAnalysisMessages.source(detail.source), systemImage: sourceSymbol)
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .accessibilityIdentifier("activityDetail.source")
+    }
+
+    private var sourceSymbol: String {
+        switch detail.source {
+        case .recorded: "record.circle"
+        case .imported: "square.and.arrow.down"
+        case .manual: "square.and.pencil"
+        }
+    }
+
+    /// Sections 8 to 10, hidden without an analysis that has splits.
+    @ViewBuilder private func analysis(_ sections: ActivityDetailSections) -> some View {
+        if let splits = sections.splits {
+            ActivitySplitsSection(table: splits)
+        }
+        if let chart = sections.speedChart {
+            ActivitySpeedSection(
+                chart: chart,
+                rows: ActivityAnalysisSummary.speedRows(stats: detail.stats, splits: detail.analysis?.splits ?? [], sport: detail.sport)
+            )
+        }
+        if let chart = sections.heartRateChart {
+            ActivityHeartRateSection(
+                chart: chart,
+                rows: ActivityAnalysisSummary.heartRateRows(stats: detail.stats, series: detail.analysis?.series)
+            )
         }
     }
 
@@ -159,6 +195,7 @@ private struct PreviewActivityDetailRepository: ActivityDetailRepository {
             visibility: .public,
             startedAt: post.startedAt,
             locationName: post.locationName,
+            source: .recorded,
             stats: ActivityStats(
                 distance: post.distance,
                 movingTime: post.movingTime,
@@ -171,6 +208,8 @@ private struct PreviewActivityDetailRepository: ActivityDetailRepository {
                 calories: 712
             ),
             route: post.route,
+            routeTrimmed: true,
+            analysis: .preview,
             author: post.author,
             engagement: post.engagement,
             viewerIsAuthor: true
@@ -182,6 +221,33 @@ private struct PreviewActivityDetailRepository: ActivityDetailRepository {
     }
 
     func delete(id: ActivityID) async throws(ActivityDetailError) {}
+}
+
+extension ActivityAnalysis {
+    /// 10,14 km with a climb, heart rate on, for previews.
+    static var preview: ActivityAnalysis {
+        let paces: [Double] = [298, 305, 312, 296, 289, 318, 330, 301, 293, 285, 280]
+        let splits = paces.enumerated().map { index, secondsPerKm in
+            let meters = index == paces.count - 1 ? 140.0 : 1_000
+            return ActivitySplit(
+                distance: Distance(meters: meters),
+                movingTime: .seconds(Int((secondsPerKm * meters / 1_000).rounded())),
+                elevationDiff: [4, 12, -3, 8, -10, 22, 18, -15, -20, -6, 1][index],
+                avgHeartRate: 140 + index * 3
+            )
+        }
+        let samples = 200
+        let distances = (0..<samples).map { Double($0) * 10_140 / Double(samples - 1) }
+        return ActivityAnalysis(
+            splits: splits,
+            series: ActivitySeries(
+                distanceM: distances,
+                speedMs: distances.map { 3.3 + 0.3 * sin($0 / 900) + ($0 > 6_000 && $0 < 6_100 ? -3.3 : 0) },
+                altitudeM: distances.map { 450 + 35 * sin($0 / 2_500) },
+                heartRateBpm: distances.map { 138 + Int(25 * $0 / 10_140) }
+            )
+        )
+    }
 }
 
 private struct PreviewActivityKudosRepository: ActivityKudosRepository {

@@ -24,16 +24,21 @@ struct ActivityDetail: Hashable, Sendable {
     var visibility: ActivityVisibility
     let startedAt: Date
     let locationName: String?
+    let source: ActivitySource
     /// Nil until processed.
     var stats: ActivityStats?
     /// The privacy-zoned polyline (ADR-029 §3); nil without GPS.
     let route: EncodedPolyline?
+    /// True when the privacy zone removed part of the route (ADR-036 §5).
+    let routeTrimmed: Bool
+    /// Splits and series (ADR-036 §6); nil while not computed yet.
+    let analysis: ActivityAnalysis?
     let author: ActivityAuthor
     var engagement: ActivityEngagement
     let viewerIsAuthor: Bool
 
     /// The feed card of this Activity, as the change stream hands it to the feed (ADR-033 §7).
-    /// The card-only `routeTrimmed` and `recentKudos` are not known here: the feed keeps its own.
+    /// The card-only `recentKudos` are not known here: the feed keeps its own.
     var post: ActivityPost {
         ActivityPost(
             id: id,
@@ -46,7 +51,7 @@ struct ActivityDetail: Hashable, Sendable {
             elevationGain: stats?.elevationGain,
             avgSpeedMs: stats?.avgSpeedMs,
             route: route,
-            routeTrimmed: false,
+            routeTrimmed: routeTrimmed,
             author: author,
             engagement: engagement,
             recentKudos: [],

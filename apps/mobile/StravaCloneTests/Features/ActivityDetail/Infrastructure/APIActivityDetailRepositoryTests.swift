@@ -121,6 +121,12 @@ struct APIActivityDetailRepositoryTests {
         #expect(detail.author == ActivityAuthor(id: "0b5a5c1e-1f4e-4c55-9d6e-0d3f8f6e2a11", displayName: "Camille Martin", avatarURL: nil))
         #expect(detail.engagement == ActivityEngagement(kudosCount: 3, commentCount: 1, viewerHasKudoed: true))
         #expect(!detail.viewerIsAuthor)
+        #expect(detail.source == .imported)
+        #expect(detail.routeTrimmed)
+        #expect(detail.analysis == ActivityAnalysis(
+            splits: [ActivitySplit(distance: Distance(meters: 1_000), movingTime: .seconds(128), elevationDiff: 4.5, avgHeartRate: 140)],
+            series: ActivitySeries(distanceM: [0, 1_000], speedMs: [7.6, 8.1], altitudeM: [450, 454.5], heartRateBpm: nil)
+        ))
     }
 
     /// No description, place, stats or map yet: all nil; an empty description too.
@@ -147,6 +153,9 @@ struct APIActivityDetailRepositoryTests {
         #expect(detail.stats == nil)
         #expect(detail.route == nil)
         #expect(detail.author.avatarURL == URL(string: "https://cdn.test/a.png"))
+        #expect(detail.source == .manual)
+        #expect(!detail.routeTrimmed)
+        #expect(detail.analysis == ActivityAnalysis(splits: [], series: nil))
     }
 
     @Test func mapsErrors() async {
