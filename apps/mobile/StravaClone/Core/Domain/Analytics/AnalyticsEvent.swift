@@ -74,6 +74,19 @@ enum AnalyticsEvent: Equatable, Sendable {
 
     /// A Media tile turned "Échec" (ADR-037 §13): no id, no image data.
     case mediaUploadFailed(kind: ActivityMedia.Kind, reason: MediaUploadFailure)
+    /// A new Avatar is stored (ADR-037 §13). Never any image data.
+    case avatarChanged(source: AvatarSource, entry: AvatarEntry)
+    /// "Supprimer la photo" went through.
+    case avatarRemoved
+    /// The Avatar was not sent, or not stored.
+    case avatarUploadFailed(reason: AvatarUploadFailure)
+    /// "Ajoute une photo de profil" is shown, before the Paywall.
+    case avatarPromptViewed
+    /// "Plus tard" on that screen.
+    case avatarPromptDeferred
+
+    /// The full-screen viewer opened on a Media (ADR-037 §13); its swipes are not tracked.
+    case mediaViewerOpened(source: MediaViewerSource, kind: ActivityMedia.Kind, isOwn: Bool)
 
     var name: String {
         switch self {
@@ -102,6 +115,12 @@ enum AnalyticsEvent: Equatable, Sendable {
         case .notificationPermissionAnswered: "notification_permission_answered"
         case .notificationPermissionDeferred: "notification_permission_deferred"
         case .mediaUploadFailed: "media_upload_failed"
+        case .avatarChanged: "avatar_changed"
+        case .avatarRemoved: "avatar_removed"
+        case .avatarUploadFailed: "avatar_upload_failed"
+        case .avatarPromptViewed: "avatar_prompt_viewed"
+        case .avatarPromptDeferred: "avatar_prompt_deferred"
+        case .mediaViewerOpened: "media_viewer_opened"
         }
     }
 
@@ -126,7 +145,7 @@ enum AnalyticsEvent: Equatable, Sendable {
         case .itineraryOfflineEditBlocked(let action):
             ["action": .string(action.rawValue)]
         case .welcomeViewed, .onboardingStarted, .authGoogleCancelled, .notificationPromptViewed,
-             .notificationPermissionDeferred:
+             .notificationPermissionDeferred, .avatarRemoved, .avatarPromptViewed, .avatarPromptDeferred:
             [:]
         case .onboardingStepViewed(let step, let resumed):
             ["step": .string(step.rawValue), "resumed": .bool(resumed)]
@@ -159,6 +178,12 @@ enum AnalyticsEvent: Equatable, Sendable {
             ["granted": .bool(granted)]
         case .mediaUploadFailed(let kind, let reason):
             ["kind": .string(kind.rawValue), "reason": .string(reason.rawValue)]
+        case .avatarChanged(let source, let entry):
+            ["source": .string(source.rawValue), "entry": .string(entry.rawValue)]
+        case .avatarUploadFailed(let reason):
+            ["reason": .string(reason.rawValue)]
+        case .mediaViewerOpened(let source, let kind, let isOwn):
+            ["source": .string(source.rawValue), "kind": .string(kind.rawValue), "isOwn": .bool(isOwn)]
         }
     }
 }

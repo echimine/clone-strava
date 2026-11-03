@@ -26,7 +26,10 @@ final class ActivityDetailStore {
     private(set) var recentKudos: [KudosGiver] = []
     /// Short-lived error shown over the detail (a kudos that could not be sent).
     var kudosNotice: String?
+    /// The full-screen viewer, opened by a tap on a Media of the header (ADR-037 §10).
+    var mediaViewer: MediaViewerRequest?
 
+    @ObservationIgnored private let analytics: any AnalyticsClient
     @ObservationIgnored private let loadDetail: LoadActivityDetail
     @ObservationIgnored private let loadKudos: LoadKudosList
     @ObservationIgnored private let setKudos: SetActivityKudos
@@ -51,9 +54,11 @@ final class ActivityDetailStore {
         updateActivity: UpdateActivity,
         deleter: ActivityDeleter,
         events: (any ActivityEventSource)? = nil,
-        mediaUploads: ActivityMediaUploads? = nil
+        mediaUploads: ActivityMediaUploads? = nil,
+        analytics: any AnalyticsClient = NoAnalyticsClient()
     ) {
         self.id = id
+        self.analytics = analytics
         self.deleter = deleter
         self.loadDetail = loadDetail
         self.loadKudos = loadKudos
@@ -117,6 +122,13 @@ final class ActivityDetailStore {
     /// already gone (ADR-033 §7).
     func delete() async {
         await deleter.delete(id)
+    }
+
+    /// A tap on a Media of the header: the viewer on the Activity's Media (ADR-037 §10).
+    func openMedia(_ media: ActivityMedia) {
+        guard let detail, let request = MediaViewerRequest.activity(detail.post, at: media) else { return }
+        analytics.capture(request.openedEvent(source: .detail, isOwn: detail.viewerIsAuthor))
+        mediaViewer = request
     }
 
     /// "Réessayer" after an error.

@@ -22,6 +22,8 @@ struct ProfileView<Itineraries: View, Search: View>: View {
     @ViewBuilder var search: () -> Search
 
     @State private var isEditingName = false
+    /// The photo menu, from a tap on my avatar (ADR-037 §2).
+    @State private var isChoosingPhoto = false
     /// The header has scrolled away: the name shows in the navigation bar.
     @State private var isHeaderHidden = false
 
@@ -38,6 +40,12 @@ struct ProfileView<Itineraries: View, Search: View>: View {
                 .task(id: userId) {
                     if let userId { await store.load(athleteId: userId) }
                 }
+                .avatarPicker(
+                    isPresented: $isChoosingPhoto,
+                    hasPhoto: store.profile?.athlete.avatarURL != nil,
+                    editor: store.avatar,
+                    entry: .profile
+                )
                 .sheet(isPresented: $isEditingName) {
                     EditProfileSheet(store: store, displayName: store.profile?.athlete.displayName ?? "")
                 }
@@ -102,7 +110,12 @@ struct ProfileView<Itineraries: View, Search: View>: View {
     private func page(_ profile: AthleteProfile) -> some View {
         ScrollView {
             LazyVStack(spacing: 0, pinnedViews: .sectionHeaders) {
-                ProfileHeader(profile: profile, onFollows: store.openFollows) { isEditingName = true }
+                ProfileHeader(
+                    profile: profile,
+                    avatar: store.avatar,
+                    onAvatar: { isChoosingPhoto = true },
+                    onFollows: store.openFollows
+                ) { isEditingName = true }
                     .padding(.horizontal, Theme.spacing)
                     .padding(.bottom, 20)
                     .onScrolledAway { isHeaderHidden = $0 }

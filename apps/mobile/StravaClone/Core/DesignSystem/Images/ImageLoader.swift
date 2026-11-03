@@ -38,6 +38,17 @@ actor ImageLoader {
         return components.url ?? url
     }
 
+    /// Caches an image the app already has under `url`'s path (the Avatar just sent, ADR-037
+    /// §2), so no screen downloads it again. Ignored when `data` is no image.
+    func store(_ data: Data, for url: URL) {
+        guard let image = UIImage(data: data) else { return }
+        let key = Self.cacheKey(for: url)
+        memory.setObject(image, forKey: key as NSURL)
+        if let response = HTTPURLResponse(url: key, statusCode: 200, httpVersion: nil, headerFields: nil) {
+            cache.storeCachedResponse(CachedURLResponse(response: response, data: data), for: URLRequest(url: key))
+        }
+    }
+
     /// Cached image, else downloaded one. A failed load is not remembered: the next call
     /// tries the network again. With `maxPixelSize`, the image is downsampled at decode so its
     /// longest side is at most that many pixels (a 2048 px Media photo in a 250 pt carousel,

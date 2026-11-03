@@ -3,7 +3,9 @@ import { itineraryElevationSourceSchema } from "../itineraries/geometry.js";
 
 /**
  * Typed analytics event catalog (ADR-015 "Event naming and catalog"):
- * reliable, backend-emitted events only (`api`/`worker`, via `posthog-node`).
+ * reliable, backend-emitted events (`api`/`worker`, via `posthog-node`) in
+ * `ANALYTICS_EVENTS`; the app events this catalog mirrors from the iOS
+ * `enum AnalyticsEvent` are in `APP_ANALYTICS_EVENTS`, at the end.
  * `object_action`, snake_case, past tense; no free-form strings in
  * application code.
  */
@@ -113,3 +115,66 @@ export const analyticsEventPropertiesSchemas = {
   [ANALYTICS_EVENTS.USER_SIGNED_UP]: userSignedUpPropertiesSchema,
   [ANALYTICS_EVENTS.ONBOARDING_ANSWERS_RECEIVED]: onboardingAnswersReceivedPropertiesSchema,
 } as const satisfies Record<AnalyticsEventName, z.ZodType>;
+
+/**
+ * App events mirrored from the iOS `enum AnalyticsEvent` (ADR-037 §13): sent
+ * by the app, never by `api`/`worker`. Never any image data.
+ */
+export const APP_ANALYTICS_EVENTS = {
+  /** A new Avatar is stored. */
+  AVATAR_CHANGED: "avatar_changed",
+  /** "Supprimer la photo" went through. */
+  AVATAR_REMOVED: "avatar_removed",
+  /** The Avatar was not sent, or not stored. */
+  AVATAR_UPLOAD_FAILED: "avatar_upload_failed",
+  /** "Ajoute une photo de profil" is shown, before the Paywall. */
+  AVATAR_PROMPT_VIEWED: "avatar_prompt_viewed",
+  /** "Plus tard" on "Ajoute une photo de profil". */
+  AVATAR_PROMPT_DEFERRED: "avatar_prompt_deferred",
+  /** The full-screen viewer opened on a Media; its swipes are not tracked. */
+  MEDIA_VIEWER_OPENED: "media_viewer_opened",
+} as const;
+export type AppAnalyticsEventName = (typeof APP_ANALYTICS_EVENTS)[keyof typeof APP_ANALYTICS_EVENTS];
+
+/** `avatar_changed`: where the photo came from, which screen opened the menu. */
+export const avatarChangedPropertiesSchema = z.object({
+  source: z.enum(["camera", "library"]),
+  entry: z.enum(["profile", "edit_profile", "onboarding"]),
+});
+export type AvatarChangedProperties = z.infer<typeof avatarChangedPropertiesSchema>;
+
+export const avatarRemovedPropertiesSchema = z.object({});
+export type AvatarRemovedProperties = z.infer<typeof avatarRemovedPropertiesSchema>;
+
+/** `avatar_upload_failed`: why the Avatar was not stored. */
+export const avatarUploadFailedPropertiesSchema = z.object({
+  reason: z.enum(["offline", "network", "rejected", "server", "encoding"]),
+});
+export type AvatarUploadFailedProperties = z.infer<typeof avatarUploadFailedPropertiesSchema>;
+
+export const avatarPromptViewedPropertiesSchema = z.object({});
+export type AvatarPromptViewedProperties = z.infer<typeof avatarPromptViewedPropertiesSchema>;
+
+export const avatarPromptDeferredPropertiesSchema = z.object({});
+export type AvatarPromptDeferredProperties = z.infer<typeof avatarPromptDeferredPropertiesSchema>;
+
+/**
+ * `media_viewer_opened`: the screen it was opened from, the kind of the Media
+ * touched, whether the Activity is the viewer's. No `mediaId` or `activityId`.
+ */
+export const mediaViewerOpenedPropertiesSchema = z.object({
+  source: z.enum(["feed", "profile_activities", "detail", "gallery"]),
+  kind: z.enum(["photo", "video"]),
+  isOwn: z.boolean(),
+});
+export type MediaViewerOpenedProperties = z.infer<typeof mediaViewerOpenedPropertiesSchema>;
+
+/** Payload schema for a given app event, keyed by its name. */
+export const appAnalyticsEventPropertiesSchemas = {
+  [APP_ANALYTICS_EVENTS.AVATAR_CHANGED]: avatarChangedPropertiesSchema,
+  [APP_ANALYTICS_EVENTS.AVATAR_REMOVED]: avatarRemovedPropertiesSchema,
+  [APP_ANALYTICS_EVENTS.AVATAR_UPLOAD_FAILED]: avatarUploadFailedPropertiesSchema,
+  [APP_ANALYTICS_EVENTS.AVATAR_PROMPT_VIEWED]: avatarPromptViewedPropertiesSchema,
+  [APP_ANALYTICS_EVENTS.AVATAR_PROMPT_DEFERRED]: avatarPromptDeferredPropertiesSchema,
+  [APP_ANALYTICS_EVENTS.MEDIA_VIEWER_OPENED]: mediaViewerOpenedPropertiesSchema,
+} as const satisfies Record<AppAnalyticsEventName, z.ZodType>;

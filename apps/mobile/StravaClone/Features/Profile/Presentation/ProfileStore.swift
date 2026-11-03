@@ -40,6 +40,8 @@ final class ProfileStore {
 
     let activities: ProfileActivitiesStore
     let progress: ProfileProgressStore
+    /// My photo, changed from the header or "Modifier le profil" (ADR-037 §2).
+    let avatar: AvatarEditor
 
     @ObservationIgnored private let loadProfile: LoadProfile
     @ObservationIgnored private let loadYearToDateDistance: LoadYearToDateDistance
@@ -55,7 +57,8 @@ final class ProfileStore {
         renameAthlete: RenameAthlete,
         setApproveFollowers: SetApproveFollowers,
         activities: ProfileActivitiesStore,
-        progress: ProfileProgressStore
+        progress: ProfileProgressStore,
+        avatar: AvatarEditor
     ) {
         self.loadProfile = loadProfile
         self.loadYearToDateDistance = loadYearToDateDistance
@@ -63,6 +66,8 @@ final class ProfileStore {
         self.setApproveFollowersUseCase = setApproveFollowers
         self.activities = activities
         self.progress = progress
+        self.avatar = avatar
+        avatar.changed = { [weak self] url in self?.showAvatar(url) }
     }
 
     /// "Approuver mes abonnés", as shown: the server's value, or the one just chosen.
@@ -116,6 +121,12 @@ final class ProfileStore {
         } catch {
             return ProfileMessages.message(for: error)
         }
+    }
+
+    /// My new photo once stored, or my initials once removed: the header follows.
+    private func showAvatar(_ url: URL?) {
+        guard let athlete = profile?.athlete else { return }
+        profile?.athlete = ActivityAuthor(id: athlete.id, displayName: athlete.displayName, avatarURL: url)
     }
 
     /// Optimistic: the switch moves at once, then takes the server's value, or goes back with
@@ -197,6 +208,7 @@ final class ProfileStore {
         toast = nil
         activities.reset()
         progress.reset()
+        avatar.reset()
     }
 
     /// Progrès loads when its tab first appears: pull-to-refresh only reloads it once shown.

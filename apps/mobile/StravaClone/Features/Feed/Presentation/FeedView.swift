@@ -34,6 +34,7 @@ struct FeedView<TopContent: View>: View {
                 }
                 .registerAppDestinations(destinations)
                 .activityDeleteConfirmation($deletionCandidate) { id in deleteActivity?(id) }
+                .mediaViewer($store.mediaViewer)
         }
     }
 
@@ -90,7 +91,8 @@ struct FeedView<TopContent: View>: View {
                         ActivityCard(
                             post: post,
                             onToggleKudos: { Task { await store.toggleKudos(on: post.id) } },
-                            onComments: { store.openComments(post.id) }
+                            onComments: { store.openComments(post.id) },
+                            onTapMedia: { store.openMedia($0, of: post.id) }
                         )
                         // ADR-033 §1: a tap outside the card's buttons opens the detail (the
                         // buttons keep their own action).

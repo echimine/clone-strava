@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// "Modifier le profil" (ADR-036 §3): first and last name, sent with `PATCH /v1/me/profile`.
-/// Closes once the header shows the new name; a refusal stays on the sheet.
+/// "Modifier le profil" (ADR-036 §3): my photo with "Modifier la photo" (ADR-037 §2), then
+/// first and last name, sent with `PATCH /v1/me/profile`. Closes once the header shows the new
+/// name; a refusal stays on the sheet. The photo is sent on its own, without "Enregistrer".
 struct EditProfileSheet: View {
     let store: ProfileStore
     @Environment(\.dismiss) private var dismiss
@@ -9,6 +10,7 @@ struct EditProfileSheet: View {
     @State private var lastName: String
     @State private var error: String?
     @State private var isSaving = false
+    @State private var isChoosingPhoto = false
 
     init(store: ProfileStore, displayName: String) {
         self.store = store
@@ -22,6 +24,7 @@ struct EditProfileSheet: View {
     var body: some View {
         NavigationStack {
             Form {
+                photoSection
                 Section {
                     TextField(ProfileMessages.firstName, text: $firstName)
                         .textContentType(.givenName)
@@ -54,7 +57,32 @@ struct EditProfileSheet: View {
                 }
             }
         }
-        .presentationDetents([.medium])
+        .avatarPicker(
+            isPresented: $isChoosingPhoto,
+            hasPhoto: store.profile?.athlete.avatarURL != nil,
+            editor: store.avatar,
+            entry: .editProfile
+        )
+        .presentationDetents([.large])
+    }
+
+    private var photoSection: some View {
+        Section {
+            VStack(spacing: 8) {
+                EditableAvatar(
+                    name: store.profile?.athlete.displayName ?? "",
+                    url: store.profile?.athlete.avatarURL,
+                    editor: store.avatar,
+                    size: 88
+                )
+                Button(AvatarMessages.changePhoto) { isChoosingPhoto = true }
+                    .font(.subheadline.weight(.semibold))
+                    .disabled(store.avatar.isBusy)
+                    .accessibilityIdentifier("editProfile.changePhoto")
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .listRowBackground(Color.clear)
     }
 
     private func save() async {

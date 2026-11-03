@@ -3,7 +3,7 @@ import SwiftUI
 /// Activités (ADR-036 §3): my Activities as the feed's cards; a tap opens the detail and the
 /// comment button the Kudos and comments screen.
 struct ProfileActivitiesTab: View {
-    let store: ProfileActivitiesStore
+    @Bindable var store: ProfileActivitiesStore
     let openActivity: @MainActor (ActivityID) -> Void
     let openComments: @MainActor (ActivityID) -> Void
     let retry: @MainActor () async -> Void
@@ -39,7 +39,7 @@ struct ProfileActivitiesTab: View {
         LazyVStack(spacing: Theme.spacing) {
             ForEach(store.posts) { post in
                 // My own cards: the kudos button is disabled (ADR-029).
-                ActivityCard(post: post, onComments: { openComments(post.id) })
+                ActivityCard(post: post, onComments: { openComments(post.id) }, onTapMedia: { store.openMedia($0, of: post.id) })
                     .contentShape(.rect(cornerRadius: 20))
                     .onTapGesture { openActivity(post.id) }
                     .accessibilityAction(named: Text("Ouvrir l'activité")) { openActivity(post.id) }
@@ -52,6 +52,7 @@ struct ProfileActivitiesTab: View {
         .animation(.default, value: store.posts.map(\.id))
         .padding(.horizontal, Theme.spacing)
         .accessibilityIdentifier("profile.activities")
+        .mediaViewer($store.mediaViewer)
     }
 }
 

@@ -1,15 +1,19 @@
 import SwiftUI
 
-/// Avatar, name and "195 activités" at the top of a profile (ADR-036 §3).
+/// Avatar, name and "195 activités" at the top of a profile (ADR-036 §3). On my own profile,
+/// a tap on the avatar opens the photo menu (ADR-037 §2), and the photo being sent shows.
 struct ProfileIdentity: View {
     let athlete: ActivityAuthor
     /// "195 activités".
     let activityCount: String
     let nameIdentifier: String
+    /// My own profile only.
+    var avatarEditor: AvatarEditor?
+    var onAvatarTap: (() -> Void)?
 
     var body: some View {
         HStack(spacing: Theme.spacing) {
-            AvatarView(name: athlete.displayName, url: athlete.avatarURL, size: 76)
+            avatar
             VStack(alignment: .leading, spacing: 4) {
                 Text(athlete.displayName)
                     .font(.title2.weight(.bold))
@@ -19,6 +23,21 @@ struct ProfileIdentity: View {
                     .font(.body)
                     .foregroundStyle(.secondary)
             }
+        }
+    }
+
+    @ViewBuilder private var avatar: some View {
+        if let avatarEditor, let onAvatarTap {
+            Button(action: onAvatarTap) {
+                EditableAvatar(name: athlete.displayName, url: athlete.avatarURL, editor: avatarEditor)
+            }
+            .buttonStyle(.plain)
+            .disabled(avatarEditor.isBusy)
+            .accessibilityLabel(AvatarMessages.myPhoto)
+            .accessibilityHint(AvatarMessages.changePhoto)
+            .accessibilityIdentifier("profile.avatar")
+        } else {
+            AvatarView(name: athlete.displayName, url: athlete.avatarURL, size: 76)
         }
     }
 }
