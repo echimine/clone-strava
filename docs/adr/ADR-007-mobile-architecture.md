@@ -75,6 +75,8 @@ Trivial use cases are accepted to keep a uniform flow.
 | GPS (Core Location) | ~~`Features/Recording/Infrastructure`~~ `Core/Location` *(Amended by [ADR-027](ADR-027-user-location-on-maps.md))* | Multi-subscriber `LocationProvider` protocol in `Core/Domain`, shared by Map and Recording; `LocationPermissionService` via `environment` |
 | Local Activities and their upload | `Core/LocalActivities` *(Amended by [ADR-031](ADR-031-live-recording-on-ios.md))* | Local Activity, points and Pauses (GRDB), Save transaction, trace v2 builder, `ActivitySender`; written by Recording, read by Feed, driven by a queue coordinator in `App/` |
 | Routing (Mapbox Directions) | `Core/Routing` *(Amended by [ADR-031](ADR-031-live-recording-on-ios.md))* | `MapboxDirectionsRouter`, `RoutingProfile`, `RetryBackoff`, used by Itineraries and Recording; the Itinerary cache is read through a protocol in `Core/Domain` |
+| Athletes | `Core/Athletes`, `Core/Domain/Athletes`, `Core/DesignSystem/Athletes` *(Amended by [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md))* | Athlete profile, follow and statistics models, ports and navigation values (`AthleteProfileRequest`, `AthleteStatisticsRequest`, `AthleteFollowsRequest`) in `Core/Domain/Athletes`; their API adapters and the shared paging of an athlete's Activities (`AthleteActivitiesPager`) in `Core/Athletes`; `AthleteButton` (with the `openAthlete` environment action) and the follow counters in `Core/DesignSystem/Athletes`. Shared by Profile, Athletes and Feed |
+| Shared navigation destinations | `Core/DesignSystem/Navigation` *(Amended by [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md))* | `AppDestinations` and `registerAppDestinations`: the screens every tab's stack pushes, built by the app shell |
 | Live Activity | widget extension target *(Amended by [ADR-031](ADR-031-live-recording-on-ios.md))* | `ActivityAttributes` type compiled into the app and the extension; ActivityKit adapter behind a port in `Features/Recording` |
 
 ### Dependency injection
@@ -145,3 +147,4 @@ Trivial use cases are accepted to keep a uniform flow.
 - **Related**: [ADR-008](ADR-008-mobile-offline-sync.md) (offline and sync)
 - **Amended by**: [ADR-027](ADR-027-user-location-on-maps.md) (GPS moved to `Core/Location`; Mapbox allowed in `Core/DesignSystem/Map/`)
 - **Amended by**: [ADR-031](ADR-031-live-recording-on-ios.md) (`Core/LocalActivities`, `Core/Routing`, widget extension for the Live Activity)
+- **Amended by**: [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md) (`Core/Athletes`, `Core/Domain/Athletes`, `Core/DesignSystem/Athletes`, `Core/DesignSystem/Navigation`)
