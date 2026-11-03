@@ -105,7 +105,8 @@ export class OfficialValuesService {
     const metrics = computeMetrics(points, { pauses: trace.pauses });
     const heartRate = computeHeartRate(points);
     const { privacyZoneRadiusM } = await this.users.getActivityDefaults(activity.userId);
-    const shown = simplifyTrack(applyPrivacyZone(points, { radiusM: privacyZoneRadiusM }), ROUTE_TOLERANCE_M);
+    const zoned = applyPrivacyZone(points, { radiusM: privacyZoneRadiusM });
+    const shown = simplifyTrack(zoned, ROUTE_TOLERANCE_M);
     // ADR-029: feed card data, from the privacy-zoned route only.
     const mapPolyline = feedPolyline(shown);
     const locationName = shown.length >= 2 ? await this.geocoding.reverse(shown[0]!) : null;
@@ -130,6 +131,8 @@ export class OfficialValuesService {
         startPoint: shown.length >= 2 ? toPointEwkt(shown[0]!) : null,
         rawPointsS3Key: activityTraceKey(activity.userId, activity.id),
         pointCount: points.length,
+        // ADR-036 §5: the card says "Départ et arrivée masqués".
+        routeTrimmed: zoned.length < points.length,
         mapPolyline,
         locationName,
       },

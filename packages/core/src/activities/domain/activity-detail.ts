@@ -1,4 +1,4 @@
-import type { ActivityProcessingErrorCode, ActivityStats } from "@repo/contracts";
+import type { ActivityProcessingErrorCode, ActivitySource, ActivityStats } from "@repo/contracts";
 import type { ActivityRecord } from "./activity-record.js";
 
 /**
@@ -9,6 +9,7 @@ import type { ActivityRecord } from "./activity-record.js";
 export interface ActivityDetailRecord extends ActivityRecord {
   title: string;
   description: string | null;
+  source: ActivitySource;
   endedAt: Date;
   /** Only once `failed`. */
   processingError: ActivityProcessingErrorCode | null;
@@ -17,5 +18,7 @@ export interface ActivityDetailRecord extends ActivityRecord {
   /** polyline5 of the privacy-zoned route, null when nothing can be shown. */
   mapPolyline: string | null;
   locationName: string | null;
+  /** The privacy zone removed the start or end of the route (ADR-036 §5). */
+  routeTrimmed: boolean;
   updatedAt: Date;
 }

@@ -49,6 +49,14 @@ export class EngagementService {
     return this.kudos.findKudoedActivityIds(userId, activityIds);
   }
 
+  /**
+   * Batch read (ADR-036 §5): the user ids of the last `perActivity` kudos givers of each
+   * activity, most recent first. Activities without kudos are absent.
+   */
+  getRecentKudoers(activityIds: string[], perActivity: number): Promise<Map<string, string[]>> {
+    return this.kudos.findRecentGiverIds(activityIds, perActivity);
+  }
+
   /** `GET /v1/activities/:id/comments` (ADR-034 §3). */
   listComments(viewerId: string, activityId: string, query: { before?: string; limit: number }): Promise<CommentPage> {
     return this.listCommentsUseCase.execute(viewerId, activityId, query);

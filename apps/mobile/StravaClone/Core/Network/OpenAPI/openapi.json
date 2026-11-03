@@ -1552,13 +1552,20 @@
                         "number",
                         "null"
                       ]
+                    },
+                    "avgSpeedMs": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
                     "distanceM",
                     "movingTimeS",
                     "elapsedTimeS",
-                    "elevationGainM"
+                    "elevationGainM",
+                    "avgSpeedMs"
                   ],
                   "additionalProperties": false
                 },
@@ -1582,6 +1589,9 @@
                     "precision"
                   ],
                   "additionalProperties": false
+                },
+                "routeTrimmed": {
+                  "type": "boolean"
                 },
                 "author": {
                   "type": "object",
@@ -1632,6 +1642,35 @@
                   ],
                   "additionalProperties": false
                 },
+                "recentKudos": {
+                  "maxItems": 3,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "displayName": {
+                        "type": "string"
+                      },
+                      "avatarUrl": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "displayName",
+                      "avatarUrl"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
                 "viewerIsAuthor": {
                   "type": "boolean"
                 }
@@ -1645,8 +1684,10 @@
                 "locationName",
                 "stats",
                 "map",
+                "routeTrimmed",
                 "author",
                 "engagement",
+                "recentKudos",
                 "viewerIsAuthor"
               ],
               "additionalProperties": false
@@ -1817,6 +1858,14 @@
           "description": {
             "type": "string"
           },
+          "source": {
+            "type": "string",
+            "enum": [
+              "recorded",
+              "imported",
+              "manual"
+            ]
+          },
           "sportTypeCode": {
             "type": "string",
             "minLength": 1
@@ -1964,6 +2013,9 @@
             ],
             "additionalProperties": false
           },
+          "routeTrimmed": {
+            "type": "boolean"
+          },
           "author": {
             "type": "object",
             "properties": {
@@ -2025,6 +2077,7 @@
         "required": [
           "id",
           "title",
+          "source",
           "sportTypeCode",
           "startedAt",
           "endedAt",
@@ -2032,6 +2085,7 @@
           "processingStatus",
           "stats",
           "map",
+          "routeTrimmed",
           "author",
           "engagement",
           "viewerIsAuthor",

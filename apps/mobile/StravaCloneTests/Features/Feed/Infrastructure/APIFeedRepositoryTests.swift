@@ -51,10 +51,12 @@ struct APIFeedRepositoryTests {
             "startedAt": "2026-10-02T12:32:00.123Z",
             "visibility": "public",
             "locationName": "Annecy, Haute-Savoie",
-            "stats": { "distanceM": 42195.5, "movingTimeS": 5400, "elapsedTimeS": 5600, "elevationGainM": null },
+            "stats": { "distanceM": 42195.5, "movingTimeS": 5400, "elapsedTimeS": 5600, "elevationGainM": null, "avgSpeedMs": 7.8 },
             "map": { "polyline": "_p~iF~ps|U_ulLnnqC", "precision": 5 },
+            "routeTrimmed": false,
             "author": { "id": "u1", "displayName": "Camille Martin", "avatarUrl": "https://cdn.test/a.png" },
             "engagement": { "kudosCount": 3, "commentCount": 1, "viewerHasKudoed": true },
+            "recentKudos": [],
             "viewerIsAuthor": false
           }],
           "nextCursor": "abc"

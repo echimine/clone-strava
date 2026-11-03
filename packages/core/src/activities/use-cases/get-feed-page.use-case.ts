@@ -50,9 +50,11 @@ export class GetFeedPageUseCase {
           movingTimeS: stats?.movingTimeS ?? null,
           elapsedTimeS: stats?.elapsedTimeS ?? null,
           elevationGainM: stats?.elevationGainM ?? null,
+          avgSpeedMs: stats?.avgSpeedMs ?? null,
         },
         mapPolyline: track?.mapPolyline ?? null,
         locationName: track?.locationName ?? null,
+        routeTrimmed: track?.routeTrimmed ?? false,
       };
     });
 
