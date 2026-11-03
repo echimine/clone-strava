@@ -34,6 +34,7 @@ import { AthleteIdentities } from "../identities/athlete-identities.js";
 import { CommentsController } from "./comments.controller.js";
 import { KudosAssembler } from "./kudos-assembler.js";
 import { KudosController } from "./kudos.controller.js";
+import { listenOnLoopback } from "../testing/listen-on-loopback.js";
 
 /**
  * Kudos and comments relayed live on `activity:{id}` (ADR-034 §4, §5) over
@@ -130,9 +131,7 @@ describe("engagement realtime relay (integration)", () => {
 
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix("v1");
-    await app.listen(0);
-    const address = app.getHttpServer().address();
-    baseUrl = `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}`;
+    baseUrl = await listenOnLoopback(app);
     for (const id of [author, fan]) {
       await sql('insert into "user" (id, name, email) values ($1, $2, $3)', [id, "Athlete", `${id}@test.local`]);
     }

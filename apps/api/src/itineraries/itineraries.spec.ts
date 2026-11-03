@@ -17,6 +17,7 @@ import { SessionGuard } from "../auth/session.guard.js";
 import { GlobalExceptionFilter } from "../common/global-exception.filter.js";
 import { jsonBodyParser } from "../common/json-body.js";
 import { ItinerariesController } from "./itineraries.controller.js";
+import { listenOnLoopback } from "../testing/listen-on-loopback.js";
 
 /** Meters per degree of latitude on the haversine sphere (R = 6,371,000 m). */
 const M_PER_DEG_LAT = (6_371_000 * Math.PI) / 180;
@@ -124,9 +125,7 @@ describe("/v1/itineraries lifecycle (integration)", () => {
     app = moduleRef.createNestApplication<NestExpressApplication>({ bodyParser: false });
     app.use(jsonBodyParser());
     app.setGlobalPrefix("v1");
-    await app.listen(0);
-    const address = app.getHttpServer().address();
-    baseUrl = `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}`;
+    baseUrl = await listenOnLoopback(app);
     for (const id of [athlete, other, lister]) {
       await sql('insert into "user" (id, name, email) values ($1, $2, $3)', [id, "Athlete", `${id}@test.local`]);
     }

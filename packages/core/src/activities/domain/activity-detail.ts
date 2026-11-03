@@ -1,5 +1,6 @@
 import type {
   ActivityAnalysis,
+  ActivityImportFormat,
   ActivityProcessingErrorCode,
   ActivitySource,
   ActivityStats,
@@ -15,6 +16,8 @@ export interface ActivityDetailRecord extends ActivityRecord {
   title: string;
   description: string | null;
   source: ActivitySource;
+  /** The imported file's format, only for an `imported` Activity (ADR-036 §5). */
+  importFormat: ActivityImportFormat | null;
   endedAt: Date;
   /** Only once `failed`. */
   processingError: ActivityProcessingErrorCode | null;

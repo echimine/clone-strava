@@ -22,6 +22,7 @@ import { GlobalExceptionFilter } from "../common/global-exception.filter.js";
 import { CommentAssembler } from "./comment-assembler.js";
 import { AthleteIdentities } from "../identities/athlete-identities.js";
 import { CommentsController } from "./comments.controller.js";
+import { listenOnLoopback } from "../testing/listen-on-loopback.js";
 
 /**
  * `/v1/activities/:id/comments` over real HTTP and Postgres (ADR-024 §2
@@ -132,9 +133,7 @@ describe("/v1/activities/:id/comments (integration)", () => {
 
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix("v1");
-    await app.listen(0);
-    const address = app.getHttpServer().address();
-    baseUrl = `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}`;
+    baseUrl = await listenOnLoopback(app);
     emit = vi.spyOn(app.get(EventEmitter2), "emit");
 
     for (const [index, id] of [author, commenter, third, stranger].entries()) {

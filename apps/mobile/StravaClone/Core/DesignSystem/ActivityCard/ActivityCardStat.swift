@@ -28,6 +28,28 @@ struct ActivityCardStat: Hashable, Sendable {
         ]
     }
 
+    /// The full-screen map's summary (ADR-036 §9): Distance · Allure · Temps, with Vitesse for a
+    /// `speed` sport. Unlike the card, never Dénivelé.
+    static func mapSummary(for post: ActivityPost) -> [ActivityCardStat] {
+        let middle = switch post.sport.paceUnit {
+        case .pace:
+            ActivityCardStat(
+                label: ActivityCardMessages.pace,
+                value: show(post.avgSpeedMs.flatMap { ActivityFormatters.pace(metersPerSecond: $0) })
+            )
+        case .speed:
+            ActivityCardStat(
+                label: ActivityCardMessages.speed,
+                value: show(post.avgSpeedMs.map { ActivityFormatters.speed(metersPerSecond: $0) })
+            )
+        }
+        return [
+            ActivityCardStat(label: ActivityCardMessages.distance, value: show(post.distance.map(ActivityFormatters.distance))),
+            middle,
+            ActivityCardStat(label: ActivityCardMessages.time, value: show(post.movingTime.map(ActivityFormatters.duration))),
+        ]
+    }
+
     private static func show(_ value: String?) -> String {
         value ?? "–"
     }

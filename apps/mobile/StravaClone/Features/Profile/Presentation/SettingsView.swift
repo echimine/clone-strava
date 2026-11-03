@@ -4,11 +4,12 @@ import SwiftUI
 /// form (ADR-035 §8): Compte (Nom opens "Modifier le profil", Email), Mes Itinéraires,
 /// Confidentialité ("Approuver mes abonnés", Measurement consent, legal texts), Debug, and
 /// sign-out. When `signOutWarning` returns a message, a confirmation shows it first
-/// (ADR-030 §8).
+/// (ADR-030 §8). The account and the sign-out come from the app shell (ADR-007 rule 5).
 struct SettingsView: View {
     let store: ProfileStore
-    let authStore: AuthStore
+    let account: ProfileAccount?
     let consent: MeasurementConsentStore
+    let signOut: @MainActor () async -> Void
     var signOutWarning: @MainActor () async -> String? = { nil }
     /// Run before signing out, once the warning is confirmed or when there is none: the local
     /// data is wiped (Recording, local Activities, ADR-031 §10, §14).
@@ -21,14 +22,12 @@ struct SettingsView: View {
     @State private var isEditingName = false
 
     private var displayName: String {
-        if let name = store.profile?.athlete.displayName { return name }
-        if case .signedIn(let user) = authStore.state { return user.name }
-        return ""
+        store.profile?.athlete.displayName ?? account?.name ?? ""
     }
 
     var body: some View {
         Form {
-            if case .signedIn(let user) = authStore.state {
+            if let account {
                 Section("Compte") {
                     Button {
                         isEditingName = true
@@ -37,7 +36,7 @@ struct SettingsView: View {
                             .foregroundStyle(.primary)
                     }
                     .accessibilityIdentifier("settings.name")
-                    LabeledContent("Email", value: user.email)
+                    LabeledContent("Email", value: account.email)
                 }
             }
             Section {
@@ -63,7 +62,7 @@ struct SettingsView: View {
                             pendingSignOutWarning = warning
                         } else {
                             await beforeSignOut()
-                            await authStore.signOut()
+                            await signOut()
                         }
                     }
                 }
@@ -84,7 +83,7 @@ struct SettingsView: View {
             Button("Se déconnecter", role: .destructive) {
                 Task {
                     await beforeSignOut()
-                    await authStore.signOut()
+                    await signOut()
                 }
             }
             Button("Annuler", role: .cancel) {}

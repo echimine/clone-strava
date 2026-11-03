@@ -20,7 +20,7 @@ struct FollowListPage: View {
                 store.selected = list
                 Task { await store.show(list) }
             })) {
-                ForEach(AthleteFollowsRequest.List.allCases, id: \.self) { list in
+                ForEach(AthleteFollowsRequest.Kind.allCases, id: \.self) { list in
                     Text(AthletesMessages.listTitle(list, count: count(of: list))).tag(list)
                 }
             } label: {
@@ -57,7 +57,7 @@ struct FollowListPage: View {
         .accessibilityIdentifier("followList")
     }
 
-    private func count(of list: AthleteFollowsRequest.List) -> Int {
+    private func count(of list: AthleteFollowsRequest.Kind) -> Int {
         list == .followers ? store.followerCount : store.followingCount
     }
 
@@ -80,7 +80,7 @@ struct FollowListPage: View {
         }
     }
 
-    private func rows(_ list: AthleteFollowsRequest.List) -> some View {
+    private func rows(_ list: AthleteFollowsRequest.Kind) -> some View {
         List {
             if store.showsRequestsRow {
                 requestsRow

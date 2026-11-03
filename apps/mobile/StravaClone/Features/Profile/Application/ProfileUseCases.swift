@@ -18,12 +18,12 @@ struct LoadProfileActivities: Sendable {
     }
 }
 
-/// Plus's "Statistiques — Cette année : X km" (ADR-036 §4).
+/// Plus's "Statistiques — Cette année : X km" (ADR-036 §4): all sports since 1 January.
 struct LoadYearToDateDistance: Sendable {
-    let repository: any AthleteRepository
+    let repository: any AthleteStatsRepository
 
     func callAsFunction(athleteId: String) async throws(AthleteError) -> Distance {
-        try await repository.yearToDateDistance(of: athleteId)
+        try await repository.stats(of: athleteId, sport: nil).yearToDate.distance
     }
 }
 

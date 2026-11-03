@@ -27,6 +27,7 @@ import { GlobalExceptionFilter } from "../common/global-exception.filter.js";
 import { CONFIG } from "../config/env.js";
 import { RealtimeGrantIssuer } from "./realtime-grant-issuer.js";
 import { RealtimeGrantsController } from "./realtime-grants.controller.js";
+import { listenOnLoopback } from "../testing/listen-on-loopback.js";
 
 const SECRET = "grants-spec-secret-at-least-32-characters";
 
@@ -111,9 +112,7 @@ describe("POST /v1/realtime/grants (integration)", () => {
 
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix("v1");
-    await app.listen(0);
-    const address = app.getHttpServer().address();
-    baseUrl = `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}`;
+    baseUrl = await listenOnLoopback(app);
 
     for (const id of [author, viewer]) {
       await sql('insert into "user" (id, name, email) values ($1, $2, $3)', [id, "Test", `${id}@test.local`]);

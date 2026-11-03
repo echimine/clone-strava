@@ -13,8 +13,8 @@ enum ActivityAnalysisMessages {
     static func source(_ source: ActivitySource) -> String {
         switch source {
         case .recorded: "Enregistré avec Nervo"
-        // The API does not say the file format (FIT, GPX or TCX) yet.
-        case .imported: "Importé"
+        case .imported(let format?): "Importé · fichier \(format.rawValue.uppercased())"
+        case .imported(nil): "Importé"
         case .manual: "Saisie manuelle"
         }
     }
@@ -32,6 +32,7 @@ enum ActivityAnalysisMessages {
 
     static func averageSpeed(pace: Bool) -> String { pace ? "Allure moyenne" : "Vitesse moyenne" }
     static func elapsedSpeed(pace: Bool) -> String { pace ? "Allure sur le temps écoulé" : "Vitesse sur le temps écoulé" }
+    static let movingTime = "Durée de déplacement"
     static let elapsedTime = "Temps écoulé"
     static let fastestSplit = "Split le plus rapide"
 

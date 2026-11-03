@@ -9,7 +9,7 @@ struct FollowListStoreTests {
     }
 
     private func request(
-        _ list: AthleteFollowsRequest.List = .followers,
+        _ list: AthleteFollowsRequest.Kind = .followers,
         own: Bool = true,
         followers: Int = 12,
         following: Int = 8,

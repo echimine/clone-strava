@@ -29,6 +29,25 @@ struct RealtimeActivityLiveEventSourceTests {
         #expect(await eventually { channel.sent == [sub("grant-1"), unsub] })
     }
 
+    /// Pushing the Kudos and comments screen over the detail opens a second stream on the same
+    /// topic before the detail's ends: whatever the order the two reach the connection, the
+    /// screen on top stays subscribed, and the last closing unsubscribes.
+    @Test func theScreenOnTopStaysSubscribedWhenTheDetailBelowStopsListening() async {
+        let channel = FakeRealtimeChannel()
+        let source = RealtimeActivityLiveEventSource(channel: channel, grant: FakeRealtimeGrants().grant)
+        let detail = Task { for await _ in source.events(of: id) {} }
+        #expect(await eventually { channel.sent == [sub("grant-1")] })
+        let engagement = Task { for await _ in source.events(of: id) {} }
+        #expect(await eventually { await source.subscriptions.holders(of: topic) == 2 })
+
+        detail.cancel()
+
+        #expect(await eventually { await source.subscriptions.holders(of: topic) == 1 })
+        #expect(channel.sent == [sub("grant-1")])
+        engagement.cancel()
+        #expect(await eventually { channel.sent == [sub("grant-1"), unsub] })
+    }
+
     /// The gateway forgets a connection's topics: each reconnection asks a fresh grant, then
     /// tells the detail to catch up (ADR-034 §5.4).
     @Test func resubscribesWithAFreshGrantAfterAReconnectionThenAsksForACatchUp() async {

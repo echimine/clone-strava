@@ -30,11 +30,18 @@ struct AthleteStatisticsStoreTests {
         #expect(repository.calls.map(\.sport) == [.ride])
     }
 
-    @Test func withoutPracticedSportsItOffersTheActiveSports() {
-        let store = makeStore(FakeAthleteStatsRepository(), sports: [])
+    /// ADR-036 §3: an empty list hides the picker; the screen shows all sports' figures.
+    @Test func withoutPracticedSportsItShowsAllSportsWithoutAPicker() async {
+        let repository = FakeAthleteStatsRepository()
+        repository.results[nil] = .success(.fixture(sport: nil))
+        let store = makeStore(repository, sports: [])
 
-        #expect(store.sports == SportType.active)
-        #expect(store.sport == .run)
+        await store.load()
+
+        #expect(store.sports.isEmpty)
+        #expect(store.sport == nil)
+        #expect(store.stats == .fixture(sport: nil))
+        #expect(repository.calls.map(\.sport) == [nil])
     }
 
     @Test func choosingASportReloadsTheStatisticsForIt() async {

@@ -24,6 +24,7 @@ import { GlobalExceptionFilter } from "../common/global-exception.filter.js";
 import { FeedAssembler } from "./feed-assembler.js";
 import { AthleteIdentities } from "../identities/athlete-identities.js";
 import { FeedController } from "./feed.controller.js";
+import { listenOnLoopback } from "../testing/listen-on-loopback.js";
 
 /**
  * `GET /v1/feed` and `/v1/activities/:id/kudos` over real HTTP and Postgres
@@ -132,9 +133,7 @@ describe("/v1/feed and kudos (integration)", () => {
 
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix("v1");
-    await app.listen(0);
-    const address = app.getHttpServer().address();
-    baseUrl = `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}`;
+    baseUrl = await listenOnLoopback(app);
 
     for (const [index, id] of users.entries()) {
       await sql('insert into "user" (id, name, email) values ($1, $2, $3)', [id, `User ${index}`, `${id}@test.local`]);

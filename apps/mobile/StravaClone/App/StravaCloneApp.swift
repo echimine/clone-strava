@@ -187,11 +187,7 @@ struct RootView: View {
                         onImportActivity: importStore.startImport,
                         editActivity: { [feedActivityEditor] id in Task { await feedActivityEditor.edit(id: id) } },
                         deleteActivity: { [activityDeleter] id in Task { await activityDeleter.delete(id) } },
-                        openActivity: activityDetail,
-                        openEngagement: activityEngagement,
-                        openAthlete: { athleteProfile($0, path: $feedStore.path) },
-                        openStatistics: athleteStatistics,
-                        openFollows: followLists
+                        destinations: appDestinations(path: $feedStore.path)
                     ) {
                         if let banner = importStore.banner {
                             ImportStatusBanner(
@@ -246,8 +242,9 @@ struct RootView: View {
                     .tag(AppTab.record)
                     ProfileView(
                         store: profileStore,
-                        authStore: authStore,
+                        account: profileAccount,
                         consent: consentStore,
+                        signOut: { [authStore] in await authStore.signOut() },
                         signOutWarning: {
                             // ADR-031 §10, §14: one confirmation for all that a sign-out loses.
                             SignOutWarning.message(
@@ -261,6 +258,7 @@ struct RootView: View {
                             await syncCoordinator.signOut()
                         },
                         animationsPreview: Self.animationsPreview,
+                        destinations: appDestinations(path: $profileStore.path),
                         itineraries: {
                             MyItinerariesView(
                                 store: itineraryListStore,
@@ -269,12 +267,7 @@ struct RootView: View {
                                 onCreate: { itineraryCreation.start(from: .profile) }
                             )
                         },
-                        openActivity: activityDetail,
-                        openEngagement: activityEngagement,
-                        openStatistics: athleteStatistics,
-                        openAthlete: { athleteProfile($0, path: $profileStore.path) },
-                        search: { AthleteSearchPage(makeStore: makeAthleteSearchStore) },
-                        openFollows: followLists
+                        search: { AthleteSearchPage(makeStore: makeAthleteSearchStore) }
                     )
                     .environment(\.openAthlete, openAthlete(in: $profileStore.path))
                     // A detail opened from the profile can delete its Activity too (ADR-033 §7).
@@ -357,6 +350,25 @@ struct RootView: View {
     /// names the account "Prénom Nom" if the code creates it.
     private func createAccountScreen(name: String, back: @escaping () -> Void) -> AccountView {
         AccountView(mode: .createAccount, authStore: authStore, name: name, onBack: back)
+    }
+
+    /// The signed-in account, for the Profile tab and its Réglages (ADR-007 rule 5: Profile does
+    /// not read the Auth feature's store).
+    private var profileAccount: ProfileAccount? {
+        guard case .signedIn(let user) = authStore.state else { return nil }
+        return ProfileAccount(id: user.id, name: user.name, email: user.email)
+    }
+
+    /// The screens a tab's stack pushes (ADR-036 §10); another athlete's profile pushes its own
+    /// destinations in the same stack, `path`.
+    private func appDestinations(path: Binding<NavigationPath>) -> AppDestinations {
+        AppDestinations(
+            activity: { AnyView(activityDetail($0)) },
+            engagement: { AnyView(activityEngagement($0)) },
+            athleteProfile: { AnyView(athleteProfile($0, path: path)) },
+            statistics: { AnyView(athleteStatistics($0)) },
+            follows: { AnyView(followLists($0)) }
+        )
     }
 
     /// The Activity detail, pushed in the feed's and the profile's stacks (ADR-036 §10).

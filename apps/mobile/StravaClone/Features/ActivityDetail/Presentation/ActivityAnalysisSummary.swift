@@ -3,8 +3,8 @@ import Foundation
 /// The summary rows under the detail's charts (ADR-036 §6, §9), derived by the app from the
 /// official stats and the splits. A value that was not measured is left out.
 enum ActivityAnalysisSummary {
-    /// Under Allure (Vitesse): the moving pace, the pace over the elapsed time, the elapsed
-    /// time and the fastest full kilometre.
+    /// Under Allure (Vitesse): the moving pace, the moving time, the pace over the elapsed
+    /// time, the elapsed time and the fastest full kilometre.
     static func speedRows(stats: ActivityStats?, splits: [ActivitySplit], sport: SportType) -> [ActivityStatItem] {
         let pace = sport.paceUnit == .pace
         var rows: [ActivityStatItem] = []
@@ -15,6 +15,7 @@ enum ActivityAnalysisSummary {
             ActivityAnalysisMessages.averageSpeed(pace: pace),
             stats?.avgSpeedMs.flatMap { ActivitySplitsTable.speedText($0, pace: pace) }
         )
+        add(ActivityAnalysisMessages.movingTime, stats?.movingTime.map(ActivityFormatters.duration))
         add(
             ActivityAnalysisMessages.elapsedSpeed(pace: pace),
             elapsedSpeed(stats).flatMap { ActivitySplitsTable.speedText($0, pace: pace) }

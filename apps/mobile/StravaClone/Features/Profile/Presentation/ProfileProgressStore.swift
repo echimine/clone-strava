@@ -11,10 +11,12 @@ final class ProfileProgressStore {
         case idle
         case loading
         case loaded
+        /// No practiced sport (ADR-036 §3): no pills and nothing to load.
+        case empty
         case failed(message: String)
     }
 
-    /// The pills: my practiced sports, else the active ones.
+    /// The pills: my practiced sports; empty hides them.
     private(set) var sports: [SportType] = []
     private(set) var sport: SportType?
     private(set) var progress: AthleteProgress?
@@ -41,13 +43,20 @@ final class ProfileProgressStore {
         progress.map { StreakMonth(today: today(), activeDays: $0.activeDays) }
     }
 
-    /// The tab appears: loads my first sport once, or again if my sports changed.
+    /// The tab appears: loads my first sport once, or again if my sports changed. Without any
+    /// practiced sport, the tab says there is no activity yet.
     func load(practicedSports: [SportType]) async {
-        let offered = practicedSports.isEmpty ? SportType.active : practicedSports
-        guard offered != sports || phase == .idle else { return }
-        sports = offered
-        if sport.map(offered.contains) != true {
-            sport = offered.first
+        guard practicedSports != sports || phase == .idle else { return }
+        sports = practicedSports
+        if sport.map(practicedSports.contains) != true {
+            sport = practicedSports.first
+        }
+        guard sport != nil else {
+            generation += 1
+            progress = nil
+            selectedDate = nil
+            phase = .empty
+            return
         }
         await refresh()
     }

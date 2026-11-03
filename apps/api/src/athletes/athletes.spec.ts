@@ -28,6 +28,7 @@ import { AthleteIdentities } from "../identities/athlete-identities.js";
 import { AthleteProfileAssembler } from "./athlete-profile-assembler.js";
 import { AthletesController } from "./athletes.controller.js";
 import { MeProfileController } from "./me-profile.controller.js";
+import { listenOnLoopback } from "../testing/listen-on-loopback.js";
 
 /**
  * `GET /v1/athletes/:id`, `GET /v1/athletes/:id/activities` and `PATCH /v1/me/profile`
@@ -156,9 +157,7 @@ describe("Athlete profile (integration)", () => {
 
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix("v1");
-    await app.listen(0);
-    const address = app.getHttpServer().address();
-    baseUrl = `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}`;
+    baseUrl = await listenOnLoopback(app);
 
     for (const [index, id] of users.entries()) {
       await sql('insert into "user" (id, name, email) values ($1, $2, $3)', [id, `User ${index}`, `${id}@test.local`]);

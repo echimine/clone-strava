@@ -1,4 +1,4 @@
-import { Controller, Get, NotFoundException, Param, ParseUUIDPipe, Query, UseGuards } from "@nestjs/common";
+import { Controller, Get, Param, ParseUUIDPipe, Query, UseGuards } from "@nestjs/common";
 import { createZodDto, ZodResponse } from "nestjs-zod";
 import {
   athleteStatsQuerySchema,
@@ -9,8 +9,8 @@ import {
   type ProgressResponse,
 } from "@repo/contracts";
 import { ActivitiesService } from "@repo/core/activities";
-import { AuthService } from "@repo/core/auth";
 import { CurrentUser } from "../auth/current-user.decorator.js";
+import { AthleteIdentities } from "../identities/athlete-identities.js";
 import { SessionGuard, type AuthenticatedUser } from "../auth/session.guard.js";
 
 class ProgressQueryDto extends createZodDto(progressQuerySchema) {}
@@ -27,7 +27,7 @@ class AthleteStatsResponseDto extends createZodDto(athleteStatsResponseSchema) {
 export class AthleteStatsController {
   constructor(
     private readonly activities: ActivitiesService,
-    private readonly auth: AuthService,
+    private readonly identities: AthleteIdentities,
   ) {}
 
   /**
@@ -53,10 +53,7 @@ export class AthleteStatsController {
     @Query() query: AthleteStatsQueryDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<AthleteStatsResponse> {
-    const [identity] = await this.auth.getPublicIdentities([athleteId]);
-    if (!identity) {
-      throw new NotFoundException({ code: "athlete_not_found", message: "Athlete not found" });
-    }
+    await this.identities.assertExists(athleteId);
     return this.activities.getAthleteStats(user.userId, athleteId, query.sport);
   }
 }

@@ -1,11 +1,18 @@
 import Foundation
 
-/// How an Activity came in (ADR-036 §6, §9): recorded in the app, imported from a file, or
-/// entered by hand.
-enum ActivitySource: String, Hashable, Sendable {
+/// How an Activity came in (ADR-036 §6, §9): recorded in the app, imported from a file (its
+/// format when the API knows it), or entered by hand.
+enum ActivitySource: Hashable, Sendable {
     case recorded
-    case imported
+    case imported(ActivityImportFormat?)
     case manual
+}
+
+/// The format of an imported file (`activity_import.format`, ADR-028 §1).
+enum ActivityImportFormat: String, Hashable, Sendable {
+    case gpx
+    case tcx
+    case fit
 }
 
 /// The Activity analysis the worker derives from the cleaned trace (ADR-036 §6): the

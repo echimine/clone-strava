@@ -15,6 +15,7 @@ import { SessionGuard } from "../auth/session.guard.js";
 import { GlobalExceptionFilter } from "../common/global-exception.filter.js";
 import { OnboardingAnswersController } from "./onboarding-answers.controller.js";
 import { SportsActiveCatalog } from "./sports-active-catalog.js";
+import { listenOnLoopback } from "../testing/listen-on-loopback.js";
 
 /**
  * `PUT /v1/me/onboarding-answers` over real HTTP and Postgres (ADR-024 §2,
@@ -117,9 +118,7 @@ describe("PUT /v1/me/onboarding-answers (integration)", () => {
 
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix("v1");
-    await app.listen(0);
-    const address = app.getHttpServer().address();
-    baseUrl = `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}`;
+    baseUrl = await listenOnLoopback(app);
     capture = vi.spyOn(app.get(AnalyticsService), "capture");
 
     await sql(

@@ -8,8 +8,10 @@ struct ProfileProgressTab: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.spacing) {
-            SportPills(sports: store.sports, selected: store.sport) { sport in
-                Task { await store.select(sport) }
+            if !store.sports.isEmpty {
+                SportPills(sports: store.sports, selected: store.sport) { sport in
+                    Task { await store.select(sport) }
+                }
             }
             content
         }
@@ -23,6 +25,13 @@ struct ProfileProgressTab: View {
             ProgressView()
                 .frame(maxWidth: .infinity)
                 .padding(.top, 40)
+        case .empty:
+            ContentUnavailableView(
+                StatisticsMessages.noActivityTitle,
+                systemImage: "figure.run",
+                description: Text(StatisticsMessages.noActivityMessage)
+            )
+            .accessibilityIdentifier("profile.progress.empty")
         case .failed(let message):
             ContentUnavailableView {
                 Label(StatisticsMessages.progressErrorTitle, systemImage: "wifi.exclamationmark")

@@ -2,11 +2,13 @@ import { Module } from "@nestjs/common";
 import { UsersModule } from "../users/index.js";
 import { FollowSettingsRepository } from "./repositories/follow-settings.repository.js";
 import { FollowRepository } from "./repositories/follow.repository.js";
+import { FollowPageReader } from "./services/follow-page-reader.js";
 import { FollowStateReader } from "./services/follow-state-reader.js";
 import { FollowStatusesReader } from "./services/follow-statuses-reader.js";
 import { AcceptFollowRequestUseCase } from "./use-cases/accept-follow-request.use-case.js";
 import { FollowAthleteUseCase } from "./use-cases/follow-athlete.use-case.js";
 import { GetFolloweeIdsUseCase } from "./use-cases/get-followee-ids.use-case.js";
+import { ListFollowRequestsUseCase } from "./use-cases/list-follow-requests.use-case.js";
 import { ListFollowsUseCase } from "./use-cases/list-follows.use-case.js";
 import { RefuseFollowRequestUseCase } from "./use-cases/refuse-follow-request.use-case.js";
 import { RemoveFollowerUseCase } from "./use-cases/remove-follower.use-case.js";
@@ -22,9 +24,11 @@ import { SocialService } from "./social.service.js";
     FollowSettingsRepository,
     FollowStateReader,
     FollowStatusesReader,
+    FollowPageReader,
     FollowAthleteUseCase,
     UnfollowAthleteUseCase,
     ListFollowsUseCase,
+    ListFollowRequestsUseCase,
     AcceptFollowRequestUseCase,
     RefuseFollowRequestUseCase,
     RemoveFollowerUseCase,

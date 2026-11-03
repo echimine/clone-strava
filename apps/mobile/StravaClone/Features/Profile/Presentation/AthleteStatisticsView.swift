@@ -13,11 +13,13 @@ struct AthleteStatisticsView: View {
 
     var body: some View {
         List {
-            Section {
-                SportIconPicker(sports: store.sports, selected: store.sport) { sport in
-                    Task { await store.select(sport) }
+            if !store.sports.isEmpty {
+                Section {
+                    SportIconPicker(sports: store.sports, selected: store.sport) { sport in
+                        Task { await store.select(sport) }
+                    }
+                    .listRowInsets(EdgeInsets(top: 12, leading: Theme.spacing, bottom: 12, trailing: Theme.spacing))
                 }
-                .listRowInsets(EdgeInsets(top: 12, leading: Theme.spacing, bottom: 12, trailing: Theme.spacing))
             }
             content
         }
@@ -73,7 +75,7 @@ struct AthleteStatisticsView: View {
 /// The Statistiques' sport picker: one round icon per sport, the chosen one in `Theme.accent`.
 private struct SportIconPicker: View {
     let sports: [SportType]
-    let selected: SportType
+    let selected: SportType?
     let select: (SportType) -> Void
 
     var body: some View {

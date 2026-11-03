@@ -38,7 +38,7 @@ struct APIFeedRepository: FeedRepository {
             )
         }
         return response.items.prefix(Self.recentKudosLimit).map {
-            ActivityAuthor(id: $0.athlete.id, displayName: $0.athlete.displayName, avatarURL: $0.athlete.avatarUrl.flatMap(URL.init(string:)))
+            ActivityAuthor(id: $0.athlete.id, displayName: $0.athlete.displayName, avatarUrl: $0.athlete.avatarUrl)
         }
     }
 

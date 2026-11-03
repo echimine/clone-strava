@@ -10,7 +10,6 @@ enum AthletesMessages {
     static let followFailed = "L'abonnement n'a pas abouti, réessayez."
     static let unfollowFailed = "Le désabonnement n'a pas abouti, réessayez."
     static let cancelFailed = "La demande n'a pas pu être annulée, réessayez."
-    static let more = "Plus d'options"
     static let errorTitle = "Profil indisponible"
     static let retry = "Réessayer"
     static let statistics = "Statistiques"
@@ -38,7 +37,7 @@ enum AthletesMessages {
     static let searchEmptyDescription = "Vérifiez l'orthographe ou essayez un autre nom."
 
     /// The segments: "Abonnés · 12", "Abonnements · 8".
-    static func listTitle(_ list: AthleteFollowsRequest.List, count: Int) -> String {
+    static func listTitle(_ list: AthleteFollowsRequest.Kind, count: Int) -> String {
         switch list {
         case .followers: "Abonnés · \(count)"
         case .following: "Abonnements · \(count)"

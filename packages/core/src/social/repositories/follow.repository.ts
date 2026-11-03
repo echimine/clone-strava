@@ -3,8 +3,8 @@ import { and, count, desc, eq, inArray, sql } from "drizzle-orm";
 import { schema, type Database } from "@repo/db";
 import { DATABASE, type DbExecutor } from "../../infrastructure/index.js";
 import type { FollowCursor } from "../domain/follow-cursor.js";
-
-type FollowStatus = "pending" | "accepted";
+import type { FollowListKind } from "../domain/follow-list.js";
+import type { FollowStatus } from "../domain/follow-state.js";
 
 /** Reads and writes on `social.follow` only (ADR-021 §6). */
 @Injectable()
@@ -104,7 +104,7 @@ export class FollowRepository {
    */
   findPage(
     athleteId: string,
-    side: "followers" | "following",
+    side: FollowListKind,
     status: FollowStatus,
     after: FollowCursor | undefined,
     limit: number,

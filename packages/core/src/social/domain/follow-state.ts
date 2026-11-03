@@ -4,6 +4,9 @@
  */
 export type FollowRelation = "none" | "pending" | "accepted";
 
+/** The stored status of a `follow` row (ADR-036 §1): a request waiting for approval, or a follow. */
+export type FollowStatus = "pending" | "accepted";
+
 /** What `PUT` / `DELETE /v1/athletes/:id/follow` answers (ADR-036 §1). */
 export interface FollowState {
   athleteId: string;

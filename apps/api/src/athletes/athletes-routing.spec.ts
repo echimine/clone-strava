@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { AuthService } from "@repo/core/auth";
 import { DATABASE, type Database } from "@repo/core/infrastructure";
 import { ensureTestDatabaseMigrated, TEST_DATABASE_URL, TEST_REDIS_URL } from "../auth/test-auth-app.js";
+import { listenOnLoopback } from "../testing/listen-on-loopback.js";
 
 /**
  * Route order of the real `AppModule`: Express matches routes in registration order, so the
@@ -66,9 +67,7 @@ describe("athletes routes in AppModule (integration)", () => {
 
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix("v1");
-    await app.listen(0);
-    const address = app.getHttpServer().address();
-    baseUrl = `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}`;
+    baseUrl = await listenOnLoopback(app);
     await sql('insert into "user" (id, name, email) values ($1, $2, $3)', [viewer, "Viewer", `${viewer}@test.local`]);
   });
 

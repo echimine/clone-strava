@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import type { PageQuery } from "../infrastructure/index.js";
 import { GiveKudosUseCase } from "./use-cases/give-kudos.use-case.js";
 import { AddCommentUseCase, type AddCommentResult } from "./use-cases/add-comment.use-case.js";
 import { ListCommentsUseCase } from "./use-cases/list-comments.use-case.js";
@@ -40,7 +41,7 @@ export class EngagementService {
   }
 
   /** `GET /v1/activities/:id/kudos` (ADR-034 §1): most recent first, keyset pages. */
-  listKudos(viewerId: string, activityId: string, query: { cursor?: string; limit: number }): Promise<KudosPage> {
+  listKudos(viewerId: string, activityId: string, query: PageQuery): Promise<KudosPage> {
     return this.listKudosUseCase.execute(viewerId, activityId, query);
   }
 

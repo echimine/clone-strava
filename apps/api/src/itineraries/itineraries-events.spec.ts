@@ -27,6 +27,7 @@ import { SessionGuard } from "../auth/session.guard.js";
 import { GlobalExceptionFilter } from "../common/global-exception.filter.js";
 import { jsonBodyParser } from "../common/json-body.js";
 import { ItinerariesController } from "./itineraries.controller.js";
+import { listenOnLoopback } from "../testing/listen-on-loopback.js";
 
 /** Climbs 100 m (500 → 600 m) from 45.90° N to 45.905° N, then flat. */
 const terrain = ({ lat }: LonLat) => (lat <= 45.905 ? 500 + ((lat - 45.9) / 0.005) * 100 : 600);
@@ -142,9 +143,7 @@ describe("/v1/itineraries lifecycle events (integration)", () => {
     app = moduleRef.createNestApplication<NestExpressApplication>({ bodyParser: false });
     app.use(jsonBodyParser());
     app.setGlobalPrefix("v1");
-    await app.listen(0);
-    const address = app.getHttpServer().address();
-    baseUrl = `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}`;
+    baseUrl = await listenOnLoopback(app);
     for (const id of [athlete, other]) {
       await sql('insert into "user" (id, name, email) values ($1, $2, $3)', [id, "Athlete", `${id}@test.local`]);
     }

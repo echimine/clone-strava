@@ -4,7 +4,7 @@ import Foundation
 /// In-memory `FollowListRepository` (ADR-025 §3): scripted pages and answers, recorded calls.
 final class FakeFollowListRepository: FollowListRepository, @unchecked Sendable {
     enum Call: Equatable {
-        case list(AthleteFollowsRequest.List, String, cursor: String?)
+        case list(AthleteFollowsRequest.Kind, String, cursor: String?)
         case requests(cursor: String?)
         case accept(String)
         case refuse(String)
@@ -14,7 +14,7 @@ final class FakeFollowListRepository: FollowListRepository, @unchecked Sendable 
     private let lock = NSLock()
 
     /// Pages keyed by list and cursor (`nil` = first page); a missing page is empty.
-    var pages: [AthleteFollowsRequest.List: [String?: Result<AthleteListPage, AthleteError>]] = [:]
+    var pages: [AthleteFollowsRequest.Kind: [String?: Result<AthleteListPage, AthleteError>]] = [:]
     var requestPages: [String?: Result<FollowRequestPage, AthleteError>] = [:]
     var acceptResult: Result<Void, AthleteError> = .success(())
     var refuseResult: Result<Void, AthleteError> = .success(())
@@ -22,7 +22,7 @@ final class FakeFollowListRepository: FollowListRepository, @unchecked Sendable 
 
     private(set) var calls: [Call] = []
 
-    func list(_ list: AthleteFollowsRequest.List, of athleteId: String, cursor: String?) async throws(AthleteError) -> AthleteListPage {
+    func list(_ list: AthleteFollowsRequest.Kind, of athleteId: String, cursor: String?) async throws(AthleteError) -> AthleteListPage {
         try lock.withLock {
             calls.append(.list(list, athleteId, cursor: cursor))
             return pages[list]?[cursor] ?? .success(AthleteListPage(items: [], nextCursor: nil))

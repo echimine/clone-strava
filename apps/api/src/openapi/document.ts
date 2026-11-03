@@ -38,7 +38,8 @@ export function createOpenApiDocument(app: INestApplication): OpenAPIObject {
  * Zod writes some nullable fields as `anyOf: [{ type: "integer", … }, { type: "null" }]`,
  * which swift-openapi-generator turns into a wrapper struct that cannot decode a bare value.
  * Rewrites them as the equivalent `type: ["integer", "null"]` (OpenAPI 3.1), which it maps
- * to a plain Swift optional (ADR-026, ADR-029). Unions with `$ref`s are left untouched.
+ * to a plain Swift optional (ADR-026, ADR-029). A nullable enum also gets `null` in its `enum`,
+ * so the schema stays valid (ADR-036). Unions with `$ref`s are left untouched.
  */
 export function collapseNullableUnions<T>(node: T): T {
   if (Array.isArray(node)) {
@@ -55,7 +56,9 @@ export function collapseNullableUnions<T>(node: T): T {
     const other = anyOf[1 - nullIndex] as Record<string, unknown> | undefined;
     if (nullIndex !== -1 && other && typeof other.type === "string" && !("$ref" in other)) {
       const { anyOf: _anyOf, ...rest } = schema;
-      return { ...other, ...rest, type: [other.type, "null"] } as T;
+      // An enum must list `null` too, or no value but the enum's is valid despite the type.
+      const nullableEnum = Array.isArray(other.enum) && !other.enum.includes(null) ? { enum: [...other.enum, null] } : {};
+      return { ...other, ...nullableEnum, ...rest, type: [other.type, "null"] } as T;
     }
   }
   return schema as T;

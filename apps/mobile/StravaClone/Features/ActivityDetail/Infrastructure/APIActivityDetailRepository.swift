@@ -50,6 +50,14 @@ struct APIActivityDetailRepository: ActivityDetailRepository {
 }
 
 private extension Components.Schemas.ActivityDetailDto_Output {
+    var activitySource: ActivitySource {
+        switch source {
+        case .recorded: .recorded
+        case .imported: .imported(importFormat.flatMap { ActivityImportFormat(rawValue: $0.rawValue) })
+        case .manual: .manual
+        }
+    }
+
     func model(id: ActivityID) -> ActivityDetail {
         ActivityDetail(
             id: id,
@@ -59,7 +67,7 @@ private extension Components.Schemas.ActivityDetailDto_Output {
             visibility: ActivityVisibility(rawValue: visibility.rawValue) ?? .private,
             startedAt: startedAt,
             locationName: locationName,
-            source: ActivitySource(rawValue: source.rawValue) ?? .recorded,
+            source: activitySource,
             stats: stats.map {
                 ActivityStats(
                     distance: $0.distanceM.map { Distance(meters: $0) },

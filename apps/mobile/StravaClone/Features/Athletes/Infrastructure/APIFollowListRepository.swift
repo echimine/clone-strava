@@ -10,7 +10,7 @@ struct APIFollowListRepository: FollowListRepository {
     let apiClient: APIClient
     var pageSize = 20
 
-    func list(_ list: AthleteFollowsRequest.List, of athleteId: String, cursor: String?) async throws(AthleteError) -> AthleteListPage {
+    func list(_ list: AthleteFollowsRequest.Kind, of athleteId: String, cursor: String?) async throws(AthleteError) -> AthleteListPage {
         let segment = switch list {
         case .followers: "followers"
         case .following: "following"
@@ -69,30 +69,5 @@ struct APIFollowListRepository: FollowListRepository {
         let _: NoContent = try await APIAthleteErrors.call { () async throws(APIError) in
             try await apiClient.send(method: method, path: path)
         }
-    }
-}
-
-/// `APIClient` adapter of `AthleteSearchRepository`: `GET /v1/athletes/search?q=` (ADR-036 §2).
-struct APIAthleteSearchRepository: AthleteSearchRepository {
-    private typealias SearchResponse = Components.Schemas.AthleteSearchResponseDto_Output
-
-    let apiClient: APIClient
-
-    func search(_ query: String) async throws(AthleteError) -> [AthleteListItem] {
-        let response: SearchResponse = try await APIAthleteErrors.call { () async throws(APIError) in
-            try await apiClient.get("/v1/athletes/search", query: [URLQueryItem(name: "q", value: query)])
-        }
-        return response.items.map {
-            AthleteListItem(
-                athlete: ActivityAuthor(id: $0.athlete.id, displayName: $0.athlete.displayName, avatarUrl: $0.athlete.avatarUrl),
-                viewerFollowStatus: FollowStatus(rawValue: $0.viewerFollowStatus.rawValue)
-            )
-        }
-    }
-}
-
-private extension ActivityAuthor {
-    init(id: String, displayName: String, avatarUrl: String?) {
-        self.init(id: id, displayName: displayName, avatarURL: avatarUrl.flatMap(URL.init(string:)))
     }
 }

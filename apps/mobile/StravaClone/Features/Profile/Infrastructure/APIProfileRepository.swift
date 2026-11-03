@@ -19,7 +19,7 @@ struct APIProfileRepository: ProfileRepository {
             )
         }
         let athlete = response.athlete
-        return ActivityAuthor(id: athlete.id, displayName: athlete.displayName, avatarURL: athlete.avatarUrl.flatMap(URL.init(string:)))
+        return ActivityAuthor(id: athlete.id, displayName: athlete.displayName, avatarUrl: athlete.avatarUrl)
     }
 
     func setApproveFollowers(_ approve: Bool) async throws(AthleteError) -> Bool {

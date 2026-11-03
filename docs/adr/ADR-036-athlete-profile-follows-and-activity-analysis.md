@@ -57,7 +57,7 @@ Facts the decisions depend on (code at `bc0532b`):
   `{ athlete {id, displayName, avatarUrl}, activityCount, streakWeeks, followerCount, followingCount, viewerFollowStatus, followersYouKnow: [identity] (≤ 2), practicedSports: [sportTypeCode], approveFollowers?, pendingFollowRequestCount?, itineraryCount? }`. The last three are only present on one's own profile.
 - **What another athlete sees**: every figure on a profile (count, Streak, statistics, Activities list) is computed **only over the Activities that viewer may see** (owner: all `processed`; others: `public`, plus `followers` for accepted followers; never `private`, ADR-033 §2). Nothing about a private Activity leaks through an aggregate.
 - **`followersYouKnow`**: up to 2 accepted followers of the athlete whom the viewer follows (accepted), most recent first.
-- **`practicedSports`**: the athlete's Practiced sports in their order (`users.user_sport`, read through a new `UsersService.getPracticedSports`), then any other sport of their visible Activities, by number of Activities. An empty list hides the sport chips and selector.
+- **`practicedSports`**: the athlete's Practiced sports in their order (`users.user_sport`, read through a new `UsersService.getPracticedSports`), then any other sport of their visible Activities, by number of Activities. An empty list hides the sport chips and selector: Progrès then shows an empty state (no Activity yet) without calling `/v1/me/progress`, and Statistiques shows the all-sports figures.
 - **`GET /v1/athletes/:id/activities?cursor=&limit=`**: the athlete's visible `processed` Activities, the **same response as `GET /v1/feed`** (ADR-029 §1, keyset, `FeedAssembler`).
 - **Edit the name**: `PATCH /v1/me/profile { firstName, lastName }` (each trimmed, 1–50 characters). It upserts `user_profile` (the name everyone sees) and then sets Better Auth's `user.name` to "Prénom Nom" so the backoffice and emails agree. Both writes are composed in `apps/api` (`users` and `auth` are both layer 0). Returns the profile's `athlete` identity.
 - **Composition**: `activities` computes counts, Streak and statistics over its own tables (it may call `social` for the viewer's follow status, ADR-021 §2); `social` gives counts, statuses and `followersYouKnow`; `itineraries` gives `itineraryCount` (new `ItinerariesService.countByOwner`); `apps/api` assembles the response in a new `athletes` module, next to `feed`.
@@ -90,7 +90,7 @@ Facts the decisions depend on (code at `bc0532b`):
   - These carry no coordinates, so computing them on the untrimmed trace reveals nothing the privacy zone hides.
 - Stored in a new table **`activities.activity_analysis (activity_id PK → activity cascade, version smallint not null, splits jsonb not null, series jsonb null, computed_at)`**, upserted by `save` in the processing transaction, next to `activity_stats` and `activity_track`. A code constant `ACTIVITY_ANALYSIS_VERSION = 1` is written into `version`.
 - An Activity without a usable GPS trace (manual entry, sport without GPS, fewer than 2 points) still gets a row with `splits: []` and `series: null`, so the backfill does not pick it again.
-- **`GET /v1/activities/:id`** gains `source` (`recorded` | `imported` | `manual`), `routeTrimmed`, and **`analysis { splits, series } | null`** (`null` while not computed yet). The Allure section's summary rows (moving pace, pace over elapsed time, elapsed time, fastest split) are derived by the app from `stats` and `splits`. No new endpoint.
+- **`GET /v1/activities/:id`** gains `source` (`recorded` | `imported` | `manual`), `importFormat` (`gpx` | `tcx` | `fit`, only for an `imported` Activity whose `activity_import` row is known), `routeTrimmed`, and **`analysis { splits, series } | null`** (`null` while not computed yet). The Allure section's summary rows (moving pace, moving time "Durée de déplacement", pace over elapsed time, elapsed time, fastest split) are derived by the app from `stats` and `splits`. No new endpoint.
 
 ### 7. Backfill of processed Activities (amends ADR-033 §5)
 
@@ -113,7 +113,7 @@ Facts the decisions depend on (code at `bc0532b`):
 From top to bottom:
 
 1. A toolbar with "⋯" for the author (unchanged).
-2. A map about 300 pt tall, with the "Départ et arrivée masqués" label when needed. Tapping it, or its ⤢ button, opens a **full-screen map** (`fullScreenCover`) with Fermer, a button that recentres on the route, and a Distance · Allure · Temps summary. There is no draggable sheet.
+2. A map about 300 pt tall, with the "Départ et arrivée masqués" label when needed. Tapping it, or its ⤢ button, opens a **full-screen map** (`fullScreenCover`) with Fermer, a button that recentres on the route, and a Distance · Allure · Temps summary (Vitesse for `speed` sports). There is no draggable sheet.
 3. The header: avatar and name (tappable), date, place.
 4. The title and description.
 5. The 2-column stats grid of ADR-033 §3, with the same rule.
@@ -138,7 +138,10 @@ Sections 8–10 are hidden when `analysis` is `null` or has no splits. Pace char
 - A new `Features/Athletes` holds another athlete's profile, the followers and following lists (with the "Demandes d'abonnement" row and swipe to remove a follower), the search and the follow button.
   - The follow button has three states: Suivre, Demande envoyée (tap to cancel), and Abonné ▾ (menu "Se désabonner").
   - Another athlete's profile shows Activités · Plus (their Statistiques), with no Progrès.
-- **Navigation**: `AthleteProfileRequest { id }` and `ActivityEngagementRequest { activityId, tab, focusComposer }` live in `Core/Domain`. Every list that shows athletes or Activities receives `openAthlete` / `openActivity` / `openEngagement` closures from the app shell (ADR-007 rule 5). Each tab's `NavigationStack` registers these destinations, so a profile can be pushed from the feed, a detail, a list or another profile.
+- **Navigation**: `AthleteProfileRequest { id }` and `ActivityEngagementRequest { activityId, tab, focusComposer }` live in `Core/Domain`. Every list that shows athletes or Activities receives `openAthlete` / `openActivity` / `openEngagement` closures from the app shell (ADR-007 rule 5). Each tab's `NavigationStack` registers these destinations with one `registerAppDestinations(_:)` (`AppDestinations`, built by the shell), so a profile can be pushed from the feed, a detail, a list or another profile.
+- **New `Core` areas** (amends [ADR-007](ADR-007-mobile-architecture.md)): `Core/Domain/Athletes` (models, ports, navigation values), `Core/Athletes` (API adapters, shared paging of an athlete's Activities), `Core/DesignSystem/Athletes` (`AthleteButton`, follow counters) and `Core/DesignSystem/Navigation` (`AppDestinations`).
+- The Profile feature does not read the Auth feature's store: the shell passes the signed-in account and the sign-out.
+- Realtime topics outside the token are reference-counted on the client (`RealtimeTopicSubscriptions`): the detail and the Kudos and comments screen pushed over it share `activity:{id}`, the first one sends `sub`, the last one `unsub`.
 - The 12-week chart and the analysis charts use Swift Charts, in `Core/DesignSystem/Charts` when shared. Tapping a week (`chartXSelection`) shows that week's values.
 - Per-user stores (profile, follows) are reset at sign-out like `feedStore`.
 
@@ -197,9 +200,10 @@ Sections 8–10 are hidden when `analysis` is `null` or has no splits. Pace char
 - **Depends on**: [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md), [ADR-029](ADR-029-activity-feed-and-card.md), [ADR-033](ADR-033-activity-detail-edit-delete.md), [ADR-034](ADR-034-activity-engagement-and-live-detail.md)
 - **Amends**:
   - [ADR-017](ADR-017-data-model.md): `social.follow_settings`, the `follow` check and index, `activity_track.route_trimmed`, `activities.activity_analysis`, `unaccent`.
-  - [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md): the `athletes` composition in `apps/api`, and the new batch methods of `social`, `users`, `engagement` and `itineraries`.
+  - [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md): `social` owns `follow_settings` and `activities` owns `activity_analysis` (§1); the `athletes` composition in `apps/api`, the new batch methods of `social`, `users`, `engagement` and `itineraries`, and the keyset helpers shared in `infrastructure` (§6).
   - [ADR-029](ADR-029-activity-feed-and-card.md): §1 feed item fields, §6 the card.
   - [ADR-033](ADR-033-activity-detail-edit-delete.md): §2 detail fields, §3 detail screen, §5 reprocessing and backfill.
   - [ADR-034](ADR-034-activity-engagement-and-live-detail.md): §1 and §6, the separate Kudos and comments screen and tappable athletes.
   - [ADR-035](ADR-035-onboarding-sign-in-code-paywall.md): §8 "Confidentialité" moves to a Réglages screen.
-- **Related**: [ADR-007](ADR-007-mobile-architecture.md), [ADR-030](ADR-030-itineraries-on-ios.md), [ADR-032](ADR-032-brand-and-motion-design.md)
+  - [ADR-007](ADR-007-mobile-architecture.md): the new `Core` areas of §10.
+- **Related**: [ADR-030](ADR-030-itineraries-on-ios.md), [ADR-032](ADR-032-brand-and-motion-design.md)

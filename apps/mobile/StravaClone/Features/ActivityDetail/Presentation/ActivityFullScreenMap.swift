@@ -2,7 +2,7 @@ import MapboxMaps
 import SwiftUI
 
 /// The full-screen map of an Activity (ADR-036 §9): pan and zoom on the route, Fermer, a
-/// button that frames the route again once moved, and the card's three stats. No draggable
+/// button that frames the route again once moved, and Distance · Allure (Vitesse) · Temps. No draggable
 /// sheet.
 struct ActivityFullScreenMap: View {
     let route: EncodedPolyline
@@ -99,10 +99,10 @@ struct ActivityFullScreenMap: View {
         .accessibilityIdentifier("activityDetail.recentreMap")
     }
 
-    /// Distance · Allure · Temps (Dénivelé for a `speed` sport), as on the card (ADR-036 §5).
+    /// Distance · Allure · Temps (Vitesse for a `speed` sport, ADR-036 §9).
     private var summary: some View {
         HStack(spacing: 0) {
-            ForEach(ActivityCardStat.stats(for: post), id: \.label) { stat in
+            ForEach(ActivityCardStat.mapSummary(for: post), id: \.label) { stat in
                 VStack(alignment: .leading, spacing: 2) {
                     Text(stat.label)
                         .font(.caption)
