@@ -12,6 +12,7 @@ import { StorageModule } from "@repo/core/storage";
 import { AdminModule } from "./admin/admin.module.js";
 import { ActivitiesModule } from "./activities/activities.module.js";
 import { AthleteStatsModule } from "./athlete-stats/athlete-stats.module.js";
+import { AthletesModule } from "./athletes/athletes.module.js";
 import { AuthModule } from "./auth/auth.module.js";
 import { FeedModule } from "./feed/feed.module.js";
 import { FollowsModule } from "./follows/follows.module.js";
@@ -77,6 +78,9 @@ const config = loadConfig();
     RealtimeTokenModule,
     WebhooksModule,
     AdminModule,
+    // Last: `GET /v1/athletes/:id` (UUID only) must come after every fixed `athletes/...` route,
+    // or Express would hand it `athletes/search` and the UUID pipe would answer 400.
+    AthletesModule,
   ],
   providers: [
     { provide: APP_PIPE, useClass: ZodValidationPipe },

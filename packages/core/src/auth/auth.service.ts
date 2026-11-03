@@ -71,6 +71,16 @@ export class AuthService {
   }
 
   /**
+   * Sets the account's `user.name` (ADR-036 §3: kept equal to the profile's "Prénom Nom" so the
+   * backoffice and emails agree). Goes through Better Auth's `internalAdapter`, as below, so its
+   * session cache sees the change.
+   */
+  async setName(userId: string, name: string): Promise<void> {
+    const context = await this.auth.$context;
+    await context.internalAdapter.updateUser(userId, { name });
+  }
+
+  /**
    * Flags `email` as unverified (ADR-023: `ResendWebhookController` calls
    * this on `email.bounced`/`email.complained`). Goes through Better Auth's
    * own `internalAdapter` (via `$context`, not the HTTP `api`) since this is

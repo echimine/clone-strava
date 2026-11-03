@@ -15,6 +15,7 @@ import { ListItinerariesUseCase } from "./use-cases/list-itineraries.use-case.js
 import { PreviewItineraryMetricsUseCase } from "./use-cases/preview-itinerary-metrics.use-case.js";
 import { RenameItineraryUseCase } from "./use-cases/rename-itinerary.use-case.js";
 import { UpdateItineraryUseCase } from "./use-cases/update-itinerary.use-case.js";
+import { ItineraryRepository } from "./repositories/itinerary.repository.js";
 
 /** Facade of the `itineraries` module (ADR-021 §6, ADR-030 §4). */
 @Injectable()
@@ -27,6 +28,7 @@ export class ItinerariesService {
     private readonly updateUseCase: UpdateItineraryUseCase,
     private readonly renameUseCase: RenameItineraryUseCase,
     private readonly deleteUseCase: DeleteItineraryUseCase,
+    private readonly itineraries: ItineraryRepository,
   ) {}
 
   previewMetrics(geometry: ItineraryGeometry): Promise<ItineraryMetrics> {
@@ -53,6 +55,11 @@ export class ItinerariesService {
   /** Renames, no recomputation; resolves only after the write. */
   rename(userId: string, itineraryId: string, name: string): Promise<Itinerary> {
     return this.renameUseCase.execute(userId, itineraryId, name);
+  }
+
+  /** The athlete's number of saved Itineraries (the own profile, ADR-036 §3). */
+  countByOwner(userId: string): Promise<number> {
+    return this.itineraries.countByUser(userId);
   }
 
   /** Hard delete; resolves only once the Itinerary is gone. */

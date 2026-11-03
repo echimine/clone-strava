@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, eq, inArray, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql, type SQL } from "drizzle-orm";
 import { schema, type Database } from "@repo/db";
 import { DATABASE } from "../../infrastructure/index.js";
 import { ATHLETE_TIME_ZONE, type WeekTotals } from "../domain/athlete-weeks.js";
@@ -68,6 +68,18 @@ export class ActivityAggregateRepository {
       .from(schema.activity)
       .where(where(scope, {}));
     return rows.map((row) => row.weekStart).sort().reverse();
+  }
+
+  /** The number of Activities of each sport, most first (ties by sport code). */
+  async findCountsBySport(scope: AggregateScope): Promise<{ sportTypeCode: string; activityCount: number }[]> {
+    const activityCount = sql<number>`count(*)::int`;
+    const rows = await this.db
+      .select({ sportTypeCode: schema.activity.sportTypeCode, activityCount })
+      .from(schema.activity)
+      .where(where(scope, {}))
+      .groupBy(schema.activity.sportTypeCode)
+      .orderBy(desc(activityCount), asc(schema.activity.sportTypeCode));
+    return rows.map((row) => ({ sportTypeCode: row.sportTypeCode, activityCount: Number(row.activityCount) }));
   }
 
   /** The calendar days of `range` with an Activity, oldest first. */
