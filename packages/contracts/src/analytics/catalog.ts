@@ -127,6 +127,10 @@ export const APP_ANALYTICS_EVENTS = {
   AVATAR_REMOVED: "avatar_removed",
   /** The Avatar was not sent, or not stored. */
   AVATAR_UPLOAD_FAILED: "avatar_upload_failed",
+  /** "Ajoute une photo de profil" is shown, before the Paywall. */
+  AVATAR_PROMPT_VIEWED: "avatar_prompt_viewed",
+  /** "Plus tard" on "Ajoute une photo de profil". */
+  AVATAR_PROMPT_DEFERRED: "avatar_prompt_deferred",
 } as const;
 export type AppAnalyticsEventName = (typeof APP_ANALYTICS_EVENTS)[keyof typeof APP_ANALYTICS_EVENTS];
 
@@ -146,9 +150,17 @@ export const avatarUploadFailedPropertiesSchema = z.object({
 });
 export type AvatarUploadFailedProperties = z.infer<typeof avatarUploadFailedPropertiesSchema>;
 
+export const avatarPromptViewedPropertiesSchema = z.object({});
+export type AvatarPromptViewedProperties = z.infer<typeof avatarPromptViewedPropertiesSchema>;
+
+export const avatarPromptDeferredPropertiesSchema = z.object({});
+export type AvatarPromptDeferredProperties = z.infer<typeof avatarPromptDeferredPropertiesSchema>;
+
 /** Payload schema for a given app event, keyed by its name. */
 export const appAnalyticsEventPropertiesSchemas = {
   [APP_ANALYTICS_EVENTS.AVATAR_CHANGED]: avatarChangedPropertiesSchema,
   [APP_ANALYTICS_EVENTS.AVATAR_REMOVED]: avatarRemovedPropertiesSchema,
   [APP_ANALYTICS_EVENTS.AVATAR_UPLOAD_FAILED]: avatarUploadFailedPropertiesSchema,
+  [APP_ANALYTICS_EVENTS.AVATAR_PROMPT_VIEWED]: avatarPromptViewedPropertiesSchema,
+  [APP_ANALYTICS_EVENTS.AVATAR_PROMPT_DEFERRED]: avatarPromptDeferredPropertiesSchema,
 } as const satisfies Record<AppAnalyticsEventName, z.ZodType>;

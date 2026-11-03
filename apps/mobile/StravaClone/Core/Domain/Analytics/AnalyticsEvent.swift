@@ -78,6 +78,10 @@ enum AnalyticsEvent: Equatable, Sendable {
     case avatarRemoved
     /// The Avatar was not sent, or not stored.
     case avatarUploadFailed(reason: AvatarUploadFailure)
+    /// "Ajoute une photo de profil" is shown, before the Paywall.
+    case avatarPromptViewed
+    /// "Plus tard" on that screen.
+    case avatarPromptDeferred
 
     var name: String {
         switch self {
@@ -108,6 +112,8 @@ enum AnalyticsEvent: Equatable, Sendable {
         case .avatarChanged: "avatar_changed"
         case .avatarRemoved: "avatar_removed"
         case .avatarUploadFailed: "avatar_upload_failed"
+        case .avatarPromptViewed: "avatar_prompt_viewed"
+        case .avatarPromptDeferred: "avatar_prompt_deferred"
         }
     }
 
@@ -132,7 +138,7 @@ enum AnalyticsEvent: Equatable, Sendable {
         case .itineraryOfflineEditBlocked(let action):
             ["action": .string(action.rawValue)]
         case .welcomeViewed, .onboardingStarted, .authGoogleCancelled, .notificationPromptViewed,
-             .notificationPermissionDeferred, .avatarRemoved:
+             .notificationPermissionDeferred, .avatarRemoved, .avatarPromptViewed, .avatarPromptDeferred:
             [:]
         case .onboardingStepViewed(let step, let resumed):
             ["step": .string(step.rawValue), "resumed": .bool(resumed)]

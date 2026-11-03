@@ -22,7 +22,7 @@ struct AuthStoreNotificationPrimerTests {
         )
     }
 
-    /// Signed in at the end of the Onboarding, so on the Paywall.
+    /// Signed in at the end of the Onboarding, past "Ajoute une photo de profil", so on the Paywall.
     private func onThePaywall(_ permission: FakeNotificationPermission) async -> AuthStore {
         let authStore = makeAuthStore(permission)
         repository.sendSignInCodeHandler = { _ in }
@@ -31,7 +31,8 @@ struct AuthStoreNotificationPrimerTests {
         signIn.email = "a@b.com"
         await signIn.sendCode()
         signIn.enterCode("123456")
-        _ = await eventually { authStore.state == .paywall(ada) }
+        _ = await eventually { authStore.state == .avatarPrompt(ada) }
+        authStore.deferAvatarPrompt()
         return authStore
     }
 

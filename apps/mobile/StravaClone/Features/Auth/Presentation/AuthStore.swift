@@ -2,19 +2,22 @@ import Foundation
 import Observation
 
 /// Who is signed in, for the whole app (ADR-022): `RootView` shows the Welcome, the Onboarding,
-/// the Paywall, the notification priming screen or the TabView from `state`. Signing in itself happens on the account screen, in
+/// "Ajoute une photo de profil", the Paywall, the notification priming screen or the TabView
+/// from `state`. Signing in itself happens on the account screen, in
 /// `SignInStore`. The analytics identity follows the session (ADR-035 §8): `identify` as soon as
 /// one exists, `reset()` at sign-out.
 ///
 /// After a sign-in (ADR-035 §1, §5, §6): at the end of the Onboarding, the Onboarding answers are
 /// sent, after `identify`, and the flow goes on to the Paywall without waiting for them. "Se
 /// connecter" on an account it has just created goes through the Onboarding (and so the Paywall)
-/// first; an existing account never does. After the Paywall comes the notification priming
-/// screen, only while iOS has not asked yet (§7). A restored session always goes home: neither
-/// the Paywall nor the priming screen is resumed.
+/// first; an existing account never does. Before the Paywall comes "Ajoute une photo de profil",
+/// only for an account the email code has just created (ADR-037 §2: a Google account already
+/// has its photo). After the Paywall comes the notification priming screen, only while iOS has
+/// not asked yet (§7). A restored session always goes home: none of these screens is resumed.
 ///
 /// It sends the funnel events around the session (§8): `welcome_viewed`, `onboarding_started`,
-/// `signed_in` right after `identify`, and those of the priming screen.
+/// `signed_in` right after `identify`, those of the photo screen (ADR-037 §13) and those of the
+/// priming screen.
 @Observable
 @MainActor
 final class AuthStore {
@@ -24,6 +27,9 @@ final class AuthStore {
         /// Signed in by "Se connecter" on an account it has just created: the Onboarding, from
         /// its first question, before the home screen.
         case onboarding(AuthUser)
+        /// After the sign-in that ends the Onboarding, for an account the email code has just
+        /// created (ADR-037 §2): "Ajoute une photo de profil", once, then the Paywall.
+        case avatarPrompt(AuthUser)
         /// Right after the sign-in that ends the Onboarding (ADR-035 §6): the Paywall, once.
         case paywall(AuthUser)
         /// After that Paywall, while iOS has not asked for the notification permission yet
@@ -37,6 +43,8 @@ final class AuthStore {
     private(set) var isRequestingNotifications = false
     /// The last sign-in created the account (`AuthUser.isNewAccount`), for the Paywall's events.
     private(set) var isNewAccount = false
+    /// How the last sign-in was made: only an email code leads to the photo screen.
+    @ObservationIgnored private var signInMethod: AnalyticsEvent.AuthMethod?
 
     @ObservationIgnored private let service: AuthService
     @ObservationIgnored private let analytics: any AnalyticsClient
@@ -83,10 +91,24 @@ final class AuthStore {
     }
 
     /// "Créer mon compte" at the end of the Onboarding that "Se connecter" opened: the session
-    /// exists already, so the answers are sent straight away, then the Paywall.
+    /// exists already, so the answers are sent straight away, then the photo screen or the
+    /// Paywall.
     func finishOnboarding() {
         guard case .onboarding(let user) = state else { return }
         startSubmittingOnboardingAnswers()
+        showAvatarPromptOrPaywall(user)
+    }
+
+    /// The photo chosen on "Ajoute une photo de profil" is stored: the Paywall.
+    func finishAvatarPrompt() {
+        guard case .avatarPrompt(let user) = state else { return }
+        state = .paywall(user)
+    }
+
+    /// "Plus tard" on "Ajoute une photo de profil": the Paywall. Nothing asks again.
+    func deferAvatarPrompt() {
+        guard case .avatarPrompt(let user) = state else { return }
+        analytics.capture(.avatarPromptDeferred)
         state = .paywall(user)
     }
 
@@ -141,16 +163,28 @@ final class AuthStore {
     private func signedIn(_ user: AuthUser, entry: SignInEntry, method: AnalyticsEvent.AuthMethod) {
         analytics.identify(userId: user.id)
         isNewAccount = user.isNewAccount(at: now())
+        signInMethod = method
         analytics.capture(.signedIn(method: method, isNewAccount: isNewAccount))
         switch entry {
         case .onboarding:
             startSubmittingOnboardingAnswers()
-            state = .paywall(user)
+            showAvatarPromptOrPaywall(user)
         case .signIn where isNewAccount:
             state = .onboarding(user)
         case .signIn:
             state = .signedIn(user)
         }
+    }
+
+    /// The end of the Onboarding path: the photo screen for an account the email code has just
+    /// created, else the Paywall.
+    private func showAvatarPromptOrPaywall(_ user: AuthUser) {
+        guard isNewAccount, signInMethod == .email else {
+            state = .paywall(user)
+            return
+        }
+        state = .avatarPrompt(user)
+        analytics.capture(.avatarPromptViewed)
     }
 
     private func startSubmittingOnboardingAnswers() {

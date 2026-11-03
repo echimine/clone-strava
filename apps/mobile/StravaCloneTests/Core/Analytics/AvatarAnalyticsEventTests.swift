@@ -24,4 +24,11 @@ struct AvatarAnalyticsEventTests {
         #expect(event.name == "avatar_upload_failed")
         #expect(event.properties == ["reason": "rejected"])
     }
+
+    @Test func thePromptIsViewedThenDeferredWithoutProperties() {
+        #expect(AnalyticsEvent.avatarPromptViewed.name == "avatar_prompt_viewed")
+        #expect(AnalyticsEvent.avatarPromptViewed.properties.isEmpty)
+        #expect(AnalyticsEvent.avatarPromptDeferred.name == "avatar_prompt_deferred")
+        #expect(AnalyticsEvent.avatarPromptDeferred.properties.isEmpty)
+    }
 }
