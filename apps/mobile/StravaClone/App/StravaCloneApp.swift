@@ -23,6 +23,8 @@ struct StravaCloneApp: App {
                 makeActivityEngagementStore: { [di] request in di.makeActivityEngagementStore(request: request) },
                 makeAthleteProfileStore: { [di] id in di.makeAthleteProfileStore(athleteId: id) },
                 makeAthleteStatisticsStore: { [di] request in di.makeAthleteStatisticsStore(request: request) },
+                makeFollowListStore: { [di] request in di.makeFollowListStore(request: request) },
+                makeAthleteSearchStore: di.makeAthleteSearchStore,
                 feedActivityEditor: di.feedActivityEditor,
                 activityDeleter: di.activityDeleter,
                 reloadUpdatedActivities: di.makeReloadUpdatedActivities(),
@@ -79,6 +81,10 @@ struct RootView: View {
     let makeAthleteProfileStore: @MainActor (String) -> AthleteProfileStore
     /// Statistiques of an athlete, mine or another's (ADR-036 §4).
     let makeAthleteStatisticsStore: @MainActor (AthleteStatisticsRequest) -> AthleteStatisticsStore
+    /// Followers and following lists, mine or another athlete's (ADR-036 §1).
+    let makeFollowListStore: @MainActor (AthleteFollowsRequest) -> FollowListStore
+    /// The search behind the profile's magnifier (ADR-036 §2).
+    let makeAthleteSearchStore: @MainActor () -> AthleteSearchStore
     /// "Modifier" in the context menu of my feed cards (ADR-033 §1).
     @State var feedActivityEditor: ActivityEditor
     /// "Supprimer" in that menu and in a detail's "⋯" (ADR-033 §7); its toast shows over the feed.
@@ -184,7 +190,8 @@ struct RootView: View {
                         openActivity: activityDetail,
                         openEngagement: activityEngagement,
                         openAthlete: { athleteProfile($0, path: $feedStore.path) },
-                        openStatistics: athleteStatistics
+                        openStatistics: athleteStatistics,
+                        openFollows: followLists
                     ) {
                         if let banner = importStore.banner {
                             ImportStatusBanner(
@@ -265,7 +272,9 @@ struct RootView: View {
                         openActivity: activityDetail,
                         openEngagement: activityEngagement,
                         openStatistics: athleteStatistics,
-                        openAthlete: { athleteProfile($0, path: $profileStore.path) }
+                        openAthlete: { athleteProfile($0, path: $profileStore.path) },
+                        search: { AthleteSearchPage(makeStore: makeAthleteSearchStore) },
+                        openFollows: followLists
                     )
                     .environment(\.openAthlete, openAthlete(in: $profileStore.path))
                     // A detail opened from the profile can delete its Activity too (ADR-033 §7).
@@ -369,8 +378,15 @@ struct RootView: View {
             openEngagement: { path.wrappedValue.append($0) },
             openStatistics: { profile in
                 path.wrappedValue.append(AthleteStatisticsRequest(athleteId: profile.athlete.id, sports: profile.practicedSports))
-            }
+            },
+            openFollows: { path.wrappedValue.append($0) }
         )
+    }
+
+    /// Followers and following lists (ADR-036 §1), pushed from a profile's counters in the
+    /// stack of that profile's tab.
+    private func followLists(_ request: AthleteFollowsRequest) -> FollowListPage {
+        FollowListPage(request: request, makeStore: makeFollowListStore)
     }
 
     /// A tap on an athlete in a tab's stack (ADR-036 §10): their profile pushed in that stack,

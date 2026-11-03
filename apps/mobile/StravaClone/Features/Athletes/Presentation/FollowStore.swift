@@ -15,10 +15,17 @@ final class FollowStore {
     @ObservationIgnored private let followAthlete: FollowAthlete
     @ObservationIgnored private let unfollowAthlete: UnfollowAthlete
     @ObservationIgnored private var inFlight: Set<String> = []
+    @ObservationIgnored private var observers: [@MainActor (_ previous: FollowStatus, _ change: FollowChange) -> Void] = []
 
     init(followAthlete: FollowAthlete, unfollowAthlete: UnfollowAthlete) {
         self.followAthlete = followAthlete
         self.unfollowAthlete = unfollowAthlete
+    }
+
+    /// Told of every change the server confirmed, with the status before it: the viewer's own
+    /// following counter moves with them.
+    func observeChanges(_ observer: @escaping @MainActor (_ previous: FollowStatus, _ change: FollowChange) -> Void) {
+        observers.append(observer)
     }
 
     /// Nil for the viewer (no button), or an athlete this screen has not shown.
@@ -64,6 +71,9 @@ final class FollowStore {
         do {
             let change = try await send()
             statuses[athleteId] = change.status
+            for observer in observers {
+                observer(previous, change)
+            }
             return change
         } catch {
             statuses[athleteId] = previous

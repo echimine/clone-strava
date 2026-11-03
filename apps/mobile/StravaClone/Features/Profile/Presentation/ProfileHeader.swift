@@ -1,9 +1,10 @@
 import SwiftUI
 
 /// Top of the profile (ADR-036 §3): avatar in initials, name, Activity count and Streak, the
-/// follow counters (their lists come later), and "Modifier le profil".
+/// follow counters, which open my lists, and "Modifier le profil".
 struct ProfileHeader: View {
     let profile: AthleteProfile
+    var onFollows: ((AthleteFollowsRequest.List) -> Void)?
     let onEdit: () -> Void
 
     var body: some View {
@@ -22,10 +23,12 @@ struct ProfileHeader: View {
                         .font(.subheadline.weight(.semibold))
                 }
             }
-            Text("\(ProfileMessages.followers(profile.followerCount)) • \(ProfileMessages.following(profile.followingCount))")
-                .font(.subheadline)
-                .monospacedDigit()
-                .accessibilityIdentifier("profile.followCounts")
+            FollowCounters(
+                followers: ProfileMessages.followers(profile.followerCount),
+                following: ProfileMessages.following(profile.followingCount),
+                open: onFollows
+            )
+            .accessibilityIdentifier("profile.followCounts")
             Button(ProfileMessages.editProfile, action: onEdit)
                 .buttonStyle(.bordered)
                 .controlSize(.large)

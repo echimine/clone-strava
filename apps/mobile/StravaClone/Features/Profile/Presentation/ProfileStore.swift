@@ -24,6 +24,8 @@ final class ProfileStore {
     enum Destination: Hashable {
         case settings
         case itineraries
+        /// The magnifier: the athlete search (ADR-036 §2).
+        case search
     }
 
     private(set) var profile: AthleteProfile?
@@ -139,6 +141,27 @@ final class ProfileStore {
 
     func openItineraries() {
         path.append(Destination.itineraries)
+    }
+
+    func openSearch() {
+        path.append(Destination.search)
+    }
+
+    /// My followers or following lists (ADR-036 §1), from my counters; nil until my profile loads.
+    func followsRequest(_ list: AthleteFollowsRequest.List) -> AthleteFollowsRequest? {
+        profile.map { AthleteFollowsRequest(profile: $0, list: list) }
+    }
+
+    /// A tap on "N abonnés" or "N abonnements".
+    func openFollows(_ list: AthleteFollowsRequest.List) {
+        guard let request = followsRequest(list) else { return }
+        path.append(request)
+    }
+
+    /// What my follow screens changed (a request answered, a follower removed, an athlete
+    /// followed): my counters follow without reloading.
+    func apply(_ change: FollowCountsChange) {
+        profile?.apply(change)
     }
 
     /// My Statistiques (ADR-036 §4), with my sports for its picker; nil until my profile loads.

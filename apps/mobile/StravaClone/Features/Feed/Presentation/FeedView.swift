@@ -4,7 +4,8 @@ import SwiftUI
 /// the app shell passes the "+" action, the content shown above the feed (e.g. the import
 /// banner), `openActivity` and `openEngagement`, the Activity detail and the Kudos and comments
 /// screen pushed in this tab's stack, `openAthlete` and `openStatistics`, another athlete's
-/// profile and Statistiques pushed there too (ADR-036 §10), and `editActivity` and `deleteActivity`
+/// profile, their Statistiques and their followers and following lists pushed there too
+/// (ADR-036 §10), and `editActivity` and `deleteActivity`
 /// (once confirmed), "Modifier" and "Supprimer" in the context menu of my processed cards
 /// (ADR-033 §1, §7).
 struct FeedView<
@@ -12,7 +13,8 @@ struct FeedView<
     ActivityDestination: View,
     EngagementDestination: View,
     AthleteDestination: View,
-    StatisticsDestination: View
+    StatisticsDestination: View,
+    FollowsDestination: View
 >: View {
     @Bindable var store: FeedStore
     var onImportActivity: () -> Void = {}
@@ -22,6 +24,7 @@ struct FeedView<
     @ViewBuilder var openEngagement: (ActivityEngagementRequest) -> EngagementDestination
     @ViewBuilder var openAthlete: (AthleteProfileRequest) -> AthleteDestination
     @ViewBuilder var openStatistics: (AthleteStatisticsRequest) -> StatisticsDestination
+    @ViewBuilder var openFollows: (AthleteFollowsRequest) -> FollowsDestination
     @ViewBuilder var topContent: () -> TopContent
     /// "Supprimer" on a card, waiting for its confirmation.
     @State private var deletionCandidate: ActivityID?
@@ -53,6 +56,9 @@ struct FeedView<
                 }
                 .navigationDestination(for: AthleteStatisticsRequest.self) { request in
                     openStatistics(request)
+                }
+                .navigationDestination(for: AthleteFollowsRequest.self) { request in
+                    openFollows(request)
                 }
                 .activityDeleteConfirmation($deletionCandidate) { id in deleteActivity?(id) }
         }
@@ -156,7 +162,7 @@ private extension LocalActivityCard {
 }
 
 extension FeedView where TopContent == EmptyView, ActivityDestination == EmptyView, EngagementDestination == EmptyView,
-    AthleteDestination == EmptyView, StatisticsDestination == EmptyView {
+    AthleteDestination == EmptyView, StatisticsDestination == EmptyView, FollowsDestination == EmptyView {
     init(store: FeedStore, onImportActivity: @escaping () -> Void = {}) {
         self.init(
             store: store,
@@ -164,7 +170,8 @@ extension FeedView where TopContent == EmptyView, ActivityDestination == EmptyVi
             openActivity: { _ in EmptyView() },
             openEngagement: { _ in EmptyView() },
             openAthlete: { _ in EmptyView() },
-            openStatistics: { _ in EmptyView() }
+            openStatistics: { _ in EmptyView() },
+            openFollows: { _ in EmptyView() }
         ) { EmptyView() }
     }
 }
