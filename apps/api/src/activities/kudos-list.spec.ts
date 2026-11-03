@@ -23,7 +23,7 @@ import { AthleteIdentities } from "../identities/athlete-identities.js";
 import { KudosAssembler } from "./kudos-assembler.js";
 import { KudosController } from "./kudos.controller.js";
 import { listenOnLoopback } from "../testing/listen-on-loopback.js";
-import { signedAvatarUrl } from "../testing/signed-avatar-url.js";
+import { signedAvatarUrl } from "../testing/signed-urls.js";
 
 /**
  * `GET /v1/activities/:id/kudos` over real HTTP and Postgres (ADR-024 §2

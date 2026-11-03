@@ -23,7 +23,7 @@ import { CommentAssembler } from "./comment-assembler.js";
 import { AthleteIdentities } from "../identities/athlete-identities.js";
 import { CommentsController } from "./comments.controller.js";
 import { listenOnLoopback } from "../testing/listen-on-loopback.js";
-import { signedAvatarUrl } from "../testing/signed-avatar-url.js";
+import { signedAvatarUrl } from "../testing/signed-urls.js";
 
 /**
  * `/v1/activities/:id/comments` over real HTTP and Postgres (ADR-024 §2
@@ -40,6 +40,13 @@ describe("/v1/activities/:id/comments (integration)", () => {
   const commenter = randomUUID();
   const third = randomUUID();
   const stranger = randomUUID();
+  // Each response signs the Avatar anew (its date changes every second): match it, never copy it
+  // from another response.
+  const commenterIdentity = {
+    id: commenter,
+    displayName: "Camille Martin",
+    avatarUrl: signedAvatarUrl(`avatars/${commenter}/a.jpg`),
+  };
 
   async function sql(text: string, params: unknown[] = []) {
     return (await app.get<Database>(DATABASE).$client.query(text, params)).rows;
@@ -161,8 +168,6 @@ describe("/v1/activities/:id/comments (integration)", () => {
     const response = await post(activityId, commenter, { id, body: "  Belle sortie !  " });
     expect(response.status).toBe(201);
     const created = (await response.json()) as ActivityComment;
-    // Each response signs the Avatar anew (its date changes every second): match it, not copy it.
-    const commenterIdentity = { id: commenter, displayName: "Camille Martin", avatarUrl: signedAvatarUrl(`avatars/${commenter}/a.jpg`) };
     expect(created).toEqual({
       id,
       body: "Belle sortie !",
@@ -298,7 +303,12 @@ describe("/v1/activities/:id/comments (integration)", () => {
 
       const response = await call(`/activities/${activityId}/comments/${comment.id}`, author);
       expect(response.status).toBe(200);
-      expect(await response.json()).toEqual({ ...comment, viewerCanEdit: false, viewerCanDelete: true });
+      expect(await response.json()).toEqual({
+        ...comment,
+        author: commenterIdentity,
+        viewerCanEdit: false,
+        viewerCanDelete: true,
+      });
 
       for (const path of [`/activities/${activityId}/comments/${randomUUID()}`, `/activities/${otherActivityId}/comments/${comment.id}`]) {
         const missing = await call(path, author);
@@ -321,7 +331,7 @@ describe("/v1/activities/:id/comments (integration)", () => {
       const response = await patch(activityId, comment.id, commenter, { body: "  Corrigé  " });
       expect(response.status).toBe(200);
       const edited = (await response.json()) as ActivityComment;
-      expect(edited).toEqual({ ...comment, body: "Corrigé", updatedAt: expect.any(String) });
+      expect(edited).toEqual({ ...comment, author: commenterIdentity, body: "Corrigé", updatedAt: expect.any(String) });
       expect(Date.parse(edited.updatedAt!)).toBeGreaterThanOrEqual(Date.parse(comment.createdAt));
       expect(emitted("engagement.comment.edited")).toEqual([{ commentId: comment.id, activityId, userId: commenter }]);
       expect((await list(activityId, author)).items[0]).toMatchObject({ body: "Corrigé", updatedAt: edited.updatedAt });
@@ -440,7 +450,7 @@ describe("/v1/activities/:id/comments (integration)", () => {
 
       const replay = await post(activityId, commenter, { ...body, body: "Texte rejoué différent" });
       expect(replay.status).toBe(200);
-      expect(await replay.json()).toEqual(created);
+      expect(await replay.json()).toEqual({ ...created, author: commenterIdentity });
       expect(emitted("engagement.comment.added")).toEqual([]);
       expect((await list(activityId, commenter)).items.map((item) => item.body)).toEqual(["Premier !"]);
     });

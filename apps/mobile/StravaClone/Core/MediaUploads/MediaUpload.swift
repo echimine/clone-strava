@@ -13,7 +13,8 @@ enum MediaUploadState: String, Codable, Hashable, Sendable {
     case failed
 }
 
-/// Why a tile turned "Échec": the `reason` of `media_upload_failed` (ADR-037 §13).
+/// Why a tile turned "Échec", stored on its row; `analyticsReason` is the `reason` of
+/// `media_upload_failed` (ADR-037 §13).
 enum MediaUploadFailure: String, Codable, Hashable, Sendable {
     /// 5xx or no network, 5 times in a row.
     case network
@@ -23,6 +24,17 @@ enum MediaUploadFailure: String, Codable, Hashable, Sendable {
     case invalid
     /// The library original could not be read or converted.
     case exportFailed = "export_failed"
+    /// The original is only in iCloud and was picked offline: "Média indisponible hors
+    /// connexion", with "Retirer" only (ADR-037 §6). Reported as `export_failed`.
+    case unavailableOffline = "unavailable_offline"
+
+    /// The `reason` of `media_upload_failed` (ADR-037 §13).
+    var analyticsReason: String {
+        switch self {
+        case .unavailableOffline: MediaUploadFailure.exportFailed.rawValue
+        default: rawValue
+        }
+    }
 }
 
 /// One file of a Media, named as the API expects (`MEDIA_FILES`, ADR-037 §3).
@@ -40,6 +52,13 @@ struct MediaUploadFile: Codable, Hashable, Sendable {
     static let originalVideo = "original.mp4"
     static let poster = "poster.jpg"
     static let thumb = "thumb.jpg"
+}
+
+extension ActivityMedia.Kind {
+    /// The photo or video itself, in a Media's folder.
+    var originalFile: String { self == .photo ? MediaUploadFile.originalPhoto : MediaUploadFile.originalVideo }
+    /// The still image (`ActivityMedia.stillURL`): a video's poster, else the photo.
+    var stillFile: String { self == .photo ? MediaUploadFile.originalPhoto : MediaUploadFile.poster }
 }
 
 /// One row of `media_upload` (migration `media_upload_v1`).
@@ -93,6 +112,13 @@ struct MediaSource: Sendable {
 
 /// A Media picked on a screen, before its row exists: `id` is the future `mediaId`, made by the
 /// phone, so the screen can already place it in `mediaOrder` (ADR-037 §8).
+/// A Media picked in a session, at its index in the Activity's order: the `position` its row
+/// gets and its confirmation sends (ADR-037 §8).
+struct QueuedMedia: Sendable {
+    let media: PickedMedia
+    let position: Int
+}
+
 struct PickedMedia: Identifiable, Sendable {
     let id: UUID
     let source: MediaSource

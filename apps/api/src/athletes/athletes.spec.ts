@@ -7,7 +7,12 @@ import { Test } from "@nestjs/testing";
 import { Redis } from "ioredis";
 import { ZodSerializerInterceptor, ZodValidationPipe } from "nestjs-zod";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import type { AthleteProfileResponse, FeedResponse, UpdateProfileResponse } from "@repo/contracts";
+import {
+  activityMediaPrefix,
+  type AthleteProfileResponse,
+  type FeedResponse,
+  type UpdateProfileResponse,
+} from "@repo/contracts";
 import { ActivitiesModule } from "@repo/core/activities";
 import { AnalyticsModule } from "@repo/core/analytics";
 import { AuthService } from "@repo/core/auth";
@@ -30,6 +35,7 @@ import { AthleteProfileAssembler } from "./athlete-profile-assembler.js";
 import { AthletesController } from "./athletes.controller.js";
 import { MeProfileController } from "./me-profile.controller.js";
 import { listenOnLoopback } from "../testing/listen-on-loopback.js";
+import { signedMediaUrl } from "../testing/signed-urls.js";
 
 /**
  * `GET /v1/athletes/:id`, `GET /v1/athletes/:id/activities` and `PATCH /v1/me/profile`
@@ -288,7 +294,7 @@ describe("Athlete profile (integration)", () => {
         expect.objectContaining({
           id: hikePhoto,
           kind: "photo",
-          url: expect.stringMatching(new RegExp(`/media/${hikePhoto}/original\\.jpg\\?.*X-Amz-Expires=3600`)),
+          url: signedMediaUrl(activityMediaPrefix(athlete, ids.hike, hikePhoto), "original.jpg"),
         }),
       ]);
       expect(body.nextCursor).toBeNull();

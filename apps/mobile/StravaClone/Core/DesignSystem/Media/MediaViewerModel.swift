@@ -16,6 +16,9 @@ final class MediaViewerModel {
     @ObservationIgnored private let playback: VideoPlayback
     @ObservationIgnored private let makePlayer: (URL) -> AVPlayer
     @ObservationIgnored private let playbackID = UUID()
+    @ObservationIgnored private var expiryObservers: [UUID: VideoURLExpiryObserver] = [:]
+    /// A video's pre-signed URL expired (`403`): the screen under the viewer reloads.
+    @ObservationIgnored var onVideoURLExpired: @MainActor () -> Void = {}
 
     init(
         request: MediaViewerRequest,
@@ -63,6 +66,11 @@ final class MediaViewerModel {
         }
         guard media.kind == .video else { return }
         let player = players[media.id] ?? makePlayer(media.url)
+        if players[media.id] == nil {
+            expiryObservers[media.id] = VideoURLExpiryObserver(player: player) { [weak self] in
+                self?.onVideoURLExpired()
+            }
+        }
         players[media.id] = player
         player.isMuted = false
         MediaAudioSession.prepare(muted: false)

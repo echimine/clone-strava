@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import type { OnboardingAnswersRequest } from "@repo/contracts";
+import { CopyGoogleAvatarUseCase, type GoogleAvatarCopy } from "./use-cases/copy-google-avatar.use-case.js";
 import { GetUserSummariesUseCase } from "./use-cases/get-user-summaries.use-case.js";
 import { RemoveAvatarUseCase } from "./use-cases/remove-avatar.use-case.js";
 import {
@@ -35,6 +36,7 @@ export class UsersService {
     private readonly setAvatarUseCase: SetAvatarUseCase,
     private readonly removeAvatarUseCase: RemoveAvatarUseCase,
     private readonly sweepAvatarsUseCase: SweepAvatarsUseCase,
+    private readonly copyGoogleAvatarUseCase: CopyGoogleAvatarUseCase,
   ) {}
 
   /**
@@ -87,6 +89,15 @@ export class UsersService {
    */
   setAvatar(userId: string, avatarId: string, options: { onlyIfAbsent?: boolean } = {}): Promise<boolean> {
     return this.setAvatarUseCase.execute(userId, avatarId, options);
+  }
+
+  /**
+   * Called by `apps/worker`'s `copy-google-avatar` job (ADR-037 §2): the Google photo of a new
+   * account becomes its Avatar, only if it has none. `PhotoUnusableError` when the photo will never
+   * copy (`4xx`, too large, not an image); any other error is worth a retry.
+   */
+  copyGoogleAvatar(userId: string, imageUrl: string): Promise<GoogleAvatarCopy> {
+    return this.copyGoogleAvatarUseCase.execute(userId, imageUrl);
   }
 
   /** Removes the Avatar, if any, then deletes its object (a failure is only logged, ADR-037 §2). */

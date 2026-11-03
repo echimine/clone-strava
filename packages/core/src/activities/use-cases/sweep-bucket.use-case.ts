@@ -21,6 +21,10 @@ type Parsed<T> = ListedObject & { parts: T };
  * - an import folder `imports/{userId}/{importId}/` with neither an import nor an Activity.
  *
  * Keys outside this layout are left alone. Returns the number of objects deleted.
+ *
+ * The rows are read again for the candidates just before the delete: a confirmation committed
+ * during the sweep (a phone back after a week offline) keeps its folder. The window left is the
+ * time of that second read, and the phone sends again on `409 media_missing`.
  */
 @Injectable()
 export class SweepBucketUseCase {
@@ -30,17 +34,34 @@ export class SweepBucketUseCase {
   ) {}
 
   async execute(now = new Date()): Promise<number> {
-    const [activityKeys, importKeys] = await Promise.all([
-      this.orphanActivityKeys(now),
-      this.orphanImportKeys(now),
+    const [activityObjects, importObjects] = await Promise.all([
+      this.storage.listKeys(ACTIVITIES_BUCKET_PREFIX),
+      this.storage.listKeys(IMPORTS_BUCKET_PREFIX),
     ]);
-    const keys = [...activityKeys, ...importKeys];
-    await this.storage.deleteObjects(keys);
-    return keys.length;
+    const candidates = await this.orphanKeys(activityObjects, importObjects, now);
+    const keys = await this.orphanKeys(
+      activityObjects.filter((object) => candidates.has(object.key)),
+      importObjects.filter((object) => candidates.has(object.key)),
+      now,
+    );
+    await this.storage.deleteObjects([...keys]);
+    return keys.size;
   }
 
-  private async orphanActivityKeys(now: Date): Promise<string[]> {
-    const objects = parsed(await this.storage.listKeys(ACTIVITIES_BUCKET_PREFIX), parseActivityKey);
+  private async orphanKeys(
+    activityObjects: readonly ListedObject[],
+    importObjects: readonly ListedObject[],
+    now: Date,
+  ): Promise<Set<string>> {
+    const [activityKeys, importKeys] = await Promise.all([
+      this.orphanActivityKeys(activityObjects, now),
+      this.orphanImportKeys(importObjects, now),
+    ]);
+    return new Set([...activityKeys, ...importKeys]);
+  }
+
+  private async orphanActivityKeys(listed: readonly ListedObject[], now: Date): Promise<string[]> {
+    const objects = parsed(listed, parseActivityKey);
     const activities = await this.existingActivityPrefixes(objects.map((object) => object.parts.activityId));
     const ofActivity = (object: Parsed<ActivityKeyParts>) => activities.has(object.parts.activityPrefix);
 
@@ -61,8 +82,8 @@ export class SweepBucketUseCase {
     ];
   }
 
-  private async orphanImportKeys(now: Date): Promise<string[]> {
-    const objects = parsed(await this.storage.listKeys(IMPORTS_BUCKET_PREFIX), parseImportKey);
+  private async orphanImportKeys(listed: readonly ListedObject[], now: Date): Promise<string[]> {
+    const objects = parsed(listed, parseImportKey);
     const ids = unique(objects.map((object) => object.parts.importId));
     const [imports, activities] = await Promise.all([
       this.references.importOwners(ids),

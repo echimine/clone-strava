@@ -15,7 +15,7 @@ import { ActivityMediaRepository } from "../repositories/activity-media.reposito
 import { ActivityRepository } from "../repositories/activity.repository.js";
 import { activityNotFound } from "../services/activity-not-found.js";
 import { AuthorActivityResolver } from "../services/author-activity-resolver.js";
-import { mediaLimitReached } from "./request-media-upload-urls.use-case.js";
+import { mediaLimitReached, mediaMissing } from "../services/media-errors.js";
 
 export interface ConfirmMediaResult {
   /** `false` for a replay of a Media already confirmed. */
@@ -89,7 +89,7 @@ export class ConfirmMediaUseCase {
     const specs: readonly MediaFileSpec[] = MEDIA_FILE_SPECS[kind];
     const objects = await Promise.all(specs.map((spec) => this.storage.headObject(`${folderKey}${spec.name}`)));
     if (objects.some((object) => object === undefined)) {
-      throw new ConflictException({ code: "media_missing", message: "A file of the Media is not in the bucket" });
+      throw mediaMissing();
     }
     const valid = await Promise.all(
       specs.map(async (spec, index) => {
@@ -108,7 +108,7 @@ export class ConfirmMediaUseCase {
     );
     if (valid.includes(undefined)) {
       // Removed between the HEAD and the read (bucket-sweep).
-      throw new ConflictException({ code: "media_missing", message: "A file of the Media is not in the bucket" });
+      throw mediaMissing();
     }
     if (valid.includes(false)) {
       throw new ConflictException({

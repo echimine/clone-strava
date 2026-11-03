@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { mediaKindSchema, type MediaKind } from "../common/enums.js";
+import { mediaKindSchema } from "../common/enums.js";
 
 /**
  * A Media as every response gives it (ADR-037 §7): a flat object, ordered by its array, with
@@ -24,14 +24,8 @@ export const mediaSchema = z
   .meta({ id: "Media" });
 export type Media = z.infer<typeof mediaSchema>;
 
+/** How long a Media file's `url`, `posterUrl` and `thumbUrl` stay valid (ADR-037 §1: 1 hour). */
+export const MEDIA_URL_EXPIRES_IN_SECONDS = 60 * 60;
+
 /** The most Media an Activity holds (ADR-037 §4, §7). */
 export const ACTIVITY_MEDIA_MAX = 8;
-
-/**
- * The files in a Media's folder (`activityMediaPrefix`, stored as `activity_media.s3_key`), all
- * made on the iPhone (ADR-037 §3).
- */
-export const MEDIA_FILES = {
-  photo: { original: "original.jpg", poster: null, thumb: "thumb.jpg" },
-  video: { original: "original.mp4", poster: "poster.jpg", thumb: "thumb.jpg" },
-} as const satisfies Record<MediaKind, { original: string; poster: string | null; thumb: string }>;

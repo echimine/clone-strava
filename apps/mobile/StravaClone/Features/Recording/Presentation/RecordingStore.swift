@@ -199,11 +199,7 @@ final class RecordingStore {
         if let mediaUploads {
             await mediaUploads.adopt(picked.map(\.media))
             // Counting the cut videos may wait for a library copy: the tab does not.
-            Task {
-                if let saved = await draft.saved() {
-                    mediaUploads.analytics.capture(.activityMediaSaved(entry: .recording, saved))
-                }
-            }
+            Task { await mediaUploads.reportSaved(draft, entry: .recording) }
         }
         mediaDraft = Self.emptyMediaDraft
         preferences.rememberSavedSport(recording.sport)

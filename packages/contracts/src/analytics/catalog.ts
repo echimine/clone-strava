@@ -135,6 +135,8 @@ export const APP_ANALYTICS_EVENTS = {
   MEDIA_VIEWER_OPENED: "media_viewer_opened",
   /** "Enregistrer" with the Media changed, once per session (end of Recording or "Modifier"). */
   ACTIVITY_MEDIA_SAVED: "activity_media_saved",
+  /** A Media tile turned "Échec" (or "Média indisponible hors connexion"), each time. */
+  MEDIA_UPLOAD_FAILED: "media_upload_failed",
   /** The profile's Galerie tab opened, on one's own profile or another athlete's. */
   GALLERY_VIEWED: "gallery_viewed",
 } as const;
@@ -187,6 +189,14 @@ export const activityMediaSavedPropertiesSchema = z.object({
   mediaCount: z.number().int().min(0).max(8),
 });
 export type ActivityMediaSavedProperties = z.infer<typeof activityMediaSavedPropertiesSchema>;
+
+/** `media_upload_failed`: the kind of the Media and why it failed. No `mediaId` or `activityId`. */
+export const mediaUploadFailedPropertiesSchema = z.object({
+  kind: z.enum(["photo", "video"]),
+  reason: z.enum(["network", "limit_reached", "invalid", "export_failed"]),
+});
+export type MediaUploadFailedProperties = z.infer<typeof mediaUploadFailedPropertiesSchema>;
+
 /** `gallery_viewed`: whether the Gallery is the viewer's own. */
 export const galleryViewedPropertiesSchema = z.object({ isOwn: z.boolean() });
 export type GalleryViewedProperties = z.infer<typeof galleryViewedPropertiesSchema>;
@@ -200,5 +210,6 @@ export const appAnalyticsEventPropertiesSchemas = {
   [APP_ANALYTICS_EVENTS.AVATAR_PROMPT_DEFERRED]: avatarPromptDeferredPropertiesSchema,
   [APP_ANALYTICS_EVENTS.MEDIA_VIEWER_OPENED]: mediaViewerOpenedPropertiesSchema,
   [APP_ANALYTICS_EVENTS.ACTIVITY_MEDIA_SAVED]: activityMediaSavedPropertiesSchema,
+  [APP_ANALYTICS_EVENTS.MEDIA_UPLOAD_FAILED]: mediaUploadFailedPropertiesSchema,
   [APP_ANALYTICS_EVENTS.GALLERY_VIEWED]: galleryViewedPropertiesSchema,
 } as const satisfies Record<AppAnalyticsEventName, z.ZodType>;

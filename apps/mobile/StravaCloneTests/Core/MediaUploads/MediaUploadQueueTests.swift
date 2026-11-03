@@ -20,7 +20,7 @@ struct MediaUploadQueueTests {
     ) async throws -> (MediaUploadQueue, PickedMedia) {
         let queue = harness.makeQueue(transfer: transfer)
         let photo = MediaUploadHarness.photo()
-        await queue.enqueue([(photo, position)], to: harness.activityID)
+        await queue.enqueue([QueuedMedia(media: photo, position: position)], to: harness.activityID)
         #expect(await eventually { transfer.started.count == 2 })
         return (queue, photo)
     }
@@ -116,7 +116,7 @@ struct MediaUploadQueueTests {
         MediaUploadHarness.route { _ in (503, "") }
         let queue = harness.makeQueue(transfer: FakeMediaTransfer())
         let photo = MediaUploadHarness.photo()
-        await queue.enqueue([(photo, 0)], to: harness.activityID)
+        await queue.enqueue([QueuedMedia(media: photo, position: 0)], to: harness.activityID)
         #expect(await eventually { (try? await row(harness, photo))?.attempts == 1 })
 
         for _ in 0 ..< 3 {
@@ -176,7 +176,7 @@ struct MediaUploadQueueTests {
         let queue = harness.makeQueue(transfer: transfer)
         let photo = MediaUploadHarness.photo()
 
-        await queue.enqueue([(photo, 0)], to: harness.activityID)
+        await queue.enqueue([QueuedMedia(media: photo, position: 0)], to: harness.activityID)
 
         #expect(await eventually { (try? await row(harness, photo))?.state == .failed })
         #expect(try await row(harness, photo)?.failure == .limitReached)
@@ -205,7 +205,7 @@ struct MediaUploadQueueTests {
         let queue = harness.makeQueue(transfer: transfer)
         let unreadable = MediaUploadHarness.photo(Data("not an image".utf8))
 
-        await queue.enqueue([(unreadable, 0)], to: harness.activityID)
+        await queue.enqueue([QueuedMedia(media: unreadable, position: 0)], to: harness.activityID)
 
         #expect(await eventually { (try? await row(harness, unreadable))?.state == .failed })
         #expect(try await row(harness, unreadable)?.failure == .exportFailed)
@@ -219,7 +219,7 @@ struct MediaUploadQueueTests {
         let queue = harness.makeQueue(transfer: FakeMediaTransfer())
         let photo = MediaUploadHarness.photo()
 
-        await queue.enqueue([(photo, 0)], to: harness.activityID)
+        await queue.enqueue([QueuedMedia(media: photo, position: 0)], to: harness.activityID)
 
         #expect(await eventually { harness.requestLines.count == 1 })
         #expect(await eventually { (try? await row(harness, photo)) == nil })
@@ -236,7 +236,7 @@ struct MediaUploadQueueTests {
         let transfer = FakeMediaTransfer()
         let queue = harness.makeQueue(transfer: transfer)
         let photo = MediaUploadHarness.photo()
-        await queue.enqueue([(photo, 0)], to: harness.activityID)
+        await queue.enqueue([QueuedMedia(media: photo, position: 0)], to: harness.activityID)
         #expect(await eventually { (try? await row(harness, photo))?.state == .failed })
         MediaUploadHarness.route { _ in MediaUploadHarness.uploadURLs() }
 

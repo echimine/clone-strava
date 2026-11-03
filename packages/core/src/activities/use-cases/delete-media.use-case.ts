@@ -40,8 +40,7 @@ export class DeleteMediaUseCase {
     // After the commit (ADR-021 §3). The row is gone: files left behind are unreachable, so a
     // failure is only logged and the daily `bucket-sweep` catches them (ADR-037 §11).
     try {
-      const listed = await this.storage.listKeys(activityMediaPrefix(activity.userId, activity.id, mediaId));
-      await this.storage.deleteObjects(listed.map((object) => object.key));
+      await this.storage.deleteFolder(activityMediaPrefix(activity.userId, activity.id, mediaId));
     } catch (error: unknown) {
       this.logger.warn(`Files of deleted Media ${mediaId} not removed: ${String(error)}`);
     }

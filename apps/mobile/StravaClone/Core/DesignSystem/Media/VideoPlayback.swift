@@ -4,12 +4,10 @@ import SwiftUI
 /// playback when it becomes the current slide of a shown carousel and releases it when it stops
 /// being current or leaves the screen. The last claim plays; when it is released, the previous
 /// claim still shown plays again (scrolling back up the feed, coming back from the detail).
+/// One instance for the app, made by `Di` and set in the environment by the app shell.
 @MainActor
 @Observable
 final class VideoPlayback {
-    /// App-wide instance, the environment default.
-    nonisolated static let shared = VideoPlayback()
-
     private var claims: [UUID] = []
 
     nonisolated init() {}
@@ -28,6 +26,7 @@ final class VideoPlayback {
 }
 
 extension EnvironmentValues {
-    /// Shared by every carousel, so only one video plays at a time.
-    @Entry var videoPlayback: VideoPlayback = .shared
+    /// Shared by every carousel, so only one video plays at a time. Set by the app shell; a fresh
+    /// one in the previews.
+    @Entry var videoPlayback = VideoPlayback()
 }

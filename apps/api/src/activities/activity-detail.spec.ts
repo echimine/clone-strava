@@ -24,7 +24,7 @@ import { MediaAssembler } from "../media/media-assembler.js";
 import { AthleteIdentities } from "../identities/athlete-identities.js";
 import { ActivitiesController } from "./activities.controller.js";
 import { listenOnLoopback } from "../testing/listen-on-loopback.js";
-import { signedAvatarUrl } from "../testing/signed-avatar-url.js";
+import { signedAvatarUrl, signedMediaUrl } from "../testing/signed-urls.js";
 
 /** A stored Activity analysis (ADR-036 §6), as the worker writes it. */
 const ANALYSIS = {
@@ -65,11 +65,8 @@ describe("GET /v1/activities/:id (integration)", () => {
   };
   const media = { first: randomUUID(), video: randomUUID(), late: randomUUID(), ofPending: randomUUID() };
   const mediaFolder = (activityId: string, mediaId: string) => `activities/${author}/${activityId}/media/${mediaId}/`;
-  /** A 1-hour pre-signed GET of a Media file (ADR-037 §1), path-style on the test bucket. */
   const signed = (activityId: string, mediaId: string, file: string) =>
-    expect.stringMatching(
-      new RegExp(`^https://bucket\\.test/test/${mediaFolder(activityId, mediaId)}${file.replace(".", "\\.")}\\?.*X-Amz-Expires=3600`),
-    );
+    signedMediaUrl(mediaFolder(activityId, mediaId), file);
   const startedAt = new Date("2026-10-12T07:30:00.000Z");
   const updatedAt = new Date("2026-10-13T18:00:00.000Z");
 

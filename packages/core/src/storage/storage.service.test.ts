@@ -147,7 +147,7 @@ describe("StorageService.getObjectRange", () => {
 });
 
 describe("StorageService.listKeys", () => {
-  it("walks every page under the prefix, with each object's size and date (ADR-037 §11)", async () => {
+  it("walks every page under the prefix, with each object's date (ADR-037 §11)", async () => {
     const bucket = new FakeBucket();
     const keys = Array.from({ length: 2500 }, (_, i) => `activities/u/a/media/${String(i).padStart(4, "0")}`);
     for (const key of keys) bucket.put(key);
@@ -160,7 +160,6 @@ describe("StorageService.listKeys", () => {
     expect(listed.map((object) => object.key).sort()).toEqual([...keys, "activities/u/a/trace.json.gz"].sort());
     expect(listed.find((object) => object.key === "activities/u/a/trace.json.gz")).toEqual({
       key: "activities/u/a/trace.json.gz",
-      sizeBytes: 7,
       lastModified,
     });
   });
@@ -184,5 +183,20 @@ describe("StorageService.deleteObjects", () => {
 
   it("does nothing for no keys", async () => {
     await expect(storageOn(new FakeBucket()).deleteObjects([])).resolves.toBeUndefined();
+  });
+});
+
+describe("StorageService.deleteFolder", () => {
+  it("deletes every object under the prefix, past one page, and the keys given besides (ADR-037 §11)", async () => {
+    const bucket = new FakeBucket();
+    for (let i = 0; i < 1500; i += 1) bucket.put(`activities/u/a/media/${i}/thumb.jpg`);
+    bucket.put("activities/u/a/trace.json.gz");
+    bucket.put("imports/u/a/source.fit");
+    bucket.put("activities/u/ab/trace.json.gz");
+    bucket.put("imports/u/b/source.fit");
+
+    await storageOn(bucket).deleteFolder("activities/u/a/", ["imports/u/a/source.fit"]);
+
+    expect([...bucket.objects.keys()].sort()).toEqual(["activities/u/ab/trace.json.gz", "imports/u/b/source.fit"]);
   });
 });

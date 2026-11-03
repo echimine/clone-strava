@@ -26,7 +26,7 @@ struct MediaUploadVideoTests {
         let video = MediaUploadHarness.video(try await TestMovie.make(seconds: 3))
         videoID.value = video.id
 
-        await queue.enqueue([(video, 1)], to: harness.activityID)
+        await queue.enqueue([QueuedMedia(media: video, position: 1)], to: harness.activityID)
         #expect(await eventually { transfer.started.count == 3 })
 
         let urls = try #require(try harness.lastBody("upload-urls"))
@@ -60,7 +60,7 @@ struct MediaUploadVideoTests {
         try Data("not a movie".utf8).write(to: notAMovie)
         let video = MediaUploadHarness.video(notAMovie)
 
-        await queue.enqueue([(video, 0)], to: harness.activityID)
+        await queue.enqueue([QueuedMedia(media: video, position: 0)], to: harness.activityID)
 
         #expect(await eventually { (try? await harness.store.upload(video.id))?.state == .failed })
         #expect(try await harness.store.upload(video.id)?.failure == .exportFailed)

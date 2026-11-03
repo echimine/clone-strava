@@ -67,6 +67,15 @@ final class AthleteSearchStore {
         return task
     }
 
+    /// The shown query searched again at once (fresh Avatar URLs after a `403`, ADR-037 §1).
+    func refresh() async {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count >= Self.minimumLength else { return }
+        pending?.cancel()
+        pending = nil
+        await search(trimmed)
+    }
+
     private func search(_ query: String) async {
         guard !Task.isCancelled else { return }
         do {

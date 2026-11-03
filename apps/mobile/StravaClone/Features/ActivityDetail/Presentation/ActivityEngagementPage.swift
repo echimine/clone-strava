@@ -69,8 +69,11 @@ struct ActivityEngagementPage: View {
                 switch store.tab {
                 case .kudos:
                     KudosListView(store: store.kudos)
+                        // ADR-037 §1: an expired pre-signed Avatar URL brings fresh ones.
+                        .onImageURLExpired { await store.kudos.load() }
                 case .comments:
                     ActivityEngagementComments(store: store.comments)
+                        .onImageURLExpired { await store.comments.load() }
                 }
             }
         }

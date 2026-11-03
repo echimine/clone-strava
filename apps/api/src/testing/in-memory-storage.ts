@@ -63,13 +63,14 @@ export class InMemoryStorage implements Pick<StorageService, keyof StorageServic
   }
 
   async listKeys(prefix: string): Promise<ListedObject[]> {
-    return [...this.objects]
-      .filter(([key]) => key.startsWith(prefix))
-      .map(([key, body]) => ({
-        key,
-        sizeBytes: body.byteLength,
-        lastModified: this.lastModified.get(key) ?? new Date(),
-      }));
+    return [...this.objects.keys()]
+      .filter((key) => key.startsWith(prefix))
+      .map((key) => ({ key, lastModified: this.lastModified.get(key) ?? new Date() }));
+  }
+
+  async deleteFolder(prefix: string, alsoKeys: readonly string[] = []): Promise<void> {
+    const listed = await this.listKeys(prefix);
+    this.deleteObjectsNow([...listed.map((object) => object.key), ...alsoKeys]);
   }
 
   async putObject(key: string, body: Uint8Array): Promise<void> {

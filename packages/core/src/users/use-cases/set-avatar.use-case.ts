@@ -3,7 +3,7 @@ import { AVATAR_MAX_BYTES, avatarKey } from "@repo/contracts";
 import { DATABASE, type Database } from "../../infrastructure/index.js";
 import { StorageService } from "../../storage/index.js";
 import { UserProfileRepository } from "../repositories/user-profile.repository.js";
-import { deleteOldAvatar } from "./delete-old-avatar.js";
+import { deleteOldAvatar } from "../services/delete-old-avatar.js";
 
 /**
  * Stores an object already in the bucket as the Avatar (ADR-037 §2): `PUT /v1/me/avatar` after the

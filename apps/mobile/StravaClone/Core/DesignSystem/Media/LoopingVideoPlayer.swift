@@ -7,11 +7,14 @@ import SwiftUI
 struct LoopingVideoPlayer: UIViewRepresentable {
     let url: URL
     var muted = true
+    /// The URL answered `403` (expired, ADR-037 §1): the screen's `\.imageURLExpired`.
+    var expired: @MainActor () -> Void = {}
 
     func makeUIView(context: Context) -> PlayerView {
         let view = PlayerView()
         let player = AVQueuePlayer()
         context.coordinator.looper = AVPlayerLooper(player: player, templateItem: AVPlayerItem(url: url))
+        context.coordinator.expiry = VideoURLExpiryObserver(player: player, expired: expired)
         player.isMuted = muted
         player.preventsDisplaySleepDuringVideoPlayback = false
         MediaAudioSession.prepare(muted: muted)
@@ -30,6 +33,7 @@ struct LoopingVideoPlayer: UIViewRepresentable {
     static func dismantleUIView(_ view: PlayerView, coordinator: Coordinator) {
         view.playerLayer.player?.pause()
         coordinator.looper?.disableLooping()
+        coordinator.expiry = nil
         view.playerLayer.player = nil
     }
 
@@ -37,6 +41,7 @@ struct LoopingVideoPlayer: UIViewRepresentable {
 
     final class Coordinator {
         var looper: AVPlayerLooper?
+        var expiry: VideoURLExpiryObserver?
     }
 
     final class PlayerView: UIView {

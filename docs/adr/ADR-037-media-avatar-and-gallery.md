@@ -257,6 +257,7 @@ The carousel is not tracked; "Réessayer", "Retirer" and the viewer's swipes hav
 
 - **Depends on**: [ADR-001](ADR-001-global-architecture.md), [ADR-009](ADR-009-backend-api.md) (§6 private bucket), [ADR-018](ADR-018-docker-vps-deployment.md) (assets bucket), [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md), [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md)
 - **Amends**:
+  - [ADR-007](ADR-007-mobile-architecture.md): `Core/MediaUploads`, `Core/Avatar`, `Core/DesignSystem/Media`, `Core/DesignSystem/Avatar` and `Core/DesignSystem/Images` in the building blocks' locations.
   - [ADR-011](ADR-011-backend-worker.md): no `media` queue; the daily `bucket-sweep` and the Google Avatar copy are the worker's only Media-related jobs.
   - [ADR-017](ADR-017-data-model.md): `activity_media` (from `activity_attachment`) with `width`, `height`, `duration_ms`; `media_kind`; `activity.media_first`; `user_profile.avatar_key`.
   - [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md): §1 `activity_media` in `activities`, §2 rule 7 the three user prefixes for account deletion.

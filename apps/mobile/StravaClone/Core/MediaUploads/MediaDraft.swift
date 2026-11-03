@@ -89,9 +89,9 @@ struct MediaDraft: Equatable {
     var order: [UUID] { items.map(\.id) }
 
     /// The Media to send, each at its index in `order` (its `position`).
-    var queued: [(media: PickedMedia, position: Int)] {
+    var queued: [QueuedMedia] {
         items.enumerated().compactMap { index, item in
-            if case .added(let picked) = item { (picked, index) } else { nil }
+            if case .added(let picked) = item { QueuedMedia(media: picked, position: index) } else { nil }
         }
     }
 
