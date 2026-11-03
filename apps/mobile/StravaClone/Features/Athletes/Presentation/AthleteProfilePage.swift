@@ -10,6 +10,8 @@ struct AthleteProfilePage: View {
     private let openEngagement: @MainActor (ActivityEngagementRequest) -> Void
     /// Plus > Statistiques; nil: the row is shown, not tappable.
     private let openStatistics: (@MainActor (AthleteProfile) -> Void)?
+    /// Their counters: the followers and following lists; nil: not tappable.
+    private let openFollows: (@MainActor (AthleteFollowsRequest) -> Void)?
 
     @Environment(\.openAthlete) private var openAthlete
 
@@ -18,12 +20,14 @@ struct AthleteProfilePage: View {
         makeStore: @MainActor (String) -> AthleteProfileStore,
         openActivity: @escaping @MainActor (ActivityDetailRequest) -> Void,
         openEngagement: @escaping @MainActor (ActivityEngagementRequest) -> Void,
-        openStatistics: (@MainActor (AthleteProfile) -> Void)? = nil
+        openStatistics: (@MainActor (AthleteProfile) -> Void)? = nil,
+        openFollows: (@MainActor (AthleteFollowsRequest) -> Void)? = nil
     ) {
         _store = State(initialValue: makeStore(request.id))
         self.openActivity = openActivity
         self.openEngagement = openEngagement
         self.openStatistics = openStatistics
+        self.openFollows = openFollows
     }
 
     var body: some View {
@@ -77,7 +81,7 @@ struct AthleteProfilePage: View {
     private func page(_ profile: AthleteProfile) -> some View {
         ScrollView {
             LazyVStack(spacing: Theme.spacing, pinnedViews: .sectionHeaders) {
-                AthleteProfileHeader(profile: profile) {
+                AthleteProfileHeader(profile: profile, onFollows: followsAction(profile)) {
                     if let status = store.followStatus {
                         FollowButton(
                             status: status,
@@ -123,6 +127,11 @@ struct AthleteProfilePage: View {
         case .more:
             AthleteMoreTab(yearToDateDistance: store.yearToDateDistance, openStatistics: statisticsAction(profile))
         }
+    }
+
+    private func followsAction(_ profile: AthleteProfile) -> ((AthleteFollowsRequest.List) -> Void)? {
+        guard let openFollows else { return nil }
+        return { openFollows(AthleteFollowsRequest(profile: profile, list: $0)) }
     }
 
     private func statisticsAction(_ profile: AthleteProfile) -> (@MainActor () -> Void)? {

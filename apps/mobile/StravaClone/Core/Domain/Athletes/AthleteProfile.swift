@@ -15,7 +15,7 @@ struct AthleteProfile: Equatable, Sendable {
     /// Consecutive weeks with an Activity, ending with the current week (ADR-036 §4).
     let streakWeeks: Int
     var followerCount: Int
-    let followingCount: Int
+    var followingCount: Int
     /// Nil on one's own profile.
     let viewerFollowStatus: FollowStatus?
     /// Up to 2 of the athlete's followers whom the viewer follows.
@@ -24,7 +24,7 @@ struct AthleteProfile: Equatable, Sendable {
     /// Own profile only: "Approuver mes abonnés".
     var approveFollowers: Bool?
     /// Own profile only.
-    let pendingFollowRequestCount: Int?
+    var pendingFollowRequestCount: Int?
     /// Own profile only: the number of Itineraries, for Plus.
     let itineraryCount: Int?
 

@@ -2,9 +2,10 @@ import SwiftUI
 
 /// Top of another athlete's profile (ADR-036 §3): avatar, name, Activity count and Streak, the
 /// counters after the avatars of up to 2 of their followers the viewer follows too, then the
-/// follow button. The counters' lists come later.
+/// follow button. Each counter opens its list.
 struct AthleteProfileHeader<FollowButtonContent: View>: View {
     let profile: AthleteProfile
+    var onFollows: ((AthleteFollowsRequest.List) -> Void)?
     @ViewBuilder let followButton: () -> FollowButtonContent
 
     var body: some View {
@@ -26,13 +27,16 @@ struct AthleteProfileHeader<FollowButtonContent: View>: View {
             HStack(spacing: 8) {
                 if !profile.followersYouKnow.isEmpty {
                     KudosAvatarStack(givers: profile.followersYouKnow, size: 24, ring: Color(.systemGroupedBackground))
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel(Text(AthletesMessages.followersYouKnow(profile.followersYouKnow)))
                 }
-                Text("\(AthletesMessages.followers(profile.followerCount)) • \(AthletesMessages.following(profile.followingCount))")
-                    .font(.subheadline)
-                    .monospacedDigit()
+                FollowCounters(
+                    followers: AthletesMessages.followers(profile.followerCount),
+                    following: AthletesMessages.following(profile.followingCount),
+                    open: onFollows
+                )
             }
-            .accessibilityElement(children: .combine)
-            .accessibilityHint(profile.followersYouKnow.isEmpty ? Text("") : Text(AthletesMessages.followersYouKnow(profile.followersYouKnow)))
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier("athleteProfile.followCounts")
             followButton()
         }

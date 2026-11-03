@@ -74,6 +74,7 @@ extension AthleteProfile {
         followingCount: Int = 8,
         viewerFollowStatus: FollowStatus? = nil,
         approveFollowers: Bool? = false,
+        pendingFollowRequestCount: Int? = 0,
         itineraryCount: Int? = 3
     ) -> AthleteProfile {
         AthleteProfile(
@@ -86,7 +87,7 @@ extension AthleteProfile {
             followersYouKnow: [],
             practicedSports: [.run],
             approveFollowers: approveFollowers,
-            pendingFollowRequestCount: 0,
+            pendingFollowRequestCount: pendingFollowRequestCount,
             itineraryCount: itineraryCount
         )
     }

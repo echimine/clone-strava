@@ -132,6 +132,37 @@ struct ProfileStoreTests {
         #expect(store.path.count == 3)
     }
 
+    @Test func myCountersOpenMyListsAndTheMagnifierTheSearch() async {
+        let athletes = FakeAthleteRepository()
+        athletes.profileResult = .success(.fixture(followerCount: 12, followingCount: 8, pendingFollowRequestCount: 2))
+        let store = makeStore(athletes)
+        store.openFollows(.followers)
+        #expect(store.path.isEmpty)
+
+        await store.load(athleteId: "me")
+        store.openFollows(.following)
+        store.openSearch()
+
+        #expect(store.followsRequest(.following)?.list == .following)
+        #expect(store.followsRequest(.following)?.isOwn == true)
+        #expect(store.followsRequest(.following)?.pendingRequestCount == 2)
+        #expect(store.path.count == 2)
+    }
+
+    @Test func myCountersFollowWhatMyFollowScreensChange() async {
+        let athletes = FakeAthleteRepository()
+        athletes.profileResult = .success(.fixture(followerCount: 12, followingCount: 8, pendingFollowRequestCount: 2))
+        let store = makeStore(athletes)
+        await store.load(athleteId: "me")
+
+        store.apply(FollowCountsChange(followers: 1, pendingRequests: -1))
+        store.apply(FollowCountsChange.following(from: FollowStatus.none, to: .accepted))
+
+        #expect(store.profile?.followerCount == 13)
+        #expect(store.profile?.followingCount == 9)
+        #expect(store.profile?.pendingFollowRequestCount == 1)
+    }
+
     @Test func theStatisticsRowOpensMyStatisticsWithMySports() async {
         let store = makeStore(loadedRepository())
         store.openStatistics()

@@ -18,6 +18,43 @@ enum AthletesMessages {
     static let emptyActivitiesDescription = "Aucune activité visible pour l'instant."
     static let openActivity = "Ouvrir l'activité"
 
+    // Followers and following lists, follow requests (ADR-036 §1).
+    static let followRequests = "Demandes d'abonnement"
+    static let accept = "Accepter"
+    static let refuse = "Refuser"
+    static let acceptFailed = "La demande n'a pas pu être acceptée, réessayez."
+    static let refuseFailed = "La demande n'a pas pu être refusée, réessayez."
+    static let remove = "Retirer"
+    static let emptyFollowersTitle = "Aucun abonné"
+    static let emptyFollowingTitle = "Aucun abonnement"
+    static let emptyRequestsTitle = "Aucune demande"
+    static let emptyRequestsDescription = "Les demandes d'abonnement en attente s'affichent ici."
+
+    // Search (ADR-036 §2).
+    static let searchTitle = "Rechercher"
+    static let searchPrompt = "Rechercher un athlète"
+    static let searchHint = "Saisissez au moins 2 lettres d'un prénom ou d'un nom."
+    static let searchEmptyTitle = "Aucun athlète trouvé"
+    static let searchEmptyDescription = "Vérifiez l'orthographe ou essayez un autre nom."
+
+    /// The segments: "Abonnés · 12", "Abonnements · 8".
+    static func listTitle(_ list: AthleteFollowsRequest.List, count: Int) -> String {
+        switch list {
+        case .followers: "Abonnés · \(count)"
+        case .following: "Abonnements · \(count)"
+        }
+    }
+
+    static func removeFollowerTitle(_ name: String) -> String {
+        "Retirer \(name) de vos abonnés ?"
+    }
+
+    static let removeFollowerMessage = "Cette personne ne sera pas prévenue. Elle pourra s'abonner de nouveau."
+
+    static func pendingRequests(_ count: Int) -> String {
+        count == 1 ? "1 demande en attente" : "\(count) demandes en attente"
+    }
+
     enum Tab: Hashable, CaseIterable {
         case activities, more
     }

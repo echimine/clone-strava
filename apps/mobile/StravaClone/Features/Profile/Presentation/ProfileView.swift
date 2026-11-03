@@ -4,14 +4,16 @@ import SwiftUI
 /// magnifier and the gear to Réglages at the top right. The header scrolls away and leaves my
 /// name in the navigation bar. Knows nothing of other features (ADR-007 rule 5): the app shell
 /// passes the search, "Mes Itinéraires" (ADR-030), the Activity detail, the Kudos and comments
-/// screen, Statistiques and another athlete's profile pushed in this tab's own stack, and what
-/// a sign-out would lose (ADR-030 §8).
+/// screen, Statistiques, the followers and following lists and another athlete's profile pushed
+/// in this tab's own stack, and what a sign-out would lose (ADR-030 §8).
 struct ProfileView<
     Itineraries: View,
     ActivityDestination: View,
     EngagementDestination: View,
     StatisticsDestination: View,
-    AthleteDestination: View
+    AthleteDestination: View,
+    Search: View,
+    FollowsDestination: View
 >: View {
     @Bindable var store: ProfileStore
     let authStore: AuthStore
@@ -20,14 +22,16 @@ struct ProfileView<
     var beforeSignOut: @MainActor () async -> Void = {}
     /// Debug builds only: the app shell passes its animations preview screen.
     var animationsPreview: AnyView?
-    /// The magnifier: athlete search, once it exists.
-    var onSearch: () -> Void = {}
     @ViewBuilder var itineraries: () -> Itineraries
     @ViewBuilder var openActivity: (ActivityDetailRequest) -> ActivityDestination
     @ViewBuilder var openEngagement: (ActivityEngagementRequest) -> EngagementDestination
     /// Statistiques (ADR-036 §4), the same screen as on another athlete's profile.
     @ViewBuilder var openStatistics: (AthleteStatisticsRequest) -> StatisticsDestination
     @ViewBuilder var openAthlete: (AthleteProfileRequest) -> AthleteDestination
+    /// The magnifier: the athlete search (ADR-036 §2).
+    @ViewBuilder var search: () -> Search
+    /// The followers and following lists, mine or another athlete's (ADR-036 §1).
+    @ViewBuilder var openFollows: (AthleteFollowsRequest) -> FollowsDestination
 
     @State private var isEditingName = false
     /// The header has scrolled away: the name shows in the navigation bar.
@@ -64,6 +68,8 @@ struct ProfileView<
                         )
                     case .itineraries:
                         itineraries()
+                    case .search:
+                        search()
                     }
                 }
                 .navigationDestination(for: ActivityDetailRequest.self) { request in
@@ -78,13 +84,16 @@ struct ProfileView<
                 .navigationDestination(for: AthleteProfileRequest.self) { request in
                     openAthlete(request)
                 }
+                .navigationDestination(for: AthleteFollowsRequest.self) { request in
+                    openFollows(request)
+                }
         }
         .toast($store.toast)
     }
 
     @ToolbarContentBuilder private var toolbar: some ToolbarContent {
         ToolbarItemGroup(placement: .topBarTrailing) {
-            Button(action: onSearch) {
+            Button(action: store.openSearch) {
                 Image(systemName: "magnifyingglass")
             }
             .accessibilityLabel(ProfileMessages.search)
@@ -120,7 +129,7 @@ struct ProfileView<
     private func page(_ profile: AthleteProfile) -> some View {
         ScrollView {
             LazyVStack(spacing: Theme.spacing, pinnedViews: .sectionHeaders) {
-                ProfileHeader(profile: profile) { isEditingName = true }
+                ProfileHeader(profile: profile, onFollows: store.openFollows) { isEditingName = true }
                     .padding(.horizontal, Theme.spacing)
                     .onScrolledAway { isHeaderHidden = $0 }
                 Section {
