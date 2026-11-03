@@ -31,7 +31,7 @@ Two kinds of modules:
 | `users` | domain | `user_profile`, `user_sport` (*amended by [ADR-035](ADR-035-onboarding-sign-in-code-paywall.md)*) | Profile, units, default visibility, privacy zone radius, health data, practiced sports |
 | `sports` | domain | `sport_type` | Reference data (populated by migration), per-sport rules |
 | `social` | domain | `follow`, `follow_settings` (*amended by [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md)*) | Follow graph: follow, accept, unfollow, "does A follow B", followee lists; follow requests, followers and following lists, "Approuver mes abonnés" |
-| `activities` | domain | `activity`, `activity_stats`, `activity_track`, `activity_attachment`, `activity_import` (*amended by ADR-028*), `activity_analysis` (*amended by [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md)*) | Creation, upload, processing, visibility, feed, file import; profile counts, Streak, statistics, splits and series |
+| `activities` | domain | `activity`, `activity_stats`, `activity_track`, `activity_media` (*amended by [ADR-037](ADR-037-media-avatar-and-gallery.md)*: was `activity_attachment`), `activity_import` (*amended by ADR-028*), `activity_analysis` (*amended by [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md)*) | Creation, upload, processing, visibility, feed, file import; profile counts, Streak, statistics, splits and series; Media and the Gallery (*amended by [ADR-037](ADR-037-media-avatar-and-gallery.md)*) |
 | `engagement` | domain | `kudos`, `comment` | Kudos and comments on activities |
 | `itineraries` | domain | `itinerary`, `itinerary_waypoint`, `itinerary_leg` (*amended by [ADR-030](ADR-030-itineraries-on-ios.md)*) | Planned Itineraries: Waypoints, Legs, metrics |
 | `segments` | domain | `segment`, `segment_effort` | Segments, matching, leaderboards |
@@ -69,7 +69,7 @@ Rules:
 4. **Domain events and analytics events** are emitted by the module service, **after the transaction commit** (ADR-011). Realtime messages to the mobile app are never published by a domain module: they come from the bridge (§3).
 5. **Cross-module references are identifiers only** (`userId`, `activityId`): no module returns another module's Drizzle entities.
 6. **Reading another module's data goes through its service, in batch**: services expose methods that take a list of identifiers (e.g. `users.getSummaries(userIds)`, `engagement.getCounts(activityIds)`). A list screen then costs one query per module, not one per row (§6).
-7. **Deleting a user account** (GDPR) cascades through foreign keys in the database; any cleanup outside the database (bucket objects, RevenueCat) will be a dedicated job, to be specified when account deletion is built.
+7. **Deleting a user account** (GDPR) cascades through foreign keys in the database; any cleanup outside the database (bucket objects, RevenueCat) will be a dedicated job, to be specified when account deletion is built. *Amended by [ADR-037](ADR-037-media-avatar-and-gallery.md) §11*: every object of a user lives under `activities/{userId}/`, `imports/{userId}/` or `avatars/{userId}/`, and no user key is written elsewhere; that job deletes these three prefixes after the database cascade, and the daily `bucket-sweep` catches its failures.
 
 ### 3. Cross-module reactions: domain events or jobs
 
@@ -129,7 +129,7 @@ Rules:
 | `engagement` (*amended by [ADR-034](ADR-034-activity-engagement-and-live-detail.md)*) | — | `engagement.comment.added` → `comment.created`, `engagement.comment.edited` → `comment.updated`, `engagement.comment.deleted` → `comment.deleted`, `engagement.kudos.given` / `removed` → `kudos.changed` (topic `activity:{id}`) | — |
 | `segments` | `segments` · `match-segments` | `segments.efforts.matched` → `activity.segments_matched` | — |
 | `subscriptions` | `subscriptions` · `sync-subscription` | — | `subscription_*` (ADR-014) |
-| later | `media` (thumbnails), `notifications` (APNs) | — | — |
+| later | ~~`media` (thumbnails)~~ (*amended by [ADR-037](ADR-037-media-avatar-and-gallery.md)*: no `media` queue), `notifications` (APNs) | — | — |
 
 The queue name is the name of the module that owns the processing logic. Domain events are added as needs appear, following §3.
 
@@ -178,7 +178,7 @@ public         Better Auth tables of the auth module (user, session, account, ve
 users          user_profile, user_sport   (added by ADR-035)
 sports         sport_type
 social         follow
-activities     activity, activity_stats, activity_track, activity_attachment
+activities     activity, activity_stats, activity_track, activity_media   (renamed by ADR-037)
 engagement     kudos, comment
 itineraries    itinerary, itinerary_waypoint, itinerary_leg   (added by ADR-030)
 segments       segment, segment_effort
@@ -272,5 +272,5 @@ This replaces the `eslint-plugin-boundaries` option mentioned in ADR-003. The ex
 
 - **Details**: [ADR-003](ADR-003-backend.md) (dedicated ADR for module boundary rules; replaces the `eslint-plugin-boundaries` option)
 - **Amends**: [ADR-017](ADR-017-data-model.md) (`kudos` and `comment` move to the new `engagement` module; one PostgreSQL schema per module), [ADR-010](ADR-010-backend-realtime.md) (realtime messages published by a single bridge listener, not by domain modules)
-- **Amended by**: [ADR-028](ADR-028-activity-import-from-file.md) (`activity_import` table, `imports` queue, `activities.import.*` events in the bridge table), [ADR-029](ADR-029-activity-feed-and-card.md) (feed assembly in `apps/api`, `geocoding` platform module), [ADR-030](ADR-030-itineraries-on-ios.md) (`itineraries` domain module, `elevation` platform module, `@repo/geo` package, `itinerary.*` events in the bridge table), [ADR-033](ADR-033-activity-detail-edit-delete.md) (`reprocess-activity` job, `activities.activity.updated` / `deleted` in the bridge table), [ADR-034](ADR-034-activity-engagement-and-live-detail.md) (`engagement` events in the bridge table), [ADR-035](ADR-035-onboarding-sign-in-code-paywall.md) (`users.user_sport` table), [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md) (`social.follow_settings`, `activities.activity_analysis`, the `athletes` composition in `apps/api`, shared keyset helpers in `infrastructure`)
+- **Amended by**: [ADR-028](ADR-028-activity-import-from-file.md) (`activity_import` table, `imports` queue, `activities.import.*` events in the bridge table), [ADR-029](ADR-029-activity-feed-and-card.md) (feed assembly in `apps/api`, `geocoding` platform module), [ADR-030](ADR-030-itineraries-on-ios.md) (`itineraries` domain module, `elevation` platform module, `@repo/geo` package, `itinerary.*` events in the bridge table), [ADR-033](ADR-033-activity-detail-edit-delete.md) (`reprocess-activity` job, `activities.activity.updated` / `deleted` in the bridge table), [ADR-034](ADR-034-activity-engagement-and-live-detail.md) (`engagement` events in the bridge table), [ADR-035](ADR-035-onboarding-sign-in-code-paywall.md) (`users.user_sport` table), [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md) (`social.follow_settings`, `activities.activity_analysis`, the `athletes` composition in `apps/api`, shared keyset helpers in `infrastructure`), [ADR-037](ADR-037-media-avatar-and-gallery.md) (`activity_media` in `activities`, §2 rule 7 the user prefixes for account deletion, no `media` queue)
 - **Related**: [ADR-004](ADR-004-backoffice.md), [ADR-005](ADR-005-monorepo.md), [ADR-009](ADR-009-backend-api.md), [ADR-010](ADR-010-backend-realtime.md), [ADR-011](ADR-011-backend-worker.md), [ADR-015](ADR-015-posthog.md), [ADR-019](ADR-019-activity-creation-flow.md), [ADR-023](ADR-023-transactional-email-resend.md) (`notifications` platform module)

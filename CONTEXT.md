@@ -38,7 +38,19 @@ _Avoid_: Lap, segment, interval
 What the server derives from an Activity's trace beyond its official values: its Splits and the curves of speed, altitude and heart rate along the distance.
 _Avoid_: Streams, charts data
 
+**Media**:
+A photo or a video an athlete attaches to one of their Activities, at most eight per Activity, photos and videos mixed; a video lasts at most one minute, anything longer is cut to its first minute. Other athletes only see a Media once it has been fully sent. A Media has no visibility of its own: whoever may see the Activity may see its Media, and no one else. Shown as "Média" in the app.
+_Avoid_: Attachment, picture, upload, post
+
 ### Athletes
+
+**Avatar**:
+The photo an athlete chooses to represent themselves, shown next to their name wherever they appear, to anyone who sees that name. An athlete who signs up with Google starts with their Google photo as Avatar; one without an Avatar is shown by their initials. Shown as "Photo de profil" in the app.
+_Avoid_: Profile picture, image, icon
+
+**Gallery**:
+All the Media of an athlete's Activities, newest first, as seen on their Athlete profile. To another athlete it only ever holds the Media of Activities that athlete may see. Shown as "Galerie" in the app.
+_Avoid_: Album, photos, media library
 
 **Athlete profile**:
 What an athlete shows of themselves: name, counts, Streak, statistics and Activities. To another athlete it only ever reflects the Activities that athlete may see. Shown as "Profil" in the app.

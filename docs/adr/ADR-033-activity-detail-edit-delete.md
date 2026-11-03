@@ -42,12 +42,14 @@ Kudos, comments and live updates on the detail are in [ADR-034](ADR-034-activity
 
 - Open to any viewer who can see the Activity, through `getVisibleActivity` (rules above). Not visible or unknown: `404 activity_not_found`.
 - The author keeps seeing their Activity **in any state** with `processingStatus` and `processingError`: the app's resync of Activities in `processing` relies on it (ADR-008 §6). Other viewers only ever get `processed` Activities.
-- Response (`activityDetailSchema`, contracts → OpenAPI → Swift, ADR-026): `id, title, description, sportTypeCode, startedAt, endedAt, visibility, processingStatus, processingError, locationName, stats {distanceM, movingTimeS, elapsedTimeS, elevationGainM, avgSpeedMs, maxSpeedMs, avgHeartRate, maxHeartRate, calories} | null, map {polyline, precision: 5} | null, author {id, displayName, avatarUrl}, engagement {kudosCount, commentCount, viewerHasKudoed}, viewerIsAuthor, updatedAt`. *Amended by [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md) §6*: plus `source`, `routeTrimmed` and `analysis {splits, series} | null`.
+- Response (`activityDetailSchema`, contracts → OpenAPI → Swift, ADR-026): `id, title, description, sportTypeCode, startedAt, endedAt, visibility, processingStatus, processingError, locationName, stats {distanceM, movingTimeS, elapsedTimeS, elevationGainM, avgSpeedMs, maxSpeedMs, avgHeartRate, maxHeartRate, calories} | null, map {polyline, precision: 5} | null, author {id, displayName, avatarUrl}, engagement {kudosCount, commentCount, viewerHasKudoed}, viewerIsAuthor, updatedAt`. *Amended by [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md) §6*: plus `source`, `routeTrimmed` and `analysis {splits, series} | null`. *Amended by [ADR-037](ADR-037-media-avatar-and-gallery.md) §7*: plus `media` and `mediaFirst`, whatever the processing state.
 - Assembled like the feed (ADR-029 §2): `activities` returns the Activity with its stats and track fields; **`apps/api`** adds the author (`users` + `auth` fallback) and engagement through the same assembler, since `activities` may not call `engagement` (ADR-021 §2).
 
 ### 3. Detail screen (iOS)
 
 *Amended by [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md) §9*: map about 300 pt on top with a full-screen map, tappable author, source line, kudos row and action bar, then Temps intermédiaires, Allure and Fréquence cardiaque; comments move to their own screen (ADR-036 §8).
+
+*Amended by [ADR-037](ADR-037-media-avatar-and-gallery.md) §10*: the map on top becomes a carousel of the map and the Media (about 330 pt, edge to edge); tapping a Media opens the full-screen viewer, and the author's "⋯" gains "Ajouter des photos ou vidéos".
 
 
 - **Map**: an interactive Mapbox `MapView` (pan, zoom) drawing `map.polyline`, camera fitted to its bounds, start and end pins. No new trace endpoint: the privacy-zoned polyline of ADR-029 §3 is enough.
@@ -59,7 +61,7 @@ Kudos, comments and live updates on the detail are in [ADR-034](ADR-034-activity
 
 ### 4. `PATCH /v1/activities/:id`
 
-- **Body**: any non-empty subset of `title` (1–255, trimmed), `description` (≤ 10,000, `null` or empty clears it), `sportTypeCode` (an active `sport_type`), `visibility` (`public` / `followers` / `private`). Same limits as `createActivityRequestSchema`. Empty body: `422`.
+- **Body**: any non-empty subset of `title` (1–255, trimmed), `description` (≤ 10,000, `null` or empty clears it), `sportTypeCode` (an active `sport_type`), `visibility` (`public` / `followers` / `private`). Same limits as `createActivityRequestSchema`. Empty body: `422`. *Amended by [ADR-037](ADR-037-media-avatar-and-gallery.md) §8*: also `mediaFirst` and `mediaOrder` (the full wanted order of the Media; unknown ids ignored, `422` on duplicates or more than 8 ids).
 - **Who**: not visible: `404`; visible but not the author: `403 not_activity_author`.
 - **When**: `processed` only; other states: `409 activity_not_editable` (the finish screen and import sheet already set these fields before processing).
 - **Sport change**: the official values must meet the new sport's minimums (`moving_time_s ≥ min_duration_s`, and `distance_m ≥ min_distance_m` for GPS sports), otherwise `422 activity_too_short_for_sport`.
@@ -84,7 +86,7 @@ Fixing the sport is the main reason to edit (a ride saved as a run lost every po
 - **Allowed** on `pending`, `failed` and now **`processed`**. `processing` stays `409 not_deletable` (the worker is writing it; the app already handles this case, ADR-031 §14).
 - **Who**: not visible: `404`; visible but not the author: `403 not_activity_author`.
 - **Hard delete** (ADR-017): one `DELETE` of the row; stats, track, kudos, comments and segment efforts go by cascade. `activity_import` keeps its row with `activity_id = null`, so the history stays and the same file can be imported again (the importer already releases the content hash of an import whose Activity is gone).
-- **Storage, after the commit**: delete the trace `activities/{userId}/{activityId}/trace.json.gz` **and**, for an imported Activity, the original file `imports/{userId}/{activityId}/source.{format}` (the import id is the Activity id, ADR-028 §1). A storage failure is logged and does not fail the request, as today.
+- **Storage, after the commit**: delete the trace `activities/{userId}/{activityId}/trace.json.gz` **and**, for an imported Activity, the original file `imports/{userId}/{activityId}/source.{format}` (the import id is the Activity id, ADR-028 §1). A storage failure is logged and does not fail the request, as today. *Amended by [ADR-037](ADR-037-media-avatar-and-gallery.md) §11*: the API lists and deletes the whole prefix `activities/{userId}/{activityId}/` (trace and Media, sent or not), plus the import key; the daily `bucket-sweep` catches what a failure leaves.
 - **After the commit**: domain event `activities.activity.deleted` `{ activityId, userId }`.
 - `204`; a second `DELETE` gets `404`.
 
@@ -121,7 +123,7 @@ These are must-happen reactions: the `activities` use cases (or `reprocess-activ
 
 ### 10. Out of scope
 
-Photos and videos (`activity_attachment`); charts, splits, streams, elevation profile; trimming the trace or correcting measured values; athlete profiles and tappable athletes; follows; sharing (the card's button stays a placeholder); persistent offline queue for edit and delete; segment recomputation (§9); backoffice `ActivityDetail` / `useDeleteActivity` (ADR-013); PostHog events for edit and delete; live updates in the feed for other athletes' Activities.
+~~Photos and videos (`activity_attachment`)~~ (*amended by [ADR-037](ADR-037-media-avatar-and-gallery.md)*); charts, splits, streams, elevation profile; trimming the trace or correcting measured values; athlete profiles and tappable athletes; follows; sharing (the card's button stays a placeholder); persistent offline queue for edit and delete; segment recomputation (§9); backoffice `ActivityDetail` / `useDeleteActivity` (ADR-013); PostHog events for edit and delete; live updates in the feed for other athletes' Activities.
 
 ## Alternatives Considered
 
@@ -160,5 +162,5 @@ Photos and videos (`activity_attachment`); charts, splits, streams, elevation pr
 
 - **Depends on**: [ADR-019](ADR-019-activity-creation-flow.md), [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md), [ADR-029](ADR-029-activity-feed-and-card.md), [ADR-031](ADR-031-live-recording-on-ios.md)
 - **Amends**: [ADR-008](ADR-008-mobile-offline-sync.md) (§1 detail read from the API, §3 no queue for edit and delete of processed Activities), [ADR-010](ADR-010-backend-realtime.md) (`activity.updated`, `activity.deleted` events), [ADR-017](ADR-017-data-model.md) (`activity.updated_at`, `activity_stats.computed_for_sport_type_code`), [ADR-019](ADR-019-activity-creation-flow.md) (§9 `GET` and `DELETE`, §7 reconciliation also covers reprocessing), [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md) (§5 `reprocess-activity` job, `activities.activity.updated` / `deleted` events), [ADR-028](ADR-028-activity-import-from-file.md) (original file deleted with its Activity), [ADR-031](ADR-031-live-recording-on-ios.md) (§13 `GET` for visible Activities, `DELETE` of processed Activities)
-- **Amended by**: [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md) (§2 detail fields, §3 detail screen, §5 analysis and backfill)
+- **Amended by**: [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md) (§2 detail fields, §3 detail screen, §5 analysis and backfill), [ADR-037](ADR-037-media-avatar-and-gallery.md) (§2 `media` and `mediaFirst`, §3 the header carousel, §4 `mediaFirst` and `mediaOrder` on `PATCH`, §6 delete by prefix, §10 Media)
 - **Related**: [ADR-007](ADR-007-mobile-architecture.md), [ADR-026](ADR-026-openapi-swift-codegen.md), [ADR-030](ADR-030-itineraries-on-ios.md), [ADR-034](ADR-034-activity-engagement-and-live-detail.md)

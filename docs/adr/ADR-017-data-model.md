@@ -47,7 +47,7 @@ erDiagram
     ACTIVITY ||--|| ACTIVITY_STATS : "1-1"
     ACTIVITY ||--|| ACTIVITY_TRACK : "1-1 track"
     ACTIVITY ||--o| ACTIVITY_ANALYSIS : "splits and series (amended by ADR-036)"
-    ACTIVITY ||--o{ ACTIVITY_ATTACHMENT : photos
+    ACTIVITY ||--o{ ACTIVITY_MEDIA : "photos and videos (amended by ADR-037)"
     ACTIVITY ||--o{ COMMENT : receives
     ACTIVITY ||--o{ KUDOS : receives
     ACTIVITY ||--o{ SEGMENT_EFFORT : generates
@@ -89,7 +89,7 @@ erDiagram
         uuid user_id PK
         string first_name
         string last_name
-        string avatar_url
+        string avatar_key "amended by ADR-037: was avatar_url, the Avatar object key"
         string country
         string city
         date birth_date
@@ -119,6 +119,7 @@ erDiagram
         string sport_type_code FK
         string title
         text description
+        boolean media_first "amended by ADR-037"
         timestamp started_at
         timestamp ended_at
         enum visibility "public, followers, private"
@@ -156,11 +157,14 @@ erDiagram
         jsonb series "nullable"
         timestamp computed_at
     }
-    ACTIVITY_ATTACHMENT {
-        uuid id PK
+    ACTIVITY_MEDIA {
+        uuid id PK "amended by ADR-037: was ACTIVITY_ATTACHMENT"
         uuid activity_id FK
-        string s3_key
-        enum kind "photo or video"
+        string s3_key "the Media's folder"
+        enum kind "media_kind: photo or video"
+        int width
+        int height
+        int duration_ms "null for a photo"
         int position
         geometry taken_at_point
         timestamp created_at
@@ -245,7 +249,7 @@ erDiagram
 | `social` | `social` | `follow`, `follow_settings` | Slide 09 (*amended by [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md)*: `follow_settings`) |
 | `engagement` | `engagement` | `kudos`, `comment` | Slide 09 (*amended by ADR-021*: split from `social`) |
 | `sports` | `sports` | `sport_type` (reference data, populated by migration) | Slide 09 |
-| `activities` | `activities` | `activity`, `activity_stats`, `activity_track`, `activity_attachment`, `activity_import`, `activity_analysis` | Slide 09 (*amended by ADR-028*: `activity_import`; *amended by [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md)*: `activity_analysis`) |
+| `activities` | `activities` | `activity`, `activity_stats`, `activity_track`, `activity_media`, `activity_import`, `activity_analysis` | Slide 09 (*amended by ADR-028*: `activity_import`; *amended by [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md)*: `activity_analysis`; *amended by [ADR-037](ADR-037-media-avatar-and-gallery.md)*: `activity_attachment` renamed `activity_media`) |
 | `itineraries` | `itineraries` | `itinerary`, `itinerary_waypoint`, `itinerary_leg` | **Addition** (*amended by [ADR-030](ADR-030-itineraries-on-ios.md)*) |
 | `segments` | `segments` | `segment`, `segment_effort` | Slide 09 |
 | `subscriptions` | `subscriptions` | `user_subscription`, `revenuecat_event` | **Addition** (ADR-014) |
@@ -306,6 +310,7 @@ We **do not copy** products or offerings into our database:
 - *Amended by [ADR-034](ADR-034-activity-engagement-and-live-detail.md)*: column `comment.updated_at` (nullable, set on edit).
 - *Amended by [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md)*: table `social.follow_settings (user_id PK, approve_followers default false, updated_at)` ("Approuver mes abonnés", no row means `false`); `CHECK (follower_id <> followee_id)` and index `(follower_id, status)` on `follow`; column `activity_track.route_trimmed` (the privacy zone removed part of the route); table `activities.activity_analysis (activity_id PK, version, splits jsonb, series jsonb null, computed_at)`; the `unaccent` extension for the athlete search.
 - *Amended by [ADR-035](ADR-035-onboarding-sign-in-code-paywall.md)*: `user_profile.gender` becomes the enum `users.gender` (`male`, `female`, `non_binary`, `undisclosed`); new columns `user_profile.level` (enum `users.athlete_level`) and `user_profile.goals` (`users.goal[]`, `null` ≠ `[]`); new table `users.user_sport (user_id, sport_code, position)` for the athlete's practiced sports, cascading on user deletion.
+- *Amended by [ADR-037](ADR-037-media-avatar-and-gallery.md)*: `activity_attachment` becomes `activity_media` and `attachment_kind` becomes `media_kind`, with new columns `width`, `height`, `duration_ms`; `s3_key` is the Media's folder; new column `activity.media_first boolean not null default false`; `user_profile.avatar_url` becomes `avatar_key` (the Avatar's object key).
 
 ## Alternatives Considered
 
@@ -342,5 +347,5 @@ We **do not copy** products or offerings into our database:
 
 ## Links
 
-- **Amended by**: [ADR-019](ADR-019-activity-creation-flow.md) (processing-tracking columns), [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md) (`kudos` and `comment` move to the `engagement` module; one PostgreSQL schema per module), [ADR-028](ADR-028-activity-import-from-file.md) (`activity_import` table, `activity.source`), [ADR-029](ADR-029-activity-feed-and-card.md) (`activity_track.map_polyline`, `location_name`), [ADR-030](ADR-030-itineraries-on-ios.md) (`itineraries` schema: `itinerary`, `itinerary_waypoint`, `itinerary_leg`), [ADR-033](ADR-033-activity-detail-edit-delete.md) (`activity.updated_at`, `activity_stats.computed_for_sport_type_code`), [ADR-034](ADR-034-activity-engagement-and-live-detail.md) (`comment.updated_at`, app-generated comment id), [ADR-035](ADR-035-onboarding-sign-in-code-paywall.md) (`gender` enum, `level`, `goals`, `users.user_sport`), [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md) (`social.follow_settings`, `follow` check and index, `activity_track.route_trimmed`, `activities.activity_analysis`, `unaccent`)
+- **Amended by**: [ADR-019](ADR-019-activity-creation-flow.md) (processing-tracking columns), [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md) (`kudos` and `comment` move to the `engagement` module; one PostgreSQL schema per module), [ADR-028](ADR-028-activity-import-from-file.md) (`activity_import` table, `activity.source`), [ADR-029](ADR-029-activity-feed-and-card.md) (`activity_track.map_polyline`, `location_name`), [ADR-030](ADR-030-itineraries-on-ios.md) (`itineraries` schema: `itinerary`, `itinerary_waypoint`, `itinerary_leg`), [ADR-033](ADR-033-activity-detail-edit-delete.md) (`activity.updated_at`, `activity_stats.computed_for_sport_type_code`), [ADR-034](ADR-034-activity-engagement-and-live-detail.md) (`comment.updated_at`, app-generated comment id), [ADR-035](ADR-035-onboarding-sign-in-code-paywall.md) (`gender` enum, `level`, `goals`, `users.user_sport`), [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md) (`social.follow_settings`, `follow` check and index, `activity_track.route_trimmed`, `activities.activity_analysis`, `unaccent`), [ADR-037](ADR-037-media-avatar-and-gallery.md) (`activity_media`, `media_kind`, `activity.media_first`, `user_profile.avatar_key`)
 - **Related**: [ADR-003](ADR-003-backend.md) (modules and owned tables), [ADR-008](ADR-008-mobile-offline-sync.md), [ADR-009](ADR-009-backend-api.md), [ADR-011](ADR-011-backend-worker.md), [ADR-014](ADR-014-revenuecat.md), [ADR-022](ADR-022-authentication-better-auth.md) (`admin` plugin on the `role` column)
