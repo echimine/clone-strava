@@ -93,6 +93,7 @@ describe("/v1/admin/users/:id/premium (integration)", () => {
     const { bootstrapAdminTestApp } = await import("../../testing/admin-test-app.js");
     const { ActivitiesModule } = await import("@repo/core/activities");
     const { ModerationModule } = await import("@repo/core/moderation");
+    const { EmailJobsModule } = await import("@repo/core/notifications");
     const { SocialModule } = await import("@repo/core/social");
     const { RevenueCatModule, SubscriptionsModule } = await import("@repo/core/subscriptions");
     const { UsersModule } = await import("@repo/core/users");
@@ -116,6 +117,7 @@ describe("/v1/admin/users/:id/premium (integration)", () => {
       return bootstrapAdminTestApp({
         imports: [
           ActivitiesModule,
+          EmailJobsModule,
           ModerationModule,
           SocialModule,
           SubscriptionsModule,
