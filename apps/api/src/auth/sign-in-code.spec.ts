@@ -54,7 +54,7 @@ describe("Sign-in code (ADR-035 §2)", () => {
     email: string,
     ip: string,
   ): Promise<string> {
-    const spy = vi.spyOn(app.notificationsService, "sendAuthEmail");
+    const spy = vi.spyOn(app.notificationsService, "sendEmail");
     spy.mockClear();
     const response = await post(
       app,
@@ -248,7 +248,7 @@ describe("Sign-in code (ADR-035 §2)", () => {
 
   it("sends the code email once, keyed on the address and the code (ADR-023)", async () => {
     const email = uniqueEmail("code-email");
-    const spy = vi.spyOn(testApp.notificationsService, "sendAuthEmail");
+    const spy = vi.spyOn(testApp.notificationsService, "sendEmail");
     spy.mockClear();
 
     const otp = await requestCode(testApp, email, randomIp());
@@ -327,7 +327,7 @@ describe("Sign-in code (ADR-035 §2)", () => {
     it("signs a @stravaclone.test address in with 000000 in development, without any email", async () => {
       const email = testAddress("dev");
       const ip = randomIp();
-      const spy = vi.spyOn(devApp.notificationsService, "sendAuthEmail");
+      const spy = vi.spyOn(devApp.notificationsService, "sendEmail");
       spy.mockClear();
       await post(
         devApp,

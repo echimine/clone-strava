@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { EventEmitterModule } from "@nestjs/event-emitter";
+import { NERVO_ADMIN_ORIGIN } from "@repo/contracts";
 import { AnalyticsModule } from "@repo/core/analytics";
 import { GeocodingModule } from "@repo/core/geocoding";
 import { CoreInfrastructureModule } from "@repo/core/infrastructure";
@@ -14,6 +15,7 @@ import { AppLoggingModule } from "./logging/logging.module.js";
 import { ActivitiesProcessorModule } from "./processors/activities/activities.module.js";
 import { AvatarsProcessorModule } from "./processors/avatars/avatars.module.js";
 import { BucketSweepProcessorModule } from "./processors/bucket-sweep/bucket-sweep.module.js";
+import { EmailsProcessorModule } from "./processors/emails/emails.module.js";
 import { SegmentsProcessorModule } from "./processors/segments/segments.module.js";
 import { SubscriptionsProcessorModule } from "./processors/subscriptions/subscriptions.module.js";
 
@@ -69,6 +71,11 @@ const config = loadConfig();
     SubscriptionsProcessorModule,
     BucketSweepProcessorModule,
     AvatarsProcessorModule,
+    EmailsProcessorModule.forRoot({
+      resendApiKey: config.RESEND_API_KEY,
+      contactEmail: config.CONTACT_EMAIL,
+      adminOrigin: NERVO_ADMIN_ORIGIN,
+    }),
   ],
 })
 export class WorkerModule {}

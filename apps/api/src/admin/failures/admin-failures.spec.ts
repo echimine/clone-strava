@@ -103,7 +103,11 @@ describe("/v1/admin failures (integration)", () => {
     t = await bootstrapAdminTestApp({
       imports: [ActivitiesModule, EngagementModule, SegmentsModule, UsersModule],
       controllers: [AdminFailuresController, AdminActivitiesController, AdminActivityImportsController],
-      providers: [AdminFailureAssembler, AdminActivityAssembler, AthleteIdentities, MediaAssembler, SanctionNotices],
+      providers: [
+        AdminFailureAssembler, AdminActivityAssembler, AthleteIdentities, MediaAssembler,
+        // The e-mail hook is covered by `sanction-notices.spec.ts`: here only the notice handed over.
+        { provide: SanctionNotices, useValue: { send: async () => undefined } },
+      ],
     });
     admin = await t.seedUser("Alice Admin", { role: "admin" });
     emile = await t.seedUser("Émile Durand");

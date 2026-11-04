@@ -50,7 +50,7 @@ class TestAppRouteController {
 /**
  * Local-dev/test-only endpoints (`docker-compose.dev.yml`, ADR-018 §8).
  * Never the real Resend API key: `NotificationsService` is spied on/
- * mocked in every test that boots this app, so `sendAuthEmail` never
+ * mocked in every test that boots this app, so `sendEmail` never
  * actually reaches Resend from here.
  */
 /** Overridable so parallel worktrees can each use their own database. */
@@ -75,7 +75,7 @@ export interface TestAuthApp {
  * do in production (rate limiting, cookies, Redis secondary storage all
  * real, not mocked).
  *
- * `NotificationsService.sendAuthEmail` is replaced with a spy (never hits
+ * `NotificationsService.sendEmail` is replaced with a spy (never hits
  * Resend from a test) unless `mockNotifications: false` is passed for the
  * one test that needs a real send.
  */
@@ -138,7 +138,7 @@ export async function bootstrapTestAuthApp(
 
   if (mockNotifications) {
     moduleBuilder.overrideProvider(NotificationsService).useValue({
-      sendAuthEmail: async () => {
+      sendEmail: async () => {
         // No-op: assertions read the spy directly (vi.spyOn on this
         // method after module creation) rather than relying on network.
       },

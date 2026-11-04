@@ -105,7 +105,11 @@ describe("/v1/admin/activities (integration)", () => {
     t = await bootstrapAdminTestApp({
       imports: [ActivitiesModule, EngagementModule, SegmentsModule, UsersModule],
       controllers: [AdminActivitiesController, AdminCommentsController, AuditEntriesController],
-      providers: [AdminActivityAssembler, AthleteIdentities, MediaAssembler, AuditEntryAssembler, SanctionNotices],
+      providers: [
+        AdminActivityAssembler, AthleteIdentities, MediaAssembler, AuditEntryAssembler,
+        // The e-mail hook is covered by `sanction-notices.spec.ts`: here only the notice handed over.
+        { provide: SanctionNotices, useValue: { send: async () => undefined } },
+      ],
     });
     admin = await t.seedUser("Alice Admin", { role: "admin" });
     emile = await t.seedUser("Émile Durand");
@@ -504,7 +508,7 @@ describe("/v1/admin/activities (integration)", () => {
         athleteId: zoe,
         reason: "Harcèlement",
         activity: { title: "Sortie longue", startedAt: "2026-11-02T08:00:00.000Z" },
-        comment: { body: "Commentaire haineux" },
+        comment: { body: "Commentaire haineux", postedAt: expect.any(String) },
       });
 
       const journalPage = (await (

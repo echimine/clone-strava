@@ -1,10 +1,15 @@
+import { getQueueToken } from "@nestjs/bullmq";
+import type { Queue } from "bullmq";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
-import type {
-  AdminUserDetail,
-  AdminUserListResponse,
-  AdminUserReportsResponse,
-  AdminUserSessionsResponse,
-  BannedUserError,
+import {
+  EMAILS_QUEUE_NAME,
+  sendEmailJobId,
+  type SendEmailJob,
+  type AdminUserDetail,
+  type AdminUserListResponse,
+  type AdminUserReportsResponse,
+  type AdminUserSessionsResponse,
+  type BannedUserError,
 } from "@repo/contracts";
 import type { AdminAuthTestApp, TestAccount } from "../../testing/admin-auth-test-app.js";
 import { useExclusiveTestDatabase } from "../../testing/exclusive-test-database.js";
@@ -31,6 +36,11 @@ describe("/v1/admin/users (integration)", () => {
   const entries = (subject: string) =>
     t.sql<Entry>("select * from audit.admin_audit_entry where subject_user_id = $1 order by created_at", [subject]);
   const lastNotice = (): SanctionNotice => notices.mock.calls.at(-1)![0];
+  /** The `send-email` job of a Sanction (ADR-038 §4), keyed by its Journal entry. */
+  const emailOf = async (auditEntryId: string) =>
+    (await t.app.get<Queue>(getQueueToken(EMAILS_QUEUE_NAME)).getJob(sendEmailJobId(auditEntryId)))?.data as
+      | SendEmailJob
+      | undefined;
   /** The app's sign-in by Sign-in code: send the code (the dev code `000000`), then validate it. */
   const signInWithCode = async (email: string) => {
     expect((await t.authPost("/email-otp/send-verification-otp", { email, type: "sign-in" })).status).toBe(200);
@@ -42,6 +52,7 @@ describe("/v1/admin/users (integration)", () => {
     const { bootstrapAdminAuthTestApp } = await import("../../testing/admin-auth-test-app.js");
     const { ActivitiesModule } = await import("@repo/core/activities");
     const { ModerationModule } = await import("@repo/core/moderation");
+    const { EmailJobsModule } = await import("@repo/core/notifications");
     const { SocialModule } = await import("@repo/core/social");
     const { SubscriptionsModule } = await import("@repo/core/subscriptions");
     const { UsersModule } = await import("@repo/core/users");
@@ -50,7 +61,7 @@ describe("/v1/admin/users (integration)", () => {
     const { AdminUsersController } = await import("./admin-users.controller.js");
     const { AdminUserAssembler } = await import("./admin-user-assembler.js");
     t = await bootstrapAdminAuthTestApp({
-      imports: [ActivitiesModule, ModerationModule, SocialModule, SubscriptionsModule, UsersModule],
+      imports: [ActivitiesModule, EmailJobsModule, ModerationModule, SocialModule, SubscriptionsModule, UsersModule],
       controllers: [AdminUsersController],
       providers: [AthleteIdentities, AdminUserAssembler, Notices],
       contactEmail: "contact@nervo.test",
@@ -99,6 +110,14 @@ describe("/v1/admin/users (integration)", () => {
         reason: "Propos haineux",
         ban: { until: body.bannedUntil },
       });
+      expect(await emailOf(lastNotice().auditEntryId)).toEqual({
+        template: "user-banned",
+        to: athlete.email,
+        idempotencyKey: lastNotice().auditEntryId,
+        userId: athlete.userId,
+        data: { firstName: "bannie", reason: "Propos haineux", until: body.bannedUntil },
+      });
+      expect((await entries(athlete.userId))[0]).toHaveProperty("id", lastNotice().auditEntryId);
 
       const detail = await json<AdminUserDetail>(await t.call(`/admin/users/${athlete.userId}`, admin.cookie));
       expect(detail.state).toBe("temporarily_banned");
@@ -191,6 +210,11 @@ describe("/v1/admin/users (integration)", () => {
       const [account] = await t.sql<{ name: string }>('select name from "user" where id = $1', [athlete.userId]);
       expect(account!.name).toBe("Athlète");
       expect(lastNotice()).toMatchObject({ action: "user.name.reset", profileField: "name", athleteId: athlete.userId });
+      // The e-mail greets them by the first name they had chosen.
+      expect(await emailOf(lastNotice().auditEntryId)).toMatchObject({
+        template: "profile-reset",
+        data: { firstName: "Insulte", reason: "Nom injurieux", field: "name" },
+      });
       expect((await entries(athlete.userId))[0]).toMatchObject({ action: "user.name.reset", reason: "Nom injurieux" });
     });
 

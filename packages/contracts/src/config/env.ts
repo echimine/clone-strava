@@ -71,6 +71,11 @@ export const workerEnvSchema = z.object({
   MAPBOX_GEOCODING_TOKEN: z.string().min(1).optional(),
   // ADR-029: Mapbox's terms require the (billed) permanent endpoint to store results.
   MAPBOX_GEOCODING_PERMANENT: z.stringbool().default(false),
+  // ADR-038 §4: the `emails` queue sends through Resend. Optional: without it every `send-email`
+  // job fails, retryable from the Jobs screen once set.
+  RESEND_API_KEY: z.string().min(1).optional(),
+  // ADR-038 §4: Reply-To of the e-mails to an athlete, and the address they give.
+  CONTACT_EMAIL: z.email().optional(),
 });
 export type WorkerEnv = z.infer<typeof workerEnvSchema>;
 
