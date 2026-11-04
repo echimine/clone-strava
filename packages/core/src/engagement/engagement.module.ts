@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { ActivitiesModule } from "../activities/index.js";
 import { SocialModule } from "../social/index.js";
 import { UsersModule } from "../users/index.js";
+import { EngagementAdminStatsRepository } from "./repositories/engagement-admin-stats.repository.js";
 import { KudosRepository } from "./repositories/kudos.repository.js";
 import { CommentRepository } from "./repositories/comment.repository.js";
 import { CommentEvents } from "./services/comment-events.service.js";
@@ -24,6 +25,7 @@ import { EngagementService } from "./engagement.service.js";
 @Module({
   imports: [ActivitiesModule, SocialModule, UsersModule],
   providers: [
+    EngagementAdminStatsRepository,
     KudosRepository,
     CommentRepository,
     CommentEvents,

@@ -7,14 +7,16 @@ import { AdminController } from "./admin.controller.js";
 import { AuditEntriesController } from "./audit/audit-entries.controller.js";
 import { AuditEntryAssembler } from "./audit/audit-entry-assembler.js";
 import { AuthAuditListener } from "./audit/auth-audit.listener.js";
+import { AdminStatsController } from "./stats/admin-stats.controller.js";
+import { ADMIN_STATS_IMPORTS, ADMIN_STATS_PROVIDERS } from "./stats/admin-stats.providers.js";
 
 /**
  * `/v1/admin/*` (ADR-021 §1 "Not a module: admin", ADR-038 §1): one controller per area under
  * `src/admin/<area>/`, each listed here. `AuditModule` serves `@Audited` on every admin write.
  */
 @Module({
-  imports: [AuthModule, AuditModule, ActivitiesModule],
-  controllers: [AdminController, AdminActivityImportsController, AuditEntriesController],
-  providers: [AuditEntryAssembler, AuthAuditListener],
+  imports: [AuthModule, AuditModule, ActivitiesModule, ...ADMIN_STATS_IMPORTS],
+  controllers: [AdminController, AdminActivityImportsController, AuditEntriesController, AdminStatsController],
+  providers: [AuditEntryAssembler, AuthAuditListener, ...ADMIN_STATS_PROVIDERS],
 })
 export class AdminModule {}

@@ -4,6 +4,7 @@ import { ACTIVITIES_QUEUE_NAME, IMPORTS_QUEUE_NAME } from "@repo/contracts";
 import { SportsModule } from "../sports/index.js";
 import { UsersModule } from "../users/index.js";
 import { SocialModule } from "../social/index.js";
+import { ActivityAdminStatsRepository } from "./repositories/activity-admin-stats.repository.js";
 import { ActivityRepository } from "./repositories/activity.repository.js";
 import { ActivityStatsRepository } from "./repositories/activity-stats.repository.js";
 import { ActivityTrackRepository } from "./repositories/activity-track.repository.js";
@@ -63,6 +64,7 @@ import { ActivitiesService } from "./activities.service.js";
     BullModule.registerQueue({ name: ACTIVITIES_QUEUE_NAME }, { name: IMPORTS_QUEUE_NAME }),
   ],
   providers: [
+    ActivityAdminStatsRepository,
     ActivityRepository,
     ActivityStatsRepository,
     ActivityTrackRepository,
