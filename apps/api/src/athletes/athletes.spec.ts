@@ -10,6 +10,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
   activityMediaPrefix,
   type AthleteProfileResponse,
+  type EditableProfileResponse,
   type FeedResponse,
   type UpdateProfileResponse,
 } from "@repo/contracts";
@@ -22,6 +23,7 @@ import { GeocodingModule } from "@repo/core/geocoding";
 import { CoreInfrastructureModule, DATABASE, type Database } from "@repo/core/infrastructure";
 import { ItinerariesModule } from "@repo/core/itineraries";
 import { SocialModule } from "@repo/core/social";
+import { SportsModule } from "@repo/core/sports";
 import { StorageModule } from "@repo/core/storage";
 import { UsersModule } from "@repo/core/users";
 import { ensureTestDatabaseMigrated, TEST_DATABASE_URL, TEST_REDIS_URL } from "../auth/test-auth-app.js";
@@ -34,6 +36,7 @@ import { AthleteIdentities } from "../identities/athlete-identities.js";
 import { AthleteProfileAssembler } from "./athlete-profile-assembler.js";
 import { AthletesController } from "./athletes.controller.js";
 import { MeProfileController } from "./me-profile.controller.js";
+import { SportsActiveCatalog } from "../me/sports-active-catalog.js";
 import { listenOnLoopback } from "../testing/listen-on-loopback.js";
 import { signedMediaUrl } from "../testing/signed-urls.js";
 
@@ -54,7 +57,8 @@ describe("Athlete profile (integration)", () => {
   const requester = randomUUID();
   const stranger = randomUUID();
   const renamed = randomUUID();
-  const users = [athlete, follower, otherFollower, latestFollower, requester, stranger, renamed];
+  const edited = randomUUID();
+  const users = [athlete, follower, otherFollower, latestFollower, requester, stranger, renamed, edited];
   const ids = {
     currentWeekRun: randomUUID(),
     followersRun: randomUUID(),
@@ -132,6 +136,7 @@ describe("Athlete profile (integration)", () => {
         EngagementModule,
         ItinerariesModule,
         SocialModule,
+        SportsModule,
         UsersModule,
       ],
       controllers: [AthletesController, MeProfileController, FeedController],
@@ -141,6 +146,7 @@ describe("Athlete profile (integration)", () => {
         AthleteProfileAssembler,
         FeedAssembler,
         MediaAssembler,
+        SportsActiveCatalog,
         {
           provide: AuthService,
           useValue: {
@@ -346,6 +352,74 @@ describe("Athlete profile (integration)", () => {
       expect((await patch(renamed, { firstName: "   ", lastName: "Dupont" })).status).toBe(422);
       expect((await patch(renamed, { firstName: "Jean", lastName: "x".repeat(51) })).status).toBe(422);
       expect((await patch(renamed, { firstName: "Jean" })).status).toBe(422);
+    });
+
+    const name = { firstName: "Eliott", lastName: "Chiminello" };
+
+    async function editable(user: string): Promise<EditableProfileResponse["profile"]> {
+      const response = await call("/me/profile", user);
+      expect(response.status).toBe(200);
+      return ((await response.json()) as EditableProfileResponse).profile;
+    }
+
+    async function sportsOf(user: string): Promise<string[]> {
+      const rows = await sql("select sport_code from users.user_sport where user_id = $1 order by position", [user]);
+      return rows.map((row: { sport_code: string }) => row.sport_code);
+    }
+
+    it("reads every field as null before anything was filled", async () => {
+      expect(await editable(edited)).toEqual({
+        firstName: null,
+        lastName: null,
+        bio: null,
+        city: null,
+        country: null,
+        mainSportCode: null,
+        birthDate: null,
+        gender: null,
+        weightKg: null,
+      });
+    });
+
+    it("writes the athlete details, then reads them back", async () => {
+      const details = {
+        bio: "  Grimpeur  ",
+        city: " Annecy ",
+        country: "FR",
+        mainSportCode: "ride",
+        birthDate: "2006-05-02",
+        gender: "male",
+        weightKg: 59,
+      };
+      expect((await patch(edited, { ...name, ...details })).status).toBe(200);
+      expect(await editable(edited)).toEqual({ ...name, ...details, bio: "Grimpeur", city: "Annecy" });
+
+      // Absent fields stay; an empty text clears.
+      expect((await patch(edited, { ...name, bio: "", city: "" })).status).toBe(200);
+      expect(await editable(edited)).toMatchObject({ bio: null, city: null, country: "FR", weightKg: 59 });
+    });
+
+    it("puts the main sport first among the Practiced sports", async () => {
+      await sql("delete from users.user_sport where user_id = $1", [edited]);
+      await sql("insert into users.user_sport (user_id, sport_code, position) values ($1, 'run', 0), ($1, 'hike', 1)", [
+        edited,
+      ]);
+      await patch(edited, { ...name, mainSportCode: "hike" });
+      expect(await sportsOf(edited)).toEqual(["hike", "run"]);
+      await patch(edited, { ...name, mainSportCode: "swim" });
+      expect(await sportsOf(edited)).toEqual(["swim", "hike", "run"]);
+      expect((await editable(edited)).mainSportCode).toBe("swim");
+    });
+
+    it.each([
+      ["an athlete under 15", { birthDate: "2011-03-19" }],
+      ["a birth date before 1900", { birthDate: "1899-12-31" }],
+      ["an unknown sport", { mainSportCode: "curling" }],
+      ["a country that is not an ISO code", { country: "France" }],
+      ["a weight out of range", { weightKg: 10 }],
+      ["a bio too long", { bio: "x".repeat(301) }],
+    ])("rejects %s with 422", async (_case, invalid) => {
+      expect((await patch(edited, { ...name, ...invalid })).status).toBe(422);
     });
   });
 });

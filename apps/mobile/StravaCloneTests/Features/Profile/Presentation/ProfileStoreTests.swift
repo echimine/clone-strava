@@ -16,7 +16,8 @@ struct ProfileStoreTests {
         ProfileStore(
             loadProfile: LoadProfile(repository: athletes),
             loadYearToDateDistance: LoadYearToDateDistance(repository: FakeAthleteStatsRepository.allSports()),
-            renameAthlete: RenameAthlete(repository: profiles),
+            loadEditableProfile: LoadEditableProfile(repository: profiles),
+            updateProfile: UpdateProfile(repository: profiles),
             setApproveFollowers: SetApproveFollowers(repository: profiles),
             activities: ProfileActivitiesStore(loadActivities: LoadProfileActivities(repository: athletes)),
             progress: ProfileProgressStore(loadProgress: LoadProgress(repository: progress)),
@@ -84,28 +85,46 @@ struct ProfileStoreTests {
         #expect(store.phase == .loaded)
     }
 
-    @Test func renamingUpdatesTheHeader() async {
+    @Test func savingUpdatesTheHeaderAndPutsTheMainSportFirst() async throws {
         let profiles = FakeProfileRepository()
-        let store = makeStore(loadedRepository(), profiles)
+        let athletes = loadedRepository()
+        let store = makeStore(athletes, profiles)
         await store.load(athleteId: "me")
+        var edited = EditableProfile(firstName: " Léa ", lastName: "Bernard", bio: " Grimpeuse ", countryCode: "FR")
+        edited.mainSport = .ride
 
-        let error = await store.rename(firstName: " Léa ", lastName: "Bernard")
+        let error = await store.save(edited)
 
         #expect(error == nil)
         #expect(store.profile?.athlete.displayName == "Léa Bernard")
-        #expect(profiles.renames == [ProfileName(firstName: "Léa", lastName: "Bernard")])
+        #expect(store.profile?.practicedSports == [.ride, .run])
+        let update = try #require(profiles.updates.first)
+        #expect(update.name == ProfileName(firstName: "Léa", lastName: "Bernard"))
+        #expect(update.bio == "Grimpeuse")
+        #expect(update.countryCode == "FR")
     }
 
-    @Test func aRefusedRenameKeepsTheHeaderAndSaysWhy() async {
+    @Test func aRefusedSaveKeepsTheHeaderAndSaysWhy() async {
         let profiles = FakeProfileRepository()
-        profiles.renameResult = .failure(.network)
+        profiles.updateResult = .failure(.network)
         let store = makeStore(loadedRepository(), profiles)
         await store.load(athleteId: "me")
 
-        let error = await store.rename(firstName: "Léa", lastName: "Bernard")
+        let error = await store.save(EditableProfile(firstName: "Léa", lastName: "Bernard"))
 
         #expect(error == "Une erreur est survenue, réessayez.")
         #expect(store.profile?.athlete.displayName == "Camille Martin")
+    }
+
+    @Test func theSheetStartsFromMyEditableProfile() async {
+        let profiles = FakeProfileRepository()
+        profiles.editableResult = .success(EditableProfile(firstName: "Léa", lastName: "Bernard", weightKg: 59))
+        let store = makeStore(loadedRepository(), profiles)
+
+        #expect(await store.editableProfile() == .success(EditableProfile(firstName: "Léa", lastName: "Bernard", weightKg: 59)))
+
+        profiles.editableResult = .failure(.offline)
+        #expect(await store.editableProfile() == .failure(EditProfileFailure(message: "Vous êtes hors ligne.")))
     }
 
     @Test func myNewPhotoShowsInTheHeaderOnceStored() async throws {
@@ -136,10 +155,10 @@ struct ProfileStoreTests {
         let store = makeStore(loadedRepository(), profiles)
         await store.load(athleteId: "me")
 
-        let error = await store.rename(firstName: "  ", lastName: "Bernard")
+        let error = await store.save(EditableProfile(firstName: "  ", lastName: "Bernard"))
 
         #expect(error == "Prénom et nom : de 1 à 50 caractères chacun.")
-        #expect(profiles.renames.isEmpty)
+        #expect(profiles.updates.isEmpty)
     }
 
     @Test func approvingFollowersShowsAtOnceThenTakesTheServersValue() async {

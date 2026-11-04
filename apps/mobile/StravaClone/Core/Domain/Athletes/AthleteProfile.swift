@@ -20,7 +20,7 @@ struct AthleteProfile: Equatable, Sendable {
     let viewerFollowStatus: FollowStatus?
     /// Up to 2 of the athlete's followers whom the viewer follows.
     let followersYouKnow: [ActivityAuthor]
-    let practicedSports: [SportType]
+    var practicedSports: [SportType]
     /// Own profile only: "Approuver mes abonnés".
     var approveFollowers: Bool?
     /// Own profile only.

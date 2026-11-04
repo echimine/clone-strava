@@ -51,7 +51,7 @@ struct ProfileView<Itineraries: View, Search: View>: View {
                     entry: .profile
                 )
                 .sheet(isPresented: $isEditingName) {
-                    EditProfileSheet(store: store, displayName: store.profile?.athlete.displayName ?? "")
+                    EditProfileSheet(store: store)
                 }
                 .navigationDestination(for: ProfileStore.Destination.self) { destination in
                     switch destination {

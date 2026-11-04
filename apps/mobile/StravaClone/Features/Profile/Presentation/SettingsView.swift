@@ -92,7 +92,7 @@ struct SettingsView: View {
         }
         .sheet(item: $openedDocument) { LegalSheet(document: $0) }
         .sheet(isPresented: $isEditingName) {
-            EditProfileSheet(store: store, displayName: displayName)
+            EditProfileSheet(store: store)
         }
     }
 

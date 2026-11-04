@@ -16,8 +16,8 @@ export class UserSportRepository {
   }
 
   /** The athlete's Practiced sports, in the order of selection. */
-  async findCodes(userId: string): Promise<string[]> {
-    const rows = await this.db
+  async findCodes(userId: string, executor: DbExecutor = this.db): Promise<string[]> {
+    const rows = await executor
       .select({ sportCode: t.sportCode })
       .from(t)
       .where(eq(t.userId, userId))
@@ -34,5 +34,13 @@ export class UserSportRepository {
         position,
       })),
     );
+  }
+
+  /** Replaces the Practiced sports with `sportCodes`, in this order. */
+  async replaceAll(userId: string, sportCodes: string[], executor: DbExecutor = this.db): Promise<void> {
+    await executor.delete(t).where(eq(t.userId, userId));
+    if (sportCodes.length > 0) {
+      await this.insertAll(userId, sportCodes, executor);
+    }
   }
 }

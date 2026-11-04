@@ -47,7 +47,8 @@ final class ProfileStore {
 
     @ObservationIgnored private let loadProfile: LoadProfile
     @ObservationIgnored private let loadYearToDateDistance: LoadYearToDateDistance
-    @ObservationIgnored private let renameAthlete: RenameAthlete
+    @ObservationIgnored private let loadEditableProfile: LoadEditableProfile
+    @ObservationIgnored private let updateProfile: UpdateProfile
     @ObservationIgnored private let setApproveFollowersUseCase: SetApproveFollowers
     @ObservationIgnored private var athleteId: String?
     @ObservationIgnored private var generation = 0
@@ -56,7 +57,8 @@ final class ProfileStore {
     init(
         loadProfile: LoadProfile,
         loadYearToDateDistance: LoadYearToDateDistance,
-        renameAthlete: RenameAthlete,
+        loadEditableProfile: LoadEditableProfile,
+        updateProfile: UpdateProfile,
         setApproveFollowers: SetApproveFollowers,
         activities: ProfileActivitiesStore,
         progress: ProfileProgressStore,
@@ -65,7 +67,8 @@ final class ProfileStore {
     ) {
         self.loadProfile = loadProfile
         self.loadYearToDateDistance = loadYearToDateDistance
-        self.renameAthlete = renameAthlete
+        self.loadEditableProfile = loadEditableProfile
+        self.updateProfile = updateProfile
         self.setApproveFollowersUseCase = setApproveFollowers
         self.activities = activities
         self.progress = progress
@@ -116,14 +119,29 @@ final class ProfileStore {
         yearToDateDistance = yearToDate ?? yearToDateDistance
     }
 
-    /// "Modifier le profil": nil once the header shows the new name, else what went wrong.
-    func rename(firstName: String, lastName: String) async -> String? {
-        guard let name = ProfileName(firstName: firstName, lastName: lastName) else {
-            return ProfileMessages.invalidName
+    /// What "Modifier le profil" starts from, or what went wrong.
+    func editableProfile() async -> Result<EditableProfile, EditProfileFailure> {
+        do {
+            return .success(try await loadEditableProfile())
+        } catch {
+            return .failure(EditProfileFailure(message: ProfileMessages.message(for: error)))
+        }
+    }
+
+    /// "Modifier le profil"'s Enregistrer: nil once the header shows the new name and the main
+    /// sport leads my sports, else what went wrong. An invalid field is not sent.
+    func save(_ edited: EditableProfile) async -> String? {
+        let update: ProfileUpdate
+        switch ProfileUpdate.validate(edited) {
+        case .success(let valid): update = valid
+        case .failure(let invalid): return ProfileMessages.message(for: invalid)
         }
         do {
-            let athlete = try await renameAthlete(name)
+            let athlete = try await updateProfile(update)
             profile?.athlete = athlete
+            if let mainSport = update.mainSport, let sports = profile?.practicedSports {
+                profile?.practicedSports = [mainSport] + sports.filter { $0 != mainSport }
+            }
             return nil
         } catch {
             return ProfileMessages.message(for: error)
@@ -230,4 +248,9 @@ final class ProfileStore {
         guard progress.phase != .idle else { return }
         await progress.refresh()
     }
+}
+
+/// Why "Modifier le profil" could not load, said to the athlete.
+struct EditProfileFailure: Error, Equatable {
+    let message: String
 }

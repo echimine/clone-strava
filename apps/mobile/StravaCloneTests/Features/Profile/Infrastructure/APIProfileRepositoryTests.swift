@@ -69,16 +69,45 @@ struct APIProfileRepositoryTests {
         return try JSONSerialization.jsonObject(with: body) as? NSDictionary
     }
 
-    @Test func renamingPatchesMyProfileAndReturnsTheNewIdentity() async throws {
+    @Test func readingMyProfileMapsEveryField() async throws {
+        let repository = makeRepository()
+        respond(200, #"""
+        { "profile": { "firstName": "Eliott", "lastName": "Chiminello", "bio": null, "city": null,
+          "country": "FR", "mainSportCode": "ride", "birthDate": "2006-05-02", "gender": "male",
+          "weightKg": 59 } }
+        """#)
+
+        let profile = try await repository.editableProfile()
+
+        #expect(ProfileURLProtocolStub.requests.value.last?.request.url?.path == "/v1/me/profile")
+        #expect(profile == EditableProfile(
+            firstName: "Eliott",
+            lastName: "Chiminello",
+            countryCode: "FR",
+            mainSport: .ride,
+            birthDate: CalendarDay(year: 2006, month: 5, day: 2),
+            gender: .male,
+            weightKg: 59
+        ))
+    }
+
+    @Test func savingPatchesMyProfileAndReturnsTheNewIdentity() async throws {
         let repository = makeRepository()
         respond(200, #"{ "athlete": { "id": "\#(athleteId)", "displayName": "Léa Bernard", "avatarUrl": null } }"#)
+        var edited = EditableProfile(firstName: "Léa", lastName: "Bernard", city: "Annecy", gender: .female)
+        edited.birthDate = CalendarDay(year: 1990, month: 4, day: 12)
+        let update = try ProfileUpdate.validate(edited).get()
 
-        let athlete = try await repository.rename(#require(ProfileName(firstName: "Léa", lastName: "Bernard")))
+        let athlete = try await repository.update(update)
 
         let request = try #require(ProfileURLProtocolStub.requests.value.last?.request)
         #expect(request.httpMethod == "PATCH")
         #expect(request.url?.path == "/v1/me/profile")
-        #expect(try sentJSON() == ["firstName": "Léa", "lastName": "Bernard"])
+        // Bio and Pays are sent empty, which clears them; no sport nor weight, left as they are.
+        #expect(try sentJSON() == [
+            "firstName": "Léa", "lastName": "Bernard", "bio": "", "city": "Annecy", "country": "",
+            "birthDate": "1990-04-12", "gender": "female",
+        ])
         #expect(athlete == ActivityAuthor(id: athleteId, displayName: "Léa Bernard", avatarURL: nil))
     }
 
@@ -95,13 +124,13 @@ struct APIProfileRepositoryTests {
         #expect(approved)
     }
 
-    @Test func aRefusedNameKeepsTheServersCode() async throws {
+    @Test func aRefusedProfileKeepsTheServersCode() async throws {
         let repository = makeRepository()
         respond(422, #"{ "error": { "code": "validation_error" } }"#)
-        let name = try #require(ProfileName(firstName: "Léa", lastName: "Bernard"))
+        let update = try ProfileUpdate.validate(EditableProfile(firstName: "Léa", lastName: "Bernard")).get()
 
         await #expect(throws: AthleteError.server(code: "validation_error")) {
-            _ = try await repository.rename(name)
+            _ = try await repository.update(update)
         }
     }
 }

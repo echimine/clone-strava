@@ -17,6 +17,40 @@ enum ProfileMessages {
     static let save = "Enregistrer"
     static let cancel = "Annuler"
     static let invalidName = "Prénom et nom : de 1 à 50 caractères chacun."
+    static let profileTitle = "Profil"
+    static let close = "Fermer"
+    static let bio = "Bio"
+    static let city = "Ville"
+    static let country = "Pays"
+    static let searchCountry = "Rechercher un pays"
+    static let noCountry = "Aucun"
+    static let mainSport = "Sport principal"
+    static let athleteInformation = "Informations sur l'athlète"
+    static let birthDate = "Sélectionnez une date de naissance"
+    static let gender = "Sexe"
+    static let weight = "Poids (kg)"
+    static let weightFooter = "Permet de calculer les calories, la puissance et plus encore."
+    static let notSet = "Non renseigné"
+
+    /// "Sexe" as Strava words it.
+    static func gender(_ gender: Gender) -> String {
+        switch gender {
+        case .male: "Un homme"
+        case .female: "Une femme"
+        case .nonBinary: "Non-binaire"
+        case .undisclosed: "Je préfère ne pas le dire"
+        }
+    }
+
+    static func message(for invalid: ProfileUpdate.Invalid) -> String {
+        switch invalid {
+        case .name: invalidName
+        case .bio: "La bio ne peut pas dépasser \(EditableProfile.bioMaxLength) caractères."
+        case .city: "La ville ne peut pas dépasser \(EditableProfile.cityMaxLength) caractères."
+        case .tooYoung: OnboardingCopy.tooYoung
+        case .weight: "Le poids doit être compris entre 20 et 300 kg."
+        }
+    }
     static let approvalFailed = "Le réglage n'a pas pu être modifié, réessayez."
     static let approveFollowers = "Approuver mes abonnés"
     static let approveFollowersFooter = "Activé, chaque nouvel abonné attend votre accord."

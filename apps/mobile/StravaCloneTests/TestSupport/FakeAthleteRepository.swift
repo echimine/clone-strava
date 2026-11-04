@@ -34,19 +34,24 @@ final class FakeAthleteRepository: AthleteRepository, @unchecked Sendable {
 final class FakeProfileRepository: ProfileRepository, @unchecked Sendable {
     private let lock = NSLock()
 
-    var renameResult: Result<ActivityAuthor, AthleteError>?
+    var editableResult: Result<EditableProfile, AthleteError> = .success(EditableProfile())
+    var updateResult: Result<ActivityAuthor, AthleteError>?
     var approveResult: Result<Bool, AthleteError>?
     /// Suspends `setApproveFollowers` until resumed.
     var approveGate: AsyncStream<Void>?
 
-    private(set) var renames: [ProfileName] = []
+    private(set) var updates: [ProfileUpdate] = []
     private(set) var approveCalls: [Bool] = []
 
-    func rename(_ name: ProfileName) async throws(AthleteError) -> ActivityAuthor {
+    func editableProfile() async throws(AthleteError) -> EditableProfile {
+        try lock.withLock { editableResult }.get()
+    }
+
+    func update(_ update: ProfileUpdate) async throws(AthleteError) -> ActivityAuthor {
         let result = lock.withLock {
-            renames.append(name)
-            return renameResult
-        } ?? .success(ActivityAuthor(id: "me", displayName: name.displayName, avatarURL: nil))
+            updates.append(update)
+            return updateResult
+        } ?? .success(ActivityAuthor(id: "me", displayName: update.name.displayName, avatarURL: nil))
         return try result.get()
     }
 

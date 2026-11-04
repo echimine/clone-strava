@@ -2016,6 +2016,25 @@
       }
     },
     "/v1/me/profile": {
+      "get": {
+        "operationId": "MeProfileController_get",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EditableProfileResponseDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "MeProfile"
+        ]
+      },
       "patch": {
         "operationId": "MeProfileController_update",
         "parameters": [],
@@ -5090,6 +5109,94 @@
         ],
         "additionalProperties": false
       },
+      "EditableProfileResponseDto_Output": {
+        "type": "object",
+        "properties": {
+          "profile": {
+            "type": "object",
+            "properties": {
+              "firstName": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "lastName": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "bio": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "city": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "country": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "mainSportCode": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "minLength": 1
+              },
+              "birthDate": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "gender": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "enum": [
+                  "male",
+                  "female",
+                  "non_binary",
+                  "undisclosed",
+                  null
+                ]
+              },
+              "weightKg": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "firstName",
+              "lastName",
+              "bio",
+              "city",
+              "country",
+              "mainSportCode",
+              "birthDate",
+              "gender",
+              "weightKg"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "profile"
+        ],
+        "additionalProperties": false
+      },
       "UpdateProfileRequestDto": {
         "type": "object",
         "properties": {
@@ -5102,6 +5209,41 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 50
+          },
+          "bio": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "city": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "country": {
+            "type": "string",
+            "pattern": "^(?:[A-Z]{2})?$"
+          },
+          "mainSportCode": {
+            "type": "string",
+            "minLength": 1
+          },
+          "birthDate": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "gender": {
+            "type": "string",
+            "enum": [
+              "male",
+              "female",
+              "non_binary",
+              "undisclosed"
+            ]
+          },
+          "weightKg": {
+            "type": "number",
+            "minimum": 20,
+            "maximum": 300
           }
         },
         "required": [
