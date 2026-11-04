@@ -41,7 +41,7 @@ enum AnalyticsEvent: Equatable, Sendable {
     /// "Créer" or "Modifier" offline: "Connexion requise".
     case itineraryOfflineEditBlocked(action: EditorMode)
 
-    /// The Welcome is on screen with the Measurement consent answered.
+    /// The Welcome is on screen, once the splash is gone.
     case welcomeViewed
     /// "Créer un compte" on the Welcome.
     case onboardingStarted

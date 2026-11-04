@@ -3,8 +3,7 @@ import Testing
 @testable import StravaClone
 
 /// The analytics identity follows the session (ADR-035 §8): `identify` as soon as a session
-/// exists (after the code, after Google, at launch), `reset()` at sign-out, and the Measurement
-/// consent, kept on the phone, survives the sign-out.
+/// exists (after the code, after Google, at launch), `reset()` at sign-out.
 @MainActor
 struct AuthStoreAnalyticsTests {
     struct Harness {
@@ -67,18 +66,14 @@ struct AuthStoreAnalyticsTests {
         #expect(harness.analytics.calls == [.identify(userId: "u1")])
     }
 
-    @Test func signingOutResetsTheIdentityButKeepsTheMeasurementConsent() async {
+    @Test func signingOutResetsTheIdentity() async {
         let harness = makeHarness()
         harness.repository.currentUserHandler = { [ada] in ada }
         harness.repository.signOutHandler = {}
-        let preferences = InMemoryConsentPreferences(consent: .accepted)
         await harness.authStore.restoreSession()
 
         await harness.authStore.signOut()
 
         #expect(harness.analytics.calls == [.identify(userId: "u1"), .reset])
-        #expect(preferences.consent == .accepted)
-        let consent = MeasurementConsentStore(preferences: preferences, analytics: harness.analytics, signedInUserID: { nil })
-        #expect(consent.isMeasurementEnabled)
     }
 }

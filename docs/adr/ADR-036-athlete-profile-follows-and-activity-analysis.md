@@ -131,7 +131,7 @@ Sections 8–10 are hidden when `analysis` is `null` or has no splits. Pace char
 - **Colours**: the app's colours only. `Theme.accent` (`#FC5200`, ADR-032) is used for filled buttons, small orange text, routes and charts. The mock-up's darker `#C93F00` is not adopted.
 - `Features/Profile` holds the own profile (header, Progrès · Activités · Plus; *amended by [ADR-037](ADR-037-media-avatar-and-gallery.md) §10*: Progrès · Activités · Galerie · Plus), Statistiques and **Réglages**. Réglages takes over the "Compte" form (ADR-035 §8):
   - Compte: Nom (opens "Modifier le profil") and Email;
-  - Confidentialité: "Approuver mes abonnés", Mesure d'audience, Policy and Terms;
+  - Confidentialité: "Approuver mes abonnés", ~~Mesure d'audience,~~ Policy and Terms (*Amended 2026-11-04: the app will never be published, the Measurement consent is removed*);
   - Se déconnecter, with ADR-030 §8's warning;
   - Debug, in debug builds only.
 - The gear opens Réglages and the magnifier opens the search. There is no "+" button.

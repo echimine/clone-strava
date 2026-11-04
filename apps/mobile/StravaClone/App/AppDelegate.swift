@@ -8,16 +8,12 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 
     override init() {
         // The UI tests' launch arguments are compiled into debug builds only: a release build
-        // never wipes a session, a consent or a draft because of its arguments.
+        // never wipes a session or a draft because of its arguments.
         #if DEBUG
         // UI tests launch with `-uiTestResetAuth` to start from a clean, signed-out
         // state regardless of what a previous run left in the Keychain.
         if ProcessInfo.processInfo.arguments.contains("-uiTestResetAuth") {
             AuthSession().clear()
-        }
-        // `-uiTestResetMeasurementConsent`: a first launch again, so the consent sheet opens.
-        if ProcessInfo.processInfo.arguments.contains("-uiTestResetMeasurementConsent") {
-            UserDefaultsMeasurementConsentPreferences().forget()
         }
         #endif
         do {

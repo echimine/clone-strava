@@ -7,14 +7,12 @@ enum WelcomeEntry: Hashable {
 
 /// The first screen of someone signed out (ADR-035 §1), right after the splash: the Nervo logo,
 /// a carousel of 3 scenes that advance on their own every 4 s and can be swiped, then
-/// "Créer un compte" and "Se connecter". On the first launch the Measurement consent sheet opens
-/// over it (§8). The app shell passes the screen of each entry (ADR-007 rule 5), with its way back.
+/// "Créer un compte" and "Se connecter". The app shell passes the screen of each entry
+/// (ADR-007 rule 5), with its way back.
 struct WelcomeView<Account: View>: View {
-    let consent: MeasurementConsentStore
-    /// `false` while the splash covers the screen: the carousel and the consent sheet wait.
+    /// `false` while the splash covers the screen: the carousel waits.
     var isRevealed = true
-    /// On screen with the Measurement consent answered (`welcome_viewed`, ADR-035 §8): on the
-    /// first launch, once the sheet is answered, since nothing is sent before "Accepter".
+    /// On screen once the splash is gone (`welcome_viewed`, ADR-035 §8).
     var viewed: () -> Void = {}
     /// "Créer un compte" or "Se connecter" was tapped.
     var opened: (WelcomeEntry) -> Void = { _ in }
@@ -39,12 +37,7 @@ struct WelcomeView<Account: View>: View {
                 .transition(.move(edge: .leading))
             }
         }
-        .measurementConsentSheet(consent)
-        .task(id: isRevealed) {
-            guard isRevealed else { return }
-            await consent.askIfNeeded()
-        }
-        .onChange(of: isRevealed && consent.hasAnswered, initial: true) { _, isViewed in
+        .onChange(of: isRevealed, initial: true) { _, isViewed in
             if isViewed { viewed() }
         }
     }
@@ -153,13 +146,7 @@ private struct NervoWordmark: View {
 
 #if DEBUG
 #Preview {
-    WelcomeView(
-        consent: MeasurementConsentStore(
-            preferences: UserDefaultsMeasurementConsentPreferences(defaults: UserDefaults(suiteName: "preview.welcome")!),
-            analytics: NoAnalyticsClient(),
-            signedInUserID: { nil }
-        )
-    ) { entry, back in
+    WelcomeView { entry, back in
         VStack(spacing: 16) {
             Text(entry == .createAccount ? "Créer un compte" : "Se connecter")
             Button("Retour", action: back)

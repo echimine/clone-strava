@@ -4,8 +4,7 @@ import Testing
 
 /// The getting-started funnel around the session (ADR-035 §8), through `AuthStore` and the
 /// `SignInStore` it makes: the Welcome, the account screen, the Sign-in code, Google, the
-/// session, and the notification priming screen. Nothing is sent after "Refuser", and no event
-/// carries a name or an email.
+/// session, and the notification priming screen. No event carries a name or an email.
 @MainActor
 struct AuthFunnelAnalyticsTests {
     nonisolated private static let now = Date(timeIntervalSince1970: 1_793_607_330)
@@ -240,28 +239,7 @@ struct AuthFunnelAnalyticsTests {
         #expect(harness.analytics.events == before)
     }
 
-    // MARK: Consent and personal data
-
-    @Test func nothingIsSentAfterRefuser() async {
-        let harness = makeHarness(permission: FakeNotificationPermission(status: .notDetermined))
-        let consent = MeasurementConsentStore(
-            preferences: InMemoryConsentPreferences(),
-            analytics: harness.analytics,
-            signedInUserID: { nil }
-        )
-        consent.refuse()
-
-        harness.authStore.welcomeViewed()
-        harness.authStore.onboardingStarted()
-        harness.authStore.makeSignInStore(entry: .onboarding(name: "Ada Lovelace")).viewed()
-        await signInWithCode(harness, as: newAda, entry: .onboarding(name: "Ada Lovelace"))
-        harness.authStore.deferAvatarPrompt()
-        await harness.authStore.finishPaywall()
-        await harness.authStore.enableNotifications()
-
-        #expect(harness.authStore.state == .signedIn(newAda))
-        #expect(harness.analytics.events.isEmpty)
-    }
+    // MARK: Personal data
 
     @Test func noEventCarriesTheNameOrTheEmail() async {
         let harness = makeHarness(permission: FakeNotificationPermission(status: .notDetermined))
