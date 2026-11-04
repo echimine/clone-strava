@@ -265,6 +265,39 @@ struct SignInStoreTests {
         #expect(harness.store.formError == .message("Google : no ID token"))
     }
 
+    /// « Compte suspendu » (ADR-038 §6): a banned athlete's code is refused with the Ban; the
+    /// screen shows it instead of an error line, and closing it goes back to the code screen.
+    @Test func aBannedAthletesCodeOpensAccountSuspended() async {
+        let harness = makeHarness()
+        let suspension = AccountSuspension(until: nil, reason: "Spam", contactEmail: "contact@nervo.app")
+        harness.repository.signInHandler = { _, _, _ throws(AuthError) in throw .accountSuspended(suspension) }
+        await harness.openCodeScreen(email: "a@b.com")
+
+        harness.store.enterCode("000000")
+
+        #expect(await eventually { harness.store.suspension == suspension })
+        #expect(harness.store.formError == nil)
+        #expect(harness.store.code.isEmpty)
+        #expect(harness.authStore.state == .checkingSession)
+
+        harness.store.dismissSuspension()
+        #expect(harness.store.suspension == nil)
+    }
+
+    @Test func aBannedAthletesGoogleSignInOpensAccountSuspended() async {
+        let harness = makeHarness()
+        let suspension = AccountSuspension(
+            until: Date(timeIntervalSince1970: 1_794_403_800), reason: "Spam", contactEmail: nil
+        )
+        harness.google.signInHandler = { "id-token" }
+        harness.repository.signInWithGoogleHandler = { _ throws(AuthError) in throw .accountSuspended(suspension) }
+
+        await harness.store.signInWithGoogle()
+
+        #expect(harness.store.suspension == suspension)
+        #expect(harness.store.formError == nil)
+    }
+
     @Test func goingBackToTheEmailLetsTheAddressBeChanged() async {
         let harness = makeHarness()
         await harness.openCodeScreen(email: "a@b.com")
