@@ -101,23 +101,25 @@ describe("Backoffice dashboard stats (ADR-038 §15, integration)", () => {
   });
 
   describe("GET /v1/admin/stats/todo", () => {
-    it("counts failed Activities, imports failed in the last 7 days and failed jobs of every queue", async () => {
+    it("counts failed Activities, imports failed in the last 7 days and failed jobs of every queue, without Administrators", async () => {
       const before = await get<AdminTodoStats>("/admin/stats/todo");
 
       const athlete = await t.seedUser("Athlète Échecs");
       await seedActivity(athlete, "2030-01-10T08:00:00Z", { status: "failed" });
       await seedActivity(athlete, "2030-01-11T08:00:00Z", { status: "failed" });
       await seedActivity(athlete, "2030-01-12T08:00:00Z", { status: "processed" });
-      const seedImport = (status: string, processedAt: string | null) =>
+      await seedActivity(admin, "2030-01-12T08:00:00Z", { status: "failed" }); // an Administrator's
+      const seedImport = (status: string, processedAt: string | null, userId = athlete) =>
         t.sql(
           `insert into activities.activity_import (id, user_id, format, original_file_name, size_bytes, status, error, processed_at)
            values ($1, $2, 'gpx', 'run.gpx', 1000, $3, 'unreadable_file', $4)`,
-          [randomUUID(), athlete, status, processedAt],
+          [randomUUID(), userId, status, processedAt],
         );
       await seedImport("failed", "2030-01-14T09:00:00Z");
       await seedImport("failed", "2030-01-08T13:00:00Z");
       await seedImport("failed", "2030-01-08T11:00:00Z"); // more than 7 days before NOW
       await seedImport("imported", "2030-01-14T09:00:00Z");
+      await seedImport("failed", "2030-01-14T09:00:00Z", admin); // an Administrator's
       await failJob("avatars");
       await failJob("segments");
 
@@ -130,13 +132,13 @@ describe("Backoffice dashboard stats (ADR-038 §15, integration)", () => {
       });
     });
 
-    it("counts the open report cases and gives the oldest opening; closed cases are left out", async () => {
+    it("counts the open report cases and gives the oldest opening; closed cases and Administrators' are left out", async () => {
       const reported = await t.seedUser("Athlète Signalé");
-      const seedCase = (status: string, openedAt: string) =>
+      const seedCase = (status: string, openedAt: string, targetUserId?: string) =>
         t.sql(
           `insert into moderation.report_case (target_type, target_id, target_user_id, status, opened_at)
            values ('athlete', $1, $1, $2, $3)`,
-          [status === "open" ? randomUUID() : reported, status, openedAt],
+          [targetUserId ?? (status === "open" ? randomUUID() : reported), status, openedAt],
         );
       const before = await get<AdminTodoStats>("/admin/stats/todo");
       expect(before.openReports).toEqual({ count: 0, oldestOpenedAt: null });
@@ -144,6 +146,7 @@ describe("Backoffice dashboard stats (ADR-038 §15, integration)", () => {
       await seedCase("open", "2030-01-14T10:00:00Z");
       await seedCase("open", "2030-01-13T08:00:00Z");
       await seedCase("dismissed", "2030-01-01T08:00:00Z");
+      await seedCase("open", "2030-01-02T08:00:00Z", admin); // reports on an Administrator
 
       const after = await get<AdminTodoStats>("/admin/stats/todo");
       expect(after.openReports).toEqual({ count: 2, oldestOpenedAt: "2030-01-13T08:00:00.000Z" });

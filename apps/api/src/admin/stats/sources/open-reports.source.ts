@@ -12,7 +12,7 @@ export interface OpenReportsCount {
 export class OpenReportsSource {
   constructor(private readonly moderation: ModerationService) {}
 
-  count(): Promise<OpenReportsCount> {
-    return this.moderation.countOpenCases();
+  count(excludedUserIds: readonly string[]): Promise<OpenReportsCount> {
+    return this.moderation.countOpenCases(excludedUserIds);
   }
 }

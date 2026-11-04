@@ -136,8 +136,8 @@ export class ActivitiesService {
   ) {}
 
   /** Backoffice dashboard, "À traiter" (ADR-038 §15): failed Activities and recent failed imports. */
-  getAdminFailureCounts(failedImportsSince: Date): Promise<ActivityFailureCounts> {
-    return this.adminStats.countFailures(failedImportsSince);
+  getAdminFailureCounts(failedImportsSince: Date, excludedUserIds: readonly string[]): Promise<ActivityFailureCounts> {
+    return this.adminStats.countFailures(failedImportsSince, excludedUserIds);
   }
 
   /** Backoffice dashboard, "Croissance" (ADR-038 §15): Activities started, active athletes, Media. */

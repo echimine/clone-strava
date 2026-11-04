@@ -20,17 +20,21 @@ import type { ActivityFailureCounts, ActivityGrowthCounts } from "../domain/acti
 export class ActivityAdminStatsRepository {
   constructor(@Inject(DATABASE) private readonly db: Database) {}
 
-  /** "À traiter": failed Activities (all), imports failed since `failedImportsSince`. */
-  async countFailures(failedImportsSince: Date): Promise<ActivityFailureCounts> {
+  /** "À traiter": failed Activities (all), imports failed since `failedImportsSince`, not by `excludedUserIds`. */
+  async countFailures(failedImportsSince: Date, excludedUserIds: readonly string[]): Promise<ActivityFailureCounts> {
     const [activities] = await this.db
       .select({ total: count() })
       .from(schema.activity)
-      .where(eq(schema.activity.processingStatus, "failed"));
+      .where(and(eq(schema.activity.processingStatus, "failed"), notByUsers(schema.activity.userId, excludedUserIds)));
     const [imports] = await this.db
       .select({ total: count() })
       .from(schema.activityImport)
       .where(
-        and(eq(schema.activityImport.status, "failed"), gte(schema.activityImport.processedAt, failedImportsSince)),
+        and(
+          eq(schema.activityImport.status, "failed"),
+          gte(schema.activityImport.processedAt, failedImportsSince),
+          notByUsers(schema.activityImport.userId, excludedUserIds),
+        ),
       );
     return { failedActivities: activities?.total ?? 0, failedImports: imports?.total ?? 0 };
   }

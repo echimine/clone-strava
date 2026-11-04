@@ -106,9 +106,9 @@ export class ModerationService {
     return this.reports.countReceivedBy(userId);
   }
 
-  /** Open cases and the oldest opening (dashboard, ADR-038 §15). */
-  countOpenCases(): Promise<{ count: number; oldestOpenedAt: Date | null }> {
-    return this.cases.countOpen();
+  /** Open cases and the oldest opening, those on `excludedUserIds` left out (dashboard, ADR-038 §15). */
+  countOpenCases(excludedUserIds: readonly string[]): Promise<{ count: number; oldestOpenedAt: Date | null }> {
+    return this.cases.countOpen(excludedUserIds);
   }
 
   /** Batch read: the ids among `caseIds` of cases that exist (Journal links). */

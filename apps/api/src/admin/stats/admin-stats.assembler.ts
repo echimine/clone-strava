@@ -43,14 +43,16 @@ export class AdminStatsAssembler {
   ) {}
 
   /**
-   * "À traiter": the work waiting now. These are work queues, so each count matches the screen it
-   * opens, Administrators' content included.
+   * "À traiter": the work waiting now, Administrators left out like everywhere on the dashboard:
+   * open reports on them or their content, their failed Activities and imports. A failed job is
+   * not attributed to anyone, so every one counts.
    */
   async todo(): Promise<AdminTodoStats> {
     const now = this.clock.now();
+    const adminIds = await this.auth.listAdminIds();
     const [openReports, failures, failedJobs, suspiciousEfforts] = await Promise.all([
-      this.openReports.count(),
-      this.activities.getAdminFailureCounts(new Date(now.getTime() - FAILED_IMPORTS_WINDOW_MS)),
+      this.openReports.count(adminIds),
+      this.activities.getAdminFailureCounts(new Date(now.getTime() - FAILED_IMPORTS_WINDOW_MS), adminIds),
       this.failedJobs.count(),
       this.suspiciousEfforts.count(),
     ]);

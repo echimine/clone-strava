@@ -2,7 +2,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import { and, asc, count, desc, eq, gte, inArray, lt, min, ne, sql, type SQL } from "drizzle-orm";
 import { schema, type Database } from "@repo/db";
 import type { ReportCaseStatus, ReportReason, ReportTargetType } from "@repo/contracts";
-import { DATABASE, offsetPage, parisDayRange, type DbExecutor } from "../../infrastructure/index.js";
+import { DATABASE, notByUsers, offsetPage, parisDayRange, type DbExecutor } from "../../infrastructure/index.js";
 import type { ReportCaseFilter, ReportCaseRecord, ReportCaseRow } from "../domain/report-case.js";
 
 const t = schema.reportCase;
@@ -125,12 +125,15 @@ export class ReportCaseRepository {
     return { rows, total: counted?.total ?? 0 };
   }
 
-  /** Open cases and when the oldest was opened (the dashboard's « À traiter » tile). */
-  async countOpen(): Promise<{ count: number; oldestOpenedAt: Date | null }> {
+  /**
+   * Open cases and when the oldest was opened (the dashboard's « À traiter » tile), but those
+   * whose target belongs to one of `excludedUserIds`.
+   */
+  async countOpen(excludedUserIds: readonly string[]): Promise<{ count: number; oldestOpenedAt: Date | null }> {
     const [row] = await this.db
       .select({ count: count(), oldestOpenedAt: min(t.openedAt) })
       .from(t)
-      .where(eq(t.status, "open"));
+      .where(and(eq(t.status, "open"), notByUsers(t.targetUserId, excludedUserIds)));
     return { count: row?.count ?? 0, oldestOpenedAt: row?.oldestOpenedAt ?? null };
   }
 
