@@ -9,6 +9,10 @@ import { MediaAssembler } from "../media/media-assembler.js";
 import { AdminActivitiesController } from "./activities/admin-activities.controller.js";
 import { AdminActivityAssembler } from "./activities/admin-activity-assembler.js";
 import { AdminCommentsController } from "./comments/admin-comments.controller.js";
+import { AdminFailureAssembler } from "./failures/admin-failure-assembler.js";
+import { AdminFailuresController } from "./failures/admin-failures.controller.js";
+import { AdminQueuesController } from "./queues/admin-queues.controller.js";
+import { AdminQueuesModule } from "./queues/admin-queues.module.js";
 import { SanctionNotices } from "./sanctions/sanction-notices.js";
 import { AdminActivityImportsController } from "./activity-imports/admin-activity-imports.controller.js";
 import { AdminController } from "./admin.controller.js";
@@ -30,6 +34,7 @@ import { ADMIN_STATS_IMPORTS, ADMIN_STATS_PROVIDERS } from "./stats/admin-stats.
     EngagementModule,
     SegmentsModule,
     IdentitiesModule,
+    AdminQueuesModule,
     ...ADMIN_STATS_IMPORTS,
   ],
   controllers: [
@@ -38,6 +43,8 @@ import { ADMIN_STATS_IMPORTS, ADMIN_STATS_PROVIDERS } from "./stats/admin-stats.
     AuditEntriesController,
     AdminActivitiesController,
     AdminCommentsController,
+    AdminFailuresController,
+    AdminQueuesController,
     AdminStatsController,
   ],
   providers: [
@@ -46,6 +53,7 @@ import { ADMIN_STATS_IMPORTS, ADMIN_STATS_PROVIDERS } from "./stats/admin-stats.
     AdminActivityAssembler,
     MediaAssembler,
     SanctionNotices,
+    AdminFailureAssembler,
     ...ADMIN_STATS_PROVIDERS,
   ],
 })

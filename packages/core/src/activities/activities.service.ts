@@ -64,6 +64,17 @@ import { DeleteActivityAsSanctionUseCase } from "./use-cases/delete-activity-as-
 import { RemoveMediaAsSanctionUseCase } from "./use-cases/remove-media-as-sanction.use-case.js";
 import { ResetActivityTextUseCase, type ActivityTextReset } from "./use-cases/reset-activity-text.use-case.js";
 import { AdminActivityRepository } from "./repositories/admin-activity.repository.js";
+import { ListAdminFailuresUseCase } from "./use-cases/list-admin-failures.use-case.js";
+import { RecomputeActivityUseCase } from "./use-cases/recompute-activity.use-case.js";
+import { RelaunchFailuresUseCase } from "./use-cases/relaunch-failures.use-case.js";
+import type {
+  FailedActivityRow,
+  FailedImportRow,
+  FailurePage,
+  StaleActivityRow,
+} from "./domain/admin-failure.js";
+
+type AdminPage = { page: number; pageSize: number };
 import type {
   ActivityLabel,
   AdminActivityFilter,
@@ -119,6 +130,9 @@ export class ActivitiesService {
     private readonly removeMediaAsSanctionUseCase: RemoveMediaAsSanctionUseCase,
     private readonly resetActivityTextUseCase: ResetActivityTextUseCase,
     private readonly adminActivities: AdminActivityRepository,
+    private readonly listAdminFailuresUseCase: ListAdminFailuresUseCase,
+    private readonly recomputeActivityUseCase: RecomputeActivityUseCase,
+    private readonly relaunchFailuresUseCase: RelaunchFailuresUseCase,
   ) {}
 
   /** Backoffice dashboard, "À traiter" (ADR-038 §15): failed Activities and recent failed imports. */
@@ -374,6 +388,46 @@ export class ActivitiesService {
   /** Sanction: default title, no description. */
   resetText(activityId: string): Promise<ActivityTextReset> {
     return this.resetActivityTextUseCase.execute(activityId);
+  }
+
+  // --- Jobs screen, "Échecs" tab (ADR-038 §14) ---
+
+  /** `failed` Activities, newest first. The caller adds the athletes. */
+  listFailedForAdmin(page: AdminPage): Promise<FailurePage<FailedActivityRow>> {
+    return this.listAdminFailuresUseCase.activities(page);
+  }
+
+  /** `failed` imports, newest first. The caller adds the athletes. */
+  listFailedImportsForAdmin(page: AdminPage): Promise<FailurePage<FailedImportRow>> {
+    return this.listAdminFailuresUseCase.imports(page);
+  }
+
+  /** Failed recomputations: processed Activities computed for another sport. */
+  listStaleForAdmin(page: AdminPage): Promise<FailurePage<StaleActivityRow>> {
+    return this.listAdminFailuresUseCase.recomputes(page);
+  }
+
+  /**
+   * « Recalculer »: `reprocess-activity` again under a new job id; `409 not_stale` unless the
+   * Activity is processed and computed for another sport. Returns the author and the job id.
+   */
+  recompute(activityId: string, requestId?: string): Promise<{ userId: string; jobId: string }> {
+    return this.recomputeActivityUseCase.execute(activityId, requestId);
+  }
+
+  /** « Retraiter les N en échec » (500 at most): the ids of the Activities relaunched. */
+  reprocessAllFailed(requestId?: string): Promise<string[]> {
+    return this.relaunchFailuresUseCase.reprocessFailedActivities(requestId);
+  }
+
+  /** « Recalculer » every failed recomputation (500 at most): the ids relaunched. */
+  recomputeAllStale(requestId?: string): Promise<string[]> {
+    return this.relaunchFailuresUseCase.recomputeStaleActivities(requestId);
+  }
+
+  /** « Retraiter » every failed import (500 at most): the ids relaunched. */
+  reprocessAllFailedImports(requestId?: string): Promise<string[]> {
+    return this.relaunchFailuresUseCase.reprocessFailedImports(requestId);
   }
 
   /** Batch read: how e-mails and the backoffice name these Activities (ADR-038 §4). */

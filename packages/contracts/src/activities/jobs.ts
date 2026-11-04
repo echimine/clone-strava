@@ -44,6 +44,14 @@ export function reprocessAnalysisJobId(activityId: string, analysisVersion: numb
   return `reprocess-${activityId}-analysis-v${analysisVersion}`;
 }
 
+/**
+ * « Recalculer » from the backoffice (ADR-038 §14): a new id at each click, since the id of the
+ * Activity's last edit still holds the `reprocess-activity` that failed.
+ */
+export function recomputeActivityJobId(activityId: string, at: Date): string {
+  return `reprocess-activity-${activityId}-${at.getTime()}`;
+}
+
 /** `reprocess-activity` job payload (ADR-033 §5). */
 export const reprocessActivityJobSchema = z.object({
   activityId: z.uuid(),

@@ -9,6 +9,7 @@
     "start": "node --env-file-if-exists=.env dist/main.js",
     "openapi:export": "node --env-file-if-exists=.env dist/openapi/export.js",
     "backfill:google-avatars": "node --env-file-if-exists=.env dist/scripts/backfill-google-avatars.js",
+    "clean:queues": "node --env-file-if-exists=.env dist/scripts/clean-queues.js",
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {

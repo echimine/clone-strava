@@ -9,6 +9,12 @@ export type {
   AdminActivityRecord,
   AdminActivityRow,
 } from "./domain/admin-activity.js";
+export type {
+  FailedActivityRow,
+  FailedImportRow,
+  FailurePage,
+  StaleActivityRow,
+} from "./domain/admin-failure.js";
 export type { ActivityTextReset } from "./use-cases/reset-activity-text.use-case.js";
 export type { ActivityMediaRecord, GalleryMediaPage, GalleryMediaRecord } from "./domain/activity-media.js";
 export type { FeedActivity, FeedActivityPage, FeedActivityStats } from "./domain/feed-activity.js";
