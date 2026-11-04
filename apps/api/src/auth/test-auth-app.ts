@@ -7,11 +7,14 @@ import { Controller, Get, RequestMethod, UseGuards } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import type { INestApplication } from "@nestjs/common";
 import { APP_FILTER } from "@nestjs/core";
+import { EventEmitterModule } from "@nestjs/event-emitter";
 import { AnalyticsModule } from "@repo/core/analytics";
+import { AuditModule } from "@repo/core/audit";
 import { CoreInfrastructureModule } from "@repo/core/infrastructure";
 import { AuthModule as CoreAuthModule, AUTH_INSTANCE } from "@repo/core/auth";
 import { NotificationsService } from "@repo/core/notifications";
 import { runMigrations } from "@repo/db/migrate";
+import { AuthAuditListener } from "../admin/audit/auth-audit.listener.js";
 import { GlobalExceptionFilter } from "../common/global-exception.filter.js";
 import { listenOnLoopback } from "../testing/listen-on-loopback.js";
 import { AdminGuard } from "./admin.guard.js";
@@ -84,9 +87,17 @@ export async function bootstrapTestAuthApp(
     allowPasswordSignUp?: boolean;
     /** Turns on the dev Sign-in code helpers (ADR-035 §2). */
     devSignInCodes?: boolean;
+    /** Records the auth hooks' audit entries (ADR-038 §3), as `AdminModule` does. */
+    withAudit?: boolean;
   } = {},
 ): Promise<TestAuthApp> {
-  const { mockNotifications = true, withAdminRoute = false, allowPasswordSignUp = true, devSignInCodes = false } = options;
+  const {
+    mockNotifications = true,
+    withAdminRoute = false,
+    allowPasswordSignUp = true,
+    devSignInCodes = false,
+    withAudit = false,
+  } = options;
 
   const moduleBuilder = Test.createTestingModule({
     imports: [
@@ -107,6 +118,7 @@ export async function bootstrapTestAuthApp(
         allowPasswordSignUp,
         devSignInCodes,
       }),
+      ...(withAudit ? [EventEmitterModule.forRoot({ wildcard: true, delimiter: "." }), AuditModule] : []),
     ],
     controllers: withAdminRoute ? [TestAdminController, TestAppRouteController] : [],
     // `SessionGuard`/`AdminGuard` are declared directly in this top-level
@@ -118,9 +130,10 @@ export async function bootstrapTestAuthApp(
     // since `CoreAuthModule.forRoot(...)`'s *instance* (with this file's
     // test options) only exists on this testing module, not as a
     // reusable, re-importable reference.
-    providers: withAdminRoute
-      ? [SessionGuard, AdminGuard, { provide: APP_FILTER, useClass: GlobalExceptionFilter }]
-      : [],
+    providers: [
+      ...(withAdminRoute ? [SessionGuard, AdminGuard, { provide: APP_FILTER, useClass: GlobalExceptionFilter }] : []),
+      ...(withAudit ? [AuthAuditListener] : []),
+    ],
   });
 
   if (mockNotifications) {

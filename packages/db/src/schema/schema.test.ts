@@ -7,6 +7,7 @@ import {
   activityStats,
   activityTrack,
 } from "./activities.js";
+import { adminAuditEntry } from "./audit.js";
 import { user } from "./auth.js";
 import { comment, kudos } from "./engagement.js";
 import { itinerary, itineraryLeg, itineraryWaypoint } from "./itineraries.js";
@@ -66,6 +67,11 @@ describe("schema table names and owning PostgreSQL schema (ADR-017, ADR-021 §7)
       name: "user_subscription",
       schema: "subscriptions",
     });
+    expect(getTableConfig(adminAuditEntry)).toMatchObject({ name: "admin_audit_entry", schema: "audit" });
+  });
+
+  it("keeps the Journal free of foreign keys, so an entry outlives the accounts it names (ADR-038 §3)", () => {
+    expect(getTableConfig(adminAuditEntry).foreignKeys).toHaveLength(0);
   });
 
   it("gives `activity` and `itinerary` no default id, unlike server-generated identifiers", () => {

@@ -7,6 +7,10 @@
       "types": "./dist/infrastructure/index.d.ts",
       "default": "./dist/infrastructure/index.js"
     },
+    "./audit": {
+      "types": "./dist/audit/index.d.ts",
+      "default": "./dist/audit/index.js"
+    },
     "./auth": {
       "types": "./dist/auth/index.d.ts",
       "default": "./dist/auth/index.js"

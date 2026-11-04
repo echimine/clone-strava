@@ -1,10 +1,20 @@
 import { Module } from "@nestjs/common";
 import { ActivitiesModule } from "@repo/core/activities";
+import { AuditModule } from "@repo/core/audit";
 import { AuthModule } from "../auth/auth.module.js";
+import { AdminActivityImportsController } from "./activity-imports/admin-activity-imports.controller.js";
 import { AdminController } from "./admin.controller.js";
+import { AuditEntriesController } from "./audit/audit-entries.controller.js";
+import { AuditEntryAssembler } from "./audit/audit-entry-assembler.js";
+import { AuthAuditListener } from "./audit/auth-audit.listener.js";
 
+/**
+ * `/v1/admin/*` (ADR-021 §1 "Not a module: admin", ADR-038 §1): one controller per area under
+ * `src/admin/<area>/`, each listed here. `AuditModule` serves `@Audited` on every admin write.
+ */
 @Module({
-  imports: [AuthModule, ActivitiesModule],
-  controllers: [AdminController],
+  imports: [AuthModule, AuditModule, ActivitiesModule],
+  controllers: [AdminController, AdminActivityImportsController, AuditEntriesController],
+  providers: [AuditEntryAssembler, AuthAuditListener],
 })
 export class AdminModule {}

@@ -1,5 +1,6 @@
 import { BullModule } from "@nestjs/bullmq";
 import { Module, type DynamicModule } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { AVATARS_QUEUE_NAME } from "@repo/contracts";
 import type { Database } from "@repo/db";
 import { AnalyticsService } from "../analytics/index.js";
@@ -54,7 +55,8 @@ export class AuthModule {
             analytics: AnalyticsService,
             googleAvatars: GoogleAvatarCopyEnqueuer,
             opts: AuthModuleOptions,
-          ) => createAuthInstance(db, redis, notifications, analytics, googleAvatars, opts),
+            events: EventEmitter2 | undefined,
+          ) => createAuthInstance(db, redis, notifications, analytics, googleAvatars, opts, events ?? null),
           // `AnalyticsService` comes from the global `AnalyticsModule` each app registers.
           inject: [
             DATABASE,
@@ -63,6 +65,9 @@ export class AuthModule {
             AnalyticsService,
             GoogleAvatarCopyEnqueuer,
             AUTH_MODULE_OPTIONS,
+            // The app's global `EventEmitterModule`, when it has one: the admin access events
+            // the API records in the Journal (ADR-038 §3).
+            { token: EventEmitter2, optional: true },
           ],
         },
         AuthUserRepository,
