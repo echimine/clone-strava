@@ -19,13 +19,14 @@ import { useListUrlState } from "@/lib/list-url-state";
 export function UsersView() {
   const list = useListUrlState();
   const sort = list.get("sort") === "lastActivityAt" ? "lastActivityAt" : undefined;
+  const premium = adminUserPremiumFilterSchema.safeParse(list.get("premium")).data;
   const { data, isLoading, isPlaceholderData } = useUsers({
     page: list.page,
     pageSize: list.pageSize,
     q: list.get("q"),
     role: userRoleSchema.safeParse(list.get("role")).data,
     state: adminUserStateSchema.safeParse(list.get("state")).data,
-    premium: adminUserPremiumFilterSchema.safeParse(list.get("premium")).data,
+    premium,
     method: adminUserMethodFilterSchema.safeParse(list.get("method")).data,
     from: list.get("from"),
     to: list.get("to"),
@@ -39,6 +40,7 @@ export function UsersView() {
       <UserTable
         data={data?.items ?? []}
         isLoading={isLoading}
+        showPremiumEnd={premium !== undefined}
         pagination={{ list, total: data?.total ?? 0, itemLabel: "utilisateurs", disabled: isPlaceholderData }}
       />
     </div>

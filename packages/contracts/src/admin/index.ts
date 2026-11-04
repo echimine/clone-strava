@@ -4,6 +4,7 @@ export * from "./reason.js";
 export * from "./activities.js";
 export * from "./failures.js";
 export * from "./queues.js";
+export * from "./premium.js";
 export * from "./stats.js";
 export * from "./users.js";
 export * from "./reports.js";

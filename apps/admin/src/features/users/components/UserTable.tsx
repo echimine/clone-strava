@@ -7,6 +7,7 @@ import Link from "next/link";
 import { DataTable, type DataTableProps } from "@/components/DataTable";
 import { UserAvatar } from "@/features/users/components/UserIdentity";
 import { banLabel, formatDate, formatDateTime, methodLabels, roleLabels } from "@/features/users/lib/labels";
+import { premiumStateLabels } from "@/lib/premium-labels";
 
 const columns: ColumnDef<AdminUserListItem>[] = [
   {
@@ -39,7 +40,7 @@ const columns: ColumnDef<AdminUserListItem>[] = [
   {
     id: "premium",
     header: "Premium",
-    cell: ({ row }) => (row.original.isPremium ? <Badge>Premium</Badge> : "—"),
+    cell: ({ row }) => premiumCell(row.original),
   },
   {
     id: "state",
@@ -49,15 +50,33 @@ const columns: ColumnDef<AdminUserListItem>[] = [
   },
 ];
 
-/** The users list's table (ADR-038 §5). */
+/** Premium now as a badge (« Payant », « Premium offert »…); else « Expiré », or a dash when never. */
+function premiumCell(user: AdminUserListItem) {
+  if (user.isPremium) {
+    return <Badge>{premiumStateLabels[user.premiumState]}</Badge>;
+  }
+  return user.premiumState === "never" ? "—" : premiumStateLabels[user.premiumState];
+}
+
+/** « Fin »: the end of the Premium period, shown while the Premium filter is set (ADR-038 §12). */
+const premiumEndColumn: ColumnDef<AdminUserListItem> = {
+  id: "premiumEndsAt",
+  header: "Fin",
+  cell: ({ row }) => formatDate(row.original.premiumEndsAt),
+};
+
+const withPremiumEnd = columns.flatMap((column) => (column.id === "premium" ? [column, premiumEndColumn] : [column]));
+
+/** The users list's table (ADR-038 §5); `showPremiumEnd` adds the « Fin » column. */
 export function UserTable({
   data,
   isLoading,
   pagination,
-}: Pick<DataTableProps<AdminUserListItem>, "data" | "isLoading" | "pagination">) {
+  showPremiumEnd = false,
+}: Pick<DataTableProps<AdminUserListItem>, "data" | "isLoading" | "pagination"> & { showPremiumEnd?: boolean }) {
   return (
     <DataTable
-      columns={columns}
+      columns={showPremiumEnd ? withPremiumEnd : columns}
       data={data}
       isLoading={isLoading}
       emptyMessage="Aucun utilisateur."

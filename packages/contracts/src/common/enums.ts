@@ -38,12 +38,12 @@ export type MediaKind = z.infer<typeof mediaKindSchema>;
 export const paceUnitSchema = z.enum(["pace", "speed"]);
 export type PaceUnit = z.infer<typeof paceUnitSchema>;
 
-/** `user_subscription.store` (ADR-017, ADR-014). */
-export const subscriptionStoreSchema = z.enum(["app_store"]);
+/** `user_subscription.store` (ADR-017, ADR-014); `promotional` is Promotional Premium (ADR-038 §12). */
+export const subscriptionStoreSchema = z.enum(["app_store", "promotional"]);
 export type SubscriptionStore = z.infer<typeof subscriptionStoreSchema>;
 
-/** `user_subscription.period_type` (ADR-017). */
-export const subscriptionPeriodTypeSchema = z.enum(["trial", "intro", "normal"]);
+/** `user_subscription.period_type` (ADR-017); `promotional` is Promotional Premium (ADR-038 §12). */
+export const subscriptionPeriodTypeSchema = z.enum(["trial", "intro", "normal", "promotional"]);
 export type SubscriptionPeriodType = z.infer<typeof subscriptionPeriodTypeSchema>;
 
 /** `user_subscription.environment` (ADR-017, ADR-014). */

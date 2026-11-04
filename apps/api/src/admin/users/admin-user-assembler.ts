@@ -54,6 +54,8 @@ export class AdminUserAssembler {
           activityCount: row.activityCount,
           lastActivityAt: row.lastActivityAt?.toISOString() ?? null,
           isPremium: row.isPremium,
+          premiumState: row.premiumState,
+          premiumEndsAt: row.premiumEndsAt?.toISOString() ?? null,
           state: stateOf(ban),
           ban: toBan(ban),
         };

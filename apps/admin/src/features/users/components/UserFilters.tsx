@@ -6,6 +6,7 @@ import { NativeSelect, NativeSelectOption } from "@repo/ui/components/native-sel
 import { useState, type FormEvent } from "react";
 import { methodLabels, roleLabels, stateLabels } from "@/features/users/lib/labels";
 import type { ListUrlState } from "@/lib/list-url-state";
+import { premiumFilterLabels } from "@/lib/premium-labels";
 
 function Select({
   id,
@@ -39,7 +40,7 @@ function Select({
 
 /**
  * The users list's filters (ADR-038 §5): search over first name, last name and e-mail, role,
- * state, Premium yes/no (#215 details it), sign-in method, sign-up period, sort. All in the URL.
+ * state, Premium state (ADR-038 §12), sign-in method, sign-up period, sort. All in the URL.
  */
 export function UserFilters({ list }: { list: ListUrlState }) {
   const [search, setSearch] = useState(list.get("q") ?? "");
@@ -64,7 +65,7 @@ export function UserFilters({ list }: { list: ListUrlState }) {
       </form>
       <Select id="users-role" label="Rôle" name="role" list={list} options={roleLabels} />
       <Select id="users-state" label="État" name="state" list={list} options={stateLabels} />
-      <Select id="users-premium" label="Premium" name="premium" list={list} options={{ yes: "Oui", no: "Non" }} />
+      <Select id="users-premium" label="Premium" name="premium" list={list} options={premiumFilterLabels} />
       <Select
         id="users-method"
         label="Connexion"
