@@ -1,4 +1,5 @@
 import { Controller, Get, HttpCode, HttpStatus, Param, Post, Query, UseGuards } from "@nestjs/common";
+import { ApiParam } from "@nestjs/swagger";
 import { createZodDto, ZodResponse, ZodSerializerDto } from "nestjs-zod";
 import {
   adminQueueJobDetailSchema,
@@ -24,6 +25,9 @@ class AdminQueueJobListResponseDto extends createZodDto(adminQueueJobListRespons
 class AdminQueueJobDetailDto extends createZodDto(adminQueueJobDetailSchema) {}
 class AdminQueueRetryFailedResponseDto extends createZodDto(adminQueueRetryFailedResponseSchema) {}
 
+/** `:name` in the OpenAPI document: its TypeScript type, a union, leaves no runtime type to read. */
+const QueueNameParam = () => ApiParam({ name: "name", required: true, type: String });
+
 /**
  * `/v1/admin/queues/*` (ADR-038 §14): the "Files" tab of the Jobs screen, over the queue
  * whitelist of `contracts` (`AdminQueueNamePipe`: `404 queue_not_found` for any other name).
@@ -44,6 +48,7 @@ export class AdminQueuesController {
 
   /** A queue's jobs in one state (`failed` by default), newest first. */
   @Get(":name/jobs")
+  @QueueNameParam()
   @ZodResponse({ status: 200, type: AdminQueueJobListResponseDto })
   jobs(
     @Param("name", AdminQueueNamePipe) name: AdminQueueName,
@@ -54,6 +59,7 @@ export class AdminQueuesController {
 
   /** One job with its stack traces and its data, read-only (`404 job_not_found`). */
   @Get(":name/jobs/:id")
+  @QueueNameParam()
   @ZodResponse({ status: 200, type: AdminQueueJobDetailDto })
   job(@Param("name", AdminQueueNamePipe) name: AdminQueueName, @Param("id") id: string): Promise<AdminQueueJobDetail> {
     return this.queues.job(name, id);
@@ -64,6 +70,7 @@ export class AdminQueuesController {
    * and `import-activity` (« Retraiter » instead), `409 not_failed` for a job that has not failed.
    */
   @Post(":name/jobs/:id/retry")
+  @QueueNameParam()
   @HttpCode(HttpStatus.NO_CONTENT)
   @Audited("queue.job.retry", { reason: "none", targetParam: null })
   async retry(
@@ -77,6 +84,7 @@ export class AdminQueuesController {
 
   /** Retries every failed job of the queue but the refused ones; counts both. */
   @Post(":name/retry-failed")
+  @QueueNameParam()
   @HttpCode(HttpStatus.ACCEPTED)
   @Audited("queue.retry_failed", { reason: "none", targetParam: "name" })
   @ZodSerializerDto(AdminQueueRetryFailedResponseDto)
@@ -91,6 +99,7 @@ export class AdminQueuesController {
 
   /** Workers stop taking the queue's jobs; the jobs stay. */
   @Post(":name/pause")
+  @QueueNameParam()
   @HttpCode(HttpStatus.NO_CONTENT)
   @Audited("queue.pause", { reason: "none", targetParam: "name" })
   async pause(@Param("name", AdminQueueNamePipe) name: AdminQueueName): Promise<void> {
@@ -98,6 +107,7 @@ export class AdminQueuesController {
   }
 
   @Post(":name/resume")
+  @QueueNameParam()
   @HttpCode(HttpStatus.NO_CONTENT)
   @Audited("queue.resume", { reason: "none", targetParam: "name" })
   async resume(@Param("name", AdminQueueNamePipe) name: AdminQueueName): Promise<void> {
