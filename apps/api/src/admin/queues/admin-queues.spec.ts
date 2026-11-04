@@ -228,10 +228,23 @@ describe("/v1/admin/queues (integration)", { timeout: 20_000 }, () => {
   });
 
   it("answers 404 for a queue outside the whitelist and for an unknown job", async () => {
-    const unknownQueue = await t.call("/admin/queues/media/jobs", admin);
-    expect(unknownQueue.status).toBe(404);
-    expect(await errorCode(unknownQueue)).toBe("queue_not_found");
-    expect((await t.call("/admin/queues/media/pause", admin, { method: "POST" })).status).toBe(404);
+    const unknownQueueRoutes: [string, string][] = [
+      ["GET", "/admin/queues/media/jobs"],
+      ["GET", "/admin/queues/media/jobs/some-job"],
+      ["POST", "/admin/queues/media/jobs/some-job/retry"],
+      ["POST", "/admin/queues/media/retry-failed"],
+      ["POST", "/admin/queues/media/pause"],
+      ["POST", "/admin/queues/media/resume"],
+    ];
+    for (const [method, path] of unknownQueueRoutes) {
+      const unknownQueue = await t.call(path, admin, { method });
+      expect(unknownQueue.status, `${method} ${path}`).toBe(404);
+      expect(await errorCode(unknownQueue)).toBe("queue_not_found");
+    }
+    const recorded = await t.sql("select 1 from audit.admin_audit_entry where actor_id = $1 and target_id like 'media%'", [
+      admin,
+    ]);
+    expect(recorded).toEqual([]);
 
     const unknownJob = await t.call("/admin/queues/segments/jobs/nope", admin);
     expect(unknownJob.status).toBe(404);

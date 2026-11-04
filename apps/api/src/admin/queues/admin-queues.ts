@@ -35,7 +35,7 @@ export class AdminQueues {
     return Promise.all(ADMIN_QUEUE_NAMES.map((name) => this.describe(name)));
   }
 
-  async jobs(name: string, query: AdminQueueJobListQuery): Promise<AdminQueueJobListResponse> {
+  async jobs(name: AdminQueueName, query: AdminQueueJobListQuery): Promise<AdminQueueJobListResponse> {
     const queue = this.queue(name);
     const start = (query.page - 1) * query.pageSize;
     const [jobs, total] = await Promise.all([
@@ -44,19 +44,19 @@ export class AdminQueues {
       queue.getJobCountByTypes(query.state),
     ]);
     return {
-      items: jobs.filter((job): job is Job => Boolean(job)).map((job) => toJob(job, queue.name as AdminQueueName)),
+      items: jobs.filter((job): job is Job => Boolean(job)).map((job) => toJob(job, name)),
       total,
       page: query.page,
       pageSize: query.pageSize,
     };
   }
 
-  async job(name: string, id: string): Promise<AdminQueueJobDetail> {
+  async job(name: AdminQueueName, id: string): Promise<AdminQueueJobDetail> {
     const queue = this.queue(name);
     const job = await this.findJob(queue, id);
     const data: unknown = job.data;
     return {
-      ...toJob(job, queue.name as AdminQueueName),
+      ...toJob(job, name),
       state: await job.getState(),
       stacktrace: job.stacktrace ?? [],
       data,
@@ -66,7 +66,7 @@ export class AdminQueues {
   }
 
   /** `409 retry_refused` for a job « Retraiter » relaunches, `409 not_failed` unless failed. */
-  async retry(name: string, id: string): Promise<void> {
+  async retry(name: AdminQueueName, id: string): Promise<void> {
     const job = await this.findJob(this.queue(name), id);
     if (isRetryRefused(job)) {
       throw new ConflictException({
@@ -81,7 +81,7 @@ export class AdminQueues {
   }
 
   /** Retries every failed job of the queue (at most the 5000 kept), but the refused ones. */
-  async retryFailed(name: string): Promise<AdminQueueRetryFailedResponse> {
+  async retryFailed(name: AdminQueueName): Promise<AdminQueueRetryFailedResponse> {
     const failed = (await this.queue(name).getJobs(["failed"], 0, -1)).filter((job): job is Job => Boolean(job));
     let retried = 0;
     let refused = 0;
@@ -96,19 +96,16 @@ export class AdminQueues {
     return { retried, refused };
   }
 
-  async pause(name: string): Promise<void> {
+  async pause(name: AdminQueueName): Promise<void> {
     await this.queue(name).pause();
   }
 
-  async resume(name: string): Promise<void> {
+  async resume(name: AdminQueueName): Promise<void> {
     await this.queue(name).resume();
   }
 
-  /** `404 queue_not_found` outside the whitelist. */
-  queue(name: string): Queue {
-    if (!(ADMIN_QUEUE_NAMES as readonly string[]).includes(name)) {
-      throw new NotFoundException({ code: "queue_not_found", message: `No queue named ${name}` });
-    }
+  /** A whitelisted queue (`AdminQueueNamePipe` answers 404 for any other name). */
+  queue(name: AdminQueueName): Queue {
     return this.moduleRef.get<Queue>(getQueueToken(name), { strict: false });
   }
 
