@@ -107,7 +107,7 @@ export function ActivityDetailView({ id }: { id: string }) {
       </div>
       <Overview activity={activity} />
       {activity.route ? (
-        <MapView route={activity.route} className="h-96 w-full rounded-md" />
+        <MapView route={activity.route as [number, number][]} className="h-96 w-full rounded-md" />
       ) : (
         <p className="text-sm text-muted-foreground">Pas de trace publique.</p>
       )}

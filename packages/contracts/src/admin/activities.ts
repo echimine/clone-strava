@@ -107,8 +107,11 @@ export const adminActivityDetailSchema = z.object({
   updatedAt: z.iso.datetime(),
   processedAt: z.iso.datetime().nullable(),
   stats: activityStatsSchema.nullable(),
-  /** The public trace as `[longitude, latitude]` pairs; null without one. */
-  route: z.array(z.tuple([z.number(), z.number()])).nullable(),
+  /**
+   * The public trace as `[longitude, latitude]` pairs; null without one. An array of length 2
+   * rather than `z.tuple`: a tuple exports as `prefixItems`, which swift-openapi-generator rejects.
+   */
+  route: z.array(z.array(z.number()).length(2)).nullable(),
   locationName: z.string().nullable(),
   media: z.array(mediaSchema),
   comments: z.array(adminActivityCommentSchema),
