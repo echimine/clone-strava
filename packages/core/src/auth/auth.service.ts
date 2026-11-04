@@ -137,6 +137,11 @@ export class AuthService {
     return this.adminStats.findAdminIds();
   }
 
+  /** Every Administrator's address: who is e-mailed when a report case opens (ADR-038 §10). */
+  listAdminRecipients(): Promise<{ userId: string; email: string }[]> {
+    return this.users.findAdminRecipients();
+  }
+
   /** Backoffice dashboard (ADR-038 §15): sign-ups per Paris day of `range`, Administrators left out. */
   countSignUpsPerParisDay(range: InstantRange): Promise<Map<string, number>> {
     return this.adminStats.countSignUpsPerParisDay(range);

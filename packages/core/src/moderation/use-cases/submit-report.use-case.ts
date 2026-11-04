@@ -1,5 +1,11 @@
 import { HttpException, HttpStatus, Inject, Injectable, UnprocessableEntityException } from "@nestjs/common";
-import { ANALYTICS_EVENTS, REPORT_LIMIT_PER_DAY } from "@repo/contracts";
+import { EventEmitter2 } from "@nestjs/event-emitter";
+import {
+  ANALYTICS_EVENTS,
+  REPORT_CASE_OPENED_EVENT,
+  REPORT_LIMIT_PER_DAY,
+  type ReportCaseOpenedEvent,
+} from "@repo/contracts";
 import type { Database } from "@repo/db";
 import { AnalyticsService } from "../../analytics/index.js";
 import { DATABASE } from "../../infrastructure/index.js";
@@ -23,6 +29,7 @@ export class SubmitReportUseCase {
     private readonly cases: ReportCaseRepository,
     private readonly reports: ReportRepository,
     private readonly analytics: AnalyticsService,
+    private readonly events: EventEmitter2,
   ) {}
 
   async execute(input: NewReport): Promise<ReportOutcome> {
@@ -82,6 +89,15 @@ export class SubmitReportUseCase {
         target_type: input.targetType,
         reason: input.reason,
       });
+      if (outcome.caseOpened) {
+        // After the commit: the Administrators' e-mail is never part of the Report (ADR-038 §10).
+        const opened: ReportCaseOpenedEvent = {
+          caseId: outcome.caseId,
+          targetType: input.targetType,
+          reason: input.reason,
+        };
+        this.events.emit(REPORT_CASE_OPENED_EVENT, opened);
+      }
     }
     return outcome;
   }

@@ -76,6 +76,29 @@ export type AuditAction = keyof typeof AUDIT_ACTION_TARGETS;
 export const AUDIT_ACTIONS = Object.keys(AUDIT_ACTION_TARGETS) as [AuditAction, ...AuditAction[]];
 export const auditActionSchema = z.enum(AUDIT_ACTIONS);
 
+/**
+ * The Journal actions that are Sanctions (ADR-038 §4, glossary): what takes something away from
+ * an athlete, restricts them or deletes something of theirs. A report case closes as
+ * « Sanctionné » only after one of them (ADR-038 §10), and the case's author shows how many they
+ * received.
+ */
+export const SANCTION_ACTIONS = [
+  "user.ban",
+  "user.unban",
+  "user.sign_out",
+  "user.name.reset",
+  "user.bio.reset",
+  "user.avatar.reset",
+  "user.delete",
+  "activity.delete",
+  "activity.text.reset",
+  "media.remove",
+  "comment.remove",
+  "segment.rename",
+  "segment.delete",
+] as const satisfies readonly AuditAction[];
+export type SanctionAuditAction = (typeof SANCTION_ACTIONS)[number];
+
 /** Someone an entry names: `displayName` is null once the account is deleted ("Compte supprimé"). */
 export const auditPersonSchema = z.object({
   id: z.uuid(),

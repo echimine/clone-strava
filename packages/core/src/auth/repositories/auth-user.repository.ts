@@ -18,6 +18,15 @@ export class AuthUserRepository {
       .where(inArray(schema.user.id, ids));
   }
 
+  /** Every Administrator's id and address (ADR-038 §10: the new report case e-mail). */
+  findAdminRecipients(): Promise<{ userId: string; email: string }[]> {
+    return this.db
+      .select({ userId: schema.user.id, email: schema.user.email })
+      .from(schema.user)
+      .where(eq(schema.user.role, "admin"))
+      .orderBy(asc(schema.user.id));
+  }
+
   /** What the backoffice user sheet reads of an account (ADR-038 §5), with its linked providers. */
   async findAccount(userId: string) {
     const [row] = await this.db

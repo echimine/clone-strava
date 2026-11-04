@@ -162,6 +162,12 @@ export class EngagementService {
     return this.removeCommentAsSanctionUseCase.execute(administratorId, commentId);
   }
 
+  /** A comment not deleted, whatever its Activity's visibility (a report case's current content); null otherwise. */
+  async findCommentForAdmin(commentId: string): Promise<CommentRecord | null> {
+    const comment = await this.comments.findById(commentId);
+    return comment && comment.deletedAt === null ? comment : null;
+  }
+
   /** Batch read: the ids among `commentIds` of comments not deleted (Journal links). */
   getExistingCommentIds(commentIds: string[]): Promise<Set<string>> {
     return this.comments.findExistingIds(commentIds);

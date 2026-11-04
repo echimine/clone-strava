@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { requestIdFieldSchema } from "../common/request-id.js";
+import { reportReasonSchema, reportTargetTypeSchema } from "../moderation/report.js";
 
 /**
  * `emails` queue (ADR-038 §4, ADR-011): e-mails sent after the fact, through a job, so a Resend
@@ -85,6 +86,18 @@ export const accountDeletedEmailSchema = z.object({
   reason: reasonSchema.nullable(),
 });
 
+/**
+ * « Nouveau signalement » to an Administrator (ADR-038 §10), when a Report opens a case (never on
+ * later Reports): the target's type, the first reason and the link to the case, never a copy of
+ * the content.
+ */
+export const reportCaseOpenedEmailSchema = z.object({
+  targetType: reportTargetTypeSchema,
+  reason: reportReasonSchema,
+  /** `<admin origin>/reports/<caseId>`. */
+  caseUrl: z.url(),
+});
+
 /** Fields every `send-email` job carries, whatever its template. */
 const sendEmailJobBaseShape = {
   to: z.email(),
@@ -105,6 +118,7 @@ export const sendEmailJobSchema = z.discriminatedUnion("template", [
   z.object({ template: z.literal("content-removed"), data: contentRemovedEmailSchema, ...sendEmailJobBaseShape }),
   z.object({ template: z.literal("profile-reset"), data: profileResetEmailSchema, ...sendEmailJobBaseShape }),
   z.object({ template: z.literal("account-deleted"), data: accountDeletedEmailSchema, ...sendEmailJobBaseShape }),
+  z.object({ template: z.literal("report-case-opened"), data: reportCaseOpenedEmailSchema, ...sendEmailJobBaseShape }),
 ]);
 export type SendEmailJob = z.infer<typeof sendEmailJobSchema>;
 export type EmailTemplate = SendEmailJob["template"];

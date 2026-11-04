@@ -2,6 +2,7 @@ import type { SendEmailJob } from "@repo/contracts";
 import { ACCOUNT_DELETED_SUBJECT, renderAccountDeletedEmail } from "./account-deleted-email.js";
 import { CONTENT_REMOVED_SUBJECT, renderContentRemovedEmail } from "./content-removed-email.js";
 import { PROFILE_RESET_SUBJECT, renderProfileResetEmail } from "./profile-reset-email.js";
+import { REPORT_CASE_OPENED_SUBJECT, renderReportCaseOpenedEmail } from "./report-case-opened-email.js";
 import { USER_BANNED_SUBJECT, renderUserBannedEmail } from "./user-banned-email.js";
 import { USER_UNBANNED_SUBJECT, renderUserUnbannedEmail } from "./user-unbanned-email.js";
 
@@ -31,5 +32,10 @@ export async function renderEmailJob(job: SendEmailJob, context: EmailRenderCont
       return { subject: PROFILE_RESET_SUBJECT, html: await renderProfileResetEmail({ ...context, ...job.data }) };
     case "account-deleted":
       return { subject: ACCOUNT_DELETED_SUBJECT, html: await renderAccountDeletedEmail({ ...context, ...job.data }) };
+    case "report-case-opened":
+      return {
+        subject: REPORT_CASE_OPENED_SUBJECT,
+        html: await renderReportCaseOpenedEmail({ logoUrl: context.logoUrl, ...job.data }),
+      };
   }
 }

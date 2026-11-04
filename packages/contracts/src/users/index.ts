@@ -5,3 +5,4 @@ export * from "./athlete-profile.js";
 export * from "./avatar.js";
 export * from "./avatar-keys.js";
 export * from "./avatar-jobs.js";
+export * from "./events.js";

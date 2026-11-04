@@ -6,3 +6,4 @@ export * from "./failures.js";
 export * from "./queues.js";
 export * from "./stats.js";
 export * from "./users.js";
+export * from "./reports.js";

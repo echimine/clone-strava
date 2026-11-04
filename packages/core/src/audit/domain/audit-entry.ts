@@ -40,6 +40,16 @@ export interface AuditEntryFilter {
   to?: string;
 }
 
+/**
+ * Which Sanctions to count (ADR-038 §10): those on an athlete (`subjectUserId`), or on a given
+ * target, recorded since `since` when given.
+ */
+export interface SanctionFilter {
+  subjectUserId: string;
+  target?: { type: AuditTargetType; id: string };
+  since?: Date;
+}
+
 export interface AuditEntryPage {
   items: AuditEntryRecord[];
   total: number;

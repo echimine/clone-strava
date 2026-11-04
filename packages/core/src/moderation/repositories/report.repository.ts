@@ -1,8 +1,9 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, count, desc, eq, gt, inArray, sql, type SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, inArray, sql, type SQL } from "drizzle-orm";
 import { schema, type Database } from "@repo/db";
 import type { ReportCaseStatus, ReportReason, ReportTargetType } from "@repo/contracts";
 import { DATABASE, type DbExecutor } from "../../infrastructure/index.js";
+import type { CaseReportRecord } from "../domain/report-case.js";
 
 /** Reads and writes on `moderation.report` only (ADR-021 §6, ADR-038 §9). */
 @Injectable()
@@ -89,6 +90,45 @@ export class ReportRepository {
       .where(where)
       .orderBy(desc(schema.report.createdAt), desc(schema.report.id))
       .limit(limit);
+  }
+
+  /** A case's Reports, oldest first. */
+  findByCase(caseId: string): Promise<CaseReportRecord[]> {
+    return this.db
+      .select({
+        id: schema.report.id,
+        reporterId: schema.report.reporterId,
+        reason: schema.report.reason,
+        note: schema.report.note,
+        createdAt: schema.report.createdAt,
+        snapshot: schema.report.snapshot,
+      })
+      .from(schema.report)
+      .where(eq(schema.report.caseId, caseId))
+      .orderBy(asc(schema.report.createdAt), asc(schema.report.id));
+  }
+
+  /** Erases the copies of the cases' Reports (ADR-038 §9: on closing); the notes stay. Returns how many Reports. */
+  async eraseSnapshots(caseIds: string[], executor: DbExecutor): Promise<number> {
+    if (caseIds.length === 0) {
+      return 0;
+    }
+    const rows = await executor
+      .update(schema.report)
+      .set({ snapshot: null })
+      .where(inArray(schema.report.caseId, caseIds))
+      .returning({ id: schema.report.id });
+    return rows.length;
+  }
+
+  /** Reports on `userId` or their content, every case alike. */
+  async countReceivedBy(userId: string): Promise<number> {
+    const [row] = await this.db
+      .select({ total: count() })
+      .from(schema.report)
+      .innerJoin(schema.reportCase, eq(schema.reportCase.id, schema.report.caseId))
+      .where(eq(schema.reportCase.targetUserId, userId));
+    return row?.total ?? 0;
   }
 
   /** What `reporterId` reported among `targetTypes`, open or closed cases alike. */

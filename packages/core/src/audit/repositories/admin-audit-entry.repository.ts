@@ -1,9 +1,9 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, count, desc, eq, gte, isNotNull, lt, type SQL } from "drizzle-orm";
-import type { AuditAction, AuditTargetType } from "@repo/contracts";
+import { and, count, desc, eq, gte, inArray, isNotNull, lt, or, type SQL } from "drizzle-orm";
+import { SANCTION_ACTIONS, type AuditAction, type AuditTargetType } from "@repo/contracts";
 import { schema, type Database } from "@repo/db";
 import { DATABASE, offsetPage, parisDayRange } from "../../infrastructure/index.js";
-import type { AuditEntryFilter, AuditEntryRecord } from "../domain/audit-entry.js";
+import type { AuditEntryFilter, AuditEntryRecord, SanctionFilter } from "../domain/audit-entry.js";
 
 type Row = typeof schema.adminAuditEntry.$inferSelect;
 
@@ -47,6 +47,22 @@ export class AdminAuditEntryRepository {
       .from(schema.adminAuditEntry)
       .where(isNotNull(schema.adminAuditEntry.actorId));
     return rows.map((row) => row.actorId!);
+  }
+
+  /** Sanctions (ADR-038 §4) on `subjectUserId` or on `target`, since `since` when given. */
+  async countSanctions(filter: SanctionFilter): Promise<number> {
+    const t = schema.adminAuditEntry;
+    const about = filter.target
+      ? or(
+          eq(t.subjectUserId, filter.subjectUserId),
+          and(eq(t.targetType, filter.target.type), eq(t.targetId, filter.target.id)),
+        )
+      : eq(t.subjectUserId, filter.subjectUserId);
+    const [row] = await this.db
+      .select({ total: count() })
+      .from(t)
+      .where(and(inArray(t.action, [...SANCTION_ACTIONS]), about, filter.since ? gte(t.createdAt, filter.since) : undefined));
+    return row?.total ?? 0;
   }
 
   private conditions(filter: AuditEntryFilter): SQL[] {

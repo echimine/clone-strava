@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { toOffsetPage } from "../infrastructure/index.js";
-import type { AuditEntryFilter, AuditEntryPage, NewAuditEntry } from "./domain/audit-entry.js";
+import type { AuditEntryFilter, AuditEntryPage, NewAuditEntry, SanctionFilter } from "./domain/audit-entry.js";
 import { AdminAuditEntryRepository } from "./repositories/admin-audit-entry.repository.js";
 import { RecordAuditEntryUseCase } from "./use-cases/record-audit-entry.use-case.js";
 
@@ -25,6 +25,14 @@ export class AuditService {
   async list(filter: AuditEntryFilter, page: { page: number; pageSize: number }): Promise<AuditEntryPage> {
     const { rows, total } = await this.entries.findPage(filter, page);
     return toOffsetPage(rows, total, page);
+  }
+
+  /**
+   * Sanctions (ADR-038 §4) on an athlete or a target: a report case's « Sanctions passées », and
+   * whether it may close as « Sanctionné » (one since its opening, ADR-038 §10).
+   */
+  countSanctions(filter: SanctionFilter): Promise<number> {
+    return this.entries.countSanctions(filter);
   }
 
   /** Everyone who authored an entry, for the author filter. */
