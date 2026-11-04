@@ -62,7 +62,7 @@ describe("RealtimeBridge", () => {
     const publisher = createFakePublisher();
     const bridge = new RealtimeBridge(publisher);
 
-    await bridge.onActivityDeleted({ activityId: "act_1", userId: "user_1" });
+    await bridge.onActivityDeleted({ activityId: "act_1", userId: "user_1", bySanction: false });
 
     expect(publisher.publishRealtimeEvent).toHaveBeenCalledExactlyOnceWith(
       [userTopic("user_1"), activityTopic("act_1")],

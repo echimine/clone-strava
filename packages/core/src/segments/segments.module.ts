@@ -6,6 +6,7 @@ import { SportsModule } from "../sports/index.js";
 import { SegmentRepository } from "./repositories/segment.repository.js";
 import { SegmentEffortRepository } from "./repositories/segment-effort.repository.js";
 import { MatchSegmentsUseCase } from "./use-cases/match-segments.use-case.js";
+import { ActivityEffortRepository } from "./repositories/activity-effort.repository.js";
 import { SegmentsService } from "./segments.service.js";
 
 /**
@@ -16,7 +17,13 @@ import { SegmentsService } from "./segments.service.js";
  */
 @Module({
   imports: [ActivitiesModule, SportsModule, BullModule.registerQueue({ name: SEGMENTS_QUEUE_NAME })],
-  providers: [SegmentRepository, SegmentEffortRepository, MatchSegmentsUseCase, SegmentsService],
+  providers: [
+    SegmentRepository,
+    SegmentEffortRepository,
+    ActivityEffortRepository,
+    MatchSegmentsUseCase,
+    SegmentsService,
+  ],
   exports: [SegmentsService],
 })
 export class SegmentsModule {}

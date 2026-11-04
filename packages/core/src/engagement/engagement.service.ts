@@ -9,6 +9,9 @@ import { DeleteCommentUseCase } from "./use-cases/delete-comment.use-case.js";
 import { ListKudosUseCase } from "./use-cases/list-kudos.use-case.js";
 import { GetEngagementCountsUseCase } from "./use-cases/get-engagement-counts.use-case.js";
 import { KudosRepository } from "./repositories/kudos.repository.js";
+import { CommentRepository } from "./repositories/comment.repository.js";
+import { RemoveCommentAsSanctionUseCase } from "./use-cases/remove-comment-as-sanction.use-case.js";
+import type { CommentRecord } from "./domain/comment-record.js";
 import type { CommentPage, CommentView } from "./domain/comment-view.js";
 import type { EngagementCounts } from "./domain/engagement-counts.js";
 import type { KudosState } from "./domain/kudos-state.js";
@@ -30,6 +33,8 @@ export class EngagementService {
     private readonly deleteCommentUseCase: DeleteCommentUseCase,
     private readonly getEngagementCountsUseCase: GetEngagementCountsUseCase,
     private readonly kudos: KudosRepository,
+    private readonly comments: CommentRepository,
+    private readonly removeCommentAsSanctionUseCase: RemoveCommentAsSanctionUseCase,
   ) {}
 
   giveKudos(userId: string, activityId: string): Promise<KudosState> {
@@ -86,5 +91,31 @@ export class EngagementService {
   /** Batch read (ADR-021 §2 rule 6): used by list screens (feed step 4). */
   getCounts(activityIds: string[]): Promise<Map<string, EngagementCounts>> {
     return this.getEngagementCountsUseCase.execute(activityIds);
+  }
+
+  // --- Backoffice (ADR-038 §11) ---
+
+  /** An Activity's comments not deleted, newest first, at most `limit`, whatever its visibility. */
+  listCommentsForAdmin(activityId: string, limit: number): Promise<CommentRecord[]> {
+    return this.comments.findPage(activityId, undefined, limit);
+  }
+
+  /** An Activity's kudos, most recent first, at most `limit`, whatever its visibility. */
+  async listKudosForAdmin(activityId: string, limit: number): Promise<{ userId: string; createdAt: Date }[]> {
+    const rows = await this.kudos.findPage(activityId, undefined, limit);
+    return rows.map(({ userId, createdAt }) => ({ userId, createdAt }));
+  }
+
+  /**
+   * Sanction: soft deletes a comment without the author check; `404 comment_not_found` when it
+   * is unknown or already deleted. Returns the comment as it was.
+   */
+  removeCommentAsSanction(administratorId: string, commentId: string): Promise<CommentRecord> {
+    return this.removeCommentAsSanctionUseCase.execute(administratorId, commentId);
+  }
+
+  /** Batch read: the ids among `commentIds` of comments not deleted (Journal links). */
+  getExistingCommentIds(commentIds: string[]): Promise<Set<string>> {
+    return this.comments.findExistingIds(commentIds);
   }
 }

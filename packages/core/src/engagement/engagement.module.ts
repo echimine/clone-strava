@@ -14,6 +14,7 @@ import { GetCommentUseCase } from "./use-cases/get-comment.use-case.js";
 import { EditCommentUseCase } from "./use-cases/edit-comment.use-case.js";
 import { DeleteCommentUseCase } from "./use-cases/delete-comment.use-case.js";
 import { GetEngagementCountsUseCase } from "./use-cases/get-engagement-counts.use-case.js";
+import { RemoveCommentAsSanctionUseCase } from "./use-cases/remove-comment-as-sanction.use-case.js";
 import { EngagementService } from "./engagement.service.js";
 
 /**
@@ -36,6 +37,7 @@ import { EngagementService } from "./engagement.service.js";
     EditCommentUseCase,
     DeleteCommentUseCase,
     GetEngagementCountsUseCase,
+    RemoveCommentAsSanctionUseCase,
     EngagementService,
   ],
   exports: [EngagementService],

@@ -2,12 +2,12 @@ import { randomUUID } from "node:crypto";
 import { BullModule } from "@nestjs/bullmq";
 import type { INestApplication } from "@nestjs/common";
 import { APP_FILTER, APP_INTERCEPTOR, APP_PIPE } from "@nestjs/core";
-import { EventEmitterModule } from "@nestjs/event-emitter";
+import { EventEmitter2, EventEmitterModule } from "@nestjs/event-emitter";
 import { Test } from "@nestjs/testing";
 import { Redis } from "ioredis";
 import { ZodSerializerInterceptor, ZodValidationPipe } from "nestjs-zod";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { activityMediaKey, activityMediaPrefix } from "@repo/contracts";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { MEDIA_DELETED_EVENT, activityMediaKey, activityMediaPrefix } from "@repo/contracts";
 import { ActivitiesModule } from "@repo/core/activities";
 import { AnalyticsModule } from "@repo/core/analytics";
 import { AuthService } from "@repo/core/auth";
@@ -417,6 +417,7 @@ describe("Media upload API /v1/activities/:id/media (integration)", () => {
         objects.set(activityMediaKey(author, activityId, mediaId, "original.jpg"), jpeg());
         objects.set(activityMediaKey(author, activityId, mediaId, "thumb.jpg"), jpeg(512));
       }
+      const emit = vi.spyOn(app.get(EventEmitter2), "emit");
 
       const response = await remove(activityId, second!);
 
@@ -424,16 +425,27 @@ describe("Media upload API /v1/activities/:id/media (integration)", () => {
       expect(await mediaIds(activityId)).toEqual([first]);
       expect(filesOf(activityId, second!)).toEqual([]);
       expect(filesOf(activityId, first!)).toHaveLength(2);
+      // Not a Sanction (ADR-038 §10): the author removed it.
+      expect(emit).toHaveBeenCalledWith(MEDIA_DELETED_EVENT, {
+        mediaId: second,
+        activityId,
+        userId: author,
+        bySanction: false,
+      });
+      emit.mockRestore();
     });
 
     it("answers 204 for a Media already gone, and deletes the files of one never confirmed", async () => {
       const activityId = await activity("pending");
       const neverConfirmed = randomUUID();
       objects.set(activityMediaKey(author, activityId, neverConfirmed, "original.mp4"), mp4());
+      const emit = vi.spyOn(app.get(EventEmitter2), "emit");
 
       expect((await remove(activityId, neverConfirmed)).status).toBe(204);
       expect(filesOf(activityId, neverConfirmed)).toEqual([]);
       expect((await remove(activityId, neverConfirmed)).status).toBe(204);
+      expect(emit).not.toHaveBeenCalledWith(MEDIA_DELETED_EVENT, expect.anything());
+      emit.mockRestore();
     });
 
     it("puts the map first again when the deleted Media was first", async () => {

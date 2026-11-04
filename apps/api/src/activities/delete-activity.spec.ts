@@ -209,7 +209,7 @@ describe("DELETE /v1/activities/:id (integration)", () => {
     expect(response.status).toBe(204);
     expect(await exists(id)).toBe(false);
     expect(objects.has(activityTraceKey(userA, id))).toBe(false);
-    expect(emit).toHaveBeenCalledWith(ACTIVITY_DELETED_EVENT, { activityId: id, userId: userA });
+    expect(emit).toHaveBeenCalledWith(ACTIVITY_DELETED_EVENT, { activityId: id, userId: userA, bySanction: false });
     expect((await call(`/${id}`, userA, { method: "GET" })).status).toBe(404);
     expect((await remove(id)).status).toBe(404);
   });
@@ -305,6 +305,6 @@ describe("DELETE /v1/activities/:id (integration)", () => {
 
     expect(response.status).toBe(204);
     expect(await exists(id)).toBe(false);
-    expect(emit).toHaveBeenCalledWith(ACTIVITY_DELETED_EVENT, { activityId: id, userId: userA });
+    expect(emit).toHaveBeenCalledWith(ACTIVITY_DELETED_EVENT, { activityId: id, userId: userA, bySanction: false });
   });
 });

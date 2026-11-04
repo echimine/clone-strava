@@ -1,129 +1,68 @@
 "use client";
 
-import type { ActivitySummary, ProcessingStatus, Visibility } from "@repo/contracts";
+import type { AdminActivityListItem } from "@repo/contracts";
 import { Badge } from "@repo/ui/components/badge";
-import { Skeleton } from "@repo/ui/components/skeleton";
+import type { ColumnDef } from "@tanstack/react-table";
+import Link from "next/link";
+import { DataTable, type DataTableProps } from "@/components/DataTable";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@repo/ui/components/table";
-import {
-  flexRender,
-  getCoreRowModel,
-  useReactTable,
-  type ColumnDef,
-} from "@tanstack/react-table";
+  formatDateTime,
+  formatDistance,
+  sourceLabels,
+  sportLabel,
+  statusLabels,
+  statusVariants,
+  visibilityLabels,
+} from "@/features/activities/lib/labels";
 
-const statusLabels: Record<ProcessingStatus, string> = {
-  pending: "En attente",
-  processing: "En cours de traitement",
-  processed: "Traitée",
-  failed: "Échec",
-};
-
-const statusVariants: Record<ProcessingStatus, "secondary" | "default" | "destructive"> = {
-  pending: "secondary",
-  processing: "secondary",
-  processed: "default",
-  failed: "destructive",
-};
-
-const visibilityLabels: Record<Visibility, string> = {
-  public: "Publique",
-  followers: "Abonnés",
-  private: "Privée",
-};
-
-const columns: ColumnDef<ActivitySummary>[] = [
+const columns: ColumnDef<AdminActivityListItem>[] = [
   {
-    accessorKey: "id",
-    header: "Identifiant",
-    cell: ({ getValue }) => (
-      <span className="font-mono text-xs text-muted-foreground">{getValue<string>()}</span>
+    id: "title",
+    header: "Activité",
+    cell: ({ row }) => (
+      <Link href={`/activities/${row.original.id}`} className="font-medium underline-offset-4 hover:underline">
+        {row.original.title}
+      </Link>
     ),
   },
   {
-    accessorKey: "sportTypeCode",
-    header: "Sport",
+    id: "athlete",
+    header: "Athlète",
+    cell: ({ row }) => (
+      <Link href={`/users/${row.original.athlete.id}`} className="underline-offset-4 hover:underline">
+        {row.original.athlete.displayName || row.original.athlete.id.slice(0, 8)}
+      </Link>
+    ),
   },
+  { id: "sport", header: "Sport", cell: ({ row }) => sportLabel(row.original.sportTypeCode) },
   {
-    accessorKey: "visibility",
-    header: "Visibilité",
-    cell: ({ getValue }) => visibilityLabels[getValue<Visibility>()],
-  },
-  {
-    accessorKey: "processingStatus",
+    id: "status",
     header: "Statut",
-    cell: ({ getValue }) => {
-      const status = getValue<ProcessingStatus>();
-      return <Badge variant={statusVariants[status]}>{statusLabels[status]}</Badge>;
-    },
+    cell: ({ row }) => (
+      <Badge variant={statusVariants[row.original.processingStatus]}>{statusLabels[row.original.processingStatus]}</Badge>
+    ),
   },
+  { id: "source", header: "Source", cell: ({ row }) => sourceLabels[row.original.source] },
+  { id: "visibility", header: "Visibilité", cell: ({ row }) => visibilityLabels[row.original.visibility] },
+  { id: "distance", header: "Distance", cell: ({ row }) => formatDistance(row.original.distanceM) },
+  { id: "startedAt", header: "Début", cell: ({ row }) => formatDateTime(row.original.startedAt) },
+  { id: "createdAt", header: "Créée le", cell: ({ row }) => formatDateTime(row.original.createdAt) },
 ];
 
-type ActivityTableProps = {
-  activities: ActivitySummary[];
-  isLoading: boolean;
-};
-
-/** Generic data table pattern for the feature (ADR-013 §"Where to put a component"). */
-export function ActivityTable({ activities, isLoading }: ActivityTableProps) {
-  // TanStack Table is not compatible with React Compiler memoization; the compiler skips this component.
-  // eslint-disable-next-line react-hooks/incompatible-library
-  const table = useReactTable({
-    data: activities,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-  });
-
+/** The Activities list's table (ADR-038 §11), newest created first. */
+export function ActivityTable({
+  data,
+  isLoading,
+  pagination,
+}: Pick<DataTableProps<AdminActivityListItem>, "data" | "isLoading" | "pagination">) {
   return (
-    <Table>
-      <TableHeader>
-        {table.getHeaderGroups().map((headerGroup) => (
-          <TableRow key={headerGroup.id}>
-            {headerGroup.headers.map((header) => (
-              <TableHead key={header.id}>
-                {header.isPlaceholder
-                  ? null
-                  : flexRender(header.column.columnDef.header, header.getContext())}
-              </TableHead>
-            ))}
-          </TableRow>
-        ))}
-      </TableHeader>
-      <TableBody>
-        {isLoading ? (
-          Array.from({ length: 5 }).map((_, index) => (
-            <TableRow key={index}>
-              {columns.map((column) => (
-                <TableCell key={String(column.id ?? (column as { accessorKey?: string }).accessorKey)}>
-                  <Skeleton className="h-4 w-24" />
-                </TableCell>
-              ))}
-            </TableRow>
-          ))
-        ) : table.getRowModel().rows.length === 0 ? (
-          <TableRow>
-            <TableCell colSpan={columns.length} className="text-center text-muted-foreground">
-              Aucune activité.
-            </TableCell>
-          </TableRow>
-        ) : (
-          table.getRowModel().rows.map((row) => (
-            <TableRow key={row.id}>
-              {row.getVisibleCells().map((cell) => (
-                <TableCell key={cell.id}>
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </TableCell>
-              ))}
-            </TableRow>
-          ))
-        )}
-      </TableBody>
-    </Table>
+    <DataTable
+      columns={columns}
+      data={data}
+      isLoading={isLoading}
+      emptyMessage="Aucune activité."
+      getRowId={(row) => row.id}
+      pagination={pagination}
+    />
   );
 }
