@@ -11,6 +11,7 @@ import {
   isOrderedPeriod,
   periodOrderIssue,
 } from "./list.js";
+import { adminPremiumStateSchema, adminUserPremiumFilterSchema } from "./premium.js";
 import { adminOptionalReasonSchema, adminReasonSchema } from "./reason.js";
 
 /**
@@ -42,15 +43,13 @@ export function signInMethodsFromProviders(providerIds: readonly string[]): Sign
 /** The list's sign-in method filter: Sign-in code or Google. */
 export const adminUserMethodFilterSchema = z.enum(["email_code", "google"]);
 
-/** Premium yes/no on the list; #215 details it (Promotional Premium, end date). */
-export const adminUserPremiumFilterSchema = z.enum(["yes", "no"]);
-
 export const ADMIN_USER_SORT_FIELDS = ["createdAt", "lastActivityAt"] as const;
 
 /**
  * `GET /v1/admin/users?q&role&state&premium&method&from&to&sort&order&page&pageSize`
  * (ADR-038 §5): `q` searches first name, last name and e-mail; `from`/`to` are Paris days of the
- * sign-up; sort by sign-up (default, newest first) or last Activity.
+ * sign-up; `premium` is a Premium state (ADR-038 §12); sort by sign-up (default, newest first) or
+ * last Activity.
  */
 export const adminUserListQuerySchema = adminListQuerySchema
   .extend({
@@ -81,6 +80,10 @@ export const adminUserListItemSchema = z.object({
   activityCount: z.number().int().nonnegative(),
   lastActivityAt: z.iso.datetime().nullable(),
   isPremium: z.boolean(),
+  /** The Premium state (ADR-038 §12), as the sheet derives it. */
+  premiumState: adminPremiumStateSchema,
+  /** The « Fin » column: the end of the Premium period (grace period included); null without one. */
+  premiumEndsAt: z.iso.datetime().nullable(),
   state: adminUserStateSchema,
   /** The active Ban, if any (« Banni jusqu'au … »). */
   ban: adminUserBanSchema.nullable(),
@@ -92,8 +95,8 @@ export type AdminUserListResponse = z.infer<typeof adminUserListResponseSchema>;
 
 /**
  * `GET /v1/admin/users/:id` (ADR-038 §5): the sheet's sections 1 to 5. The athlete profile
- * **never** carries the birth date, gender or weight. Sessions, Reports, Premium (#215) and the
- * Historique have their own reads.
+ * **never** carries the birth date, gender or weight. Sessions, Reports, Premium
+ * (`GET :id/premium`) and the Historique have their own reads.
  */
 export const adminUserDetailSchema = z.object({
   athlete: feedAuthorSchema,

@@ -11,7 +11,8 @@ import {
 } from "@repo/contracts";
 import { AuditService } from "@repo/core/audit";
 import { StorageService } from "@repo/core/storage";
-import { ThirdPartyAccounts } from "./third-party-accounts.js";
+import { SubscriptionsService } from "@repo/core/subscriptions";
+import { PostHogPersons } from "./posthog-persons.js";
 
 /**
  * The `delete-account` job (ADR-038 §13), once the account is gone from the database: its three
@@ -25,7 +26,8 @@ export class DeleteAccountProcessor extends WorkerHost {
 
   constructor(
     private readonly storage: StorageService,
-    private readonly thirdParties: ThirdPartyAccounts,
+    private readonly subscriptions: SubscriptionsService,
+    private readonly postHogPersons: PostHogPersons,
     private readonly audit: AuditService,
   ) {
     super();
@@ -45,8 +47,8 @@ export class DeleteAccountProcessor extends WorkerHost {
     for (const prefix of [userActivitiesPrefix(userId), userImportsPrefix(userId), userAvatarsPrefix(userId)]) {
       await this.storage.deleteFolder(prefix);
     }
-    const revenueCat = await this.thirdParties.deleteRevenueCatCustomer(userId);
-    const postHog = await this.thirdParties.deletePostHogPerson(userId);
+    const revenueCat = await this.subscriptions.deleteRevenueCatCustomer(userId);
+    const postHog = await this.postHogPersons.delete(userId);
     for (const [step, outcome] of [
       ["RevenueCat", revenueCat],
       ["PostHog", postHog],

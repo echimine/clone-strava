@@ -336,8 +336,8 @@ describe("/v1/admin/users (integration)", () => {
       expect(await ids("state=banned")).toEqual([]);
       expect(await ids("method=google")).toEqual([bruno.userId]);
       expect(await ids("method=email_code")).toEqual([emilie.userId]);
-      expect(await ids("premium=yes")).toEqual([emilie.userId]);
-      expect(await ids("premium=no")).toEqual([bruno.userId]);
+      expect(await ids("premium=paying")).toEqual([emilie.userId]);
+      expect(await ids("premium=expired")).toEqual([]);
       expect(await ids("role=admin")).toEqual([]);
 
       const admins = await json<AdminUserListResponse>(await t.call(`/admin/users?role=admin`, admin.cookie));

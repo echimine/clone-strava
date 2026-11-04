@@ -1,6 +1,6 @@
 import { Processor, WorkerHost } from "@nestjs/bullmq";
 import { Logger } from "@nestjs/common";
-import type { Job } from "bullmq";
+import { UnrecoverableError, type Job } from "bullmq";
 import {
   SUBSCRIPTIONS_QUEUE_NAME,
   SYNC_SUBSCRIPTION_JOB_NAME,
@@ -23,12 +23,16 @@ export class SyncSubscriptionProcessor extends WorkerHost {
     }
 
     const data = syncSubscriptionJobSchema.parse(job.data);
-    this.logger.log({ userId: data.userId }, "Syncing subscription");
+    if (!this.subscriptionsService.revenueCatConfigured) {
+      // No retry can help: the job fails for good, visible on the backoffice's Jobs screen.
+      throw new UnrecoverableError("RevenueCat non configuré");
+    }
+    this.logger.log({ userId: data.userId, requestId: data.requestId }, "Syncing subscription");
 
-    // Re-reads the full subscriber state from the RevenueCat REST API
-    // (never trusts the webhook body that triggered this job), updates the
-    // premium status in the database, sends the `subscription_*` PostHog
-    // event -- all inside `SubscriptionsService` (ADR-011, ADR-014).
+    // Re-reads the customer from RevenueCat's API v2 (never trusts the webhook body that
+    // triggered this job) and writes the `premium` row as RevenueCat computes the entitlement,
+    // inside `SubscriptionsService` (ADR-011, ADR-014, ADR-038 §12). A RevenueCat failure throws:
+    // the job is retried.
     await this.subscriptionsService.sync(data.userId);
   }
 }

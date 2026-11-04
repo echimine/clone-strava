@@ -212,6 +212,16 @@ describe("Backoffice dashboard stats (ADR-038 §15, integration)", () => {
                 ($5, true, 'normal', 'production', '2030-02-01T00:00:00Z')`,
         [anna, bruno, chloe, dave, otherAdmin],
       );
+      // Promotional Premium (ADR-038 §12): Emma's counts, Fanny's has ended, Gaby's is a Sandbox one.
+      const fanny = await t.seedUser("Fanny");
+      const gaby = await t.seedUser("Gaby");
+      await t.sql(
+        `insert into subscriptions.user_subscription (user_id, is_active, store, period_type, environment, expires_at)
+         values ($1, true, 'promotional', 'promotional', 'production', '2030-04-15T12:00:00Z'),
+                ($2, true, 'promotional', 'promotional', 'production', '2030-01-10T12:00:00Z'),
+                ($3, true, 'promotional', 'promotional', 'sandbox', '2030-04-15T12:00:00Z')`,
+        [emma, fanny, gaby],
+      );
       const event = (
         userId: string,
         type: string,
@@ -255,7 +265,7 @@ describe("Backoffice dashboard stats (ADR-038 §15, integration)", () => {
         premium: {
           payingActive: 1,
           trialsActive: 1,
-          promotionalActive: 0,
+          promotionalActive: 1,
           trialsStarted: trend(1, 0),
           newPaying: trend(1, 1),
         },

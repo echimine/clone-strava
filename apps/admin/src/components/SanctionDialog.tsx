@@ -29,6 +29,11 @@ export type SanctionDialogProps = {
   canConfirm?: boolean;
   /** `false` for an action that is not a Sanction: optional reason, no notice to the athlete. */
   reasonRequired?: boolean;
+  /**
+   * What is said under a required reason; « Ce motif sera lu par l'athlète. » by default. An
+   * action that requires a reason the athlete never reads (Premium) says so instead.
+   */
+  reasonNotice?: ReactNode;
   isPending?: boolean;
   /** The action's error, shown in the dialog. */
   error?: string | null;
@@ -49,6 +54,7 @@ export function SanctionDialog({
   children,
   canConfirm = true,
   reasonRequired = true,
+  reasonNotice = "Ce motif sera lu par l'athlète.",
   isPending = false,
   error = null,
 }: SanctionDialogProps) {
@@ -93,7 +99,7 @@ export function SanctionDialog({
             />
             {reasonRequired ? (
               <p id={noticeId} className="text-sm text-muted-foreground">
-                Ce motif sera lu par l&apos;athlète.
+                {reasonNotice}
               </p>
             ) : null}
           </div>

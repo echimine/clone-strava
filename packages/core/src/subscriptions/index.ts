@@ -1,4 +1,10 @@
 export { SubscriptionsModule } from "./subscriptions.module.js";
-export { SubscriptionsService } from "./subscriptions.service.js";
+export { SubscriptionsService, type AdminPremium } from "./subscriptions.service.js";
+export { RevenueCatModule } from "./revenuecat.module.js";
+export type { RevenueCatOptions } from "./revenuecat.constants.js";
 export type { PremiumNowCounts, PremiumStartCounts } from "./repositories/premium-admin-stats.repository.js";
+export type { PremiumEventRow } from "./repositories/revenuecat-event.repository.js";
+export type { RevenueCatWebhookDelivery } from "./use-cases/handle-revenuecat-webhook.use-case.js";
 export type { SubscriptionState } from "./domain/is-premium.js";
+export type { PremiumMirror } from "./domain/premium-mirror.js";
+export { premiumEndsAt } from "./domain/premium-state.js";

@@ -1,4 +1,5 @@
 import {
+  type AdminUserPremiumFilter,
   adminUserDetailSchema,
   adminUserListResponseSchema,
   adminUserReportsResponseSchema,
@@ -20,7 +21,7 @@ export type UserListFilters = {
   q?: string;
   role?: UserRole;
   state?: "active" | "banned" | "temporarily_banned";
-  premium?: "yes" | "no";
+  premium?: AdminUserPremiumFilter;
   method?: "email_code" | "google";
   from?: string;
   to?: string;

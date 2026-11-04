@@ -15,12 +15,14 @@ import {
   type ListedObject,
   type PresignedUrl,
 } from "@repo/core/storage";
+import { RevenueCatModule, type RevenueCatOptions } from "@repo/core/subscriptions";
 import { runMigrations } from "@repo/db/migrate";
 import { AccountsProcessorModule } from "../processors/accounts/accounts.module.js";
 import type { AccountsProcessorOptions } from "../processors/accounts/accounts.constants.js";
 import { ActivitiesProcessorModule } from "../processors/activities/activities.module.js";
 import { AvatarsProcessorModule } from "../processors/avatars/avatars.module.js";
 import { BucketSweepProcessorModule } from "../processors/bucket-sweep/bucket-sweep.module.js";
+import { SubscriptionsProcessorModule } from "../processors/subscriptions/subscriptions.module.js";
 
 /** Local-dev/test infrastructure (`docker-compose.dev.yml`, ADR-024 §3). */
 /** Overridable so parallel worktrees can each use their own database. */
@@ -131,15 +133,14 @@ export interface TestWorkerApp {
 }
 
 /**
- * Boots the activities, bucket-sweep, avatars and accounts processors (ADR-024 §4 `test-worker-app.ts`) on
- * the real dev Postgres and Redis, with a random BullMQ prefix so the
- * queues never mix with a dev worker running on the same Redis.
+ * Boots the activities, bucket-sweep, avatars, subscriptions and accounts processors (ADR-024 §4
+ * `test-worker-app.ts`) on the real dev Postgres and Redis, with a random BullMQ prefix so the
+ * queues never mix with a dev worker running on the same Redis. `revenueCat` configures
+ * RevenueCat's API v2 with a simulated `fetch` (`sync-subscription`, `delete-account`); without it
+ * RevenueCat is not configured. `accounts` fakes PostHog for `delete-account` (no keys: skipped).
  */
 export async function bootstrapTestWorkerApp(
-  options: {
-    /** The `delete-account` job's third parties: no keys (steps skipped) unless a spec fakes them. */
-    accounts?: AccountsProcessorOptions;
-  } = {},
+  options: { revenueCat?: RevenueCatOptions; accounts?: AccountsProcessorOptions } = {},
 ): Promise<TestWorkerApp> {
   await runMigrations(TEST_DATABASE_URL);
 
@@ -163,7 +164,9 @@ export async function bootstrapTestWorkerApp(
       ActivitiesProcessorModule,
       BucketSweepProcessorModule,
       AvatarsProcessorModule,
-      AccountsProcessorModule.forRoot(options.accounts ?? { revenueCat: {}, postHog: {} }),
+      SubscriptionsProcessorModule,
+      ...(options.revenueCat ? [RevenueCatModule.forRoot(options.revenueCat)] : []),
+      AccountsProcessorModule.forRoot(options.accounts ?? { postHog: {} }),
     ],
   })
     .overrideProvider(StorageService)
