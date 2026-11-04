@@ -50,6 +50,28 @@ export class PremiumAdminStatsRepository {
     return { payingActive: row?.payingActive ?? 0, trialsActive: row?.trialsActive ?? 0 };
   }
 
+  /**
+   * Promotional Premium active at `now` (« Premium offerts actifs », ADR-038 §12, §15): the
+   * `premium` rows whose source is a grant, as `isPremium` reads them, Sandbox left out.
+   */
+  async countPromotionalActiveAt(now: Date, excludedUserIds: readonly string[]): Promise<number> {
+    const subscription = schema.userSubscription;
+    const [row] = await this.db
+      .select({ count: sql<number>`count(*)`.mapWith(Number) })
+      .from(subscription)
+      .where(
+        and(
+          eq(subscription.entitlementId, "premium"),
+          eq(subscription.isActive, true),
+          sql`(${subscription.store} = 'promotional' or ${subscription.periodType} = 'promotional')`,
+          sql`coalesce(${subscription.gracePeriodExpiresAt}, ${subscription.expiresAt}, 'infinity') > ${now}`,
+          sql`${subscription.environment} is distinct from 'sandbox'`,
+          notByUsers(subscription.userId, excludedUserIds),
+        ),
+      );
+    return row?.count ?? 0;
+  }
+
   async countStarts(range: InstantRange, excludedUserIds: readonly string[]): Promise<PremiumStartCounts> {
     const event = schema.revenuecatEvent;
     const field = (name: string) => sql`coalesce(${event.payload}->'event', ${event.payload})->>${name}`;

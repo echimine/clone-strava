@@ -1,4 +1,4 @@
-import type { AdminUserListQuery, AthleteLevel, UserRole, Visibility } from "@repo/contracts";
+import type { AdminPremiumState, AdminUserListQuery, AthleteLevel, UserRole, Visibility } from "@repo/contracts";
 
 /** The users list's filters (ADR-038 §5), without the page. */
 export type AdminUserFilter = Omit<AdminUserListQuery, "page" | "pageSize">;
@@ -19,6 +19,10 @@ export interface AdminUserRow {
   activityCount: number;
   lastActivityAt: Date | null;
   isPremium: boolean;
+  /** The Premium state (ADR-038 §12), the rule of `subscriptions`' `premiumState` in SQL. */
+  premiumState: AdminPremiumState;
+  /** The end of the Premium period, grace period included. */
+  premiumEndsAt: Date | null;
 }
 
 /** The athlete profile the user sheet shows (ADR-038 §5): never birth date, gender nor weight. */

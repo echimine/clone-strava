@@ -5,6 +5,7 @@ import { GeocodingModule } from "@repo/core/geocoding";
 import { CoreInfrastructureModule } from "@repo/core/infrastructure";
 import { RealtimeBridgeModule } from "@repo/core/realtime";
 import { StorageModule } from "@repo/core/storage";
+import { RevenueCatModule } from "@repo/core/subscriptions";
 import { AppBullModule } from "./bull/bull.module.js";
 import { ConfigModule } from "./config/config.module.js";
 import { loadConfig } from "./config/env.js";
@@ -44,6 +45,12 @@ const config = loadConfig();
       bucket: config.S3_BUCKET,
       accessKeyId: config.S3_ACCESS_KEY_ID,
       secretAccessKey: config.S3_SECRET_ACCESS_KEY,
+    }),
+    // RevenueCat's API v2 for `sync-subscription` (ADR-038 §12); optional: no sync without it.
+    RevenueCatModule.forRoot({
+      apiKey: config.REVENUECAT_API_KEY,
+      projectId: config.REVENUECAT_PROJECT_ID,
+      premiumEntitlementId: config.REVENUECAT_PREMIUM_ENTITLEMENT_ID,
     }),
     GeocodingModule.forRoot({
       accessToken: config.MAPBOX_GEOCODING_TOKEN,

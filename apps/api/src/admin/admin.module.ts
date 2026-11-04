@@ -13,6 +13,8 @@ import { AdminActivityAssembler } from "./activities/admin-activity-assembler.js
 import { AdminCommentsController } from "./comments/admin-comments.controller.js";
 import { AdminFailureAssembler } from "./failures/admin-failure-assembler.js";
 import { AdminFailuresController } from "./failures/admin-failures.controller.js";
+import { AdminPremiumAssembler } from "./premium/admin-premium-assembler.js";
+import { AdminPremiumController } from "./premium/admin-premium.controller.js";
 import { AdminQueuesController } from "./queues/admin-queues.controller.js";
 import { AdminQueuesModule } from "./queues/admin-queues.module.js";
 import { SanctionNotices } from "./sanctions/sanction-notices.js";
@@ -53,6 +55,7 @@ import { AdminUsersController } from "./users/admin-users.controller.js";
     AdminQueuesController,
     AdminStatsController,
     AdminUsersController,
+    AdminPremiumController,
   ],
   providers: [
     AuditEntryAssembler,
@@ -61,6 +64,7 @@ import { AdminUsersController } from "./users/admin-users.controller.js";
     MediaAssembler,
     SanctionNotices,
     AdminUserAssembler,
+    AdminPremiumAssembler,
     AdminFailureAssembler,
     ...ADMIN_STATS_PROVIDERS,
   ],

@@ -8,11 +8,13 @@ import { user } from "./auth.js";
  */
 export const subscriptionsSchema = pgSchema("subscriptions");
 
-export const subscriptionStoreEnum = subscriptionsSchema.enum("store", ["app_store"]);
+// `promotional` (ADR-038 §12): Promotional Premium granted through RevenueCat's API v2.
+export const subscriptionStoreEnum = subscriptionsSchema.enum("store", ["app_store", "promotional"]);
 export const subscriptionPeriodTypeEnum = subscriptionsSchema.enum("period_type", [
   "trial",
   "intro",
   "normal",
+  "promotional",
 ]);
 export const subscriptionEnvironmentEnum = subscriptionsSchema.enum("environment", [
   "sandbox",

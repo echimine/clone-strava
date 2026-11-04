@@ -18,6 +18,22 @@ const postHogEnvShape = {
   POSTHOG_HOST: z.string().min(1).optional(),
 };
 
+/**
+ * RevenueCat's API v2 (ADR-038 §12): a secret `sk_` key, the project and the `entl…` id of the
+ * `premium` entitlement, for the API (Promotional Premium) and the worker (`sync-subscription`).
+ * Optional, an empty value counting as none: without all three, Premium is read-only
+ * (« RevenueCat non configuré »).
+ */
+const optionalSetting = z
+  .string()
+  .optional()
+  .transform((value) => value?.trim() || undefined);
+const revenueCatEnvShape = {
+  REVENUECAT_API_KEY: optionalSetting,
+  REVENUECAT_PROJECT_ID: optionalSetting,
+  REVENUECAT_PREMIUM_ENTITLEMENT_ID: optionalSetting,
+};
+
 /** `apps/api` (ADR-009): the only entry point for mobile and backoffice clients. */
 export const apiEnvSchema = z.object({
   // ADR-035 §2: only `development` (set by the `dev` script) turns on the dev Sign-in code helpers.
@@ -32,6 +48,7 @@ export const apiEnvSchema = z.object({
   ...s3EnvShape,
   ...postHogEnvShape,
   REVENUECAT_WEBHOOK_SECRET: z.string().min(1),
+  ...revenueCatEnvShape,
   RESEND_API_KEY: z.string().min(1),
   RESEND_WEBHOOK_SECRET: z.string().min(1),
   GOOGLE_CLIENT_ID: z.string().min(1),
@@ -49,7 +66,7 @@ export const workerEnvSchema = z.object({
   LOG_LEVEL: logLevelSchema.default("info"),
   ...s3EnvShape,
   ...postHogEnvShape,
-  REVENUECAT_API_KEY: z.string().min(1),
+  ...revenueCatEnvShape,
   // ADR-029: server-side Mapbox token for reverse geocoding; optional (no place name without it).
   MAPBOX_GEOCODING_TOKEN: z.string().min(1).optional(),
   // ADR-029: Mapbox's terms require the (billed) permanent endpoint to store results.
