@@ -99,6 +99,7 @@ describe("/v1/admin/users/:id/premium (integration)", () => {
     const { UsersModule } = await import("@repo/core/users");
     const { AthleteIdentities } = await import("../../identities/athlete-identities.js");
     const { SanctionNotices } = await import("../sanctions/sanction-notices.js");
+    const { AccountDeletion } = await import("../../account-deletion/account-deletion.js");
     const { AdminUsersController } = await import("../users/admin-users.controller.js");
     const { AdminUserAssembler } = await import("../users/admin-user-assembler.js");
     const { AdminPremiumController } = await import("./admin-premium.controller.js");
@@ -134,7 +135,14 @@ describe("/v1/admin/users/:id/premium (integration)", () => {
             : []),
         ],
         controllers: [AdminPremiumController, AdminUsersController],
-        providers: [AdminPremiumAssembler, AdminUserAssembler, AthleteIdentities, SanctionNotices],
+        providers: [
+          AdminPremiumAssembler,
+          AdminUserAssembler,
+          AthleteIdentities,
+          SanctionNotices,
+          // `AdminUsersController` needs it; no deletion here.
+          { provide: AccountDeletion, useValue: {} },
+        ],
         authService: { getAccountForAdmin },
       }).then((booted) => (app = booted));
     };
