@@ -1,15 +1,9 @@
 import { Processor, WorkerHost } from "@nestjs/bullmq";
 import { Logger } from "@nestjs/common";
 import type { Job } from "bullmq";
+import { BUCKET_SWEEP_JOB_NAME, BUCKET_SWEEP_QUEUE_NAME } from "@repo/contracts";
 import { ActivitiesService } from "@repo/core/activities";
 import { UsersService } from "@repo/core/users";
-
-/**
- * Queue and job of the daily bucket sweep (ADR-037 §11). Worker-internal: scheduled here, never
- * enqueued by a module (ADR-021 §2 rule 2), like the reconciliation.
- */
-export const BUCKET_SWEEP_QUEUE_NAME = "bucket-sweep";
-export const BUCKET_SWEEP_JOB_NAME = "bucket-sweep";
 
 /**
  * The safety net of the whole bucket (ADR-037 §11): each module deletes the orphans of its own

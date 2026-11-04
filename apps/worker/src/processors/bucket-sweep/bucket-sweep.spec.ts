@@ -3,6 +3,8 @@ import { getQueueToken } from "@nestjs/bullmq";
 import type { Queue } from "bullmq";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
+  BUCKET_SWEEP_JOB_NAME,
+  BUCKET_SWEEP_QUEUE_NAME,
   activityImportSourceKey,
   activityMediaKey,
   activityMediaPrefix,
@@ -11,7 +13,6 @@ import {
 } from "@repo/contracts";
 import { ActivitiesService } from "@repo/core/activities";
 import { bootstrapTestWorkerApp, waitFor, type TestWorkerApp } from "../../testing/test-worker-app.js";
-import { BUCKET_SWEEP_JOB_NAME, BUCKET_SWEEP_QUEUE_NAME } from "./bucket-sweep.processor.js";
 import { BucketSweepScheduler } from "./bucket-sweep.scheduler.js";
 
 const DAY_MS = 24 * 3_600_000;
