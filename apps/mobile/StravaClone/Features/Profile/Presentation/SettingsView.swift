@@ -91,7 +91,7 @@ struct SettingsView: View {
             Text(warning)
         }
         .sheet(item: $openedDocument) { LegalSheet(document: $0) }
-        .sheet(isPresented: $isEditingName) {
+        .fullScreenCover(isPresented: $isEditingName) {
             EditProfileSheet(store: store)
         }
     }

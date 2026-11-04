@@ -50,7 +50,7 @@ struct ProfileView<Itineraries: View, Search: View>: View {
                     editor: store.avatar,
                     entry: .profile
                 )
-                .sheet(isPresented: $isEditingName) {
+                .fullScreenCover(isPresented: $isEditingName) {
                     EditProfileSheet(store: store)
                 }
                 .navigationDestination(for: ProfileStore.Destination.self) { destination in

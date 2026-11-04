@@ -1,10 +1,10 @@
 import SwiftUI
 
-/// "Modifier le profil" (ADR-036 §3), laid out like Strava's "Profil": my photo next to first and
-/// last name, then Bio, Ville, Pays, Sport principal, and the athlete information (birth date,
+/// "Modifier le profil" (ADR-036 §3), full screen like Strava's "Profil": my photo next to first
+/// and last name, then Bio, Ville, Pays, Sport principal, and the athlete information (birth date,
 /// sex, weight). Starts from `GET /v1/me/profile`, sends everything with "Enregistrer" and closes
-/// once the header shows the new name; a refusal stays on the sheet. The photo is sent on its
-/// own, without "Enregistrer" (ADR-037 §2).
+/// once the header shows the new name; a refusal stays on screen. The photo is sent on its own,
+/// without "Enregistrer" (ADR-037 §2).
 struct EditProfileSheet: View {
     let store: ProfileStore
     @Environment(\.dismiss) private var dismiss
@@ -15,23 +15,43 @@ struct EditProfileSheet: View {
     @State private var error: String?
     @State private var isSaving = false
     @State private var isChoosingPhoto = false
+    @State private var isPickingBirthDate = false
+    @FocusState private var focused: EditProfileField?
 
-    private var isLoaded: Bool { (try? loaded?.get()) != nil }
     private var canSave: Bool {
-        isLoaded && !isSaving && ProfileName(firstName: profile.firstName, lastName: profile.lastName) != nil
+        if case .success = loaded { return !isSaving }
+        return false
     }
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 EditProfileTopBar(canSave: canSave, isSaving: isSaving, close: { dismiss() }) {
+                    focused = nil
                     Task { await save() }
                 }
                 Divider()
+                if let error {
+                    Text(error)
+                        .font(.subheadline)
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, Theme.spacing)
+                        .padding(.vertical, 10)
+                        .background(Color.red)
+                        .accessibilityIdentifier("editProfile.error")
+                }
                 content
             }
             .background(EditProfileColors.band)
             .toolbar(.hidden, for: .navigationBar)
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button(ProfileMessages.done) { focused = nil }
+                        .fontWeight(.semibold)
+                }
+            }
         }
         .task { await load() }
         .avatarPicker(
@@ -40,7 +60,6 @@ struct EditProfileSheet: View {
             editor: store.avatar,
             entry: .editProfile
         )
-        .presentationDetents([.large])
     }
 
     @ViewBuilder private var content: some View {
@@ -62,50 +81,76 @@ struct EditProfileSheet: View {
     }
 
     private var form: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                EditProfileIdentity(
-                    store: store,
-                    firstName: $profile.firstName,
-                    lastName: $profile.lastName,
-                    changePhoto: { isChoosingPhoto = true }
-                )
+        ScrollViewReader { proxy in
+            ScrollView {
                 VStack(spacing: 0) {
-                    EditProfileTextRow(placeholder: ProfileMessages.bio, text: $profile.bio, maxLength: EditableProfile.bioMaxLength, axis: .vertical)
+                    EditProfileIdentity(
+                        store: store,
+                        firstName: $profile.firstName,
+                        lastName: $profile.lastName,
+                        focused: $focused,
+                        changePhoto: {
+                            focused = nil
+                            isChoosingPhoto = true
+                        }
+                    )
+                    VStack(spacing: 0) {
+                        EditProfileTextRow(
+                            placeholder: ProfileMessages.bio,
+                            text: $profile.bio,
+                            maxLength: EditableProfile.bioMaxLength,
+                            field: .bio,
+                            focused: $focused,
+                            axis: .vertical
+                        )
                         .accessibilityIdentifier("editProfile.bio")
-                    EditProfileTextRow(placeholder: ProfileMessages.city, text: $profile.city, maxLength: EditableProfile.cityMaxLength)
+                        EditProfileTextRow(
+                            placeholder: ProfileMessages.city,
+                            text: $profile.city,
+                            maxLength: EditableProfile.cityMaxLength,
+                            field: .city,
+                            focused: $focused
+                        )
                         .textContentType(.addressCity)
                         .accessibilityIdentifier("editProfile.city")
-                    EditProfileCountryRow(countryCode: $profile.countryCode)
-                    EditProfileSportRow(sport: $profile.mainSport)
-                }
-                .background(EditProfileColors.cell)
-                EditProfileSectionHeader(title: ProfileMessages.athleteInformation)
-                VStack(spacing: 0) {
-                    EditProfileBirthDateRow(birthDate: $profile.birthDate)
-                    EditProfileGenderRow(gender: $profile.gender)
-                    EditProfileWeightRow(text: $weightText)
-                }
-                .background(EditProfileColors.cell)
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(ProfileMessages.weightFooter)
-                    if let error {
-                        Text(error).foregroundStyle(.red)
+                        EditProfileCountryRow(countryCode: $profile.countryCode)
+                        EditProfileSportRow(sport: $profile.mainSport)
                     }
+                    .background(EditProfileColors.cell)
+                    EditProfileSectionHeader(title: ProfileMessages.athleteInformation)
+                    VStack(spacing: 0) {
+                        EditProfileBirthDateRow(birthDate: $profile.birthDate, isPicking: $isPickingBirthDate) {
+                            focused = nil
+                        }
+                        EditProfileGenderRow(gender: $profile.gender)
+                        EditProfileWeightRow(text: $weightText, focused: $focused)
+                    }
+                    .background(EditProfileColors.cell)
+                    Text(ProfileMessages.weightFooter)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(Theme.spacing)
                 }
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(Theme.spacing)
+            }
+            .scrollDismissesKeyboard(.interactively)
+            .onChange(of: isPickingBirthDate) { _, isPicking in
+                guard isPicking else { return }
+                withAnimation(.snappy) { proxy.scrollTo(EditProfileBirthDateRow.pickerID, anchor: .center) }
             }
         }
-        .scrollDismissesKeyboard(.interactively)
     }
 
     private func load() async {
         loaded = nil
         let result = await store.editableProfile()
-        if case .success(let editable) = result {
+        if case .success(var editable) = result {
+            // A Google account may have no profile name yet: start from the name shown.
+            if editable.firstName.isEmpty && editable.lastName.isEmpty {
+                let parts = ProfileName.parts(of: store.profile?.athlete.displayName ?? "")
+                editable.firstName = parts.firstName
+                editable.lastName = parts.lastName
+            }
             profile = editable
             weightText = editable.weightKg.map(EditProfileFormat.weight) ?? ""
         }
@@ -128,7 +173,7 @@ struct EditProfileSheet: View {
     }
 }
 
-/// The bar of the sheet: a round ✕, "Profil", and a black "Enregistrer" capsule.
+/// The bar of the screen: a round ✕, "Profil", and a black "Enregistrer" capsule.
 private struct EditProfileTopBar: View {
     let canSave: Bool
     let isSaving: Bool

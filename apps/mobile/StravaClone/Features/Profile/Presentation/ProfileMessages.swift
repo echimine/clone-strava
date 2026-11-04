@@ -19,6 +19,7 @@ enum ProfileMessages {
     static let invalidName = "Prénom et nom : de 1 à 50 caractères chacun."
     static let profileTitle = "Profil"
     static let close = "Fermer"
+    static let done = "OK"
     static let bio = "Bio"
     static let city = "Ville"
     static let country = "Pays"
