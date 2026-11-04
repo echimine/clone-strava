@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { BanDuration, UserRole } from "@repo/contracts";
 import {
   banUser,
+  deleteUser,
   resetProfile,
   setUserRole,
   signOutUser,
@@ -34,6 +35,17 @@ export function useUserActions(userId: string) {
     reset: useMutation({
       mutationFn: ({ reset, reason }: { reset: ProfileReset; reason: string }) => resetProfile(userId, reset, reason),
       onSuccess,
+    }),
+    // The account is gone: its sheet leaves the cache instead of being refetched (a 404).
+    remove: useMutation({
+      mutationFn: (reason: string) => deleteUser(userId, reason),
+      onSuccess: async () => {
+        queryClient.removeQueries({ queryKey: userKeys.detail(userId) });
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: userKeys.lists() }),
+          queryClient.invalidateQueries({ queryKey: journalKey }),
+        ]);
+      },
     }),
     setRole: useMutation({
       mutationFn: ({ role, reason }: { role: UserRole; reason: string }) => setUserRole(userId, role, reason),

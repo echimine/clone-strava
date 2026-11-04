@@ -6,6 +6,7 @@ import { Label } from "@repo/ui/components/label";
 import { NativeSelect, NativeSelectOption } from "@repo/ui/components/native-select";
 import { useState } from "react";
 import { SanctionAction } from "@/components/SanctionAction";
+import { DeleteAccountAction } from "@/features/users/components/DeleteAccountAction";
 import type { useUserActions } from "@/features/users/hooks/useUserActions";
 import { banDurationLabels, banEndLabel } from "@/features/users/lib/labels";
 
@@ -100,8 +101,9 @@ function RoleAction({ user, actions, name }: { user: AdminUserDetail; actions: A
 
 /**
  * The account's actions on the user sheet (ADR-038 §5): the Sanctions (Ban, unban, sign-out,
- * resets), each with the shared Sanction dialog, and the admin role. An Administrator is never
- * banned: no Ban button on their sheet (the API answers `409` anyway).
+ * resets, account deletion), each with the shared Sanction dialog, and the admin role. An
+ * Administrator is never banned nor deleted: no such button on their sheet (the API answers `409`
+ * anyway).
  */
 export function UserActions({ user, actions }: { user: AdminUserDetail; actions: Actions }) {
   const name = user.athlete.displayName || user.email;
@@ -151,6 +153,7 @@ export function UserActions({ user, actions }: { user: AdminUserDetail; actions:
         run={(reason) => actions.reset.mutateAsync({ reset: "reset-avatar", reason })}
       />
       <RoleAction user={user} actions={actions} name={name} />
+      {user.role !== "admin" ? <DeleteAccountAction user={user} actions={actions} name={name} /> : null}
     </div>
   );
 }

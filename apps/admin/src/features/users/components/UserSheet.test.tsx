@@ -6,9 +6,10 @@ import { server } from "@/test/msw-server";
 import { renderWithProviders } from "@/test/render";
 import { UserSheet } from "./UserSheet";
 
+const router = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
 vi.mock("next/navigation", () => ({
   usePathname: () => "/users/x",
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  useRouter: () => router,
   useSearchParams: () => new URLSearchParams(),
 }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -177,6 +178,40 @@ describe("UserSheet", () => {
         ["reset-bio", { reason: "Publicité" }],
       ]),
     );
+  });
+
+  it("deletes the account as a Sanction once the athlete's name is typed, warning that Apple keeps billing", async () => {
+    let body: unknown;
+    server.use(
+      http.delete(`/api/v1/admin/users/${ID}`, async ({ request }) => {
+        body = await request.json();
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    renderWithProviders(<UserSheet id={ID} history={null} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Supprimer le compte" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText(/de façon définitive/)).toBeTruthy();
+    expect(within(dialog).getByRole("note").textContent).toContain("Apple continue de le facturer");
+    const confirm = within(dialog).getByRole("button", { name: "Supprimer définitivement" });
+    fireEvent.change(within(dialog).getByLabelText("Motif"), { target: { value: "Demande de l'athlète" } });
+    expect((confirm as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(within(dialog).getByLabelText("Tapez le nom de l'athlète pour confirmer"), {
+      target: { value: "Émile Durand" },
+    });
+    expect((confirm as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(confirm);
+
+    await waitFor(() => expect(body).toEqual({ reason: "Demande de l'athlète" }));
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith("/users"));
+  });
+
+  it("an Administrator's account has no « Supprimer le compte »", async () => {
+    serve({ ...athlete, role: "admin", account: { signInMethods: ["password"], twoFactorEnabled: true } });
+    renderWithProviders(<UserSheet id={ID} history={null} />);
+    await screen.findByText("Activée");
+    expect(screen.queryByRole("button", { name: "Supprimer le compte" })).toBeNull();
   });
 
   it("says when the account does not exist", async () => {

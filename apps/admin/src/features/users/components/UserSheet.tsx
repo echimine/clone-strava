@@ -26,7 +26,7 @@ export type UserSheetProps = {
   premium?: ReactNode;
   /** Section 8 « Historique »: the Journal's `AuditHistory`, composed by the page. */
   history: ReactNode;
-  /** More header actions composed by the page, after the account's own (#214's « Supprimer le compte »). */
+  /** More header actions composed by the page, after the account's own. */
   extraActions?: ReactNode;
 };
 

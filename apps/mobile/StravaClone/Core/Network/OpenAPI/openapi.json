@@ -190,6 +190,44 @@
         ]
       }
     },
+    "/v1/me/account-deletion/code": {
+      "post": {
+        "operationId": "MeAccountDeletionController_requestCode",
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": "Code sent"
+          }
+        },
+        "tags": [
+          "MeAccountDeletion"
+        ]
+      }
+    },
+    "/v1/me/account-deletion": {
+      "post": {
+        "operationId": "MeAccountDeletionController_confirm",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountDeletionRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Account deleted"
+          }
+        },
+        "tags": [
+          "MeAccountDeletion"
+        ]
+      }
+    },
     "/v1/me/avatar/upload-url": {
       "post": {
         "operationId": "MeAvatarController_requestUploadUrl",
@@ -3125,6 +3163,37 @@
         "tags": [
           "AdminUsers"
         ]
+      },
+      "delete": {
+        "operationId": "AdminUsersController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminReasonBodyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AdminUsers"
+        ]
       }
     },
     "/v1/admin/users/{id}/sessions": {
@@ -3786,6 +3855,19 @@
           "approveFollowers"
         ],
         "additionalProperties": false
+      },
+      "AccountDeletionRequestDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 12
+          }
+        },
+        "required": [
+          "code"
+        ]
       },
       "AvatarUploadUrlRequestDto": {
         "type": "object",
