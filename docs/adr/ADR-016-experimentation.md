@@ -70,7 +70,7 @@ An A/B test only gives a reliable result with enough users. As long as the numbe
 ### Negative / Risks
 - **Discipline**: hypothesis, sample size and cleanup require rigor for every test.
 - **Few users at first**: most tests will be inconclusive; we will have to accept that.
-- **Consent** (ADR-015): users who decline measurement do not count in PostHog results.
+- ~~**Consent** (ADR-015): users who decline measurement do not count in PostHog results.~~ (*Amended 2026-11-04: the app will never be published, the Measurement consent is removed*)
 
 ## References
 - PostHog Experiments: https://posthog.com/docs/experiments

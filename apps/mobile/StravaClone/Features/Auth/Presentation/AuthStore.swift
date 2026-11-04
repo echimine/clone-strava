@@ -79,8 +79,7 @@ final class AuthStore {
         }
     }
 
-    /// The Welcome is on screen with the Measurement consent answered: on the first launch,
-    /// right after "Accepter", since nothing is sent before.
+    /// The Welcome is on screen, once the splash is gone.
     func welcomeViewed() {
         analytics.capture(.welcomeViewed)
     }

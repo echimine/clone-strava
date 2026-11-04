@@ -17,19 +17,10 @@ final class AuthFlowUITests: XCTestCase {
         let app = XCUIApplication()
         // The animated splash (ADR-032 §4) is skipped: it only delays the first screen.
         app.launchArguments += [
-            "-uiTestResetAuth", "-uiTestDisableSplash", "-uiTestResetMeasurementConsent", "-uiTestResetOnboarding",
+            "-uiTestResetAuth", "-uiTestDisableSplash", "-uiTestResetOnboarding",
         ]
         app.launch()
         return app
-    }
-
-    /// First launch (ADR-035 §8): the Measurement consent sheet opens over the Welcome.
-    private func refuseMeasurement(in app: XCUIApplication) {
-        let refuse = app.buttons["consent.refuse"]
-        XCTAssertTrue(refuse.waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["consent.accept"].exists)
-        refuse.tap()
-        XCTAssertTrue(refuse.waitForNonExistence(timeout: 5))
     }
 
     /// "Se connecter" on the Welcome opens the account screen.
@@ -141,7 +132,6 @@ final class AuthFlowUITests: XCTestCase {
     /// the Paywall, the notification priming screen and iOS's prompt (§6, §7), then home.
     func testCreatingAnAccountAtTheEndOfTheOnboardingReachesTheTabView() {
         let app = launchSignedOutApp()
-        refuseMeasurement(in: app)
         let createAccount = app.buttons["welcome.createAccount"]
         XCTAssertTrue(createAccount.waitForExistence(timeout: 5))
         createAccount.tap()
@@ -161,7 +151,6 @@ final class AuthFlowUITests: XCTestCase {
         // 1. The first code creates the account: "Se connecter" goes through the Onboarding
         //    (ADR-035 §1), whose "Créer mon compte" goes to the Paywall without the account
         //    screen, then the notification step (§7), then home.
-        refuseMeasurement(in: app)
         openSignIn(in: app)
         signInWithCode(email: uniqueEmail(), in: app)
         answerTheOnboarding(in: app)
@@ -174,9 +163,8 @@ final class AuthFlowUITests: XCTestCase {
         app.buttons["profile.settings"].tap()
         app.buttons["Se déconnecter"].tap()
 
-        // 3. An existing account goes home; the consent is not asked again.
+        // 3. An existing account goes home.
         openSignIn(in: app)
-        XCTAssertFalse(app.buttons["consent.refuse"].exists)
         signInWithCode(email: "test.map@stravaclone.test", in: app)
         XCTAssertTrue(feedTab.waitForExistence(timeout: 10))
         XCTAssertFalse(app.textFields["onboarding.firstName"].exists)

@@ -10,7 +10,6 @@ import SwiftUI
 struct ProfileView<Itineraries: View, Search: View>: View {
     @Bindable var store: ProfileStore
     let account: ProfileAccount?
-    let consent: MeasurementConsentStore
     let signOut: @MainActor () async -> Void
     var signOutWarning: @MainActor () async -> String? = { nil }
     var beforeSignOut: @MainActor () async -> Void = {}
@@ -59,7 +58,6 @@ struct ProfileView<Itineraries: View, Search: View>: View {
                         SettingsView(
                             store: store,
                             account: account,
-                            consent: consent,
                             signOut: signOut,
                             signOutWarning: signOutWarning,
                             beforeSignOut: beforeSignOut,

@@ -164,8 +164,8 @@ After the commit, `itineraries` emits domain events. The realtime bridge forward
 
 ### 10. Analytics
 
-- Itineraries are the first feature to emit events from the iOS app. They build the ADR-015 foundation: an `AnalyticsClient` protocol in `Core/`, an `enum AnalyticsEvent`, and a PostHog implementation wired in `Di.swift`. Session replay and automatic screen capture are disabled and app lifecycle events are enabled. The SDK is in `optOut` by default.
-- The **consent screen** is out of scope (a cross-cutting topic for the whole app). Until it exists, no iOS event is sent. Backend events are sent from the start.
+- Itineraries are the first feature to emit events from the iOS app. They build the ADR-015 foundation: an `AnalyticsClient` protocol in `Core/`, an `enum AnalyticsEvent`, and a PostHog implementation wired in `Di.swift`. Session replay and automatic screen capture are disabled and app lifecycle events are enabled. ~~The SDK is in `optOut` by default.~~ (*Amended 2026-11-04: the app will never be published, the Measurement consent is removed*: the SDK always collects.)
+- ~~The **consent screen** is out of scope (a cross-cutting topic for the whole app). Until it exists, no iOS event is sent.~~ Backend events are sent from the start. (*Amended 2026-11-04: the app will never be published, the Measurement consent is removed*: iOS events are sent too.)
 - The API emits the lifecycle events: `itinerary_created`, `itinerary_updated`, `itinerary_renamed`, `itinerary_deleted`, `itinerary_save_failed`. `itinerary_created` and `itinerary_updated` are emitted only when a write actually happens (a replayed `POST` emits nothing). The app emits the journey events: editor, list, detail, routing failures as session counters. The full catalog and its properties (rounded, with no coordinates) are in [Événements PostHog des Itinéraires](https://github.com/echimine/clone-strava/issues/20).
 
 ## Alternatives Considered
@@ -204,7 +204,7 @@ After the commit, `itineraries` emits domain events. The realtime bridge forward
 - **Approximate gain outside France**: Open-Meteo overestimates it. Shown with "≈", not corrected.
 - **Activity parameters not calibrated**: 20 m / 2 m come from a DTM. Activity gain may change compared to before this ADR, and older Activities keep the old figure.
 - **Lost straight-line intent**: after a foot → wheels → foot round trip, a Leg that fell back to `straight` stays straight, and the athlete switches it back by hand.
-- **No iOS events until a consent screen exists.**
+- ~~**No iOS events until a consent screen exists.**~~ (*Amended 2026-11-04: the app will never be published, the Measurement consent is removed*)
 
 ## References
 

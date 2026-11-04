@@ -48,11 +48,8 @@ final class Di {
     /// Full resync of the Itinerary cache and its queue of changes (ADR-030 §8), triggered by
     /// the app shell.
     let itinerarySynchronizer: ItinerarySynchronizer
-    /// Product events (ADR-015): PostHog, opted out until the Measurement consent is accepted
-    /// (ADR-035 §8); nothing without a key.
+    /// Product events (ADR-015): PostHog, always collecting (ADR-035 §8); nothing without a key.
     let analytics: any AnalyticsClient
-    /// The Measurement consent, kept on this phone (ADR-035 §8).
-    let consentPreferences: any MeasurementConsentPreferences
     /// Saved Activities until processed (ADR-031 §14, §15) and their sender.
     let localActivities: GRDBLocalActivityStore
     let activitySender: ActivitySender
@@ -102,11 +99,7 @@ final class Di {
         // ADR-035 §6: hard-coded offers, layout C, nothing sold. A RevenueCat adapter (ADR-014)
         // will fill the same types from the current offering.
         subscriptionService = UnwiredSubscriptionService()
-        consentPreferences = UserDefaultsMeasurementConsentPreferences()
-        analytics = PostHogAnalyticsClient.make(
-            projectToken: configuration.postHogAPIKey,
-            isOptedIn: consentPreferences.consent == .accepted
-        ) ?? NoAnalyticsClient()
+        analytics = PostHogAnalyticsClient.make(projectToken: configuration.postHogAPIKey) ?? NoAnalyticsClient()
         // TODO(ADR-022): Apple Sign-In — blocked on a paid Apple Developer Program membership.
         // TODO(ADR-022 §5): admin 2FA — credential-only, backoffice web, not applicable to mobile.
 
@@ -265,16 +258,6 @@ final class Di {
             analytics: analytics,
             submitOnboardingAnswers: { await onboardingAnswersSender.submit() },
             notificationPermission: UserNotificationsPermission()
-        )
-    }
-
-    /// One for the app: the Welcome's sheet and the Profile tab's switch (ADR-035 §8).
-    func makeMeasurementConsentStore() -> MeasurementConsentStore {
-        let authService = authService
-        return MeasurementConsentStore(
-            preferences: consentPreferences,
-            analytics: analytics,
-            signedInUserID: { await authService.currentUser?.id }
         )
     }
 

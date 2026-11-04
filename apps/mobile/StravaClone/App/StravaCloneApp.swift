@@ -12,7 +12,6 @@ struct StravaCloneApp: App {
         WindowGroup {
             RootView(
                 authStore: di.makeAuthStore(),
-                consentStore: di.makeMeasurementConsentStore(),
                 makeOnboardingStore: di.makeOnboardingStore,
                 makeAvatarEditor: di.makeAvatarEditor,
                 makePaywallStore: di.makePaywallStore,
@@ -63,8 +62,6 @@ struct StravaCloneApp: App {
 /// reachable once signed in. Session is checked once at launch (`AuthStore.restoreSession`).
 struct RootView: View {
     @State var authStore: AuthStore
-    /// The Measurement consent (ADR-035 §8): the Welcome's sheet, the Profile tab's switch.
-    @State var consentStore: MeasurementConsentStore
     /// "Créer un compte" on the Welcome: the Onboarding, resumed from its draft (ADR-035 §1, §5).
     /// With an action, the Onboarding that "Se connecter" opened on a new account, ended by it.
     let makeOnboardingStore: @MainActor ((@MainActor () -> Void)?) -> OnboardingStore
@@ -143,7 +140,6 @@ struct RootView: View {
                 ProgressView()
             case .signedOut:
                 WelcomeView(
-                    consent: consentStore,
                     isRevealed: !isSplashPresented,
                     viewed: authStore.welcomeViewed,
                     opened: { [authStore] entry in
@@ -256,7 +252,6 @@ struct RootView: View {
                     ProfileView(
                         store: profileStore,
                         account: profileAccount,
-                        consent: consentStore,
                         signOut: { [authStore] in await authStore.signOut() },
                         signOutWarning: {
                             // ADR-031 §10, §14: one confirmation for all that a sign-out loses.

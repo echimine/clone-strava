@@ -115,7 +115,3 @@ _Avoid_: Favorite sports, preferred sports, interests
 **Paywall**:
 The screen offering Premium, shown once at the end of the Onboarding, right after the person signs in (whether the account is new or already existed). It can be skipped.
 _Avoid_: Upsell, subscription screen
-
-**Measurement consent**:
-A person's choice to let Nervo measure how the app is used. Asked on first launch, over the Welcome, before any choice to create an account or sign in; it can be changed later in the settings. Until it is given, nothing about how the app is used leaves the phone, and refusing changes nothing else in the app. Shown as "Mesure d'audience" in the app.
-_Avoid_: Tracking consent, cookies, analytics opt-in

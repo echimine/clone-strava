@@ -8,15 +8,9 @@ final class OnboardingFlowUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments += ["-uiTestDisableSplash"]
         if fresh {
-            app.launchArguments += ["-uiTestResetAuth", "-uiTestResetMeasurementConsent", "-uiTestResetOnboarding"]
+            app.launchArguments += ["-uiTestResetAuth", "-uiTestResetOnboarding"]
         }
         app.launch()
-        if fresh {
-            let refuse = app.buttons["consent.refuse"]
-            XCTAssertTrue(refuse.waitForExistence(timeout: 5))
-            refuse.tap()
-            XCTAssertTrue(refuse.waitForNonExistence(timeout: 5))
-        }
         return app
     }
 

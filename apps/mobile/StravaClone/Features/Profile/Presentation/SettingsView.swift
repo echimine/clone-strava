@@ -2,13 +2,12 @@ import SwiftUI
 
 /// Réglages (ADR-036 §10), pushed by the profile's gear; it takes over the former "Compte"
 /// form (ADR-035 §8): Compte (Nom opens "Modifier le profil", Email), Mes Itinéraires,
-/// Confidentialité ("Approuver mes abonnés", Measurement consent, legal texts), Debug, and
+/// Confidentialité ("Approuver mes abonnés", legal texts), Debug, and
 /// sign-out. When `signOutWarning` returns a message, a confirmation shows it first
 /// (ADR-030 §8). The account and the sign-out come from the app shell (ADR-007 rule 5).
 struct SettingsView: View {
     let store: ProfileStore
     let account: ProfileAccount?
-    let consent: MeasurementConsentStore
     let signOut: @MainActor () async -> Void
     var signOutWarning: @MainActor () async -> String? = { nil }
     /// Run before signing out, once the warning is confirmed or when there is none: the local
@@ -106,11 +105,6 @@ struct SettingsView: View {
                 ))
                 .accessibilityIdentifier("privacy.approveFollowers")
             }
-            Toggle("Mesure d'audience", isOn: Binding(
-                get: { consent.isMeasurementEnabled },
-                set: { enabled in Task { await consent.setMeasurementEnabled(enabled) } }
-            ))
-            .accessibilityIdentifier("privacy.measurement")
             ForEach(LegalDocument.allCases) { document in
                 Button {
                     openedDocument = document
@@ -127,7 +121,7 @@ struct SettingsView: View {
         } header: {
             Text("Confidentialité")
         } footer: {
-            Text("\(ProfileMessages.approveFollowersFooter) Mesure d'audience : écrans vus et boutons touchés, jamais votre nom, votre email ni vos activités.")
+            Text(ProfileMessages.approveFollowersFooter)
         }
     }
 }
