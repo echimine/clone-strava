@@ -1,4 +1,7 @@
 import { Injectable } from "@nestjs/common";
+import type { InstantRange } from "../infrastructure/index.js";
+import type { ActivityFailureCounts, ActivityGrowthCounts } from "./domain/activity-admin-stats.js";
+import { ActivityAdminStatsRepository } from "./repositories/activity-admin-stats.repository.js";
 import type {
   ActivityImport,
   AthleteStatsResponse,
@@ -79,6 +82,7 @@ import type { FeedActivityPage } from "./domain/feed-activity.js";
 @Injectable()
 export class ActivitiesService {
   constructor(
+    private readonly adminStats: ActivityAdminStatsRepository,
     private readonly createActivityUseCase: CreateActivityUseCase,
     private readonly requestUploadUrlUseCase: RequestUploadUrlUseCase,
     private readonly completeActivityUseCase: CompleteActivityUseCase,
@@ -115,6 +119,21 @@ export class ActivitiesService {
     private readonly resetActivityTextUseCase: ResetActivityTextUseCase,
     private readonly adminActivities: AdminActivityRepository,
   ) {}
+
+  /** Backoffice dashboard, "À traiter" (ADR-038 §15): failed Activities and recent failed imports. */
+  getAdminFailureCounts(failedImportsSince: Date): Promise<ActivityFailureCounts> {
+    return this.adminStats.countFailures(failedImportsSince);
+  }
+
+  /** Backoffice dashboard, "Croissance" (ADR-038 §15): Activities started, active athletes, Media. */
+  getAdminGrowthCounts(range: InstantRange, excludedUserIds: readonly string[]): Promise<ActivityGrowthCounts> {
+    return this.adminStats.countGrowth(range, excludedUserIds);
+  }
+
+  /** Backoffice dashboard chart (ADR-038 §15): Activities started per Paris day. */
+  countActivitiesPerParisDay(range: InstantRange, excludedUserIds: readonly string[]): Promise<Map<string, number>> {
+    return this.adminStats.countStartedPerParisDay(range, excludedUserIds);
+  }
 
   create(userId: string, request: CreateActivityRequest): Promise<CreateActivityResult> {
     return this.createActivityUseCase.execute(userId, request);

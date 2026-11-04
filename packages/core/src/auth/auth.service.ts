@@ -3,6 +3,8 @@ import type { UserRole } from "@repo/contracts";
 import { AUTH_INSTANCE } from "./auth.constants.js";
 import type { AuthInstance } from "./auth-instance.type.js";
 import { SESSION_AUTH_METHODS, type SessionAuthMethod } from "./domain/session-auth-method.js";
+import type { InstantRange } from "../infrastructure/index.js";
+import { AuthAdminStatsRepository } from "./repositories/auth-admin-stats.repository.js";
 import { AuthUserRepository } from "./repositories/auth-user.repository.js";
 import { BackfillGoogleAvatarsUseCase } from "./use-cases/backfill-google-avatars.use-case.js";
 
@@ -45,10 +47,21 @@ export interface PublicIdentity {
 @Injectable()
 export class AuthService {
   constructor(
+    private readonly adminStats: AuthAdminStatsRepository,
     @Inject(AUTH_INSTANCE) private readonly auth: AuthInstance,
     private readonly users: AuthUserRepository,
     private readonly backfillGoogleAvatars: BackfillGoogleAvatarsUseCase,
   ) {}
+
+  /** Every Administrator (`role = admin`): the accounts the backoffice stats leave out (ADR-038 §15). */
+  listAdminIds(): Promise<string[]> {
+    return this.adminStats.findAdminIds();
+  }
+
+  /** Backoffice dashboard (ADR-038 §15): sign-ups per Paris day of `range`, Administrators left out. */
+  countSignUpsPerParisDay(range: InstantRange): Promise<Map<string, number>> {
+    return this.adminStats.countSignUpsPerParisDay(range);
+  }
 
   /** Batch read (ADR-021 §2 rule 6): feed authors (ADR-029). */
   async getPublicIdentities(userIds: string[]): Promise<PublicIdentity[]> {

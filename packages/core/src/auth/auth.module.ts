@@ -9,6 +9,7 @@ import { NotificationsModule, NotificationsService } from "../notifications/inde
 import { AUTH_INSTANCE, type AuthModuleOptions } from "./auth.constants.js";
 import { createAuthInstance } from "./create-auth-instance.js";
 import { AuthService } from "./auth.service.js";
+import { AuthAdminStatsRepository } from "./repositories/auth-admin-stats.repository.js";
 import { AuthUserRepository } from "./repositories/auth-user.repository.js";
 import { GoogleAvatarCopyEnqueuer } from "./services/google-avatar-copy-enqueuer.js";
 import { BackfillGoogleAvatarsUseCase } from "./use-cases/backfill-google-avatars.use-case.js";
@@ -70,6 +71,7 @@ export class AuthModule {
             { token: EventEmitter2, optional: true },
           ],
         },
+        AuthAdminStatsRepository,
         AuthUserRepository,
         GoogleAvatarCopyEnqueuer,
         BackfillGoogleAvatarsUseCase,
