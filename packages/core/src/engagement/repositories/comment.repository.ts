@@ -99,4 +99,16 @@ export class CommentRepository {
       .returning({ id: schema.comment.id });
     return rows.length > 0;
   }
+
+  /** The ids among `ids` of comments not deleted (Journal links, ADR-038 §3). */
+  async findExistingIds(ids: string[]): Promise<Set<string>> {
+    if (ids.length === 0) {
+      return new Set();
+    }
+    const rows = await this.db
+      .select({ id: schema.comment.id })
+      .from(schema.comment)
+      .where(and(inArray(schema.comment.id, ids), isNull(schema.comment.deletedAt)));
+    return new Set(rows.map((row) => row.id));
+  }
 }

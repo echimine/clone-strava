@@ -4,6 +4,7 @@ import { ACTIVITIES_QUEUE_NAME, IMPORTS_QUEUE_NAME } from "@repo/contracts";
 import { SportsModule } from "../sports/index.js";
 import { UsersModule } from "../users/index.js";
 import { SocialModule } from "../social/index.js";
+import { ActivityAdminStatsRepository } from "./repositories/activity-admin-stats.repository.js";
 import { ActivityRepository } from "./repositories/activity.repository.js";
 import { ActivityStatsRepository } from "./repositories/activity-stats.repository.js";
 import { ActivityTrackRepository } from "./repositories/activity-track.repository.js";
@@ -47,6 +48,15 @@ import { AuthorActivityResolver } from "./services/author-activity-resolver.js";
 import { RequestMediaUploadUrlsUseCase } from "./use-cases/request-media-upload-urls.use-case.js";
 import { ConfirmMediaUseCase } from "./use-cases/confirm-media.use-case.js";
 import { DeleteMediaUseCase } from "./use-cases/delete-media.use-case.js";
+import { ActivityRemover } from "./services/activity-remover.js";
+import { MediaRemover } from "./services/media-remover.js";
+import { AdminActivityRepository } from "./repositories/admin-activity.repository.js";
+import { ListAdminActivitiesUseCase } from "./use-cases/list-admin-activities.use-case.js";
+import { GetAdminActivityUseCase } from "./use-cases/get-admin-activity.use-case.js";
+import { ReprocessFailedActivityUseCase } from "./use-cases/reprocess-failed-activity.use-case.js";
+import { DeleteActivityAsSanctionUseCase } from "./use-cases/delete-activity-as-sanction.use-case.js";
+import { RemoveMediaAsSanctionUseCase } from "./use-cases/remove-media-as-sanction.use-case.js";
+import { ResetActivityTextUseCase } from "./use-cases/reset-activity-text.use-case.js";
 import { ActivitiesService } from "./activities.service.js";
 
 /**
@@ -63,6 +73,7 @@ import { ActivitiesService } from "./activities.service.js";
     BullModule.registerQueue({ name: ACTIVITIES_QUEUE_NAME }, { name: IMPORTS_QUEUE_NAME }),
   ],
   providers: [
+    ActivityAdminStatsRepository,
     ActivityRepository,
     ActivityStatsRepository,
     ActivityTrackRepository,
@@ -106,6 +117,16 @@ import { ActivitiesService } from "./activities.service.js";
     RequestMediaUploadUrlsUseCase,
     ConfirmMediaUseCase,
     DeleteMediaUseCase,
+    // Backoffice (ADR-038 §11)
+    ActivityRemover,
+    MediaRemover,
+    AdminActivityRepository,
+    ListAdminActivitiesUseCase,
+    GetAdminActivityUseCase,
+    ReprocessFailedActivityUseCase,
+    DeleteActivityAsSanctionUseCase,
+    RemoveMediaAsSanctionUseCase,
+    ResetActivityTextUseCase,
     ActivitiesService,
   ],
   exports: [ActivitiesService],

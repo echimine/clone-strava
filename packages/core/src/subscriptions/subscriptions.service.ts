@@ -1,4 +1,10 @@
 import { Injectable } from "@nestjs/common";
+import type { InstantRange } from "../infrastructure/index.js";
+import {
+  PremiumAdminStatsRepository,
+  type PremiumNowCounts,
+  type PremiumStartCounts,
+} from "./repositories/premium-admin-stats.repository.js";
 import { UserSubscriptionRepository } from "./repositories/user-subscription.repository.js";
 import { HandleRevenuecatWebhookUseCase } from "./use-cases/handle-revenuecat-webhook.use-case.js";
 import { SyncSubscriptionUseCase } from "./use-cases/sync-subscription.use-case.js";
@@ -8,10 +14,21 @@ import { isPremium } from "./domain/is-premium.js";
 @Injectable()
 export class SubscriptionsService {
   constructor(
+    private readonly adminStats: PremiumAdminStatsRepository,
     private readonly userSubscriptions: UserSubscriptionRepository,
     private readonly handleRevenuecatWebhook: HandleRevenuecatWebhookUseCase,
     private readonly syncSubscription: SyncSubscriptionUseCase,
   ) {}
+
+  /** Backoffice dashboard (ADR-038 §15): paying and trial subscriptions active at `now`, Sandbox left out. */
+  countActivePremium(now: Date, excludedUserIds: readonly string[]): Promise<PremiumNowCounts> {
+    return this.adminStats.countActiveAt(now, excludedUserIds);
+  }
+
+  /** Backoffice dashboard (ADR-038 §15): trials started and new paying athletes in `range`. */
+  countPremiumStarts(range: InstantRange, excludedUserIds: readonly string[]): Promise<PremiumStartCounts> {
+    return this.adminStats.countStarts(range, excludedUserIds);
+  }
 
   async isPremium(userId: string): Promise<boolean> {
     const row = await this.userSubscriptions.findPremiumRow(userId);

@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { BullModule } from "@nestjs/bullmq";
 import { SUBSCRIPTIONS_QUEUE_NAME } from "@repo/contracts";
+import { PremiumAdminStatsRepository } from "./repositories/premium-admin-stats.repository.js";
 import { UserSubscriptionRepository } from "./repositories/user-subscription.repository.js";
 import { RevenuecatEventRepository } from "./repositories/revenuecat-event.repository.js";
 import { HandleRevenuecatWebhookUseCase } from "./use-cases/handle-revenuecat-webhook.use-case.js";
@@ -15,6 +16,7 @@ import { SubscriptionsService } from "./subscriptions.service.js";
 @Module({
   imports: [BullModule.registerQueue({ name: SUBSCRIPTIONS_QUEUE_NAME })],
   providers: [
+    PremiumAdminStatsRepository,
     UserSubscriptionRepository,
     RevenuecatEventRepository,
     HandleRevenuecatWebhookUseCase,

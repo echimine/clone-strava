@@ -3,6 +3,7 @@ import type { AuditEntry, AuditPerson, AuditTargetType } from "@repo/contracts";
 import { ActivitiesService } from "@repo/core/activities";
 import type { AuditEntryRecord } from "@repo/core/audit";
 import { AuthService } from "@repo/core/auth";
+import { EngagementService } from "@repo/core/engagement";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -24,10 +25,14 @@ export class AuditEntryAssembler {
   constructor(
     private readonly auth: AuthService,
     activities: ActivitiesService,
+    engagement: EngagementService,
   ) {
     this.existence = {
       user: async (ids) => new Set((await auth.getPublicIdentities(ids)).map((identity) => identity.userId)),
       activity: async (ids) => new Set((await activities.getMany(ids)).map((activity) => activity.id)),
+      media: (ids) => activities.getExistingMediaIds(ids),
+      // A removed comment is soft deleted (ADR-034): it no longer exists for the backoffice.
+      comment: (ids) => engagement.getExistingCommentIds(ids),
     };
   }
 

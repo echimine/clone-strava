@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { AuditActorListResponse, AuditEntryListResponse } from "@repo/contracts";
 import { ActivitiesModule } from "@repo/core/activities";
+import { EngagementModule } from "@repo/core/engagement";
 import { containsIgnoringAccents, DATABASE, type Database } from "@repo/core/infrastructure";
 import { schema } from "@repo/db";
 import { bootstrapAdminTestApp, type AdminTestApp } from "../../testing/admin-test-app.js";
@@ -61,7 +62,7 @@ describe("GET /v1/admin/audit-entries (integration)", () => {
 
   beforeAll(async () => {
     t = await bootstrapAdminTestApp({
-      imports: [ActivitiesModule],
+      imports: [ActivitiesModule, EngagementModule],
       controllers: [AuditEntriesController],
       providers: [AuditEntryAssembler],
     });

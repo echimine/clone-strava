@@ -387,7 +387,9 @@ describe("/v1/activities/:id/comments (integration)", () => {
 
       const response = await remove(activityId, comment.id, commenter);
       expect(response.status).toBe(204);
-      expect(emitted("engagement.comment.deleted")).toEqual([{ commentId: comment.id, activityId, userId: commenter }]);
+      expect(emitted("engagement.comment.deleted")).toEqual([
+        { commentId: comment.id, activityId, userId: commenter, authorId: commenter, bySanction: false },
+      ]);
       expect((await list(activityId, author)).items.map((item) => item.id)).toEqual([kept.id]);
       expect(await commentCount(activityId)).toBe(1);
       const gone = await call(`/activities/${activityId}/comments/${comment.id}`, commenter);
@@ -401,7 +403,9 @@ describe("/v1/activities/:id/comments (integration)", () => {
       emit.mockClear();
 
       expect((await remove(activityId, comment.id, author)).status).toBe(204);
-      expect(emitted("engagement.comment.deleted")).toEqual([{ commentId: comment.id, activityId, userId: author }]);
+      expect(emitted("engagement.comment.deleted")).toEqual([
+        { commentId: comment.id, activityId, userId: author, authorId: commenter, bySanction: false },
+      ]);
     });
 
     it("refuses a third party with 403", async () => {

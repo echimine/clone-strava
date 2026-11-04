@@ -4,6 +4,7 @@ import {
   COMMENT_ADDED_EVENT,
   COMMENT_DELETED_EVENT,
   COMMENT_EDITED_EVENT,
+  type CommentDeletedEvent,
   type CommentEvent,
 } from "@repo/contracts";
 
@@ -23,7 +24,8 @@ export class CommentEvents {
     this.events.emit(COMMENT_EDITED_EVENT, event);
   }
 
-  deleted(event: CommentEvent): void {
+  /** By its author, the Activity's author, or an Administrator (`bySanction`, ADR-038 §11). */
+  deleted(event: CommentDeletedEvent): void {
     this.events.emit(COMMENT_DELETED_EVENT, event);
   }
 }

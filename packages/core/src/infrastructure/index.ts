@@ -20,6 +20,7 @@ export {
   parisDayRange,
   toOffsetPage,
 } from "./admin-list.js";
+export { countsByDay, notByUsers, parisDay, withinRange, type InstantRange } from "./admin-stats.js";
 export {
   isAthleteHidden,
   NO_EXCLUSIONS,
