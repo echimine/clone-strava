@@ -12,7 +12,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@repo/ui/components/sidebar";
-import { Activity, LayoutDashboard, MapPinned, Users } from "lucide-react";
+import { Activity, LayoutDashboard, MapPinned, ScrollText, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "@/lib/auth-client";
@@ -23,6 +23,8 @@ const navItems = [
   { href: "/activities", label: "Activités", icon: Activity },
   { href: "/users", label: "Utilisateurs", icon: Users },
   { href: "/segments", label: "Segments", icon: MapPinned },
+  // ADR-038 §3: every admin action, newest first.
+  { href: "/journal", label: "Journal", icon: ScrollText },
 ];
 
 /** Backoffice navigation (ADR-013 §"Where to put a component"). */
