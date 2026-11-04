@@ -42,6 +42,19 @@ export class SubscriptionsService {
     );
   }
 
+  /**
+   * The user sheet's Premium badge and the Ban dialog's warning (ADR-038 §5): Premium now, and
+   * whether an App Store subscription renews (Apple keeps billing a banned athlete).
+   */
+  async getPremiumBilling(userId: string): Promise<{ active: boolean; billedByAppStore: boolean }> {
+    const row = await this.userSubscriptions.findPremiumRow(userId);
+    const active = isPremium(
+      row && { isActive: row.isActive, expiresAt: row.expiresAt, gracePeriodExpiresAt: row.gracePeriodExpiresAt },
+      new Date(),
+    );
+    return { active, billedByAppStore: active && row?.store === "app_store" && row.willRenew === true };
+  }
+
   handleWebhook(eventId: string, userId: string): Promise<void> {
     return this.handleRevenuecatWebhook.execute(eventId, userId);
   }

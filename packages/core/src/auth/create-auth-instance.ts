@@ -2,6 +2,7 @@ import { Logger } from "@nestjs/common";
 import type { EventEmitter2 } from "@nestjs/event-emitter";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { APIError } from "better-auth/api";
 import { admin, bearer, emailOTP, twoFactor } from "better-auth/plugins";
 import { ANALYTICS_EVENTS } from "@repo/contracts";
 import { schema, type Database } from "@repo/db";
@@ -17,6 +18,7 @@ import {
 import type { Redis } from "../infrastructure/index.js";
 import { createAuthSecondaryStorage } from "./auth-secondary-storage.js";
 import type { AuthModuleOptions } from "./auth.constants.js";
+import { bannedUserError } from "./domain/ban.js";
 import { sessionAuthMethodFor, signUpMethodFor } from "./domain/session-auth-method.js";
 import { AdminAccessEvents } from "./services/admin-access-events.js";
 import type { GoogleAvatarCopyEnqueuer } from "./services/google-avatar-copy-enqueuer.js";
@@ -141,7 +143,25 @@ export function createAuthInstance(
       ipAddress: { ipAddressHeaders: ["x-forwarded-for"] },
     },
     plugins: [
-      admin(),
+      admin({
+        // ADR-038 §6: a banned athlete's sign-in (Sign-in code or Google) gets `403 BANNED_USER`
+        // with the Ban's end, its reason and the contact address, for the app's « Compte
+        // suspendu ». The plugin only carries a message, so the function throws the same
+        // `FORBIDDEN BANNED_USER` itself, with those fields in the body.
+        bannedUserMessage: (user) => {
+          throw new APIError(
+            "FORBIDDEN",
+            bannedUserError(
+              {
+                banned: user.banned ?? null,
+                banReason: user.banReason ?? null,
+                banExpires: user.banExpires ? new Date(user.banExpires) : null,
+              },
+              options.contactEmail ?? null,
+            ),
+          );
+        },
+      }),
       bearer(),
       // ADR-035 §2: sign-in and sign-up by Sign-in code. Plugin defaults
       // kept (6 digits, 5 min, 3 attempts, 3 requests / 60 s per IP on its

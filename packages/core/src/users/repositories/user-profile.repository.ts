@@ -81,6 +81,11 @@ export class UserProfileRepository {
     return row.avatarKey;
   }
 
+  /** Empties the bio (ADR-038 §5 reset). */
+  async clearBio(userId: string, executor: DbExecutor = this.db): Promise<void> {
+    await executor.update(t).set({ bio: null, updatedAt: new Date() }).where(eq(t.userId, userId));
+  }
+
   async setAvatarKey(userId: string, avatarKey: string | null, executor: DbExecutor = this.db): Promise<void> {
     await executor.update(t).set({ avatarKey, updatedAt: new Date() }).where(eq(t.userId, userId));
   }

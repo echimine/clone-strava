@@ -1,6 +1,8 @@
 import { Injectable } from "@nestjs/common";
 import type { NewReport, ReportedItems, ReportOutcome } from "./domain/report.js";
-import { ReportRepository } from "./repositories/report.repository.js";
+import { ReportRepository, type UserReportRow } from "./repositories/report.repository.js";
+
+export type { UserReportRow } from "./repositories/report.repository.js";
 import { SubmitReportUseCase } from "./use-cases/submit-report.use-case.js";
 
 /**
@@ -22,6 +24,18 @@ export class ModerationService {
    */
   report(input: NewReport): Promise<ReportOutcome> {
     return this.submitReport.execute(input);
+  }
+
+  /**
+   * The user sheet's « Signalements » tabs (ADR-038 §5): Reports on `userId` or their content,
+   * and Reports `userId` made, newest first, at most `limit` each.
+   */
+  async getReportsOfUser(userId: string, limit: number): Promise<{ received: UserReportRow[]; sent: UserReportRow[] }> {
+    const [received, sent] = await Promise.all([
+      this.reports.findReceivedBy(userId, limit),
+      this.reports.findSentBy(userId, limit),
+    ]);
+    return { received, sent };
   }
 
   /** The viewer filter's `moderation` source (ADR-038 §7): what `reporterId` ever reported. */

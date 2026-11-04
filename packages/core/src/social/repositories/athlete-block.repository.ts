@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, desc, eq, or } from "drizzle-orm";
+import { and, count, desc, eq, or } from "drizzle-orm";
 import { schema, type Database } from "@repo/db";
 import { DATABASE, type DbExecutor } from "../../infrastructure/index.js";
 
@@ -36,6 +36,15 @@ export class AthleteBlockRepository {
       .from(schema.athleteBlock)
       .where(or(eq(schema.athleteBlock.blockerId, userId), eq(schema.athleteBlock.blockedId, userId)));
     return [...new Set(rows.map((row) => (row.blockerId === userId ? row.blockedId : row.blockerId)))];
+  }
+
+  /** How many athletes blocked `blockedId`. */
+  async countBlockers(blockedId: string): Promise<number> {
+    const [row] = await this.db
+      .select({ total: count() })
+      .from(schema.athleteBlock)
+      .where(eq(schema.athleteBlock.blockedId, blockedId));
+    return row?.total ?? 0;
   }
 
   /** Whether either athlete blocked the other. */

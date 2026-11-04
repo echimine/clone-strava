@@ -60,7 +60,12 @@ export class AuditInterceptor implements NestInterceptor {
     draft: AuditDraft,
     reason: string | null,
   ): Promise<void> {
-    const targetType = AUDIT_ACTION_TARGETS[metadata.action];
+    let action = draft.action ?? metadata.action;
+    if (AUDIT_ACTION_TARGETS[action] !== AUDIT_ACTION_TARGETS[metadata.action]) {
+      this.logger.error(`@Audited("${metadata.action}") cannot record ${action}: another target type`);
+      action = metadata.action;
+    }
+    const targetType = AUDIT_ACTION_TARGETS[action];
     const param = metadata.targetParam === undefined ? "id" : metadata.targetParam;
     const routeValue = param === null ? undefined : request.params[param];
     const routeTargetId = routeValue === undefined ? null : [routeValue].flat().join("/");
@@ -71,7 +76,7 @@ export class AuditInterceptor implements NestInterceptor {
       await this.audit.record({
         id: draft.entryId,
         actorId: request.user?.userId ?? null,
-        action: metadata.action,
+        action,
         targetType,
         targetId,
         subjectUserId,
@@ -82,7 +87,7 @@ export class AuditInterceptor implements NestInterceptor {
     } catch (error) {
       // ADR-038 §3: no shared transaction; the action stays done, the gap is logged.
       this.logger.error(
-        `Audit entry ${draft.entryId} (${metadata.action} ${targetId ?? ""}) not written: ${String(error)}`,
+        `Audit entry ${draft.entryId} (${action} ${targetId ?? ""}) not written: ${String(error)}`,
       );
     }
   }

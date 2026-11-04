@@ -32,4 +32,9 @@ export interface AuthModuleOptions {
    * the API in `NODE_ENV=development` sets it; off by default.
    */
   devSignInCodes?: boolean;
+  /**
+   * The team's contact address (`CONTACT_EMAIL`, ADR-038 §4): returned with a banned athlete's
+   * `403 BANNED_USER` for the app's « Compte suspendu ». None when not configured.
+   */
+  contactEmail?: string;
 }

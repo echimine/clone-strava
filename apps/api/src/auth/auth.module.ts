@@ -21,6 +21,8 @@ const coreAuthModule = CoreAuthModule.forRoot({
   resendApiKey: config.RESEND_API_KEY,
   // ADR-035 §2: dev Sign-in code helpers, only with `NODE_ENV=development` (the `dev` script).
   devSignInCodes: config.NODE_ENV === "development",
+  // ADR-038 §6: shown on the app's « Compte suspendu » with a banned athlete's `403 BANNED_USER`.
+  contactEmail: config.CONTACT_EMAIL,
 });
 
 /**

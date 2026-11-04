@@ -6,7 +6,7 @@ import { HIDDEN_ATHLETE_SOURCES, type HiddenAthleteSource } from "./hidden-athle
 /**
  * The viewer filter (ADR-038 §7): what one viewer must not see, built per request with one query
  * per owning module, run in parallel. Hidden athletes come from every `HiddenAthleteSource`
- * (Blocks today; active Bans join them as one more source), reported items from `moderation`.
+ * (Blocks and active Bans), reported items from `moderation`.
  * Controllers pass the result to every read method of `activities`, `engagement`, `social` and
  * `users` as an exclusion parameter.
  */

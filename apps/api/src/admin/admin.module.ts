@@ -2,7 +2,9 @@ import { Module } from "@nestjs/common";
 import { ActivitiesModule } from "@repo/core/activities";
 import { AuditModule } from "@repo/core/audit";
 import { EngagementModule } from "@repo/core/engagement";
+import { ModerationModule } from "@repo/core/moderation";
 import { SegmentsModule } from "@repo/core/segments";
+import { UsersModule } from "@repo/core/users";
 import { AuthModule } from "../auth/auth.module.js";
 import { IdentitiesModule } from "../identities/identities.module.js";
 import { MediaAssembler } from "../media/media-assembler.js";
@@ -17,6 +19,8 @@ import { AuditEntryAssembler } from "./audit/audit-entry-assembler.js";
 import { AuthAuditListener } from "./audit/auth-audit.listener.js";
 import { AdminStatsController } from "./stats/admin-stats.controller.js";
 import { ADMIN_STATS_IMPORTS, ADMIN_STATS_PROVIDERS } from "./stats/admin-stats.providers.js";
+import { AdminUserAssembler } from "./users/admin-user-assembler.js";
+import { AdminUsersController } from "./users/admin-users.controller.js";
 
 /**
  * `/v1/admin/*` (ADR-021 §1 "Not a module: admin", ADR-038 §1): one controller per area under
@@ -29,6 +33,8 @@ import { ADMIN_STATS_IMPORTS, ADMIN_STATS_PROVIDERS } from "./stats/admin-stats.
     ActivitiesModule,
     EngagementModule,
     SegmentsModule,
+    ModerationModule,
+    UsersModule,
     IdentitiesModule,
     ...ADMIN_STATS_IMPORTS,
   ],
@@ -39,6 +45,7 @@ import { ADMIN_STATS_IMPORTS, ADMIN_STATS_PROVIDERS } from "./stats/admin-stats.
     AdminActivitiesController,
     AdminCommentsController,
     AdminStatsController,
+    AdminUsersController,
   ],
   providers: [
     AuditEntryAssembler,
@@ -46,6 +53,7 @@ import { ADMIN_STATS_IMPORTS, ADMIN_STATS_PROVIDERS } from "./stats/admin-stats.
     AdminActivityAssembler,
     MediaAssembler,
     SanctionNotices,
+    AdminUserAssembler,
     ...ADMIN_STATS_PROVIDERS,
   ],
 })

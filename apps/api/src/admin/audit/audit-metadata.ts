@@ -21,6 +21,12 @@ export interface AuditedMetadata extends AuditedOptions {
 export interface AuditDraft {
   /** The id the entry will be written with. */
   readonly entryId: string;
+  /**
+   * The action actually done, when one route serves two of them with the same target type:
+   * `PUT /v1/admin/users/:id/role` is declared `user.role.grant` and records `user.role.revoke`
+   * for a demotion.
+   */
+  action?: AuditAction;
   /** The athlete concerned (the author of a removed comment, for example). */
   subjectUserId?: string | null;
   /** Overrides the target id read from the route. */

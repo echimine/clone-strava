@@ -12,7 +12,11 @@ import { AuthService } from "./auth.service.js";
 import { AuthAdminStatsRepository } from "./repositories/auth-admin-stats.repository.js";
 import { AuthUserRepository } from "./repositories/auth-user.repository.js";
 import { GoogleAvatarCopyEnqueuer } from "./services/google-avatar-copy-enqueuer.js";
+import { AccountReader } from "./services/account-reader.js";
+import { AuthAdminApi } from "./services/auth-admin-api.js";
 import { BackfillGoogleAvatarsUseCase } from "./use-cases/backfill-google-avatars.use-case.js";
+import { BanUserUseCase } from "./use-cases/ban-user.use-case.js";
+import { SetUserRoleUseCase } from "./use-cases/set-user-role.use-case.js";
 
 export type { AuthModuleOptions } from "./auth.constants.js";
 
@@ -75,6 +79,10 @@ export class AuthModule {
         AuthUserRepository,
         GoogleAvatarCopyEnqueuer,
         BackfillGoogleAvatarsUseCase,
+        AccountReader,
+        AuthAdminApi,
+        BanUserUseCase,
+        SetUserRoleUseCase,
         AuthService,
       ],
       exports: [AuthService, AUTH_INSTANCE],

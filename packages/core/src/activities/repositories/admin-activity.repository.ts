@@ -76,6 +76,21 @@ export class AdminActivityRepository {
     };
   }
 
+  /** Number of an athlete's Activities and start of the latest (user sheet, ADR-038 §5). */
+  async findSummary(userId: string): Promise<{ activityCount: number; lastActivityAt: Date | null }> {
+    const [row] = await this.db
+      .select({
+        activityCount: sql<number>`count(*)::int`,
+        lastActivityAt: sql<string | null>`max(${schema.activity.startedAt})`,
+      })
+      .from(schema.activity)
+      .where(eq(schema.activity.userId, userId));
+    return {
+      activityCount: row?.activityCount ?? 0,
+      lastActivityAt: row?.lastActivityAt ? new Date(row.lastActivityAt) : null,
+    };
+  }
+
   /** How e-mails and the backoffice name these Activities (ADR-038 §4). */
   findLabels(ids: string[]): Promise<ActivityLabel[]> {
     if (ids.length === 0) {

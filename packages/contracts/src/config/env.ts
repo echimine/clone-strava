@@ -36,6 +36,9 @@ export const apiEnvSchema = z.object({
   RESEND_WEBHOOK_SECRET: z.string().min(1),
   GOOGLE_CLIENT_ID: z.string().min(1),
   GOOGLE_CLIENT_SECRET: z.string().min(1),
+  // ADR-038 §4, §6: the team's contact address, shown on « Compte suspendu » and the Reply-To of
+  // the e-mails to an athlete. Optional: without it the app shows no address.
+  CONTACT_EMAIL: z.email().optional(),
 });
 export type ApiEnv = z.infer<typeof apiEnvSchema>;
 

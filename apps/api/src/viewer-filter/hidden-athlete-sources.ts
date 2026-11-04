@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { BansService } from "@repo/core/auth";
 import { SocialService } from "@repo/core/social";
 
 /**
@@ -19,5 +20,18 @@ export class BlockedAthletesSource implements HiddenAthleteSource {
 
   hiddenFrom(viewerId: string): Promise<readonly string[]> {
     return this.social.getBlockedEitherWay(viewerId);
+  }
+}
+
+/**
+ * Active Bans (ADR-038 §6): owned by `auth`. A banned athlete is hidden from every viewer until
+ * the Ban's end, without waiting for a sign-in; nothing is deleted, counters are unchanged.
+ */
+@Injectable()
+export class BannedAthletesSource implements HiddenAthleteSource {
+  constructor(private readonly bans: BansService) {}
+
+  hiddenFrom(): Promise<readonly string[]> {
+    return this.bans.activelyBannedUserIds();
   }
 }

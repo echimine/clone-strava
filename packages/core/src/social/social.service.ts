@@ -104,6 +104,11 @@ export class SocialService {
       .then((rows) => rows.map((row) => ({ athleteId: row.athleteId, blockedAt: row.createdAt })));
   }
 
+  /** The user sheet's « Bloqué par N athlètes » (ADR-038 §5, §8): backoffice only, never shown to the athlete. */
+  countBlockers(userId: string): Promise<number> {
+    return this.blocks.countBlockers(userId);
+  }
+
   /** The viewer filter's `social` source (ADR-038 §7): athletes blocked by or blocking `userId`. */
   getBlockedEitherWay(userId: string): Promise<string[]> {
     return this.blocks.findBlockedEitherWay(userId);

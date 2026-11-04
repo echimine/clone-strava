@@ -381,6 +381,14 @@ export class ActivitiesService {
     return this.adminActivities.findLabels(activityIds);
   }
 
+  /**
+   * The user sheet's « Activité » section (ADR-038 §5): every Activity of the athlete, private
+   * and unprocessed ones included, and the start of the latest.
+   */
+  getAdminSummary(userId: string): Promise<{ activityCount: number; lastActivityAt: Date | null }> {
+    return this.adminActivities.findSummary(userId);
+  }
+
   /** Batch read: the ids among `mediaIds` of Media that still exist (Journal links). */
   getExistingMediaIds(mediaIds: string[]): Promise<Set<string>> {
     return this.adminActivities.findExistingMediaIds(mediaIds);

@@ -1,12 +1,33 @@
-import { Inject, Injectable } from "@nestjs/common";
-import type { UserRole } from "@repo/contracts";
+import { ConflictException, Inject, Injectable } from "@nestjs/common";
+import { ADMIN_USER_ERROR_CODES, signInMethodsFromProviders, type SignInMethod, type UserRole } from "@repo/contracts";
 import { AUTH_INSTANCE } from "./auth.constants.js";
 import type { AuthInstance } from "./auth-instance.type.js";
 import { SESSION_AUTH_METHODS, type SessionAuthMethod } from "./domain/session-auth-method.js";
 import type { InstantRange } from "../infrastructure/index.js";
 import { AuthAdminStatsRepository } from "./repositories/auth-admin-stats.repository.js";
 import { AuthUserRepository } from "./repositories/auth-user.repository.js";
+import { activeBan, type ActiveBan } from "./domain/ban.js";
+import { AccountReader } from "./services/account-reader.js";
+import { AuthAdminApi, type AdminSessionRecord } from "./services/auth-admin-api.js";
 import { BackfillGoogleAvatarsUseCase } from "./use-cases/backfill-google-avatars.use-case.js";
+import { BanUserUseCase } from "./use-cases/ban-user.use-case.js";
+import { SetUserRoleUseCase } from "./use-cases/set-user-role.use-case.js";
+
+export type { ActiveBan } from "./domain/ban.js";
+export type { AdminSessionRecord } from "./services/auth-admin-api.js";
+
+/** An account as the backoffice user sheet shows it (ADR-038 §5). */
+export interface AdminAccount {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  createdAt: Date;
+  twoFactorEnabled: boolean;
+  /** The Ban in force, if any. */
+  ban: ActiveBan | null;
+  signInMethods: SignInMethod[];
+}
 
 /**
  * Current session, as read from Better Auth (ADR-009 §3: used by
@@ -51,7 +72,65 @@ export class AuthService {
     @Inject(AUTH_INSTANCE) private readonly auth: AuthInstance,
     private readonly users: AuthUserRepository,
     private readonly backfillGoogleAvatars: BackfillGoogleAvatarsUseCase,
+    private readonly accounts: AccountReader,
+    private readonly adminApi: AuthAdminApi,
+    private readonly banUserUseCase: BanUserUseCase,
+    private readonly setUserRoleUseCase: SetUserRoleUseCase,
   ) {}
+
+  // --- Backoffice (ADR-038 §5, §6). `headers` are the Administrator's request headers: the
+  // admin plugin checks their session itself. `404 user_not_found` for an unknown account. ---
+
+  /** The account part of the user sheet. */
+  async getAccountForAdmin(userId: string): Promise<AdminAccount> {
+    const account = await this.accounts.get(userId);
+    return {
+      id: account.id,
+      email: account.email,
+      name: account.name,
+      role: account.role,
+      createdAt: account.createdAt,
+      twoFactorEnabled: account.twoFactorEnabled,
+      ban: activeBan(account, new Date()),
+      signInMethods: signInMethodsFromProviders(account.providerIds),
+    };
+  }
+
+  /**
+   * Bans `userId` for `expiresInSeconds` (null = permanent) and revokes their sessions; banning
+   * again replaces the duration. `409 user_is_admin` for an Administrator. Returns the Ban.
+   */
+  banUser(headers: Headers, userId: string, reason: string, expiresInSeconds: number | null): Promise<ActiveBan> {
+    return this.banUserUseCase.execute(headers, userId, reason, expiresInSeconds);
+  }
+
+  /** Lifts the Ban at once; `409 not_banned` without an active one. Returns the Ban lifted. */
+  async unbanUser(headers: Headers, userId: string): Promise<ActiveBan> {
+    const ban = activeBan(await this.accounts.get(userId), new Date());
+    if (!ban) {
+      throw new ConflictException({ code: ADMIN_USER_ERROR_CODES.notBanned, message: "The account is not banned" });
+    }
+    await this.adminApi.unban(headers, userId);
+    return ban;
+  }
+
+  /** « Déconnecter partout »: every session closes; the athlete can sign in again at once. */
+  async revokeUserSessions(headers: Headers, userId: string): Promise<void> {
+    await this.accounts.get(userId);
+    await this.adminApi.revokeSessions(headers, userId);
+  }
+
+  /** Grants or removes the `admin` role; `409` for no change, a self-demotion or the last Administrator. */
+  setRole(headers: Headers, actorId: string, userId: string, role: UserRole): Promise<void> {
+    return this.setUserRoleUseCase.execute(headers, actorId, userId, role);
+  }
+
+  /** The account's open sessions, newest first. */
+  async listUserSessions(headers: Headers, userId: string): Promise<AdminSessionRecord[]> {
+    await this.accounts.get(userId);
+    const sessions = await this.adminApi.listSessions(headers, userId);
+    return sessions.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
 
   /** Every Administrator (`role = admin`): the accounts the backoffice stats leave out (ADR-038 §15). */
   listAdminIds(): Promise<string[]> {

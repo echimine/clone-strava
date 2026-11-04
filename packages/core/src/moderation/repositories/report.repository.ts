@@ -1,7 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, count, eq, gt, inArray, sql } from "drizzle-orm";
+import { and, count, desc, eq, gt, inArray, sql, type SQL } from "drizzle-orm";
 import { schema, type Database } from "@repo/db";
-import type { ReportReason, ReportTargetType } from "@repo/contracts";
+import type { ReportCaseStatus, ReportReason, ReportTargetType } from "@repo/contracts";
 import { DATABASE, type DbExecutor } from "../../infrastructure/index.js";
 
 /** Reads and writes on `moderation.report` only (ADR-021 §6, ADR-038 §9). */
@@ -64,6 +64,33 @@ export class ReportRepository {
     return row!.id;
   }
 
+  /** Reports on `userId` or their content (`received`), newest first. */
+  findReceivedBy(userId: string, limit: number): Promise<UserReportRow[]> {
+    return this.findForUser(eq(schema.reportCase.targetUserId, userId), limit);
+  }
+
+  /** Reports `userId` made (`sent`), newest first. */
+  findSentBy(userId: string, limit: number): Promise<UserReportRow[]> {
+    return this.findForUser(eq(schema.report.reporterId, userId), limit);
+  }
+
+  private findForUser(where: SQL, limit: number): Promise<UserReportRow[]> {
+    return this.db
+      .select({
+        id: schema.report.id,
+        caseId: schema.report.caseId,
+        targetType: schema.reportCase.targetType,
+        reason: schema.report.reason,
+        status: schema.reportCase.status,
+        createdAt: schema.report.createdAt,
+      })
+      .from(schema.report)
+      .innerJoin(schema.reportCase, eq(schema.reportCase.id, schema.report.caseId))
+      .where(where)
+      .orderBy(desc(schema.report.createdAt), desc(schema.report.id))
+      .limit(limit);
+  }
+
   /** What `reporterId` reported among `targetTypes`, open or closed cases alike. */
   findReportedTargets(
     reporterId: string,
@@ -75,4 +102,14 @@ export class ReportRepository {
       .innerJoin(schema.reportCase, eq(schema.reportCase.id, schema.report.caseId))
       .where(and(eq(schema.report.reporterId, reporterId), inArray(schema.reportCase.targetType, targetTypes)));
   }
+}
+
+/** A Report as the backoffice user sheet lists it (ADR-038 §5). */
+export interface UserReportRow {
+  id: string;
+  caseId: string;
+  targetType: ReportTargetType;
+  reason: ReportReason;
+  status: ReportCaseStatus;
+  createdAt: Date;
 }
