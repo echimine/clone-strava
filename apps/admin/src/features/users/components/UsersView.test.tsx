@@ -24,6 +24,8 @@ const bannedEmile: AdminUserListItem = {
   activityCount: 12,
   lastActivityAt: null,
   isPremium: true,
+  premiumState: "paying",
+  premiumEndsAt: "2026-12-01T08:00:00.000Z",
   state: "temporarily_banned",
   ban: { until: "2026-11-11T13:30:00.000Z", reason: "Spam" },
 };
@@ -52,10 +54,45 @@ describe("UsersView", () => {
     expect(within(row).getByText("emile@example.com")).toBeTruthy();
     expect(within(row).getByText("Code e-mail")).toBeTruthy();
     expect(within(row).getByText("12")).toBeTruthy();
-    expect(within(row).getByText("Premium")).toBeTruthy();
+    expect(within(row).getByText("Payant")).toBeTruthy();
+    // « Fin » only while the Premium filter is set.
+    expect(screen.queryByRole("columnheader", { name: "Fin" })).toBeNull();
     expect(within(row).getByText("Banni jusqu'au 11/11/2026 14:30")).toBeTruthy();
     expect(url?.searchParams.get("state")).toBe("temporarily_banned");
     expect(url?.searchParams.get("sort")).toBe("lastActivityAt");
+  });
+
+  it("filters by Premium state and adds the « Fin » column", async () => {
+    let url: URL | undefined;
+    server.use(
+      http.get("/api/v1/admin/users", ({ request }) => {
+        url = new URL(request.url);
+        return HttpResponse.json({
+          items: [{ ...bannedEmile, premiumState: "promotional" }],
+          total: 1,
+          page: 1,
+          pageSize: 50,
+        });
+      }),
+    );
+    navigation.search = new URLSearchParams("premium=promotional");
+    renderWithProviders(<UsersView />);
+
+    const row = (await screen.findByRole("link", { name: /Émile Durand/ })).closest("tr")!;
+    expect(url?.searchParams.get("premium")).toBe("promotional");
+    expect(screen.getByRole("columnheader", { name: "Fin" })).toBeTruthy();
+    expect(within(row).getByText("01/12/2026")).toBeTruthy();
+    expect(within(row).getByText("Premium offert")).toBeTruthy();
+    const filter = screen.getByLabelText("Premium") as HTMLSelectElement;
+    expect([...filter.options].map((option) => option.text)).toEqual([
+      "Tous",
+      "Payant",
+      "Essai",
+      "Premium offert",
+      "Problème de paiement",
+      "Résilié",
+      "Expiré",
+    ]);
   });
 
   it("puts a filter in the URL and goes back to the first page", async () => {

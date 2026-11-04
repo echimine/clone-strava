@@ -22,10 +22,7 @@ import { ApiClientError } from "@/lib/apiClient";
 
 export type UserSheetProps = {
   id: string;
-  /**
-   * Section 6 « Premium »: filled by the Premium feature (#215), composed by the page. Until
-   * then the section says so.
-   */
+  /** Section 6 « Premium »: the Premium feature's section, composed by the page. */
   premium?: ReactNode;
   /** Section 8 « Historique »: the Journal's `AuditHistory`, composed by the page. */
   history: ReactNode;

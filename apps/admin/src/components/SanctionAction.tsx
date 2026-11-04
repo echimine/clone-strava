@@ -22,6 +22,11 @@ export type SanctionActionProps = {
   canConfirm?: boolean;
   /** `false` for an action that is not a Sanction (the admin role): optional reason. */
   reasonRequired?: boolean;
+  /** Overrides « Ce motif sera lu par l'athlète. » under a required reason. */
+  reasonNotice?: ReactNode;
+  /** Disables the button, with `disabledReason` as its tooltip (« RevenueCat non configuré »). */
+  disabled?: boolean;
+  disabledReason?: string;
   /** Called when the dialog opens or closes, e.g. to reset the extra fields. */
   onOpenChange?: (open: boolean) => void;
 };
@@ -42,6 +47,9 @@ export function SanctionAction({
   children,
   canConfirm,
   reasonRequired,
+  reasonNotice,
+  disabled,
+  disabledReason,
   onOpenChange,
 }: SanctionActionProps) {
   const [open, setOpen] = useState(false);
@@ -74,6 +82,8 @@ export function SanctionAction({
         variant={trigger.variant ?? "outline"}
         size="sm"
         aria-label={trigger.ariaLabel}
+        disabled={disabled}
+        title={disabled ? disabledReason : undefined}
         onClick={() => {
           setError(null);
           changeOpen(true);
@@ -90,6 +100,7 @@ export function SanctionAction({
         onConfirm={(reason) => void confirm(reason)}
         canConfirm={canConfirm}
         reasonRequired={reasonRequired}
+        reasonNotice={reasonNotice}
         isPending={pending}
         error={error}
       >
