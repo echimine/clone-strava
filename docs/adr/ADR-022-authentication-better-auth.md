@@ -107,6 +107,8 @@ The `admin` plugin operates on the `role` column ADR-017 already added to `user`
 - server-side helpers to grant/revoke the role and to ban/unban a user, callable from a seed script or from a future backoffice "manage admins" screen;
 - an `impersonateUser` capability the backoffice does **not** enable (not needed, avoids audit complexity).
 
+*Amended by [ADR-038](ADR-038-backoffice-moderation-and-account-deletion.md) §1, §6*: the backoffice calls `banUser`, `unbanUser`, `revokeUserSessions`, `setRole` and `removeUser` through `auth.api.*` from `/v1/admin/*`, behind the strong-session guard. The plugin's own HTTP routes (`/api/auth/admin/*`) check the role only and stay exposed: accepted risk, since no Administrator signs in to the iOS app. `bannedUserMessage` carries the Ban's end date and reason.
+
 The actual authorization boundary is unchanged from ADR-009/ADR-013: every admin endpoint checks `role === "admin"` in a NestJS guard reading the resolved session (cookie or bearer, per §2), and `GET /v1/me` returns that role so the backoffice `(admin)` layout can show "access denied" without a network round-trip on every navigation. The `admin` plugin is what makes the role a first-class Better Auth concept (typed on the session/user object) instead of an ad hoc column the guard reads blindly.
 
 ### 4. Rate limiting on auth endpoints
@@ -195,4 +197,4 @@ Mechanics:
 
 - **Depends on**: [ADR-003](ADR-003-backend.md), [ADR-009](ADR-009-backend-api.md), [ADR-013](ADR-013-backoffice-architecture.md), [ADR-017](ADR-017-data-model.md)
 - **Amends**: [ADR-003](ADR-003-backend.md) (resolves the "tokens managed on the Swift side" open point), [ADR-013](ADR-013-backoffice-architecture.md) (cookie scope)
-- **Amended by**: [ADR-023](ADR-023-transactional-email-resend.md) (transactional email sender for verification, password reset, admin OTP), [ADR-032](ADR-032-brand-and-motion-design.md) (§1 the TOTP issuer becomes Nervo), [ADR-035](ADR-035-onboarding-sign-in-code-paywall.md) (§1 sign-in by email code, no password in the app, password sign-up closed; §4 OTP rate limits; §5 admin rights need a password + 2FA session, Google loses its exception)
+- **Amended by**: [ADR-023](ADR-023-transactional-email-resend.md) (transactional email sender for verification, password reset, admin OTP), [ADR-032](ADR-032-brand-and-motion-design.md) (§1 the TOTP issuer becomes Nervo), [ADR-035](ADR-035-onboarding-sign-in-code-paywall.md) (§1 sign-in by email code, no password in the app, password sign-up closed; §4 OTP rate limits; §5 admin rights need a password + 2FA session, Google loses its exception), [ADR-038](ADR-038-backoffice-moderation-and-account-deletion.md) (§3 admin plugin called through `auth.api.*`, its HTTP routes stay exposed, `bannedUserMessage`)

@@ -27,8 +27,16 @@ A stretch of a Recording during which the timer is stopped, either by the athlet
 _Avoid_: Stop, break
 
 **Segment**:
-A shared stretch of road or trail with a leaderboard, matched against Activities.
+A shared stretch of road or trail with a leaderboard, created by an athlete in the app and matched against Activities.
 _Avoid_: Section, lap
+
+**Effort**:
+One athlete's pass over a Segment during an Activity, with the time it took; its rank in the Segment's leaderboard follows from that time.
+_Avoid_: Segment effort, attempt, KOM
+
+**Suspicious effort**:
+An Effort the server judges too fast for its sport, kept in the leaderboard until an Administrator accepts it or rejects it; a rejected Effort leaves the leaderboard. Shown as "Efforts à vérifier" in the backoffice.
+_Avoid_: Flagged effort, cheat
 
 **Split**:
 The part of an Activity covering one kilometre of its distance, with the time it took and its change in altitude; the last Split covers whatever distance is left. Shown as "Temps intermédiaires" in the app.
@@ -67,6 +75,18 @@ _Avoid_: Invitation, pending friend
 **Streak**:
 The number of consecutive weeks, up to the current one, in which an athlete has at least one Activity. The current week, while still empty, does not break it. Shown as "Série" in the app.
 _Avoid_: Chain, run (ambiguous with the sport)
+
+**Block**:
+An athlete's choice to cut off another athlete entirely: from then on, neither sees anything of the other (profile, Activities, Media, comments, kudos, Efforts, search results, lists of followers) and neither can follow, comment on or give kudos to the other. Their Follows and Follow requests are removed for good; what they exchanged is hidden, not deleted, and comes back if the Block is lifted. The blocked athlete is never told. Shown as "Bloquer" in the app, with the list of blocked athletes in the settings.
+_Avoid_: Mute, ban (that is an Administrator's Sanction), unfollow
+
+**Account deletion**:
+The immediate and final erasure of an athlete and everything they have shared: profile, Activities and their Media, comments and kudos left on others' Activities, Follows and Efforts. Nothing can be recovered. Only two things survive, without anything identifying them: the Segments they created, which stay for the other athletes on their leaderboards, and the Reports they sent, which stay under review. The athlete asks for it from the app, or an Administrator does it as a Sanction; an Administrator's own account cannot be deleted. Shown as "Supprimer mon compte" in the app.
+_Avoid_: Deactivation, closing the account, anonymisation
+
+**Active athlete**:
+An athlete who has at least one Activity (recorded, imported or entered by hand) started in a given period, such as the last 7 or 30 days. Opening the app does not make an athlete active. Shown as "Athlète actif" in the backoffice.
+_Avoid_: Active user, DAU/MAU (those measure app opens), engaged user
 
 ### Planning
 
@@ -112,6 +132,36 @@ _Avoid_: Target, objective, motivation
 The sports an athlete says they practice, in the order they picked them. Chosen among the sports the app offers; distinct from that catalogue itself and from the sport of any single Activity. Shown as "Sports pratiqués" in discussions.
 _Avoid_: Favorite sports, preferred sports, interests
 
+**Premium**:
+Paid access to Nervo's advanced features, bought in the app as a subscription, possibly starting with a free trial, or offered by an Administrator as Promotional Premium. Apple bills it; Nervo never charges, cancels or refunds it. Shown as "Premium" in the app and the backoffice.
+_Avoid_: Subscription, abonnement (in French, that is a Follow), pro, plus
+
+**Promotional Premium**:
+Premium an Administrator offers an athlete for a fixed length (1, 3, 6 or 12 months), with a reason, for testers, partners or as a goodwill gesture. No purchase and no billing; it never touches a subscription the athlete pays for, and the Administrator can take it back at any time. Shown as "Premium offert" in the backoffice.
+_Avoid_: Free Premium, gift, comp, coupon
+
 **Paywall**:
 The screen offering Premium, shown once at the end of the Onboarding, right after the person signs in (whether the account is new or already existed). It can be skipped.
 _Avoid_: Upsell, subscription screen
+
+### Moderation
+
+**Administrator**:
+A member of the Nervo team who runs the platform from the backoffice: athletes, Reports, Segments, statistics and processing. There is a single kind of Administrator, who may do everything; every action they take is recorded with who, what and when.
+_Avoid_: Moderator, staff, superuser
+
+**Report**:
+An athlete's flag that a comment, an Activity (with its Media) or another athlete (name, bio, Avatar) breaks the rules, sent to the Administrators for review. The athlete who reports a comment or an Activity no longer sees it, whatever the Administrators decide. All open Reports on the same item are reviewed together and closed together, either as sanctioned or as dismissed; they also close on their own when the item is deleted. The athlete who reported is never told the outcome, and the author of the item is never told it was reported (only of any Sanction that follows). Shown as "Signaler" in the app.
+_Avoid_: Flag, complaint, abuse ticket
+
+**Sanction**:
+An Administrator's action that takes something away from an athlete, restricts them or deletes something of theirs: banning or unbanning them, signing them out, removing a comment, an Activity or a Media, resetting an Activity's title and description, resetting their name, bio or Avatar, renaming or deleting a Segment they created, deleting their account. A Sanction always carries a reason, which the athlete reads: every Sanction except signing them out sends them an e-mail saying what was done and why, with an address to contest it.
+_Avoid_: Penalty, strike, moderation action
+
+**Ban**:
+A Sanction that keeps an athlete out of Nervo for 24 hours, 7 days, 30 days or for good: they are signed out everywhere, cannot sign back in, and everything they have shared is hidden from everyone until the Ban ends or is lifted. The athlete is told why and until when. An Administrator cannot be banned. Shown as "Bannir" in the backoffice and "Compte suspendu" in the app.
+_Avoid_: Suspension (in the backoffice), block (that is between athletes), deactivation
+
+**Audit log**:
+The permanent record of every action an Administrator takes: who, what, on which athlete or item, why, and when. Entries are never changed or removed, and outlive the deletion of the athlete they concern. Shown as "Journal" in the backoffice.
+_Avoid_: History, activity log, trail

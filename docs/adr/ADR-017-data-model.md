@@ -213,14 +213,15 @@ erDiagram
         int elapsed_time_s
         timestamp started_at
         int rank "denormalized"
+        enum status "valid, suspicious, rejected (ADR-038)"
     }
     USER_SUBSCRIPTION {
         uuid user_id PK
         string entitlement_id PK "premium"
         boolean is_active
         string product_id "App Store identifier"
-        enum store "app_store"
-        enum period_type "trial, intro, normal"
+        enum store "app_store, promotional (ADR-038)"
+        enum period_type "trial, intro, normal, promotional (ADR-038)"
         boolean will_renew
         timestamp purchased_at
         timestamp expires_at
@@ -246,13 +247,15 @@ erDiagram
 |---|---|---|---|
 | `auth` | `public` | `user`, `session`, `account`, `verification` | Slide 09 + Better Auth additions |
 | `users` | `users` | `user_profile`, `user_sport` | Slide 09 (*amended by [ADR-035](ADR-035-onboarding-sign-in-code-paywall.md)*: `user_sport`) |
-| `social` | `social` | `follow`, `follow_settings` | Slide 09 (*amended by [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md)*: `follow_settings`) |
+| `social` | `social` | `follow`, `follow_settings`, `athlete_block` | Slide 09 (*amended by [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md)*: `follow_settings`; *amended by [ADR-038](ADR-038-backoffice-moderation-and-account-deletion.md) §8*: `athlete_block`) |
 | `engagement` | `engagement` | `kudos`, `comment` | Slide 09 (*amended by ADR-021*: split from `social`) |
 | `sports` | `sports` | `sport_type` (reference data, populated by migration) | Slide 09 |
 | `activities` | `activities` | `activity`, `activity_stats`, `activity_track`, `activity_media`, `activity_import`, `activity_analysis` | Slide 09 (*amended by ADR-028*: `activity_import`; *amended by [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md)*: `activity_analysis`; *amended by [ADR-037](ADR-037-media-avatar-and-gallery.md)*: `activity_attachment` renamed `activity_media`) |
 | `itineraries` | `itineraries` | `itinerary`, `itinerary_waypoint`, `itinerary_leg` | **Addition** (*amended by [ADR-030](ADR-030-itineraries-on-ios.md)*) |
 | `segments` | `segments` | `segment`, `segment_effort` | Slide 09 |
 | `subscriptions` | `subscriptions` | `user_subscription`, `revenuecat_event` | **Addition** (ADR-014) |
+| `audit` | `audit` | `admin_audit_entry` | **Addition** (*amended by [ADR-038](ADR-038-backoffice-moderation-and-account-deletion.md) §3, §18*) |
+| `moderation` | `moderation` | `report`, `report_case` | **Addition** (*amended by [ADR-038](ADR-038-backoffice-moderation-and-account-deletion.md) §9, §10, §18*) |
 
 *Amended by [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md)*: `kudos` and `comment` belong to the `engagement` module, and each module's tables live in a PostgreSQL schema named after it (Better Auth tables stay in `public`).
 
@@ -347,5 +350,5 @@ We **do not copy** products or offerings into our database:
 
 ## Links
 
-- **Amended by**: [ADR-019](ADR-019-activity-creation-flow.md) (processing-tracking columns), [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md) (`kudos` and `comment` move to the `engagement` module; one PostgreSQL schema per module), [ADR-028](ADR-028-activity-import-from-file.md) (`activity_import` table, `activity.source`), [ADR-029](ADR-029-activity-feed-and-card.md) (`activity_track.map_polyline`, `location_name`), [ADR-030](ADR-030-itineraries-on-ios.md) (`itineraries` schema: `itinerary`, `itinerary_waypoint`, `itinerary_leg`), [ADR-033](ADR-033-activity-detail-edit-delete.md) (`activity.updated_at`, `activity_stats.computed_for_sport_type_code`), [ADR-034](ADR-034-activity-engagement-and-live-detail.md) (`comment.updated_at`, app-generated comment id), [ADR-035](ADR-035-onboarding-sign-in-code-paywall.md) (`gender` enum, `level`, `goals`, `users.user_sport`), [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md) (`social.follow_settings`, `follow` check and index, `activity_track.route_trimmed`, `activities.activity_analysis`, `unaccent`), [ADR-037](ADR-037-media-avatar-and-gallery.md) (`activity_media`, `media_kind`, `activity.media_first`, `user_profile.avatar_key`)
+- **Amended by**: [ADR-019](ADR-019-activity-creation-flow.md) (processing-tracking columns), [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md) (`kudos` and `comment` move to the `engagement` module; one PostgreSQL schema per module), [ADR-028](ADR-028-activity-import-from-file.md) (`activity_import` table, `activity.source`), [ADR-029](ADR-029-activity-feed-and-card.md) (`activity_track.map_polyline`, `location_name`), [ADR-030](ADR-030-itineraries-on-ios.md) (`itineraries` schema: `itinerary`, `itinerary_waypoint`, `itinerary_leg`), [ADR-033](ADR-033-activity-detail-edit-delete.md) (`activity.updated_at`, `activity_stats.computed_for_sport_type_code`), [ADR-034](ADR-034-activity-engagement-and-live-detail.md) (`comment.updated_at`, app-generated comment id), [ADR-035](ADR-035-onboarding-sign-in-code-paywall.md) (`gender` enum, `level`, `goals`, `users.user_sport`), [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md) (`social.follow_settings`, `follow` check and index, `activity_track.route_trimmed`, `activities.activity_analysis`, `unaccent`), [ADR-037](ADR-037-media-avatar-and-gallery.md) (`activity_media`, `media_kind`, `activity.media_first`, `user_profile.avatar_key`), [ADR-038](ADR-038-backoffice-moderation-and-account-deletion.md) (`audit` and `moderation` schemas, `social.athlete_block`, `segment_effort.status`, `promotional` in `store` and `period_type`)
 - **Related**: [ADR-003](ADR-003-backend.md) (modules and owned tables), [ADR-008](ADR-008-mobile-offline-sync.md), [ADR-009](ADR-009-backend-api.md), [ADR-011](ADR-011-backend-worker.md), [ADR-014](ADR-014-revenuecat.md), [ADR-022](ADR-022-authentication-better-auth.md) (`admin` plugin on the `role` column)
