@@ -1,14 +1,14 @@
 /**
  * Where each "À traiter" tile leads (ADR-038 §15). A tile shows its number without a link while
- * its screen does not exist: the moderation queue (#213) and the Efforts to review (#219) set
- * their path here when they ship. Failed Activities and imports open the Jobs screen's "Échecs"
- * tab, failed jobs its "Files" tab (#216).
+ * its screen does not exist: the Efforts to review (#219) set their path here when they ship.
+ * Open Reports open the moderation queue (#213); failed Activities and imports the Jobs screen's
+ * "Échecs" tab, failed jobs its "Files" tab (#216).
  */
 export const TODO_LINKS: Record<
   "openReports" | "failedActivities" | "failedImports" | "failedJobs" | "suspiciousEfforts",
   string | undefined
 > = {
-  openReports: undefined,
+  openReports: "/reports",
   failedActivities: "/jobs",
   failedImports: "/jobs",
   failedJobs: "/jobs?tab=files",

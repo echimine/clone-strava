@@ -63,7 +63,7 @@ describe("DashboardView", () => {
     };
   });
 
-  it("shows the work waiting, failures linked to the Jobs screen, other tiles without a link while their screen does not exist", async () => {
+  it("shows the work waiting, open Reports linked to the queue, failures to the Jobs screen, other tiles without a link while their screen does not exist", async () => {
     serve(todo(new Date(Date.now() - 2 * HOUR).toISOString()));
     renderWithProviders(<DashboardView />);
 
@@ -76,11 +76,11 @@ describe("DashboardView", () => {
     expect(within(tile("Jobs en échec")).getByText("7")).toBeTruthy();
     expect(within(tile("Efforts à vérifier")).getByText("0")).toBeTruthy();
     expect(within(band).getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual([
+      "/reports",
       "/jobs",
       "/jobs",
       "/jobs?tab=files",
     ]);
-    expect(within(tile("Signalements ouverts")).queryByRole("link")).toBeNull();
     expect(within(tile("Efforts à vérifier")).queryByRole("link")).toBeNull();
     expect(within(tile("Signalements ouverts")).getByText(/il y a 2 heures/).className).not.toContain("text-destructive");
   });

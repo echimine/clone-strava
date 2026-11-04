@@ -60,6 +60,8 @@ export function targetHref(type: AuditTargetType, id: string): string | null {
       return `/users/${id}`;
     case "activity":
       return `/activities/${id}`;
+    case "report_case":
+      return `/reports/${id}`;
     default:
       return null;
   }

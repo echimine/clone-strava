@@ -12,7 +12,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@repo/ui/components/sidebar";
-import { Activity, LayoutDashboard, ListRestart, MapPinned, ScrollText, Users } from "lucide-react";
+import { Activity, Flag, LayoutDashboard, ListRestart, MapPinned, ScrollText, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "@/lib/auth-client";
@@ -22,6 +22,8 @@ const navItems = [
   { href: "/", label: "Tableau de bord", icon: LayoutDashboard },
   { href: "/activities", label: "Activités", icon: Activity },
   { href: "/users", label: "Utilisateurs", icon: Users },
+  // ADR-038 §10: the moderation queue, one case per reported target.
+  { href: "/reports", label: "Signalements", icon: Flag },
   { href: "/segments", label: "Segments", icon: MapPinned },
   // ADR-038 §14: failures to relaunch and the BullMQ queues.
   { href: "/jobs", label: "Jobs", icon: ListRestart },

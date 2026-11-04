@@ -64,7 +64,7 @@ export const caseStatusLabels: Record<ReportCaseStatus, string> = {
   open: "Ouvert",
   actioned: "Sanctionné",
   dismissed: "Rejeté",
-  target_gone: "Contenu disparu",
+  target_gone: "Cible supprimée",
 };
 
 /** The sports of the catalog; an unknown code shows as is. */
