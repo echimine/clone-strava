@@ -3,13 +3,14 @@ import type { ActivityDetail, FeedItem } from "@repo/contracts";
 import type { ActivityDetailRecord, ActivityRecord, FeedActivity } from "@repo/core/activities";
 import { EngagementService } from "@repo/core/engagement";
 import { AthleteIdentities } from "../identities/athlete-identities.js";
+import { MediaAssembler } from "../media/media-assembler.js";
 
 /** Kudos avatars on a card (ADR-036 §5). */
 const RECENT_KUDOS_ON_CARD = 3;
 
 /**
- * Feed steps 3-4 of ADR-021 §6 (ADR-029): adds authors and engagement to a
- * page of activities with batch calls, one per module. Lives in `apps/api`
+ * Feed steps 3-4 of ADR-021 §6 (ADR-029): adds authors, engagement and signed Media (ADR-037 §7)
+ * to a page of activities with batch calls, one per module. Lives in `apps/api`
  * because `activities` (layer 2) may not call `engagement` (layer 3).
  * Reused by every activity list (feed, profile) and the activity detail (ADR-033 §2).
  */
@@ -18,10 +19,14 @@ export class FeedAssembler {
   constructor(
     private readonly identities: AthleteIdentities,
     private readonly engagement: EngagementService,
+    private readonly media: MediaAssembler,
   ) {}
 
   async assemble(viewerId: string, activities: FeedActivity[]): Promise<FeedItem[]> {
-    const { social, recentKudos } = await this.socialParts(viewerId, activities, RECENT_KUDOS_ON_CARD);
+    const [{ social, recentKudos }, media] = await Promise.all([
+      this.socialParts(viewerId, activities, RECENT_KUDOS_ON_CARD),
+      this.media.forActivities(activities.map((activity) => activity.id)),
+    ]);
     return activities.map((activity) => ({
       id: activity.id,
       title: activity.title,
@@ -34,12 +39,17 @@ export class FeedAssembler {
       routeTrimmed: activity.routeTrimmed,
       ...social(activity),
       recentKudos: recentKudos(activity),
+      media: media(activity.id),
+      mediaFirst: activity.mediaFirst,
     }));
   }
 
   /** The detail of one activity (ADR-033 §2): same author and engagement as its feed card. */
   async assembleDetail(viewerId: string, activity: ActivityDetailRecord): Promise<ActivityDetail> {
-    const { social } = await this.socialParts(viewerId, [activity], 0);
+    const [{ social }, media] = await Promise.all([
+      this.socialParts(viewerId, [activity], 0),
+      this.media.forActivities([activity.id]),
+    ]);
     return {
       id: activity.id,
       title: activity.title,
@@ -58,6 +68,8 @@ export class FeedAssembler {
       routeTrimmed: activity.routeTrimmed,
       analysis: activity.analysis,
       ...social(activity),
+      media: media(activity.id),
+      mediaFirst: activity.mediaFirst,
       updatedAt: activity.updatedAt.toISOString(),
     };
   }

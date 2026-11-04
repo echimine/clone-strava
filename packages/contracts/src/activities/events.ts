@@ -35,9 +35,18 @@ export const ACTIVITY_UPDATED_EVENT = "activities.activity.updated";
 
 /**
  * What changed in an `activities.activity.updated` event: the edited fields (ADR-033 §4, names
- * of `updateActivityRequestSchema`), or `stats` once a reprocessing lands (ADR-033 §5).
+ * of `updateActivityRequestSchema`; `mediaOrder` when the order of the Media changed, ADR-037
+ * §8), or `stats` once a reprocessing lands (ADR-033 §5).
  */
-export const activityChangedFieldSchema = z.enum(["title", "description", "sportTypeCode", "visibility", "stats"]);
+export const activityChangedFieldSchema = z.enum([
+  "title",
+  "description",
+  "sportTypeCode",
+  "visibility",
+  "mediaFirst",
+  "mediaOrder",
+  "stats",
+]);
 export type ActivityChangedField = z.infer<typeof activityChangedFieldSchema>;
 
 export const activityUpdatedEventSchema = z.object({

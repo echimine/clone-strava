@@ -25,13 +25,13 @@ Several things the card needs do not exist: a place name, a map image of the tra
 
 - **Content**: the viewer's own `processed` activities (any visibility) plus the `public` and `followers` activities of **accepted** followees. Pending follows, private activities and activities still in processing are excluded.
 - **Pagination**: keyset on `(started_at desc, id desc)` through an opaque cursor (base64url of `startedAt|id`), `?cursor=&limit=` (1–50, default 20), `nextCursor: null` on the last page. Page numbers (`common/pagination.ts`) would duplicate or skip items when activities are inserted while scrolling. An invalid cursor is `422 invalid_cursor`.
-- **Response item**: `id, title, sportTypeCode, startedAt, visibility, locationName, stats {distanceM, movingTimeS, elapsedTimeS, elevationGainM}, map {polyline, precision: 5} | null, author {id, displayName, avatarUrl}, engagement {kudosCount, commentCount, viewerHasKudoed}, viewerIsAuthor` (`packages/contracts/src/activities/feed.ts`). *Amended by [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md) §5*: items also carry `stats.avgSpeedMs`, `routeTrimmed` and `recentKudos` (3 identities); the same response serves `GET /v1/athletes/:id/activities`.
+- **Response item**: `id, title, sportTypeCode, startedAt, visibility, locationName, stats {distanceM, movingTimeS, elapsedTimeS, elevationGainM}, map {polyline, precision: 5} | null, author {id, displayName, avatarUrl}, engagement {kudosCount, commentCount, viewerHasKudoed}, viewerIsAuthor` (`packages/contracts/src/activities/feed.ts`). *Amended by [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md) §5*: items also carry `stats.avgSpeedMs`, `routeTrimmed` and `recentKudos` (3 identities); the same response serves `GET /v1/athletes/:id/activities`. *Amended by [ADR-037](ADR-037-media-avatar-and-gallery.md) §7*: items also carry `media` (all the Activity's Media, ordered, with 1-hour pre-signed URLs) and `mediaFirst`.
 
 ### 2. Where the feed is assembled
 
 ADR-021 §6 steps 1–2 (followees, then a page of activities with stats and map fields from the module's own tables) run in `activities` (`GetFeedPageUseCase`). Steps 3–4 (authors, engagement) run in **`apps/api`** (`FeedAssembler`), because `activities` (layer 2) may not call `engagement` (layer 3). The assembler is reused by every activity list (profile next).
 
-**Author names**: `user_profile` names win; otherwise Better Auth's `user.name` / `user.image`, read through a new batch method `AuthService.getPublicIdentities(ids)` (`auth` owns that table). Profile creation is a separate topic.
+**Author names**: `user_profile` names win; otherwise Better Auth's `user.name` / `user.image`, read through a new batch method `AuthService.getPublicIdentities(ids)` (`auth` owns that table). Profile creation is a separate topic. *Amended by [ADR-037](ADR-037-media-avatar-and-gallery.md) §2*: `user.image` is no longer read; `avatarUrl` is a 7-day pre-signed URL of `user_profile.avatar_key`, or `null`.
 
 ### 3. Map: static image from a precomputed polyline
 
@@ -55,6 +55,7 @@ ADR-021 §6 steps 1–2 (followees, then a page of activities with stats and map
 - `APIClient` now decodes ISO 8601 dates with or without fractional seconds.
 - *Amended by [ADR-033](ADR-033-activity-detail-edit-delete.md)*: tapping a processed card opens the Activity detail; a long press on one of the viewer's own cards offers Modifier / Supprimer; the card reflects what changed on the detail when the athlete comes back.
 - *Amended by [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md) §5*: stats follow the sport's `paceUnit` (Distance · Allure · Temps, or Distance · Dénivelé · Temps for `speed`), a "Départ et arrivée masqués" label, the 3 latest kudos avatars, a tappable author, and the comment button opens the Kudos and comments screen.
+- *Amended by [ADR-037](ADR-037-media-avatar-and-gallery.md) §10*: the map becomes a carousel of the map and the Activity's Media (slides at 86 % of the width, the map 1st or 2nd); tapping a Media opens the full-screen viewer.
 
 ## Alternatives Considered
 
@@ -89,5 +90,5 @@ ADR-021 §6 steps 1–2 (followees, then a page of activities with stats and map
 
 - **Depends on**: [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md), [ADR-019](ADR-019-activity-creation-flow.md), [ADR-028](ADR-028-activity-import-from-file.md)
 - **Amends**: [ADR-017](ADR-017-data-model.md) (`activity_track.map_polyline`, `location_name`), [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md) (§6 feed assembled in `apps/api`, `geocoding` platform module, auth identity fallback), [ADR-026](ADR-026-openapi-swift-codegen.md) (first documented response bodies)
-- **Amended by**: [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md) (§1 item fields, §6 card), [ADR-033](ADR-033-activity-detail-edit-delete.md) (§6 card opens the detail, context menu), [ADR-034](ADR-034-activity-engagement-and-live-detail.md) (§5 comments screen, realtime per Activity)
+- **Amended by**: [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md) (§1 item fields, §6 card), [ADR-033](ADR-033-activity-detail-edit-delete.md) (§6 card opens the detail, context menu), [ADR-034](ADR-034-activity-engagement-and-live-detail.md) (§5 comments screen, realtime per Activity), [ADR-037](ADR-037-media-avatar-and-gallery.md) (§1 `media` and `mediaFirst`, §2 no `user.image` fallback, §6 the card carousel)
 - **Related**: [ADR-007](ADR-007-mobile-architecture.md), [ADR-008](ADR-008-mobile-offline-sync.md), [ADR-010](ADR-010-backend-realtime.md), [ADR-011](ADR-011-backend-worker.md), [ADR-027](ADR-027-user-location-on-maps.md)

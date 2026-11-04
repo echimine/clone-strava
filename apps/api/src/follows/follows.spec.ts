@@ -21,6 +21,7 @@ import { ensureTestDatabaseMigrated, TEST_DATABASE_URL, TEST_REDIS_URL } from ".
 import { SessionGuard } from "../auth/session.guard.js";
 import { GlobalExceptionFilter } from "../common/global-exception.filter.js";
 import { FeedAssembler } from "../feed/feed-assembler.js";
+import { MediaAssembler } from "../media/media-assembler.js";
 import { FeedController } from "../feed/feed.controller.js";
 import { AthleteIdentities } from "../identities/athlete-identities.js";
 import { AthleteFollowsController } from "./athlete-follows.controller.js";
@@ -99,6 +100,7 @@ describe("follows (integration)", () => {
         AthleteIdentities,
         FollowListAssembler,
         FeedAssembler,
+        MediaAssembler,
         {
           provide: AuthService,
           useValue: {
@@ -109,7 +111,7 @@ describe("follows (integration)", () => {
                 : null;
             },
             getPublicIdentities: async (userIds: string[]) =>
-              sql('select id as "userId", name, image from "user" where id = any($1)', [userIds]),
+              sql('select id as "userId", name from "user" where id = any($1)', [userIds]),
           },
         },
         { provide: APP_PIPE, useClass: ZodValidationPipe },

@@ -102,7 +102,9 @@ struct OpenAPIContractTests {
             "author": { "id": "1b4e28ba-2fa1-41d2-883f-0016d3cca427", "displayName": "Camille Martin", "avatarUrl": null },
             "engagement": { "kudosCount": 3, "commentCount": 1, "viewerHasKudoed": false },
             "recentKudos": [{ "id": "0b5a5c1e-1f4e-4c55-9d6e-0d3f8f6e2a11", "displayName": "Léa Dupont", "avatarUrl": null }],
-            "viewerIsAuthor": true
+            "viewerIsAuthor": true,
+            "media": [],
+            "mediaFirst": false
           }],
           "nextCursor": null
         }
@@ -140,7 +142,9 @@ struct OpenAPIContractTests {
             "author": { "id": "1b4e28ba-2fa1-41d2-883f-0016d3cca427", "displayName": "Camille Martin", "avatarUrl": "https://cdn.test/a.png" },
             "engagement": { "kudosCount": 3, "commentCount": 1, "viewerHasKudoed": true },
             "recentKudos": [{ "id": "0b5a5c1e-1f4e-4c55-9d6e-0d3f8f6e2a11", "displayName": "Léa Dupont", "avatarUrl": null }],
-            "viewerIsAuthor": false
+            "viewerIsAuthor": false,
+            "media": [],
+            "mediaFirst": false
           }],
           "nextCursor": "abc"
         }

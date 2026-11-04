@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Profile tab (ADR-036 §3, §10), laid out as Strava: my header on white, then the Progrès ·
-/// Activités · Plus tabs with their icons, with the magnifier and the gear to Réglages at the top right. The header scrolls away and leaves my
+/// Activités · Galerie · Plus tabs with their icons, with the magnifier and the gear to Réglages at the top right. The header scrolls away and leaves my
 /// name in the navigation bar. Knows nothing of other features (ADR-007 rule 5): the app shell
 /// passes the signed-in account and the sign-out, the search, "Mes Itinéraires" (ADR-030), the
 /// screens every tab's stack pushes (`AppDestinations`: the Activity detail, the Kudos and
@@ -22,6 +22,8 @@ struct ProfileView<Itineraries: View, Search: View>: View {
     @ViewBuilder var search: () -> Search
 
     @State private var isEditingName = false
+    /// The photo menu, from a tap on my avatar (ADR-037 §2).
+    @State private var isChoosingPhoto = false
     /// The header has scrolled away: the name shows in the navigation bar.
     @State private var isHeaderHidden = false
 
@@ -38,6 +40,16 @@ struct ProfileView<Itineraries: View, Search: View>: View {
                 .task(id: userId) {
                     if let userId { await store.load(athleteId: userId) }
                 }
+                // Not a task of the tab's content: it would run again back from a detail.
+                .onChange(of: store.tab) { _, tab in
+                    if tab == .gallery { Task { await store.openGallery() } }
+                }
+                .avatarPicker(
+                    isPresented: $isChoosingPhoto,
+                    hasPhoto: store.profile?.athlete.avatarURL != nil,
+                    editor: store.avatar,
+                    entry: .profile
+                )
                 .sheet(isPresented: $isEditingName) {
                     EditProfileSheet(store: store, displayName: store.profile?.athlete.displayName ?? "")
                 }
@@ -62,6 +74,7 @@ struct ProfileView<Itineraries: View, Search: View>: View {
                 .registerAppDestinations(destinations)
         }
         .toast($store.toast)
+        .toast(Binding(get: { store.gallery.notice }, set: { store.gallery.notice = $0 }))
     }
 
     @ToolbarContentBuilder private var toolbar: some ToolbarContent {
@@ -102,7 +115,12 @@ struct ProfileView<Itineraries: View, Search: View>: View {
     private func page(_ profile: AthleteProfile) -> some View {
         ScrollView {
             LazyVStack(spacing: 0, pinnedViews: .sectionHeaders) {
-                ProfileHeader(profile: profile, onFollows: store.openFollows) { isEditingName = true }
+                ProfileHeader(
+                    profile: profile,
+                    avatar: store.avatar,
+                    onAvatar: { isChoosingPhoto = true },
+                    onFollows: store.openFollows
+                ) { isEditingName = true }
                     .padding(.horizontal, Theme.spacing)
                     .padding(.bottom, 20)
                     .onScrolledAway { isHeaderHidden = $0 }
@@ -121,6 +139,8 @@ struct ProfileView<Itineraries: View, Search: View>: View {
             .padding(.top, 8)
         }
         .refreshable { await store.refresh() }
+        // ADR-037 §1: an expired pre-signed Media or Avatar URL brings fresh ones.
+        .onImageURLExpired { await store.refresh() }
         .accessibilityIdentifier("profile.page")
     }
 
@@ -137,6 +157,8 @@ struct ProfileView<Itineraries: View, Search: View>: View {
                 retry: store.refresh
             )
             .groupedTabContent()
+        case .gallery:
+            AthleteGalleryTab(store: store.gallery, openActivity: store.openActivity)
         case .more:
             ProfileMoreTab(
                 yearToDateDistance: store.yearToDateDistance,
@@ -151,6 +173,7 @@ struct ProfileView<Itineraries: View, Search: View>: View {
         switch tab {
         case .progress: "chart.bar.doc.horizontal"
         case .activities: "waveform.path.ecg"
+        case .gallery: GalleryMessages.systemImage
         case .more: "line.3.horizontal"
         }
     }

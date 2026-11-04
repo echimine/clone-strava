@@ -69,6 +69,7 @@ export class GetActivityDetailUseCase {
       mapPolyline: track?.mapPolyline ?? null,
       locationName: track?.locationName ?? null,
       routeTrimmed: track?.routeTrimmed ?? false,
+      mediaFirst: row.mediaFirst,
       analysis: analysis?.analysis ?? null,
       updatedAt: row.updatedAt,
     };

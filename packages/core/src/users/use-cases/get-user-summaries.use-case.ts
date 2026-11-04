@@ -20,7 +20,7 @@ export class GetUserSummariesUseCase {
         userId,
         firstName: profile?.firstName ?? null,
         lastName: profile?.lastName ?? null,
-        avatarUrl: profile?.avatarUrl ?? null,
+        avatarKey: profile?.avatarKey ?? null,
       };
     });
   }

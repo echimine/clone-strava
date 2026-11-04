@@ -17,6 +17,7 @@ import type { Redis } from "../infrastructure/index.js";
 import { createAuthSecondaryStorage } from "./auth-secondary-storage.js";
 import type { AuthModuleOptions } from "./auth.constants.js";
 import { sessionAuthMethodFor, signUpMethodFor } from "./domain/session-auth-method.js";
+import type { GoogleAvatarCopyEnqueuer } from "./services/google-avatar-copy-enqueuer.js";
 
 /** Dev-only addresses that get the fixed Sign-in code, without any email (ADR-035 §2). */
 const DEV_FIXED_CODE_DOMAIN = "@stravaclone.test";
@@ -39,6 +40,7 @@ export function createAuthInstance(
   redis: Redis,
   notifications: NotificationsService,
   analytics: AnalyticsService,
+  googleAvatars: GoogleAvatarCopyEnqueuer,
   options: AuthModuleOptions,
 ) {
   const logoUrl = emailWordmarkUrl(options.adminOrigin);
@@ -201,6 +203,16 @@ export function createAuthInstance(
             const method = signUpMethodFor(ctx);
             if (method) {
               analytics.capture(ANALYTICS_EVENTS.USER_SIGNED_UP, user.id, { method });
+            }
+            // ADR-037 §2: the Google photo becomes the Avatar, copied once by the worker. Later
+            // sign-ins create no user, so they never copy anything.
+            if (method === "google" && user.image) {
+              try {
+                await googleAvatars.enqueue(user.id, user.image);
+              } catch (error) {
+                // The account stands without its photo: the athlete keeps their initials.
+                logger.error(`Google photo copy not enqueued for ${user.id}: ${String(error)}`);
+              }
             }
           },
         },

@@ -44,6 +44,7 @@ final class Di {
     let realtimeService: RealtimeService
     /// Avatars and static maps (ADR-029), one cache for the whole app.
     let imageLoader = ImageLoader.shared
+    let videoPlayback = VideoPlayback() // ADR-037 §10: one video plays at a time, app-wide.
     /// Full resync of the Itinerary cache and its queue of changes (ADR-030 §8), triggered by
     /// the app shell.
     let itinerarySynchronizer: ItinerarySynchronizer
@@ -65,6 +66,9 @@ final class Di {
     let activityChanges = ActivityChanges()
     /// The open detail's `activity:{id}` subscription (ADR-034 §5).
     let activityLiveEvents: any ActivityLiveEventSource
+    /// The Media being sent (ADR-037 §5, `Di+Media.swift`) and their background session.
+    let mediaTransfer = BackgroundMediaTransfer()
+    let mediaUploadQueue: MediaUploadQueue
 
     private let recordingService: RecordingService
     /// Lock screen and Dynamic Island of the Recording (ADR-031 §9).
@@ -160,6 +164,15 @@ final class Di {
             sessionRefresher: APISessionRefresher(apiClient: apiClient, authSession: authSession)
         )
         defaultVisibility = DefaultVisibilityCache(apiClient: apiClient)
+        mediaUploadQueue = Self.makeMediaUploadQueue(
+            database: database,
+            localActivities: localActivities,
+            apiClient: apiClient,
+            authSession: authSession,
+            analytics: analytics,
+            imageLoader: imageLoader,
+            transfer: mediaTransfer
+        )
     }
 
     /// The Home feed, one for the app: the queue coordinator reloads it.
@@ -170,6 +183,7 @@ final class Di {
         events: RealtimeFeedEventSource(client: webSocketClient),
         localActivities: LocalActivityFeed(store: localActivities, sender: activitySender),
         activityChanges: activityChanges,
+        analytics: analytics,
         onPullToRefresh: { [weak self] in await self?.syncCoordinator.pullToRefresh() }
     )
 
@@ -186,6 +200,7 @@ final class Di {
             stop: { [onboardingAnswersSender] in onboardingAnswersSender.cancelPass() },
             clear: { [onboardingAnswersSender] in await onboardingAnswersSender.clear() }
         ),
+        mediaUploads: mediaUploadSender,
         reloadFeed: { [weak self] in await self?.feedStore.refresh() ?? false }
     )
 
@@ -202,6 +217,8 @@ final class Di {
 
     func start() {
         connectivityMonitor.start()
+        let mediaUploadQueue = mediaUploadQueue
+        Task { await mediaUploadQueue.start() }
     }
 
     /// At launch, before `didFinishLaunching` returns: registers the `BGAppRefreshTask`, then
@@ -234,6 +251,7 @@ final class Di {
             launch: recordingLaunch,
             ensureFullAccuracy: { await permission.ensureFullAccuracy(purposeKey: "Recording") },
             saveRecording: SaveRecording(service: recordingService, activities: GRDBRecordingSaver(activities: localActivities)),
+            mediaUploads: activityMediaUploads,
             defaultVisibility: { defaultVisibility.cachedDefaultVisibility },
             autoPausePreferences: UserDefaultsRecordingPreferences(),
             requestMotionAuthorization: { await motion.requestAuthorization() }
@@ -295,9 +313,12 @@ final class Di {
             setApproveFollowers: SetApproveFollowers(repository: profiles),
             activities: ProfileActivitiesStore(
                 loadActivities: LoadProfileActivities(repository: athletes),
-                activityChanges: activityChanges
+                activityChanges: activityChanges,
+                analytics: analytics
             ),
-            progress: ProfileProgressStore(loadProgress: LoadProgress(repository: APIProgressRepository(apiClient: apiClient)))
+            progress: ProfileProgressStore(loadProgress: LoadProgress(repository: APIProgressRepository(apiClient: apiClient))),
+            gallery: makeGalleryStore(message: ProfileMessages.message(for:)),
+            avatar: makeAvatarEditor()
         )
     }()
 
@@ -319,7 +340,9 @@ final class Di {
             changes: activityChanges,
             updateActivity: UpdateActivity(repository: activityDetailRepository),
             deleter: activityDeleter,
-            events: RealtimeActivityEventSource(channel: webSocketClient)
+            events: RealtimeActivityEventSource(channel: webSocketClient),
+            mediaUploads: activityMediaUploads,
+            analytics: analytics
         )
     }
 
@@ -333,7 +356,8 @@ final class Di {
     private(set) lazy var feedActivityEditor = ActivityEditor(
         loadDetail: LoadActivityDetail(repository: activityDetailRepository),
         updateActivity: UpdateActivity(repository: activityDetailRepository),
-        changes: activityChanges
+        changes: activityChanges,
+        mediaUploads: activityMediaUploads
     )
 
     /// The feed's cards follow `activity.updated` and `activity.deleted` on the owner's topic

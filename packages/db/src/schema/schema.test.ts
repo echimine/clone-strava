@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   activity,
   activityAnalysis,
-  activityAttachment,
+  activityMedia,
   activityStats,
   activityTrack,
 } from "./activities.js";
@@ -45,8 +45,8 @@ describe("schema table names and owning PostgreSQL schema (ADR-017, ADR-021 §7)
       name: "activity_analysis",
       schema: "activities",
     });
-    expect(getTableConfig(activityAttachment)).toMatchObject({
-      name: "activity_attachment",
+    expect(getTableConfig(activityMedia)).toMatchObject({
+      name: "activity_media",
       schema: "activities",
     });
     expect(getTableConfig(kudos)).toMatchObject({ name: "kudos", schema: "engagement" });
@@ -122,5 +122,28 @@ describe("ADR-036 schema", () => {
     expect(byName("splits")).toMatchObject({ notNull: true, columnType: "PgJsonb" });
     expect(byName("series")).toMatchObject({ notNull: false, columnType: "PgJsonb" });
     expect(byName("computed_at")).toMatchObject({ notNull: true, hasDefault: true });
+  });
+});
+
+describe("ADR-037 schema", () => {
+  it("stores a Media with its dimensions, a duration only for videos, and its folder key (§12)", () => {
+    const columns = getTableConfig(activityMedia).columns;
+    const byName = (name: string) => columns.find((c) => c.name === name);
+    expect(byName("kind")).toMatchObject({ notNull: true, enumValues: ["photo", "video"] });
+    expect(byName("width")).toMatchObject({ notNull: true, columnType: "PgInteger" });
+    expect(byName("height")).toMatchObject({ notNull: true, columnType: "PgInteger" });
+    expect(byName("duration_ms")).toMatchObject({ notNull: false, columnType: "PgInteger" });
+    expect(byName("s3_key")).toMatchObject({ notNull: true });
+  });
+
+  it("puts the map before the Media unless the athlete chose otherwise (§8, §12)", () => {
+    const mediaFirst = getTableConfig(activity).columns.find((c) => c.name === "media_first");
+    expect(mediaFirst).toMatchObject({ notNull: true, default: false });
+  });
+
+  it("keeps the Avatar as an optional object key, not a URL (§2, §12)", () => {
+    const columns = getTableConfig(userProfile).columns.map((c) => c.name);
+    expect(columns).toContain("avatar_key");
+    expect(columns).not.toContain("avatar_url");
   });
 });

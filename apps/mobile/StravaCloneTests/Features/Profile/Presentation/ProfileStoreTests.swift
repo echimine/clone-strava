@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 import Testing
 @testable import StravaClone
 
@@ -7,7 +8,10 @@ struct ProfileStoreTests {
     private func makeStore(
         _ athletes: FakeAthleteRepository = FakeAthleteRepository(),
         _ profiles: FakeProfileRepository = FakeProfileRepository(),
-        progress: FakeProgressRepository = FakeProgressRepository()
+        progress: FakeProgressRepository = FakeProgressRepository(),
+        avatars: FakeAvatarRepository = FakeAvatarRepository(),
+        gallery: FakeAthleteGalleryRepository = FakeAthleteGalleryRepository(),
+        analytics: FakeAnalyticsClient = FakeAnalyticsClient()
     ) -> ProfileStore {
         ProfileStore(
             loadProfile: LoadProfile(repository: athletes),
@@ -15,7 +19,18 @@ struct ProfileStoreTests {
             renameAthlete: RenameAthlete(repository: profiles),
             setApproveFollowers: SetApproveFollowers(repository: profiles),
             activities: ProfileActivitiesStore(loadActivities: LoadProfileActivities(repository: athletes)),
-            progress: ProfileProgressStore(loadProgress: LoadProgress(repository: progress))
+            progress: ProfileProgressStore(loadProgress: LoadProgress(repository: progress)),
+            gallery: AthleteGalleryStore(
+                loadGallery: LoadAthleteGallery(repository: gallery),
+                message: ProfileMessages.message(for:),
+                analytics: analytics
+            ),
+            avatar: AvatarEditor(
+                repository: avatars,
+                analytics: FakeAnalyticsClient(),
+                imageLoader: ImageLoader(cache: URLCache(memoryCapacity: 10_000_000, diskCapacity: 0)),
+                isOnline: { true }
+            )
         )
     }
 
@@ -38,6 +53,22 @@ struct ProfileStoreTests {
         #expect(store.yearToDateDistance == Distance(meters: 412_000))
         #expect(store.activities.posts.count == 1)
         #expect(athletes.profileCalls == ["me"])
+    }
+
+    @Test func openingGalerieLoadsMyMediaAndPullToRefreshReloadsThem() async {
+        let gallery = FakeAthleteGalleryRepository()
+        gallery.pages[nil] = .success(GalleryPage(items: [.fixture()], nextCursor: nil))
+        let analytics = FakeAnalyticsClient()
+        let store = makeStore(loadedRepository(), gallery: gallery, analytics: analytics)
+        await store.load(athleteId: "me")
+        #expect(gallery.calls.isEmpty)
+
+        await store.openGallery()
+        await store.refresh()
+
+        #expect(store.gallery.items.count == 1)
+        #expect(gallery.calls.map(\.athleteId) == ["me", "me"])
+        #expect(analytics.events == [.galleryViewed(isOwn: true)])
     }
 
     @Test func aFailedLoadSaysSoAndCanBeRetried() async {
@@ -75,6 +106,29 @@ struct ProfileStoreTests {
 
         #expect(error == "Une erreur est survenue, réessayez.")
         #expect(store.profile?.athlete.displayName == "Camille Martin")
+    }
+
+    @Test func myNewPhotoShowsInTheHeaderOnceStored() async throws {
+        let store = makeStore(loadedRepository())
+        await store.load(athleteId: "me")
+        let photo = try #require(AvatarSourceImage(uiImage: UIGraphicsImageRenderer(size: CGSize(width: 40, height: 40)).image { _ in }))
+
+        let stored = await store.avatar.send(photo, cropping: CGRect(x: 0, y: 0, width: 40, height: 40), source: .library, entry: .profile)
+
+        #expect(stored)
+        #expect(store.profile?.athlete.avatarURL == URL(string: "https://bucket.test/avatars/me/new.jpg?X-Amz-Signature=a"))
+        #expect(store.profile?.athlete.displayName == "Camille Martin")
+    }
+
+    @Test func removingMyPhotoBringsBackMyInitials() async {
+        let athletes = loadedRepository()
+        athletes.profileResult = .success(.fixture(avatarURL: URL(string: "https://bucket.test/avatars/me/old.jpg")))
+        let store = makeStore(athletes)
+        await store.load(athleteId: "me")
+
+        await store.avatar.remove(entry: .editProfile)
+
+        #expect(store.profile?.athlete.avatarURL == nil)
     }
 
     @Test func anInvalidNameIsNotSent() async {

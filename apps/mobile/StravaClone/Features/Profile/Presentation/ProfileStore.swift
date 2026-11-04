@@ -2,8 +2,8 @@ import Foundation
 import Observation
 import SwiftUI
 
-/// The Profile tab (ADR-036 §3, §10): my header and counters, the Progrès · Activités · Plus
-/// tabs, "Modifier le profil", "Approuver mes abonnés" in Réglages, and the tab's navigation.
+/// The Profile tab (ADR-036 §3, §10): my header and counters, the Progrès · Activités · Galerie
+/// · Plus tabs (ADR-037 §10), "Modifier le profil", "Approuver mes abonnés" in Réglages, and the tab's navigation.
 /// One for the app, reset at sign-out.
 @Observable
 @MainActor
@@ -16,7 +16,7 @@ final class ProfileStore {
     }
 
     enum Tab: Hashable, CaseIterable {
-        case progress, activities, more
+        case progress, activities, gallery, more
     }
 
     /// Screens of the profile's own stack; Activity details and Kudos and comments screens are
@@ -40,6 +40,10 @@ final class ProfileStore {
 
     let activities: ProfileActivitiesStore
     let progress: ProfileProgressStore
+    /// Galerie (ADR-037 §9), loaded when its tab first opens.
+    let gallery: AthleteGalleryStore
+    /// My photo, changed from the header or "Modifier le profil" (ADR-037 §2).
+    let avatar: AvatarEditor
 
     @ObservationIgnored private let loadProfile: LoadProfile
     @ObservationIgnored private let loadYearToDateDistance: LoadYearToDateDistance
@@ -55,7 +59,9 @@ final class ProfileStore {
         renameAthlete: RenameAthlete,
         setApproveFollowers: SetApproveFollowers,
         activities: ProfileActivitiesStore,
-        progress: ProfileProgressStore
+        progress: ProfileProgressStore,
+        gallery: AthleteGalleryStore,
+        avatar: AvatarEditor
     ) {
         self.loadProfile = loadProfile
         self.loadYearToDateDistance = loadYearToDateDistance
@@ -63,6 +69,9 @@ final class ProfileStore {
         self.setApproveFollowersUseCase = setApproveFollowers
         self.activities = activities
         self.progress = progress
+        self.gallery = gallery
+        self.avatar = avatar
+        avatar.changed = { [weak self] url in self?.showAvatar(url) }
     }
 
     /// "Approuver mes abonnés", as shown: the server's value, or the one just chosen.
@@ -75,7 +84,8 @@ final class ProfileStore {
         await refresh()
     }
 
-    /// Pull-to-refresh and "Réessayer": the header, Plus's figure and the Activities again.
+    /// Pull-to-refresh and "Réessayer": the header, Plus's figure, the Activities and, once
+    /// opened, the Gallery again.
     func refresh() async {
         guard let athleteId else { return }
         generation += 1
@@ -85,6 +95,7 @@ final class ProfileStore {
         }
         async let activitiesLoaded: Void = activities.refresh(athleteId: athleteId)
         async let progressLoaded: Void = refreshProgressIfShown()
+        async let galleryLoaded: Void = gallery.refresh()
         async let distance = try? loadYearToDateDistance(athleteId: athleteId)
         do {
             let loaded = try await loadProfile(athleteId: athleteId)
@@ -100,6 +111,7 @@ final class ProfileStore {
         let yearToDate = await distance
         await activitiesLoaded
         await progressLoaded
+        await galleryLoaded
         guard current == generation else { return }
         yearToDateDistance = yearToDate ?? yearToDateDistance
     }
@@ -116,6 +128,12 @@ final class ProfileStore {
         } catch {
             return ProfileMessages.message(for: error)
         }
+    }
+
+    /// My new photo once stored, or my initials once removed: the header follows.
+    private func showAvatar(_ url: URL?) {
+        guard let athlete = profile?.athlete else { return }
+        profile?.athlete = ActivityAuthor(id: athlete.id, displayName: athlete.displayName, avatarURL: url)
     }
 
     /// Optimistic: the switch moves at once, then takes the server's value, or goes back with
@@ -175,6 +193,12 @@ final class ProfileStore {
         path.append(statisticsRequest)
     }
 
+    /// The Galerie tab opened (ADR-037 §13); nothing before my profile is known.
+    func openGallery() async {
+        guard let athleteId else { return }
+        await gallery.open(athleteId: athleteId, isOwn: true)
+    }
+
     /// A tap on a card outside its buttons (ADR-033 §1).
     func openActivity(_ id: ActivityID) {
         path.append(ActivityDetailRequest(id: id))
@@ -197,6 +221,8 @@ final class ProfileStore {
         toast = nil
         activities.reset()
         progress.reset()
+        gallery.reset()
+        avatar.reset()
     }
 
     /// Progrès loads when its tab first appears: pull-to-refresh only reloads it once shown.

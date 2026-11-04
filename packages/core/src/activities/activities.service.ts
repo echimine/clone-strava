@@ -2,12 +2,15 @@ import { Injectable } from "@nestjs/common";
 import type {
   ActivityImport,
   AthleteStatsResponse,
+  ConfirmMediaRequest,
   CreateActivityImportRequest,
   CreateActivityRequest,
   UpdateActivityRequest,
   ImportActivityJob,
   ListActivityImportsQuery,
   ListActivityImportsResponse,
+  MediaUploadUrlsRequest,
+  MediaUploadUrlsResponse,
   ProcessActivityJob,
   ProgressResponse,
   ReprocessActivityJob,
@@ -19,6 +22,7 @@ import { CompleteActivityUseCase } from "./use-cases/complete-activity.use-case.
 import { ProcessActivityUseCase } from "./use-cases/process-activity.use-case.js";
 import { ReconcileStuckActivitiesUseCase } from "./use-cases/reconcile-stuck-activities.use-case.js";
 import { GetActivitiesUseCase } from "./use-cases/get-activities.use-case.js";
+import { GetActivityMediaUseCase } from "./use-cases/get-activity-media.use-case.js";
 import {
   CreateActivityImportUseCase,
   type CreateActivityImportResult,
@@ -44,7 +48,13 @@ import {
   type AthleteProfileFigures,
 } from "./use-cases/get-athlete-profile-figures.use-case.js";
 import { GetAthleteActivitiesPageUseCase } from "./use-cases/get-athlete-activities-page.use-case.js";
+import { GetAthleteGalleryPageUseCase } from "./use-cases/get-athlete-gallery-page.use-case.js";
+import { SweepBucketUseCase } from "./use-cases/sweep-bucket.use-case.js";
+import { RequestMediaUploadUrlsUseCase } from "./use-cases/request-media-upload-urls.use-case.js";
+import { ConfirmMediaUseCase, type ConfirmMediaResult } from "./use-cases/confirm-media.use-case.js";
+import { DeleteMediaUseCase } from "./use-cases/delete-media.use-case.js";
 import type { ActivityDetailRecord } from "./domain/activity-detail.js";
+import type { ActivityMediaRecord, GalleryMediaPage } from "./domain/activity-media.js";
 import type { ActivityRecord } from "./domain/activity-record.js";
 import type { FeedActivityPage } from "./domain/feed-activity.js";
 
@@ -62,6 +72,7 @@ export class ActivitiesService {
     private readonly processActivityUseCase: ProcessActivityUseCase,
     private readonly reconcileStuckActivitiesUseCase: ReconcileStuckActivitiesUseCase,
     private readonly getActivitiesUseCase: GetActivitiesUseCase,
+    private readonly getActivityMediaUseCase: GetActivityMediaUseCase,
     private readonly createActivityImportUseCase: CreateActivityImportUseCase,
     private readonly requestImportUploadUrlUseCase: RequestImportUploadUrlUseCase,
     private readonly completeActivityImportUseCase: CompleteActivityImportUseCase,
@@ -78,6 +89,11 @@ export class ActivitiesService {
     private readonly getAthleteStatsUseCase: GetAthleteStatsUseCase,
     private readonly getAthleteProfileFiguresUseCase: GetAthleteProfileFiguresUseCase,
     private readonly getAthleteActivitiesPageUseCase: GetAthleteActivitiesPageUseCase,
+    private readonly getAthleteGalleryPageUseCase: GetAthleteGalleryPageUseCase,
+    private readonly sweepBucketUseCase: SweepBucketUseCase,
+    private readonly requestMediaUploadUrlsUseCase: RequestMediaUploadUrlsUseCase,
+    private readonly confirmMediaUseCase: ConfirmMediaUseCase,
+    private readonly deleteMediaUseCase: DeleteMediaUseCase,
   ) {}
 
   create(userId: string, request: CreateActivityRequest): Promise<CreateActivityResult> {
@@ -112,9 +128,25 @@ export class ActivitiesService {
     return this.reconcileStuckActivitiesUseCase.execute();
   }
 
+  /**
+   * Called by `apps/worker`'s daily `bucket-sweep` (ADR-037 §11): deletes the Activity, Media and
+   * import folders that no row references, once 7 days old. Returns the number of objects deleted.
+   */
+  sweepBucket(): Promise<number> {
+    return this.sweepBucketUseCase.execute();
+  }
+
   /** Batch read (ADR-021 §2 rule 6): used by `engagement`, `segments` and list screens. */
   getMany(ids: string[]): Promise<ActivityRecord[]> {
     return this.getActivitiesUseCase.execute(ids);
+  }
+
+  /**
+   * The Media of these Activities in one batch read, in order (ADR-037 §7), `[]` for an Activity
+   * without any. The caller passes only Activities the viewer may see, then signs the files.
+   */
+  getMedia(activityIds: string[]): Promise<Map<string, ActivityMediaRecord[]>> {
+    return this.getActivityMediaUseCase.execute(activityIds);
   }
 
   /** Feed steps 1-2 (ADR-021 §6, ADR-029): the caller adds authors and engagement. */
@@ -132,6 +164,18 @@ export class ActivitiesService {
     query: { cursor?: string; limit: number },
   ): Promise<FeedActivityPage> {
     return this.getAthleteActivitiesPageUseCase.execute(viewerId, athleteId, query);
+  }
+
+  /**
+   * The Media of an athlete's processed Activities that `viewerId` may see, as a Gallery page
+   * (ADR-037 §9). The caller checks the athlete exists and signs the files.
+   */
+  getAthleteGalleryPage(
+    viewerId: string,
+    athleteId: string,
+    query: { cursor?: string; limit: number },
+  ): Promise<GalleryMediaPage> {
+    return this.getAthleteGalleryPageUseCase.execute(viewerId, athleteId, query);
   }
 
   /** The activity if `viewerId` may see it, `null` otherwise (ADR-029). */
@@ -159,6 +203,30 @@ export class ActivitiesService {
   /** The author deletes their activity unless it is `processing` (ADR-031 §13, ADR-033 §6). */
   delete(userId: string, activityId: string): Promise<void> {
     return this.deleteActivityUseCase.execute(userId, activityId);
+  }
+
+  // --- Media upload (ADR-037 §4) ---
+
+  /** Pre-signed `PUT`s for a Media's files, for the author in any state; writes nothing. */
+  requestMediaUploadUrls(
+    userId: string,
+    activityId: string,
+    request: MediaUploadUrlsRequest,
+  ): Promise<MediaUploadUrlsResponse> {
+    return this.requestMediaUploadUrlsUseCase.execute(userId, activityId, request);
+  }
+
+  /**
+   * Confirms a Media whose files are in the bucket and inserts its row, idempotent on its id. The
+   * caller signs the returned record.
+   */
+  confirmMedia(userId: string, activityId: string, request: ConfirmMediaRequest): Promise<ConfirmMediaResult> {
+    return this.confirmMediaUseCase.execute(userId, activityId, request);
+  }
+
+  /** Deletes a Media's row, then its folder; also when the Media is already gone. */
+  deleteMedia(userId: string, activityId: string, mediaId: string): Promise<void> {
+    return this.deleteMediaUseCase.execute(userId, activityId, mediaId);
   }
 
   // --- Progrès and Statistiques (ADR-036 §4) ---

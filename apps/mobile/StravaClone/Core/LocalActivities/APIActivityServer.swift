@@ -32,6 +32,7 @@ struct APIActivityServer: ActivityServer {
             endedAt: activity.endedAt,
             visibility: visibility,
             isManual: false,
+            mediaFirst: activity.mediaFirst,
             distanceM: activity.distance.meters,
             movingTimeS: activity.movingTimeS,
             elapsedTimeS: activity.elapsedTimeS

@@ -33,12 +33,17 @@ private final class BackgroundTaskBox {
 }
 
 /// A feature's queue the coordinator wakes besides the Activities' (ADR-031 §14), seen through
-/// its three actions: `send` what is pending without the backoff delay, `stop` the pass in
-/// flight when iOS takes the background time back, `clear` it at sign-out.
+/// its actions: `send` what is pending without the backoff delay, `stop` the pass in flight
+/// when iOS takes the background time back, `clear` it at sign-out, `activityCreated` once
+/// the server has created a local Activity and `activityDeletion` at each step of its Delete
+/// (the Media following it, ADR-037 §6), and `unsentCount` for the sign-out confirmation.
 struct QueuedSender {
     var send: @MainActor () async -> Void
     var stop: @MainActor @Sendable () -> Void = {}
     var clear: @MainActor () async -> Void = {}
+    var activityCreated: @MainActor (ActivityID) async -> Void = { _ in }
+    var activityDeletion: @MainActor (ActivityID, LocalActivityDeletion) async -> Void = { _, _ in }
+    var unsentCount: @MainActor () async -> Int = { 0 }
 }
 
 /// The queue coordinator of ADR-031 §14: wakes `ActivitySender`, the Itinerary changes and the
@@ -57,8 +62,10 @@ final class SyncQueueCoordinator {
 
     private let activitySender: ActivitySender
     private let localActivities: GRDBLocalActivityStore
-    /// The Itinerary changes, then the Onboarding answers: sent in this order.
+    /// The Itinerary changes, the Onboarding answers, then the Media (ADR-037 §5): sent in this
+    /// order. The Media's own files go through their background `URLSession`.
     private let queues: [QueuedSender]
+    private let mediaUploads: QueuedSender
     private let reloadFeed: @MainActor () async -> Bool
     private let backgroundTasks: any BackgroundTaskRunning
 
@@ -67,14 +74,31 @@ final class SyncQueueCoordinator {
         localActivities: GRDBLocalActivityStore,
         itineraryChanges: QueuedSender,
         onboardingAnswers: QueuedSender = QueuedSender(send: {}),
+        mediaUploads: QueuedSender = QueuedSender(send: {}),
         reloadFeed: @escaping @MainActor () async -> Bool,
         backgroundTasks: any BackgroundTaskRunning = UIKitBackgroundTasks()
     ) {
         self.activitySender = activitySender
         self.localActivities = localActivities
-        self.queues = [itineraryChanges, onboardingAnswers]
+        self.queues = [itineraryChanges, onboardingAnswers, mediaUploads]
+        self.mediaUploads = mediaUploads
         self.reloadFeed = reloadFeed
         self.backgroundTasks = backgroundTasks
+        // ADR-037 §6: at `created`, the Media go in parallel with `upload_trace` and
+        // `complete_activity`, which do not wait for them.
+        let created = queues.map(\.activityCreated)
+        activitySender.onCreated = { id in
+            for activityCreated in created {
+                Task { await activityCreated(id) }
+            }
+        }
+        // ADR-037 §6: the Media are held, dropped or sent again with their Activity's Delete.
+        let deletions = queues.map(\.activityDeletion)
+        activitySender.onDeletion = { id, deletion in
+            for activityDeletion in deletions {
+                await activityDeletion(id, deletion)
+            }
+        }
     }
 
     /// Right after Save: the whole chain starts at once, under a background task, then the
@@ -109,8 +133,14 @@ final class SyncQueueCoordinator {
         (try? await localActivities.unsentCount()) ?? 0
     }
 
-    /// Sign-out, once confirmed: the local Activities and their queued steps are wiped, and the
-    /// Onboarding answers with their operation (ADR-035 §5).
+    /// For the sign-out confirmation: the Media that would be lost (ADR-037 §6).
+    func unsentMediaCount() async -> Int {
+        await mediaUploads.unsentCount()
+    }
+
+    /// Sign-out, once confirmed: the local Activities and their queued steps are wiped, the
+    /// Onboarding answers with their operation (ADR-035 §5), and the Media with their files and
+    /// background tasks (ADR-037 §6).
     func signOut() async {
         await activitySender.clear()
         for queue in queues {

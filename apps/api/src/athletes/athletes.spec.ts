@@ -7,7 +7,12 @@ import { Test } from "@nestjs/testing";
 import { Redis } from "ioredis";
 import { ZodSerializerInterceptor, ZodValidationPipe } from "nestjs-zod";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import type { AthleteProfileResponse, FeedResponse, UpdateProfileResponse } from "@repo/contracts";
+import {
+  activityMediaPrefix,
+  type AthleteProfileResponse,
+  type FeedResponse,
+  type UpdateProfileResponse,
+} from "@repo/contracts";
 import { ActivitiesModule } from "@repo/core/activities";
 import { AnalyticsModule } from "@repo/core/analytics";
 import { AuthService } from "@repo/core/auth";
@@ -23,12 +28,14 @@ import { ensureTestDatabaseMigrated, TEST_DATABASE_URL, TEST_REDIS_URL } from ".
 import { SessionGuard } from "../auth/session.guard.js";
 import { GlobalExceptionFilter } from "../common/global-exception.filter.js";
 import { FeedAssembler } from "../feed/feed-assembler.js";
+import { MediaAssembler } from "../media/media-assembler.js";
 import { FeedController } from "../feed/feed.controller.js";
 import { AthleteIdentities } from "../identities/athlete-identities.js";
 import { AthleteProfileAssembler } from "./athlete-profile-assembler.js";
 import { AthletesController } from "./athletes.controller.js";
 import { MeProfileController } from "./me-profile.controller.js";
 import { listenOnLoopback } from "../testing/listen-on-loopback.js";
+import { signedMediaUrl } from "../testing/signed-urls.js";
 
 /**
  * `GET /v1/athletes/:id`, `GET /v1/athletes/:id/activities` and `PATCH /v1/me/profile`
@@ -57,6 +64,7 @@ describe("Athlete profile (integration)", () => {
     hike: randomUUID(),
     processingRun: randomUUID(),
   };
+  const hikePhoto = randomUUID();
 
   async function sql(text: string, params: unknown[]) {
     return (await app.get<Database>(DATABASE).$client.query(text, params)).rows;
@@ -132,6 +140,7 @@ describe("Athlete profile (integration)", () => {
         AthleteIdentities,
         AthleteProfileAssembler,
         FeedAssembler,
+        MediaAssembler,
         {
           provide: AuthService,
           useValue: {
@@ -142,7 +151,7 @@ describe("Athlete profile (integration)", () => {
                 : null;
             },
             getPublicIdentities: async (userIds: string[]) =>
-              sql('select id as "userId", name, image from "user" where id = any($1)', [userIds]),
+              sql('select id as "userId", name from "user" where id = any($1)', [userIds]),
             // Stands in for Better Auth's own write of `user.name`.
             setName: async (userId: string, name: string) => {
               await sql('update "user" set name = $2 where id = $1', [userId, name]);
@@ -182,6 +191,11 @@ describe("Athlete profile (integration)", () => {
     await insertActivity(ids.secondWalk, athlete, "walk", "2026-02-25T07:00:00Z");
     await insertActivity(ids.hike, athlete, "hike", "2026-02-26T07:00:00Z");
     await insertActivity(ids.processingRun, athlete, "run", "2026-03-17T07:00:00Z", { status: "processing" });
+    await sql(
+      `insert into activities.activity_media (id, activity_id, s3_key, kind, width, height)
+       values ($1, $2, $3, 'photo', 2048, 1536)`,
+      [hikePhoto, ids.hike, `activities/${athlete}/${ids.hike}/media/${hikePhoto}/`],
+    );
 
     for (const itinerary of [randomUUID(), randomUUID()]) {
       await sql(
@@ -272,7 +286,17 @@ describe("Athlete profile (integration)", () => {
         engagement: { kudosCount: 0, commentCount: 0, viewerHasKudoed: false },
         recentKudos: [],
         viewerIsAuthor: true,
+        media: [],
+        mediaFirst: false,
       });
+      // ADR-037 §7: profile Activities are feed items, Media included.
+      expect(body.items[3]?.media).toEqual([
+        expect.objectContaining({
+          id: hikePhoto,
+          kind: "photo",
+          url: signedMediaUrl(activityMediaPrefix(athlete, ids.hike, hikePhoto), "original.jpg"),
+        }),
+      ]);
       expect(body.nextCursor).toBeNull();
     });
 

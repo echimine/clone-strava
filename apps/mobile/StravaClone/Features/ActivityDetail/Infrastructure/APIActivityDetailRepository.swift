@@ -25,7 +25,9 @@ struct APIActivityDetailRepository: ActivityDetailRepository {
             title: edit.title,
             description: edit.description ?? "",
             sportTypeCode: edit.sport.code,
-            visibility: UpdateRequest.visibilityPayload(rawValue: edit.visibility.rawValue)
+            visibility: UpdateRequest.visibilityPayload(rawValue: edit.visibility.rawValue),
+            mediaFirst: edit.mediaFirst,
+            mediaOrder: edit.mediaOrder?.map { $0.uuidString.lowercased() }
         )
         do {
             let response: DetailResponse = try await apiClient.send(method: "PATCH", path: "/v1/activities/\(id)", body: body)
@@ -113,7 +115,9 @@ private extension Components.Schemas.ActivityDetailDto_Output {
                 commentCount: engagement.commentCount,
                 viewerHasKudoed: engagement.viewerHasKudoed
             ),
-            viewerIsAuthor: viewerIsAuthor
+            viewerIsAuthor: viewerIsAuthor,
+            media: media.models,
+            mediaFirst: mediaFirst
         )
     }
 }

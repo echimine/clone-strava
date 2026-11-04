@@ -190,6 +190,80 @@
         ]
       }
     },
+    "/v1/me/avatar/upload-url": {
+      "post": {
+        "operationId": "MeAvatarController_requestUploadUrl",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AvatarUploadUrlRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AvatarUploadUrlResponseDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "MeAvatar"
+        ]
+      }
+    },
+    "/v1/me/avatar": {
+      "put": {
+        "operationId": "MeAvatarController_set",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetAvatarRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetAvatarResponseDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "MeAvatar"
+        ]
+      },
+      "delete": {
+        "operationId": "MeAvatarController_remove",
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": "Avatar removed"
+          }
+        },
+        "tags": [
+          "MeAvatar"
+        ]
+      }
+    },
     "/v1/me/onboarding-answers": {
       "put": {
         "operationId": "OnboardingAnswersController_submit",
@@ -918,6 +992,127 @@
         },
         "tags": [
           "ActivityImports"
+        ]
+      }
+    },
+    "/v1/activities/{id}/media/upload-urls": {
+      "post": {
+        "operationId": "ActivityMediaController_requestUploadUrls",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaUploadUrlsRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaUploadUrlsResponseDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "ActivityMedia"
+        ]
+      }
+    },
+    "/v1/activities/{id}/media": {
+      "post": {
+        "operationId": "ActivityMediaController_confirm",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmMediaRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Replayed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfirmMediaResponseDto_Output"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Confirmed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfirmMediaResponseDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "ActivityMedia"
+        ]
+      }
+    },
+    "/v1/activities/{id}/media/{mediaId}": {
+      "delete": {
+        "operationId": "ActivityMediaController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mediaId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          }
+        },
+        "tags": [
+          "ActivityMedia"
         ]
       }
     },
@@ -1769,6 +1964,57 @@
         ]
       }
     },
+    "/v1/athletes/{id}/media": {
+      "get": {
+        "operationId": "AthleteGalleryController_gallery",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minLength": 1,
+              "maxLength": 400,
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 60,
+              "default": 30,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GalleryResponseDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "AthleteGallery"
+        ]
+      }
+    },
     "/v1/me/profile": {
       "patch": {
         "operationId": "MeProfileController_update",
@@ -1847,6 +2093,9 @@
           },
           "approveFollowers": {
             "type": "boolean"
+          },
+          "avatarUrl": {
+            "type": "string"
           }
         },
         "required": [
@@ -1857,6 +2106,91 @@
           "isPremium",
           "defaultVisibility",
           "approveFollowers"
+        ],
+        "additionalProperties": false
+      },
+      "AvatarUploadUrlRequestDto": {
+        "type": "object",
+        "properties": {
+          "sizeBytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1048576
+          }
+        },
+        "required": [
+          "sizeBytes"
+        ]
+      },
+      "AvatarUploadUrlResponseDto_Output": {
+        "type": "object",
+        "properties": {
+          "avatarId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "uploadUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          }
+        },
+        "required": [
+          "avatarId",
+          "uploadUrl",
+          "expiresAt"
+        ],
+        "additionalProperties": false
+      },
+      "SetAvatarRequestDto": {
+        "type": "object",
+        "properties": {
+          "avatarId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "avatarId"
+        ]
+      },
+      "SetAvatarResponseDto_Output": {
+        "type": "object",
+        "properties": {
+          "athlete": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "displayName": {
+                "type": "string"
+              },
+              "avatarUrl": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "displayName",
+              "avatarUrl"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "athlete"
         ],
         "additionalProperties": false
       },
@@ -1982,6 +2316,64 @@
         },
         "required": [
           "items"
+        ],
+        "additionalProperties": false
+      },
+      "Media_Output": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "photo",
+              "video"
+            ]
+          },
+          "width": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "height": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "durationMs": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "url": {
+            "type": "string"
+          },
+          "posterUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "thumbUrl": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "width",
+          "height",
+          "durationMs",
+          "url",
+          "posterUrl",
+          "thumbUrl"
         ],
         "additionalProperties": false
       },
@@ -2175,6 +2567,16 @@
                 },
                 "viewerIsAuthor": {
                   "type": "boolean"
+                },
+                "media": {
+                  "maxItems": 8,
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Media_Output"
+                  }
+                },
+                "mediaFirst": {
+                  "type": "boolean"
                 }
               },
               "required": [
@@ -2190,7 +2592,9 @@
                 "author",
                 "engagement",
                 "recentKudos",
-                "viewerIsAuthor"
+                "viewerIsAuthor",
+                "media",
+                "mediaFirst"
               ],
               "additionalProperties": false
             }
@@ -2441,6 +2845,9 @@
             ]
           },
           "isManual": {
+            "type": "boolean"
+          },
+          "mediaFirst": {
             "type": "boolean"
           },
           "distanceM": {
@@ -2867,6 +3274,16 @@
           "viewerIsAuthor": {
             "type": "boolean"
           },
+          "media": {
+            "type": "array",
+            "maxItems": 8,
+            "items": {
+              "$ref": "#/components/schemas/Media_Output"
+            }
+          },
+          "mediaFirst": {
+            "type": "boolean"
+          },
           "updatedAt": {
             "type": "string",
             "format": "date-time",
@@ -2889,6 +3306,8 @@
           "author",
           "engagement",
           "viewerIsAuthor",
+          "media",
+          "mediaFirst",
           "updatedAt"
         ],
         "additionalProperties": false
@@ -2919,6 +3338,18 @@
               "followers",
               "private"
             ]
+          },
+          "mediaFirst": {
+            "type": "boolean"
+          },
+          "mediaOrder": {
+            "maxItems": 8,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
           }
         }
       },
@@ -3038,6 +3469,170 @@
           "fileName",
           "sizeBytes"
         ]
+      },
+      "MediaUploadFile": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "enum": [
+              "original.jpg",
+              "original.mp4",
+              "poster.jpg",
+              "thumb.jpg"
+            ]
+          },
+          "contentType": {
+            "type": "string",
+            "enum": [
+              "image/jpeg",
+              "video/mp4"
+            ]
+          },
+          "contentLength": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "name",
+          "contentType",
+          "contentLength"
+        ]
+      },
+      "MediaUploadUrlsRequestDto": {
+        "type": "object",
+        "properties": {
+          "mediaId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "photo",
+              "video"
+            ]
+          },
+          "files": {
+            "minItems": 1,
+            "maxItems": 3,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MediaUploadFile"
+            }
+          }
+        },
+        "required": [
+          "mediaId",
+          "kind",
+          "files"
+        ]
+      },
+      "MediaUploadUrl_Output": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "enum": [
+              "original.jpg",
+              "original.mp4",
+              "poster.jpg",
+              "thumb.jpg"
+            ]
+          },
+          "uploadUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          }
+        },
+        "required": [
+          "name",
+          "uploadUrl",
+          "expiresAt"
+        ],
+        "additionalProperties": false
+      },
+      "MediaUploadUrlsResponseDto_Output": {
+        "type": "object",
+        "properties": {
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MediaUploadUrl_Output"
+            }
+          }
+        },
+        "required": [
+          "files"
+        ],
+        "additionalProperties": false
+      },
+      "ConfirmMediaRequestDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "photo",
+              "video"
+            ]
+          },
+          "width": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "height": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "durationMs": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "position": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 7
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "width",
+          "height",
+          "position"
+        ]
+      },
+      "ConfirmMediaResponseDto_Output": {
+        "type": "object",
+        "properties": {
+          "media": {
+            "$ref": "#/components/schemas/Media_Output"
+          }
+        },
+        "required": [
+          "media"
+        ],
+        "additionalProperties": false
       },
       "ListKudosResponseDto_Output": {
         "type": "object",
@@ -4343,6 +4938,16 @@
                 },
                 "viewerIsAuthor": {
                   "type": "boolean"
+                },
+                "media": {
+                  "maxItems": 8,
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Media_Output"
+                  }
+                },
+                "mediaFirst": {
+                  "type": "boolean"
                 }
               },
               "required": [
@@ -4358,9 +4963,117 @@
                 "author",
                 "engagement",
                 "recentKudos",
-                "viewerIsAuthor"
+                "viewerIsAuthor",
+                "media",
+                "mediaFirst"
               ],
               "additionalProperties": false
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "additionalProperties": false
+      },
+      "GalleryItem_Output": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "photo",
+              "video"
+            ]
+          },
+          "width": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "height": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "durationMs": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "url": {
+            "type": "string"
+          },
+          "posterUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "thumbUrl": {
+            "type": "string"
+          },
+          "activity": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "title": {
+                "type": "string"
+              },
+              "startedAt": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              }
+            },
+            "required": [
+              "id",
+              "title",
+              "startedAt"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "width",
+          "height",
+          "durationMs",
+          "url",
+          "posterUrl",
+          "thumbUrl",
+          "activity"
+        ],
+        "additionalProperties": false
+      },
+      "GalleryResponseDto_Output": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GalleryItem_Output"
             }
           },
           "nextCursor": {

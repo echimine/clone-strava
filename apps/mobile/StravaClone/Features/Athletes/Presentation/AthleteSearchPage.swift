@@ -22,6 +22,8 @@ struct AthleteSearchPage: View {
                 prompt: AthletesMessages.searchPrompt
             )
             .autocorrectionDisabled()
+            // ADR-037 §1: an expired pre-signed Avatar URL brings fresh ones.
+            .onImageURLExpired { await store.refresh() }
             .toast(Binding(get: { store.follows.toast }, set: { store.follows.toast = $0 }))
             .accessibilityIdentifier("athleteSearch")
     }

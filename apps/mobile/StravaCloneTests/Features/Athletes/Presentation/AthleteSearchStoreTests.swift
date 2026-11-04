@@ -115,4 +115,26 @@ struct AthleteSearchStoreTests {
 
         #expect(store.isEmpty)
     }
+
+    @Test func refreshSearchesTheShownQueryAgainForFreshAvatarURLs() async {
+        let search = FakeAthleteSearchRepository()
+        search.results["léa"] = .success([.fixture("lea", "Léa Bernard")])
+        let store = makeStore(search)
+        await store.updateQuery(" léa ")?.value
+
+        await store.refresh()
+
+        #expect(search.queries == ["léa", "léa"])
+        #expect(store.results.map(\.id) == ["lea"])
+    }
+
+    @Test func refreshDoesNothingWithoutAQuery() async {
+        let search = FakeAthleteSearchRepository()
+        let store = makeStore(search)
+
+        await store.refresh()
+
+        #expect(search.queries.isEmpty)
+        #expect(store.phase == .idle)
+    }
 }

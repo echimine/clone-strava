@@ -13,6 +13,9 @@ import {
   ACTIVITIES_QUEUE_NAME,
   ACTIVITY_DELETED_EVENT,
   TRACE_SCHEMA_VERSION,
+  activityMediaKey,
+  activityMediaPrefix,
+  activityPrefix,
   activityTraceKey,
   processActivityJobId,
 } from "@repo/contracts";
@@ -28,26 +31,15 @@ import { ensureTestDatabaseMigrated, TEST_DATABASE_URL, TEST_REDIS_URL } from ".
 import { SessionGuard } from "../auth/session.guard.js";
 import { GlobalExceptionFilter } from "../common/global-exception.filter.js";
 import { FeedAssembler } from "../feed/feed-assembler.js";
+import { MediaAssembler } from "../media/media-assembler.js";
 import { AthleteIdentities } from "../identities/athlete-identities.js";
 import { ActivitiesController } from "./activities.controller.js";
 import { listenOnLoopback } from "../testing/listen-on-loopback.js";
+import { InMemoryStorage } from "../testing/in-memory-storage.js";
 
 /** In-memory bucket: S3 is the only third-party service faked here (ADR-024 §2). */
-const objects = new Map<string, Uint8Array>();
-/** When set, every `deleteObject` fails, like an unreachable bucket. */
-let bucketDown = false;
-const storage = {
-  head: async (key: string) => (objects.has(key) ? { sizeBytes: objects.get(key)!.byteLength } : undefined),
-  getObject: async (key: string) => objects.get(key),
-  deleteObject: async (key: string) => {
-    if (bucketDown) throw new Error("bucket unreachable");
-    objects.delete(key);
-  },
-  presignPut: async (key: string) => ({
-    url: `https://bucket.test/${key}?sig=${randomUUID()}`,
-    expiresAt: new Date(Date.now() + 900_000),
-  }),
-};
+const storage = new InMemoryStorage();
+const objects = storage.objects;
 
 /** A gzipped trace v2 (ADR-031 §12): 10 minutes of running, one point per minute, ~111 m apart. */
 function runTrace(): Uint8Array {
@@ -164,6 +156,7 @@ describe("DELETE /v1/activities/:id (integration)", () => {
       providers: [
         SessionGuard,
         FeedAssembler,
+        MediaAssembler,
         AthleteIdentities,
         {
           provide: AuthService,
@@ -197,7 +190,7 @@ describe("DELETE /v1/activities/:id (integration)", () => {
   }, 30_000);
 
   afterEach(() => {
-    bucketDown = false;
+    storage.failDeletes = false;
     emit.mockClear();
   });
 
@@ -219,6 +212,32 @@ describe("DELETE /v1/activities/:id (integration)", () => {
     expect(emit).toHaveBeenCalledWith(ACTIVITY_DELETED_EVENT, { activityId: id, userId: userA });
     expect((await call(`/${id}`, userA, { method: "GET" })).status).toBe(404);
     expect((await remove(id)).status).toBe(404);
+  });
+
+  it("deletes everything under the activity's folder: trace, confirmed Media and Media never confirmed", async () => {
+    const id = await processedActivity();
+    const confirmed = randomUUID();
+    const neverConfirmed = randomUUID();
+    await sql(
+      `insert into activities.activity_media (id, activity_id, s3_key, kind, width, height, position)
+       values ($1, $2, $3, 'photo', 2048, 1536, 0)`,
+      [confirmed, id, activityMediaPrefix(userA, id, confirmed)],
+    );
+    for (const key of [
+      activityMediaKey(userA, id, confirmed, "original.jpg"),
+      activityMediaKey(userA, id, confirmed, "thumb.jpg"),
+      activityMediaKey(userA, id, neverConfirmed, "original.mp4"),
+      activityMediaKey(userA, id, neverConfirmed, "poster.jpg"),
+    ]) {
+      objects.set(key, new Uint8Array([0xff, 0xd8, 0xff]));
+    }
+    // Another Activity of the same athlete: kept.
+    const other = await processedActivity();
+
+    expect((await remove(id)).status).toBe(204);
+
+    expect([...objects.keys()].filter((key) => key.startsWith(activityPrefix(userA, id)))).toEqual([]);
+    expect(objects.has(activityTraceKey(userA, other))).toBe(true);
   });
 
   it("deletes the author's pending activity (204), its trace with it", async () => {
@@ -280,7 +299,7 @@ describe("DELETE /v1/activities/:id (integration)", () => {
 
   it("still answers 204 when the bucket cannot delete the trace", async () => {
     const id = await processedActivity();
-    bucketDown = true;
+    storage.failDeletes = true;
 
     const response = await remove(id);
 

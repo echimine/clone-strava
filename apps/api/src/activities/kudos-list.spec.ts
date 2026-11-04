@@ -23,6 +23,7 @@ import { AthleteIdentities } from "../identities/athlete-identities.js";
 import { KudosAssembler } from "./kudos-assembler.js";
 import { KudosController } from "./kudos.controller.js";
 import { listenOnLoopback } from "../testing/listen-on-loopback.js";
+import { signedAvatarUrl } from "../testing/signed-urls.js";
 
 /**
  * `GET /v1/activities/:id/kudos` over real HTTP and Postgres (ADR-024 §2
@@ -106,7 +107,7 @@ describe("GET /v1/activities/:id/kudos (integration)", () => {
                 : null;
             },
             getPublicIdentities: async (userIds: string[]) =>
-              sql('select id as "userId", name, image from "user" where id = any($1)', [userIds]),
+              sql('select id as "userId", name from "user" where id = any($1)', [userIds]),
           },
         },
         { provide: APP_PIPE, useClass: ZodValidationPipe },
@@ -127,10 +128,11 @@ describe("GET /v1/activities/:id/kudos (integration)", () => {
         index === 3 ? "https://auth.test/u3.png" : null,
       ]);
     }
-    // `user_profile` names and avatar win over Better Auth's (same rule as the feed).
+    // `user_profile` names win over Better Auth's; only `avatar_key` makes an `avatarUrl`, never
+    // `user.image` (ADR-037 §2, same rule as the feed).
     await sql(
-      "insert into users.user_profile (user_id, first_name, last_name, avatar_url) values ($1, 'Camille', 'Martin', 'https://cdn.test/c.png')",
-      [givers[1]],
+      "with profile as (insert into users.user_profile (user_id, first_name, last_name, avatar_key) values ($1, 'Camille', 'Martin', $2)) update \"user\" set image = 'https://cdn.test/c.png' where id = $1",
+      [givers[1], `avatars/${givers[1]}/a.jpg`],
     );
     await sql("insert into social.follow (follower_id, followee_id, status) values ($1, $2, 'accepted')", [
       follower,
@@ -169,13 +171,13 @@ describe("GET /v1/activities/:id/kudos (integration)", () => {
     expect(page.items.map((item) => item.athlete.id)).toEqual(expectedOrder());
     expect(page.nextCursor).toBeNull();
     expect(page.items[0]).toEqual({
-      athlete: { id: givers[0], displayName: "User 3", avatarUrl: "https://auth.test/u3.png" },
+      athlete: { id: givers[0], displayName: "User 3", avatarUrl: null },
       givenAt: "2026-10-16T10:00:00.123Z",
     });
     expect(page.items[1]?.athlete).toEqual({
       id: givers[1],
       displayName: "Camille Martin",
-      avatarUrl: "https://cdn.test/c.png",
+      avatarUrl: signedAvatarUrl(`avatars/${givers[1]}/a.jpg`),
     });
   });
 

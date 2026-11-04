@@ -37,6 +37,8 @@ struct FollowListPage: View {
         .navigationTitle(store.athleteName)
         .navigationBarTitleDisplayMode(.inline)
         .task { await store.load() }
+        // ADR-037 §1: an expired pre-signed Avatar URL brings fresh ones.
+        .onImageURLExpired { await store.refresh() }
         .navigationDestination(isPresented: $showsRequests) {
             FollowRequestsView(store: store.requests)
         }
@@ -151,6 +153,8 @@ struct FollowRequestsView: View {
             .navigationTitle(AthletesMessages.followRequests)
             .navigationBarTitleDisplayMode(.inline)
             .task { await store.load() }
+            // ADR-037 §1: an expired pre-signed Avatar URL brings fresh ones.
+            .onImageURLExpired { await store.refresh() }
             .toast(Binding(get: { store.toast }, set: { store.toast = $0 }))
             .accessibilityIdentifier("followRequests")
     }

@@ -14,6 +14,7 @@ struct StravaCloneApp: App {
                 authStore: di.makeAuthStore(),
                 consentStore: di.makeMeasurementConsentStore(),
                 makeOnboardingStore: di.makeOnboardingStore,
+                makeAvatarEditor: di.makeAvatarEditor,
                 makePaywallStore: di.makePaywallStore,
                 recordingStore: di.makeRecordingStore(),
                 importStore: di.makeImportStore(),
@@ -45,6 +46,8 @@ struct StravaCloneApp: App {
             )
                 .tint(Theme.accent)
                 .environment(\.imageLoader, di.imageLoader)
+                .environment(\.videoPlayback, di.videoPlayback)
+                .environment(\.mediaUploads, di.mediaUploadQueue.board)
                 .environment(\.mapboxAccessToken, di.configuration.mapboxAccessToken)
                 .environment(di.locationPermission)
                 .environment(\.locationProvider, di.locationProvider)
@@ -65,6 +68,8 @@ struct RootView: View {
     /// "Créer un compte" on the Welcome: the Onboarding, resumed from its draft (ADR-035 §1, §5).
     /// With an action, the Onboarding that "Se connecter" opened on a new account, ended by it.
     let makeOnboardingStore: @MainActor ((@MainActor () -> Void)?) -> OnboardingStore
+    /// The photo menu of "Ajoute une photo de profil" (ADR-037 §2), one editor for the screen.
+    let makeAvatarEditor: @MainActor () -> AvatarEditor
     /// The Paywall after the sign-in that ends the Onboarding (ADR-035 §6), ended by its action;
     /// told whether that sign-in created the account.
     let makePaywallStore: @MainActor (Bool, @escaping @MainActor () -> Void) -> PaywallStore
@@ -165,6 +170,14 @@ struct RootView: View {
                     store: makeOnboardingStore { [authStore] in authStore.finishOnboarding() },
                     accountScreen: createAccountScreen
                 )
+            case .avatarPrompt(let user):
+                // ADR-037 §2: an account the email code has just created, once, then the Paywall.
+                AvatarPromptView(
+                    name: user.name,
+                    editor: makeAvatarEditor(),
+                    chosen: authStore.finishAvatarPrompt,
+                    later: authStore.deferAvatarPrompt
+                )
             case .paywall(let user):
                 // ADR-035 §6: once, then the notification priming screen or home.
                 PaywallView(
@@ -250,6 +263,7 @@ struct RootView: View {
                             SignOutWarning.message(
                                 recordingInProgress: await recordingStore.signOutWarning() != nil,
                                 unsentActivities: await syncCoordinator.unsentActivityCount(),
+                                unsentMedia: await syncCoordinator.unsentMediaCount(),
                                 pendingItineraryChanges: await itinerarySynchronizer.pendingChangeCount()
                             )
                         },

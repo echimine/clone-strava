@@ -63,6 +63,7 @@ extension AthleteProfile {
     static func fixture(
         id: String = "me",
         displayName: String = "Camille Martin",
+        avatarURL: URL? = nil,
         activityCount: Int = 42,
         streakWeeks: Int = 5,
         followerCount: Int = 12,
@@ -73,7 +74,7 @@ extension AthleteProfile {
         itineraryCount: Int? = 3
     ) -> AthleteProfile {
         AthleteProfile(
-            athlete: ActivityAuthor(id: id, displayName: displayName, avatarURL: nil),
+            athlete: ActivityAuthor(id: id, displayName: displayName, avatarURL: avatarURL),
             activityCount: activityCount,
             streakWeeks: streakWeeks,
             followerCount: followerCount,

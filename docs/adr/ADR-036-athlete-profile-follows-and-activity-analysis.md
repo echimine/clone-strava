@@ -113,7 +113,7 @@ Facts the decisions depend on (code at `bc0532b`):
 From top to bottom:
 
 1. A toolbar with "⋯" for the author (unchanged).
-2. A map about 300 pt tall, with the "Départ et arrivée masqués" label when needed. Tapping it, or its ⤢ button, opens a **full-screen map** (`fullScreenCover`) with Fermer, a button that recentres on the route, and a Distance · Allure · Temps summary (Vitesse for `speed` sports). There is no draggable sheet.
+2. *Amended by [ADR-037](ADR-037-media-avatar-and-gallery.md) §10*: this map is now the first slide (or the second, after a Media put first) of an edge-to-edge carousel of about 330 pt. A map about 300 pt tall, with the "Départ et arrivée masqués" label when needed. Tapping it, or its ⤢ button, opens a **full-screen map** (`fullScreenCover`) with Fermer, a button that recentres on the route, and a Distance · Allure · Temps summary (Vitesse for `speed` sports). There is no draggable sheet.
 3. The header: avatar and name (tappable), date, place.
 4. The title and description.
 5. The 2-column stats grid of ADR-033 §3, with the same rule.
@@ -128,7 +128,7 @@ Sections 8–10 are hidden when `analysis` is `null` or has no splits. Pace char
 ### 10. iOS structure
 
 - **Colours**: the app's colours only. `Theme.accent` (`#FC5200`, ADR-032) is used for filled buttons, small orange text, routes and charts. The mock-up's darker `#C93F00` is not adopted.
-- `Features/Profile` holds the own profile (header, Progrès · Activités · Plus), Statistiques and **Réglages**. Réglages takes over the "Compte" form (ADR-035 §8):
+- `Features/Profile` holds the own profile (header, Progrès · Activités · Plus; *amended by [ADR-037](ADR-037-media-avatar-and-gallery.md) §10*: Progrès · Activités · Galerie · Plus), Statistiques and **Réglages**. Réglages takes over the "Compte" form (ADR-035 §8):
   - Compte: Nom (opens "Modifier le profil") and Email;
   - Confidentialité: "Approuver mes abonnés", Mesure d'audience, Policy and Terms;
   - Se déconnecter, with ADR-030 §8's warning;
@@ -137,7 +137,7 @@ Sections 8–10 are hidden when `analysis` is `null` or has no splits. Pace char
 - **"Partager le profil" is not shown**, on any profile: no public web profile exists.
 - A new `Features/Athletes` holds another athlete's profile, the followers and following lists (with the "Demandes d'abonnement" row and swipe to remove a follower), the search and the follow button.
   - The follow button has three states: Suivre, Demande envoyée (tap to cancel), and Abonné ▾ (menu "Se désabonner").
-  - Another athlete's profile shows Activités · Plus (their Statistiques), with no Progrès.
+  - Another athlete's profile shows Activités · Plus (their Statistiques), with no Progrès. *Amended by [ADR-037](ADR-037-media-avatar-and-gallery.md) §10*: Activités · Galerie · Plus.
 - **Navigation**: `AthleteProfileRequest { id }` and `ActivityEngagementRequest { activityId, tab, focusComposer }` live in `Core/Domain`. Every list that shows athletes or Activities receives `openAthlete` / `openActivity` / `openEngagement` closures from the app shell (ADR-007 rule 5). Each tab's `NavigationStack` registers these destinations with one `registerAppDestinations(_:)` (`AppDestinations`, built by the shell), so a profile can be pushed from the feed, a detail, a list or another profile.
 - **New `Core` areas** (amends [ADR-007](ADR-007-mobile-architecture.md)): `Core/Domain/Athletes` (models, ports, navigation values), `Core/Athletes` (API adapters, shared paging of an athlete's Activities), `Core/DesignSystem/Athletes` (`AthleteButton`, follow counters) and `Core/DesignSystem/Navigation` (`AppDestinations`).
 - The Profile feature does not read the Auth feature's store: the shell passes the signed-in account and the sign-out.
@@ -147,12 +147,12 @@ Sections 8–10 are hidden when `analysis` is `null` or has no splits. Pace char
 
 ### 11. Out of scope
 
-- Avatar upload, the Gallery, Segments, Matériel and Challenges.
+- ~~Avatar upload, the Gallery~~ (*amended by [ADR-037](ADR-037-media-avatar-and-gallery.md)*: decided there), Segments, Matériel and Challenges.
 - Records, best efforts, results and medals; Mois sportif; the Premium insert.
 - Search and filters in the Activities lists.
 - Favourites, the "new follower" notification, blocking and reporting, contacts, QR codes and invitations, suggestions.
 - Group Activities ("avec X").
-- The device name, heart-rate zones, training load, photos, a separate Elevation section, bookmark and replay.
+- The device name, heart-rate zones, training load, ~~photos~~ (*amended by [ADR-037](ADR-037-media-avatar-and-gallery.md)*), a separate Elevation section, bookmark and replay.
 - Calories, which are still never computed.
 - A per-athlete timezone.
 - Live updates of profiles and lists.
@@ -206,4 +206,5 @@ Sections 8–10 are hidden when `analysis` is `null` or has no splits. Pace char
   - [ADR-034](ADR-034-activity-engagement-and-live-detail.md): §1 and §6, the separate Kudos and comments screen and tappable athletes.
   - [ADR-035](ADR-035-onboarding-sign-in-code-paywall.md): §8 "Confidentialité" moves to a Réglages screen.
   - [ADR-007](ADR-007-mobile-architecture.md): the new `Core` areas of §10.
+- **Amended by**: [ADR-037](ADR-037-media-avatar-and-gallery.md) (§9 the detail header carousel, §10 the Galerie tab, §11 Avatar and Gallery)
 - **Related**: [ADR-030](ADR-030-itineraries-on-ios.md), [ADR-032](ADR-032-brand-and-motion-design.md)

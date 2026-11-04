@@ -14,8 +14,10 @@ extension Di {
             activities: AthleteActivitiesStore(
                 loadActivities: LoadAthleteActivities(repository: athletes),
                 setKudos: SetAthleteActivityKudos(repository: APIAthleteKudosRepository(apiClient: apiClient)),
-                activityChanges: activityChanges
-            )
+                activityChanges: activityChanges,
+                analytics: analytics
+            ),
+            gallery: makeGalleryStore(message: AthletesMessages.message(for:))
         )
     }
 

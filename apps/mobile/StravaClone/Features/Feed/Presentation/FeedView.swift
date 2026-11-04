@@ -32,8 +32,12 @@ struct FeedView<TopContent: View>: View {
                 ) {
                     Button("OK", role: .cancel) {}
                 }
-                .registerAppDestinations(destinations)
                 .activityDeleteConfirmation($deletionCandidate) { id in deleteActivity?(id) }
+                .mediaViewer($store.mediaViewer)
+                // ADR-037 §1: an expired pre-signed Media or Avatar URL brings fresh ones, from
+                // the viewer too. Before the destinations: a pushed screen has its own.
+                .onImageURLExpired { await store.refresh() }
+                .registerAppDestinations(destinations)
         }
     }
 
@@ -90,7 +94,8 @@ struct FeedView<TopContent: View>: View {
                         ActivityCard(
                             post: post,
                             onToggleKudos: { Task { await store.toggleKudos(on: post.id) } },
-                            onComments: { store.openComments(post.id) }
+                            onComments: { store.openComments(post.id) },
+                            onTapMedia: { store.openMedia($0, of: post.id) }
                         )
                         // ADR-033 §1: a tap outside the card's buttons opens the detail (the
                         // buttons keep their own action).

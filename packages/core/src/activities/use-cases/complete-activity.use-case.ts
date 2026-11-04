@@ -41,7 +41,7 @@ export class CompleteActivityUseCase {
       return toActivityRecord(row);
     }
 
-    const head = await this.storage.head(activityTraceKey(row.userId, row.id));
+    const head = await this.storage.headObject(activityTraceKey(row.userId, row.id));
     if (!head) {
       throw new ConflictException({ code: "trace_missing", message: "The trace has not been uploaded" });
     }

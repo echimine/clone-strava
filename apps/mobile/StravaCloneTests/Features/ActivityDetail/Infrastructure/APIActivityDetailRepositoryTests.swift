@@ -87,6 +87,15 @@ struct APIActivityDetailRepositoryTests {
           "author": { "id": "0b5a5c1e-1f4e-4c55-9d6e-0d3f8f6e2a11", "displayName": "Camille Martin", "avatarUrl": null },
           "engagement": { "kudosCount": 3, "commentCount": 1, "viewerHasKudoed": true },
           "viewerIsAuthor": false,
+          "media": [
+              { "id": "3f1c2a4e-8b6d-4e2f-9a1b-5c7d8e9f0a11", "kind": "video", "width": 1280, "height": 720, "durationMs": 10500,
+                "url": "https://bucket.test/m1/original.mp4?X-Amz-Signature=a", "posterUrl": "https://bucket.test/m1/poster.jpg?X-Amz-Signature=b",
+                "thumbUrl": "https://bucket.test/m1/thumb.jpg?X-Amz-Signature=c" },
+              { "id": "3f1c2a4e-8b6d-4e2f-9a1b-5c7d8e9f0a12", "kind": "photo", "width": 2048, "height": 1536, "durationMs": null,
+                "url": "https://bucket.test/m2/original.jpg?X-Amz-Signature=d", "posterUrl": null,
+                "thumbUrl": "https://bucket.test/m2/thumb.jpg?X-Amz-Signature=e" }
+            ],
+          "mediaFirst": true,
           "updatedAt": "2026-10-03T08:00:00.000Z"
         }
         """.utf8)
@@ -128,6 +137,32 @@ struct APIActivityDetailRepositoryTests {
             splits: [ActivitySplit(distance: Distance(meters: 1_000), movingTime: .seconds(128), elevationDiff: 4.5, avgHeartRate: 140)],
             series: ActivitySeries(distanceM: [0, 1_000], speedMs: [7.6, 8.1], altitudeM: [450, 454.5], heartRateBpm: nil)
         ))
+        #expect(detail.mediaFirst)
+        #expect(detail.media == [
+            ActivityMedia(
+                id: UUID(uuidString: "3f1c2a4e-8b6d-4e2f-9a1b-5c7d8e9f0a11")!,
+                kind: .video,
+                width: 1_280,
+                height: 720,
+                duration: .milliseconds(10_500),
+                url: URL(string: "https://bucket.test/m1/original.mp4?X-Amz-Signature=a")!,
+                posterURL: URL(string: "https://bucket.test/m1/poster.jpg?X-Amz-Signature=b"),
+                thumbURL: URL(string: "https://bucket.test/m1/thumb.jpg?X-Amz-Signature=c")!
+            ),
+            ActivityMedia(
+                id: UUID(uuidString: "3f1c2a4e-8b6d-4e2f-9a1b-5c7d8e9f0a12")!,
+                kind: .photo,
+                width: 2_048,
+                height: 1_536,
+                duration: nil,
+                url: URL(string: "https://bucket.test/m2/original.jpg?X-Amz-Signature=d")!,
+                posterURL: nil,
+                thumbURL: URL(string: "https://bucket.test/m2/thumb.jpg?X-Amz-Signature=e")!
+            ),
+        ])
+        // The card handed to the feed (ADR-033 §7) carries the same Media.
+        #expect(detail.post.media == detail.media)
+        #expect(detail.post.mediaFirst)
     }
 
     /// No description, place, stats or map yet: all nil; an empty description too.
@@ -142,7 +177,7 @@ struct APIActivityDetailRepositoryTests {
               "stats": null, "map": null, "routeTrimmed": false, "analysis": { "splits": [], "series": null },
               "author": { "id": "0b5a5c1e-1f4e-4c55-9d6e-0d3f8f6e2a11", "displayName": "Camille", "avatarUrl": "https://cdn.test/a.png" },
               "engagement": { "kudosCount": 0, "commentCount": 0, "viewerHasKudoed": false },
-              "viewerIsAuthor": true, "updatedAt": "2026-10-02T13:00:00.000Z"
+              "viewerIsAuthor": true, "media": [], "mediaFirst": false, "updatedAt": "2026-10-02T13:00:00.000Z"
             }
             """.utf8))
         }
@@ -157,6 +192,8 @@ struct APIActivityDetailRepositoryTests {
         #expect(detail.source == .manual)
         #expect(!detail.routeTrimmed)
         #expect(detail.analysis == ActivityAnalysis(splits: [], series: nil))
+        #expect(detail.media.isEmpty)
+        #expect(!detail.mediaFirst)
     }
 
     @Test func mapsErrors() async {

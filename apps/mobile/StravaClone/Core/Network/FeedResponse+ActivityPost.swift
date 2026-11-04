@@ -33,7 +33,9 @@ private extension Components.Schemas.FeedResponseDto_Output.itemsPayloadPayload 
             recentKudos: recentKudos.map {
                 ActivityAuthor(id: $0.id, displayName: $0.displayName, avatarUrl: $0.avatarUrl)
             },
-            viewerIsAuthor: viewerIsAuthor
+            viewerIsAuthor: viewerIsAuthor,
+            media: media.models,
+            mediaFirst: mediaFirst
         )
     }
 }

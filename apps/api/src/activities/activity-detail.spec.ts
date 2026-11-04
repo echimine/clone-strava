@@ -20,9 +20,11 @@ import { ensureTestDatabaseMigrated, TEST_DATABASE_URL, TEST_REDIS_URL } from ".
 import { SessionGuard } from "../auth/session.guard.js";
 import { GlobalExceptionFilter } from "../common/global-exception.filter.js";
 import { FeedAssembler } from "../feed/feed-assembler.js";
+import { MediaAssembler } from "../media/media-assembler.js";
 import { AthleteIdentities } from "../identities/athlete-identities.js";
 import { ActivitiesController } from "./activities.controller.js";
 import { listenOnLoopback } from "../testing/listen-on-loopback.js";
+import { signedAvatarUrl, signedMediaUrl } from "../testing/signed-urls.js";
 
 /** A stored Activity analysis (ADR-036 §6), as the worker writes it. */
 const ANALYSIS = {
@@ -61,6 +63,10 @@ describe("GET /v1/activities/:id (integration)", () => {
     failed: randomUUID(),
     importedWithoutFile: randomUUID(),
   };
+  const media = { first: randomUUID(), video: randomUUID(), late: randomUUID(), ofPending: randomUUID() };
+  const mediaFolder = (activityId: string, mediaId: string) => `activities/${author}/${activityId}/media/${mediaId}/`;
+  const signed = (activityId: string, mediaId: string, file: string) =>
+    signedMediaUrl(mediaFolder(activityId, mediaId), file);
   const startedAt = new Date("2026-10-12T07:30:00.000Z");
   const updatedAt = new Date("2026-10-13T18:00:00.000Z");
 
@@ -131,6 +137,7 @@ describe("GET /v1/activities/:id (integration)", () => {
       providers: [
         SessionGuard,
         FeedAssembler,
+        MediaAssembler,
         AthleteIdentities,
         {
           provide: AuthService,
@@ -142,7 +149,7 @@ describe("GET /v1/activities/:id (integration)", () => {
                 : null;
             },
             getPublicIdentities: async (userIds: string[]) =>
-              sql('select id as "userId", name, image from "user" where id = any($1)', [userIds]),
+              sql('select id as "userId", name from "user" where id = any($1)', [userIds]),
           },
         },
         { provide: APP_PIPE, useClass: ZodValidationPipe },
@@ -159,8 +166,8 @@ describe("GET /v1/activities/:id (integration)", () => {
       await sql('insert into "user" (id, name, email) values ($1, $2, $3)', [id, `User ${index}`, `${id}@test.local`]);
     }
     await sql(
-      "insert into users.user_profile (user_id, first_name, last_name, avatar_url) values ($1, 'Camille', 'Martin', 'https://cdn.test/a.png')",
-      [author],
+      "with profile as (insert into users.user_profile (user_id, first_name, last_name, avatar_key) values ($1, 'Camille', 'Martin', $2)) update \"user\" set image = 'https://cdn.test/a.png' where id = $1",
+      [author, `avatars/${author}/a.jpg`],
     );
     await sql(
       "insert into social.follow (follower_id, followee_id, status) values ($1, $3, 'accepted'), ($2, $3, 'pending')",
@@ -183,6 +190,18 @@ describe("GET /v1/activities/:id (integration)", () => {
     await insertActivity(ids.pending, { status: "pending", withResults: false });
     await insertActivity(ids.processing, { status: "processing", withResults: false });
     await insertActivity(ids.failed, { status: "failed", error: "invalid_trace", withResults: false });
+    await sql("update activities.activity set media_first = true where id = $1", [ids.publicProcessed]);
+    // Inserted out of order: the read order is (position, created_at) (ADR-037 §8).
+    await sql(
+      `insert into activities.activity_media (id, activity_id, s3_key, kind, width, height, duration_ms, position, created_at)
+       values ($1, $4, $5, 'photo', 1536, 2048, null, 1, '2026-10-12T10:00:02Z'),
+              ($2, $4, $6, 'video', 1280, 720, 10500, 1, '2026-10-12T10:00:01Z'),
+              ($3, $4, $7, 'photo', 2048, 1536, null, 0, '2026-10-12T10:00:03Z'),
+              ($8, $9, $10, 'photo', 2048, 1536, null, 0, '2026-10-12T10:00:00Z')`,
+      [media.late, media.video, media.first, ids.publicProcessed, mediaFolder(ids.publicProcessed, media.late),
+        mediaFolder(ids.publicProcessed, media.video), mediaFolder(ids.publicProcessed, media.first),
+        media.ofPending, ids.pending, mediaFolder(ids.pending, media.ofPending)],
+    );
     await sql("insert into engagement.kudos (user_id, activity_id) values ($1, $3), ($2, $3)", [
       stranger,
       follower,
@@ -231,11 +250,62 @@ describe("GET /v1/activities/:id (integration)", () => {
       map: { polyline: "_p~iF~ps|U", precision: 5 },
       routeTrimmed: true,
       analysis: ANALYSIS,
-      author: { id: author, displayName: "Camille Martin", avatarUrl: "https://cdn.test/a.png" },
+      author: { id: author, displayName: "Camille Martin", avatarUrl: signedAvatarUrl(`avatars/${author}/a.jpg`) },
       engagement: { kudosCount: 2, commentCount: 1, viewerHasKudoed: true },
       viewerIsAuthor: false,
+      media: expect.any(Array),
+      mediaFirst: true,
       updatedAt: updatedAt.toISOString(),
     });
+  });
+
+  it("gives the Media of an Activity in order, each file behind a 1-hour signed URL, and mediaFirst", async () => {
+    const { status, body } = await get(ids.publicProcessed, stranger);
+    expect(status).toBe(200);
+    expect(body.mediaFirst).toBe(true);
+    expect(body.media).toEqual([
+      {
+        id: media.first,
+        kind: "photo",
+        width: 2048,
+        height: 1536,
+        durationMs: null,
+        url: signed(ids.publicProcessed, media.first, "original.jpg"),
+        posterUrl: null,
+        thumbUrl: signed(ids.publicProcessed, media.first, "thumb.jpg"),
+      },
+      {
+        id: media.video,
+        kind: "video",
+        width: 1280,
+        height: 720,
+        durationMs: 10500,
+        url: signed(ids.publicProcessed, media.video, "original.mp4"),
+        posterUrl: signed(ids.publicProcessed, media.video, "poster.jpg"),
+        thumbUrl: signed(ids.publicProcessed, media.video, "thumb.jpg"),
+      },
+      {
+        id: media.late,
+        kind: "photo",
+        width: 1536,
+        height: 2048,
+        durationMs: null,
+        url: signed(ids.publicProcessed, media.late, "original.jpg"),
+        posterUrl: null,
+        thumbUrl: signed(ids.publicProcessed, media.late, "thumb.jpg"),
+      },
+    ]);
+  });
+
+  it("gives an Activity without Media an empty list, media not first", async () => {
+    const { body } = await get(ids.followersProcessed, follower);
+    expect(body.media).toEqual([]);
+    expect(body.mediaFirst).toBe(false);
+  });
+
+  it("gives the author the Media of an Activity not processed yet", async () => {
+    const { body } = await get(ids.pending, author);
+    expect(body.media).toEqual([expect.objectContaining({ id: media.ofPending, kind: "photo" })]);
   });
 
   it.each([

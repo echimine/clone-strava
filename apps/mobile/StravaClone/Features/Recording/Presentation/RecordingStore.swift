@@ -22,6 +22,11 @@ final class RecordingStore {
     private(set) var itineraries: [CachedItineraryListing] = []
     /// "Aucun" by default, not remembered.
     private(set) var chosenItinerary: CachedItineraryListing?
+    /// "Photos et vidéos" of the finish screen (ADR-037 §6): each Media picked is exported at
+    /// once; kept through "Reprendre", released by "Supprimer", written by Save.
+    var mediaDraft = RecordingStore.emptyMediaDraft {
+        didSet { mediaDraftChanged(from: oldValue) }
+    }
 
     @ObservationIgnored private let service: RecordingService
     @ObservationIgnored private let preferences: any RecordingPreferences
@@ -29,6 +34,7 @@ final class RecordingStore {
     @ObservationIgnored private let launch: RecordingLaunch
     @ObservationIgnored private let ensureFullAccuracy: @MainActor () async -> Bool
     @ObservationIgnored private let saveRecording: SaveRecording
+    @ObservationIgnored private let mediaUploads: ActivityMediaUploads?
     @ObservationIgnored private let cachedDefaultVisibility: @MainActor () -> ActivityVisibility
     @ObservationIgnored private let autoPausePreferences: (any AutoPausePreferences)?
     @ObservationIgnored private let requestMotionAuthorization: @MainActor () async -> Bool
@@ -49,6 +55,7 @@ final class RecordingStore {
         launch: RecordingLaunch = .openedByAthlete,
         ensureFullAccuracy: @escaping @MainActor () async -> Bool,
         saveRecording: SaveRecording,
+        mediaUploads: ActivityMediaUploads? = nil,
         defaultVisibility: @escaping @MainActor () -> ActivityVisibility,
         autoPausePreferences: (any AutoPausePreferences)? = nil,
         requestMotionAuthorization: @escaping @MainActor () async -> Bool = { true }
@@ -59,6 +66,7 @@ final class RecordingStore {
         self.launch = launch
         self.ensureFullAccuracy = ensureFullAccuracy
         self.saveRecording = saveRecording
+        self.mediaUploads = mediaUploads
         cachedDefaultVisibility = defaultVisibility
         self.autoPausePreferences = autoPausePreferences
         self.requestMotionAuthorization = requestMotionAuthorization
@@ -167,19 +175,33 @@ final class RecordingStore {
         cachedDefaultVisibility()
     }
 
-    /// Save (ADR-031 §11): the local Activity is written and queued, the Record tab returns to
-    /// the pre-start screen with this sport preselected. `true` once saved.
+    /// Save (ADR-031 §11): the local Activity is written and queued, with the `media_upload`
+    /// rows of the picked Media and `mediaFirst` in the same transaction (ADR-037 §6); the Record
+    /// tab returns to the pre-start screen with this sport preselected. `true` once saved.
     func save(title: String, visibility: ActivityVisibility) async -> Bool {
         guard !isBusy, let recording = snapshot?.recording else { return false }
         isBusy = true
         defer { isBusy = false }
         errorMessage = nil
+        let draft = mediaDraft
+        let picked = draft.queued
         do {
-            try await saveRecording(title: title, visibility: visibility)
+            try await saveRecording(
+                title: title,
+                visibility: visibility,
+                mediaFirst: draft.showsMediaFirst,
+                media: mediaUploads?.uploads(picked, recording.id) ?? []
+            )
         } catch {
             errorMessage = RecordingMessages.saveFailed
             return false
         }
+        if let mediaUploads {
+            await mediaUploads.adopt(picked.map(\.media))
+            // Counting the cut videos may wait for a library copy: the tab does not.
+            Task { await mediaUploads.reportSaved(draft, entry: .recording) }
+        }
+        mediaDraft = Self.emptyMediaDraft
         preferences.rememberSavedSport(recording.sport)
         sport = recording.sport
         snapshot = nil
@@ -193,12 +215,36 @@ final class RecordingStore {
         return current == nil ? nil : RecordingMessages.signOutWarning
     }
 
-    /// After the confirmation: everything is wiped, back to the pre-start screen.
+    /// After the confirmation: everything is wiped, back to the pre-start screen. The picked
+    /// Media go with their exports.
     func delete() async {
         await perform { service in
             try await service.delete()
             return nil
         }
+        if snapshot == nil {
+            mediaDraft = Self.emptyMediaDraft
+        }
+    }
+
+    // MARK: - Media (ADR-037 §6)
+
+    /// The finish screen shows "Photos et vidéos" (the app wires the queue; not in previews).
+    var offersMedia: Bool { mediaUploads != nil }
+
+    /// Every sport is recorded with GPS, and Save needs 2 points: the strip has its map.
+    static var emptyMediaDraft: MediaDraft {
+        MediaDraft(media: [], hasMap: true, mediaFirst: false)
+    }
+
+    /// Exports start at the selection; a Media removed from the strip is released.
+    private func mediaDraftChanged(from old: MediaDraft) {
+        let before = Set(old.added.map(\.id))
+        let after = mediaDraft.added
+        let picked = after.filter { !before.contains($0.id) }
+        if !picked.isEmpty { mediaUploads?.prepare(picked) }
+        let gone = before.subtracting(after.map(\.id))
+        if !gone.isEmpty { mediaUploads?.release(Array(gone)) }
     }
 
     /// "Retirer l'Itinéraire", after the confirmation.

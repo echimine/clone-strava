@@ -6,19 +6,22 @@ import { SocialModule } from "@repo/core/social";
 import { UsersModule } from "@repo/core/users";
 import { AuthModule } from "../auth/auth.module.js";
 import { FeedAssembler } from "../feed/feed-assembler.js";
+import { MediaAssembler } from "../media/media-assembler.js";
 import { IdentitiesModule } from "../identities/identities.module.js";
+import { AthleteGalleryController } from "./athlete-gallery.controller.js";
 import { AthleteProfileAssembler } from "./athlete-profile-assembler.js";
 import { AthletesController } from "./athletes.controller.js";
 import { MeProfileController } from "./me-profile.controller.js";
 
 /**
- * An athlete's profile, their Activities and the name edit (ADR-036 §3), composed from
- * `activities`, `social`, `users`, `itineraries` and `auth`, next to the feed.
+ * An athlete's profile, their Activities and the name edit (ADR-036 §3), and their Gallery
+ * (ADR-037 §9), composed from `activities`, `social`, `users`, `itineraries` and `auth`, next to
+ * the feed.
  */
 @Module({
   imports: [AuthModule, ActivitiesModule, EngagementModule, ItinerariesModule, SocialModule, UsersModule, IdentitiesModule],
-  controllers: [AthletesController, MeProfileController],
+  controllers: [AthletesController, AthleteGalleryController, MeProfileController],
   // Profile Activities are feed items (ADR-036 §3).
-  providers: [AthleteProfileAssembler, FeedAssembler],
+  providers: [AthleteProfileAssembler, FeedAssembler, MediaAssembler],
 })
 export class AthletesModule {}

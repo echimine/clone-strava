@@ -25,6 +25,7 @@ import { ensureTestDatabaseMigrated, TEST_DATABASE_URL, TEST_REDIS_URL } from ".
 import { SessionGuard } from "../auth/session.guard.js";
 import { GlobalExceptionFilter } from "../common/global-exception.filter.js";
 import { FeedAssembler } from "../feed/feed-assembler.js";
+import { MediaAssembler } from "../media/media-assembler.js";
 import { AthleteIdentities } from "../identities/athlete-identities.js";
 import { ActivitiesController } from "./activities.controller.js";
 import { listenOnLoopback } from "../testing/listen-on-loopback.js";
@@ -86,6 +87,23 @@ describe("PATCH /v1/activities/:id (integration)", () => {
     return id;
   }
 
+  /** `count` confirmed photos of the Activity, in this order (positions 0, 1, …). */
+  async function insertMedia(activityId: string, count: number): Promise<string[]> {
+    const ids: string[] = [];
+    for (let position = 0; position < count; position += 1) {
+      const id = randomUUID();
+      await sql(
+        `insert into activities.activity_media (id, activity_id, s3_key, kind, width, height, position)
+         values ($1, $2, $3, 'photo', 2048, 1536, $4)`,
+        [id, activityId, `activities/${author}/${activityId}/media/${id}/`, position],
+      );
+      ids.push(id);
+    }
+    return ids;
+  }
+
+  const mediaIds = (detail: ActivityDetail) => detail.media.map((media) => media.id);
+
   beforeAll(async () => {
     await ensureTestDatabaseMigrated();
     bullConnection = new Redis(TEST_REDIS_URL, { maxRetriesPerRequest: null });
@@ -111,6 +129,7 @@ describe("PATCH /v1/activities/:id (integration)", () => {
       providers: [
         SessionGuard,
         FeedAssembler,
+        MediaAssembler,
         AthleteIdentities,
         {
           provide: AuthService,
@@ -122,7 +141,7 @@ describe("PATCH /v1/activities/:id (integration)", () => {
                 : null;
             },
             getPublicIdentities: async (userIds: string[]) =>
-              sql('select id as "userId", name, image from "user" where id = any($1)', [userIds]),
+              sql('select id as "userId", name from "user" where id = any($1)', [userIds]),
           },
         },
         { provide: APP_PIPE, useClass: ZodValidationPipe },
@@ -139,7 +158,7 @@ describe("PATCH /v1/activities/:id (integration)", () => {
       await sql('insert into "user" (id, name, email) values ($1, $2, $3)', [id, `User ${index}`, `${id}@test.local`]);
     }
     await sql(
-      "insert into users.user_profile (user_id, first_name, last_name, avatar_url) values ($1, 'Camille', 'Martin', 'https://cdn.test/a.png')",
+      "insert into users.user_profile (user_id, first_name, last_name) values ($1, 'Camille', 'Martin')",
       [author],
     );
   }, 30_000);
@@ -335,5 +354,129 @@ describe("PATCH /v1/activities/:id (integration)", () => {
 
     expect(status).toBe(200);
     expect(body.sportTypeCode).toBe("swim");
+  });
+
+  describe("Media order and media first (ADR-037 §8)", () => {
+    it("returns the Media in the order of mediaOrder, in the answer and on the next read", async () => {
+      const id = await insertActivity();
+      const [a, b, c] = await insertMedia(id, 3);
+
+      const { status, body } = await patch(id, author, { mediaOrder: [c, a, b] });
+
+      expect(status).toBe(200);
+      expect(mediaIds(body)).toEqual([c, a, b]);
+      const reread = (await (await fetch(`${baseUrl}/v1/activities/${id}`, {
+        headers: { "x-test-user": author },
+      })).json()) as ActivityDetail;
+      expect(mediaIds(reread)).toEqual([c, a, b]);
+    });
+
+    it("ignores unknown ids, keeps their index for a Media still being sent, and puts the left-out Media last", async () => {
+      const id = await insertActivity();
+      const [a, b, c, d] = await insertMedia(id, 4);
+      const [elsewhere] = await insertMedia(await insertActivity(), 1);
+      const stillSending = randomUUID();
+
+      const { status, body } = await patch(id, author, { mediaOrder: [stillSending, d, elsewhere, b] });
+
+      expect(status).toBe(200);
+      expect(mediaIds(body)).toEqual([d, b, a, c]);
+      // The Media being sent is confirmed later with its index as `position` (ADR-037 §8).
+      await sql(
+        `insert into activities.activity_media (id, activity_id, s3_key, kind, width, height, position)
+         values ($1, $2, $3, 'photo', 2048, 1536, 0)`,
+        [stillSending, id, `activities/${author}/${id}/media/${stillSending}/`],
+      );
+      const reread = (await (await fetch(`${baseUrl}/v1/activities/${id}`, {
+        headers: { "x-test-user": author },
+      })).json()) as ActivityDetail;
+      expect(mediaIds(reread)).toEqual([stillSending, d, b, a, c]);
+    });
+
+    it("sets and clears mediaFirst, alone or with the order in one PATCH", async () => {
+      const id = await insertActivity();
+      const [a, b] = await insertMedia(id, 2);
+
+      const first = await patch(id, author, { mediaFirst: true, mediaOrder: [b, a] });
+      expect(first.status).toBe(200);
+      expect(first.body).toMatchObject({ mediaFirst: true, title: "Sortie au lac" });
+      expect(mediaIds(first.body)).toEqual([b, a]);
+
+      const second = await patch(id, author, { mediaFirst: false });
+      expect(second.status).toBe(200);
+      expect(second.body.mediaFirst).toBe(false);
+      expect(mediaIds(second.body)).toEqual([b, a]);
+    });
+
+    it("emits mediaFirst and mediaOrder in changedFields only when they change", async () => {
+      const id = await insertActivity();
+      const [a, b] = await insertMedia(id, 2);
+      const events: ActivityUpdatedEvent[] = [];
+      const listener = (event: ActivityUpdatedEvent) => events.push(event);
+      const emitter = app.get(EventEmitter2);
+      emitter.on(ACTIVITY_UPDATED_EVENT, listener);
+      try {
+        await patch(id, author, { mediaFirst: true, mediaOrder: [b, a] });
+        await patch(id, author, { mediaFirst: true, mediaOrder: [b, a] });
+        await patch(id, author, { mediaOrder: [a] });
+      } finally {
+        emitter.off(ACTIVITY_UPDATED_EVENT, listener);
+      }
+
+      expect(events).toEqual([
+        { activityId: id, userId: author, changedFields: ["mediaFirst", "mediaOrder"] },
+        { activityId: id, userId: author, changedFields: ["mediaOrder"] },
+      ]);
+    });
+
+    it.each(["pending", "processing", "failed"])(
+      "answers 409 activity_not_editable on a %s Activity, Media fields included",
+      async (state) => {
+        const id = await insertActivity({ status: state });
+        const [a, b] = await insertMedia(id, 2);
+
+        const { status, body } = await patch(id, author, { mediaFirst: true, mediaOrder: [b, a] });
+
+        expect(status).toBe(409);
+        expect(body.error.code).toBe("activity_not_editable");
+        const detail = (await (await fetch(`${baseUrl}/v1/activities/${id}`, {
+          headers: { "x-test-user": author },
+        })).json()) as ActivityDetail;
+        expect(detail).toMatchObject({ mediaFirst: false });
+        expect(mediaIds(detail)).toEqual([a, b]);
+      },
+    );
+
+    it("accepts an empty mediaOrder and keeps the order", async () => {
+      const id = await insertActivity();
+      const ids = await insertMedia(id, 2);
+
+      const { status, body } = await patch(id, author, { mediaOrder: [] });
+
+      expect(status).toBe(200);
+      expect(mediaIds(body)).toEqual(ids);
+    });
+
+    it.each([
+      ["duplicate ids", () => {
+        const id = randomUUID();
+        return [id, randomUUID(), id];
+      }],
+      ["more than 8 ids", () => Array.from({ length: 9 }, () => randomUUID())],
+      ["an id that is not a UUID", () => ["photo-1"]],
+    ])("answers 422 validation_error for %s, and changes nothing", async (_case, mediaOrder) => {
+      const id = await insertActivity();
+      const ids = await insertMedia(id, 2);
+
+      const { status, body } = await patch(id, author, { mediaOrder: [...mediaOrder(), ids[1]], title: "Tour" });
+
+      expect(status).toBe(422);
+      expect(body.error).toMatchObject({
+        code: "validation_error",
+        details: [{ field: expect.stringMatching(/^mediaOrder/) }],
+      });
+      const [row] = await sql("select title from activities.activity where id = $1", [id]);
+      expect(row).toEqual({ title: "Sortie au lac" });
+    });
   });
 });

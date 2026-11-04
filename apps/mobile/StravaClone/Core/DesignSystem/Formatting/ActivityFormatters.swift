@@ -26,6 +26,11 @@ enum ActivityFormatters {
         }
     }
 
+    /// "12 septembre 2025 à 14:32", whatever the date: the viewer's line under "3 sur 8".
+    static func dateTime(_ date: Date, calendar: Calendar = .current) -> String {
+        "\(format(date, "d MMMM yyyy", calendar: calendar)) à \(format(date, "HH:mm", calendar: calendar))"
+    }
+
     /// "10,23 km", or "850 m" under a kilometer.
     static func distance(_ distance: Distance) -> String {
         if distance.meters < 1_000 {

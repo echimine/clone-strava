@@ -8,12 +8,14 @@ import { ActivityRepository } from "./repositories/activity.repository.js";
 import { ActivityStatsRepository } from "./repositories/activity-stats.repository.js";
 import { ActivityTrackRepository } from "./repositories/activity-track.repository.js";
 import { ActivityAnalysisRepository } from "./repositories/activity-analysis.repository.js";
+import { ActivityMediaRepository } from "./repositories/activity-media.repository.js";
 import { CreateActivityUseCase } from "./use-cases/create-activity.use-case.js";
 import { RequestUploadUrlUseCase } from "./use-cases/request-upload-url.use-case.js";
 import { CompleteActivityUseCase } from "./use-cases/complete-activity.use-case.js";
 import { ProcessActivityUseCase } from "./use-cases/process-activity.use-case.js";
 import { ReconcileStuckActivitiesUseCase } from "./use-cases/reconcile-stuck-activities.use-case.js";
 import { GetActivitiesUseCase } from "./use-cases/get-activities.use-case.js";
+import { GetActivityMediaUseCase } from "./use-cases/get-activity-media.use-case.js";
 import { ActivityImportRepository } from "./repositories/activity-import.repository.js";
 import { CreateActivityImportUseCase } from "./use-cases/create-activity-import.use-case.js";
 import { RequestImportUploadUrlUseCase } from "./use-cases/request-import-upload-url.use-case.js";
@@ -37,7 +39,14 @@ import { GetProgressUseCase } from "./use-cases/get-progress.use-case.js";
 import { GetAthleteStatsUseCase } from "./use-cases/get-athlete-stats.use-case.js";
 import { GetAthleteProfileFiguresUseCase } from "./use-cases/get-athlete-profile-figures.use-case.js";
 import { GetAthleteActivitiesPageUseCase } from "./use-cases/get-athlete-activities-page.use-case.js";
+import { GetAthleteGalleryPageUseCase } from "./use-cases/get-athlete-gallery-page.use-case.js";
 import { FeedPageBuilder } from "./services/feed-page-builder.js";
+import { BucketReferencesRepository } from "./repositories/bucket-references.repository.js";
+import { SweepBucketUseCase } from "./use-cases/sweep-bucket.use-case.js";
+import { AuthorActivityResolver } from "./services/author-activity-resolver.js";
+import { RequestMediaUploadUrlsUseCase } from "./use-cases/request-media-upload-urls.use-case.js";
+import { ConfirmMediaUseCase } from "./use-cases/confirm-media.use-case.js";
+import { DeleteMediaUseCase } from "./use-cases/delete-media.use-case.js";
 import { ActivitiesService } from "./activities.service.js";
 
 /**
@@ -58,12 +67,14 @@ import { ActivitiesService } from "./activities.service.js";
     ActivityStatsRepository,
     ActivityTrackRepository,
     ActivityAnalysisRepository,
+    ActivityMediaRepository,
     CreateActivityUseCase,
     RequestUploadUrlUseCase,
     CompleteActivityUseCase,
     ProcessActivityUseCase,
     ReconcileStuckActivitiesUseCase,
     GetActivitiesUseCase,
+    GetActivityMediaUseCase,
     ActivityImportRepository,
     ImportRateLimiter,
     ImportJobEnqueuer,
@@ -87,7 +98,14 @@ import { ActivitiesService } from "./activities.service.js";
     GetAthleteStatsUseCase,
     GetAthleteProfileFiguresUseCase,
     GetAthleteActivitiesPageUseCase,
+    GetAthleteGalleryPageUseCase,
     FeedPageBuilder,
+    BucketReferencesRepository,
+    SweepBucketUseCase,
+    AuthorActivityResolver,
+    RequestMediaUploadUrlsUseCase,
+    ConfirmMediaUseCase,
+    DeleteMediaUseCase,
     ActivitiesService,
   ],
   exports: [ActivitiesService],

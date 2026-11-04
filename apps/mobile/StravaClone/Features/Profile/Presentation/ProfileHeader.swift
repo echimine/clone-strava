@@ -4,6 +4,9 @@ import SwiftUI
 /// Streak, the follow counters, which open my lists, and "Modifier le profil".
 struct ProfileHeader: View {
     let profile: AthleteProfile
+    /// My photo: a tap on the avatar opens its menu (ADR-037 §2).
+    let avatar: AvatarEditor
+    let onAvatar: () -> Void
     var onFollows: ((AthleteFollowsRequest.Kind) -> Void)?
     let onEdit: () -> Void
 
@@ -12,7 +15,9 @@ struct ProfileHeader: View {
             ProfileIdentity(
                 athlete: profile.athlete,
                 activityCount: ProfileMessages.activityCount(profile.activityCount),
-                nameIdentifier: "profile.name"
+                nameIdentifier: "profile.name",
+                avatarEditor: avatar,
+                onAvatarTap: onAvatar
             )
             StreakLabel(weeks: profile.streakWeeks)
             FollowCounters(
@@ -46,6 +51,8 @@ struct ProfileHeader: View {
             pendingFollowRequestCount: 0,
             itineraryCount: 3
         ),
+        avatar: .preview,
+        onAvatar: {},
         onEdit: {}
     )
     .padding()

@@ -6,10 +6,16 @@ import SwiftUI
 struct ActivityManageButtons: View {
     let onEdit: () -> Void
     let onDelete: () -> Void
+    /// "Ajouter des photos ou vidéos" (ADR-037 §10), in the detail's "⋯": opens the edit sheet.
+    var onAddMedia: (() -> Void)?
 
     var body: some View {
         Button("Modifier", systemImage: "pencil", action: onEdit)
             .accessibilityIdentifier("activity.edit")
+        if let onAddMedia {
+            Button(MediaUploadMessages.addMedia, systemImage: "photo.badge.plus", action: onAddMedia)
+                .accessibilityIdentifier("activity.addMedia")
+        }
         Button("Supprimer", systemImage: "trash", role: .destructive, action: onDelete)
             .accessibilityIdentifier("activity.delete")
     }

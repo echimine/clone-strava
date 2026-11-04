@@ -29,20 +29,15 @@ import { ensureTestDatabaseMigrated, TEST_DATABASE_URL, TEST_REDIS_URL } from ".
 import { SessionGuard } from "../auth/session.guard.js";
 import { GlobalExceptionFilter } from "../common/global-exception.filter.js";
 import { FeedAssembler } from "../feed/feed-assembler.js";
+import { MediaAssembler } from "../media/media-assembler.js";
 import { AthleteIdentities } from "../identities/athlete-identities.js";
 import { ActivitiesController } from "./activities.controller.js";
 import { listenOnLoopback } from "../testing/listen-on-loopback.js";
+import { InMemoryStorage } from "../testing/in-memory-storage.js";
 
 /** In-memory bucket: S3 is the only third-party service faked here (ADR-024 §2). */
-const objects = new Map<string, Uint8Array>();
-const storage = {
-  head: async (key: string) => (objects.has(key) ? { sizeBytes: objects.get(key)!.byteLength } : undefined),
-  getObject: async (key: string) => objects.get(key),
-  presignPut: async (key: string) => ({
-    url: `https://bucket.test/${key}?sig=${randomUUID()}`,
-    expiresAt: new Date(Date.now() + 900_000),
-  }),
-};
+const storage = new InMemoryStorage();
+const objects = storage.objects;
 
 /** A gzipped trace v2 (ADR-031 §12): 10 minutes of running, one point per minute, ~111 m apart. */
 function runTrace(points = 11): Uint8Array {
@@ -162,6 +157,7 @@ describe("/v1/activities (integration)", () => {
       providers: [
         SessionGuard,
         FeedAssembler,
+        MediaAssembler,
         AthleteIdentities,
         {
           provide: AuthService,
@@ -222,6 +218,17 @@ describe("/v1/activities (integration)", () => {
       const expiresInMs = new Date(created.upload!.expiresAt).getTime() - Date.now();
       expect(expiresInMs).toBeGreaterThan(14 * 60_000);
       expect(expiresInMs).toBeLessThanOrEqual(15 * 60_000);
+    });
+
+    it.each([
+      ["false without mediaFirst (finish screen without Media first)", {}, false],
+      ["the mediaFirst sent by the finish screen", { mediaFirst: true }, true],
+    ])("stores mediaFirst: %s (ADR-037 §6)", async (_case, overrides, expected) => {
+      const id = randomUUID();
+      expect((await call("", userA, { body: body(id, overrides) })).status).toBe(201);
+
+      const detail = (await (await call(`/${id}`, userA, { method: "GET" })).json()) as { mediaFirst: boolean };
+      expect(detail.mediaFirst).toBe(expected);
     });
 
     it("replays the same call on a pending activity (200) with a new upload URL", async () => {

@@ -51,7 +51,8 @@ export const importStatusEnum = activitiesSchema.enum("import_status", [
   "failed",
 ]);
 
-export const attachmentKindEnum = activitiesSchema.enum("attachment_kind", ["photo", "video"]);
+/** ADR-037 §12: what a Media is. */
+export const mediaKindEnum = activitiesSchema.enum("media_kind", ["photo", "video"]);
 
 export const activity = activitiesSchema.table(
   "activity",
@@ -79,6 +80,8 @@ export const activity = activitiesSchema.table(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     // ADR-033 §2, §4 (amends ADR-017): last metadata change; initialised to `created_at`.
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    // ADR-037 §8: the first Media comes before the map (no effect without a map).
+    mediaFirst: boolean("media_first").notNull().default(false),
   },
   (table) => [
     // ADR-017 "Main indexes": a user's activities, feed.
@@ -149,17 +152,38 @@ export const activityAnalysis = activitiesSchema.table("activity_analysis", {
   computedAt: timestamp("computed_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const activityAttachment = activitiesSchema.table("activity_attachment", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  activityId: uuid("activity_id")
-    .notNull()
-    .references(() => activity.id, { onDelete: "cascade" }),
-  s3Key: text("s3_key").notNull(),
-  kind: attachmentKindEnum("kind").notNull(),
-  position: integer("position").notNull().default(0),
-  takenAtPoint: geometryPoint("taken_at_point"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+/**
+ * ADR-037 §3, §12: a photo or video of an Activity. A row exists only once
+ * the Media is confirmed (ready); `s3_key` is the Media's folder
+ * `activities/{userId}/{activityId}/media/{mediaId}/`. Dimensions and
+ * duration come from the phone; `duration_ms` is null for a photo.
+ */
+export const activityMedia = activitiesSchema.table(
+  "activity_media",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    activityId: uuid("activity_id")
+      .notNull()
+      .references(() => activity.id, { onDelete: "cascade" }),
+    s3Key: text("s3_key").notNull(),
+    kind: mediaKindEnum("kind").notNull(),
+    width: integer("width").notNull(),
+    height: integer("height").notNull(),
+    durationMs: integer("duration_ms"),
+    position: integer("position").notNull().default(0),
+    // ADR-037 §14: stays unused (no photo locations on the map).
+    takenAtPoint: geometryPoint("taken_at_point"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    // ADR-037 §8: read order `(position, created_at)` within an Activity.
+    index("activity_media_activity_position_idx").on(
+      table.activityId,
+      table.position,
+      table.createdAt,
+    ),
+  ],
+);
 
 /** ADR-028 §1: import of a .gpx / .tcx / .fit file. */
 export const activityImport = activitiesSchema.table(

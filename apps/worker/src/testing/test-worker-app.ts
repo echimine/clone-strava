@@ -8,9 +8,17 @@ import { AnalyticsModule } from "@repo/core/analytics";
 import { GeocodingModule } from "@repo/core/geocoding";
 import { CoreInfrastructureModule, DATABASE, type Database } from "@repo/core/infrastructure";
 import { RealtimeBridgeModule } from "@repo/core/realtime";
-import { StorageModule, StorageService } from "@repo/core/storage";
+import {
+  ObjectTooLargeError,
+  StorageModule,
+  StorageService,
+  type ListedObject,
+  type PresignedUrl,
+} from "@repo/core/storage";
 import { runMigrations } from "@repo/db/migrate";
 import { ActivitiesProcessorModule } from "../processors/activities/activities.module.js";
+import { AvatarsProcessorModule } from "../processors/avatars/avatars.module.js";
+import { BucketSweepProcessorModule } from "../processors/bucket-sweep/bucket-sweep.module.js";
 
 /** Local-dev/test infrastructure (`docker-compose.dev.yml`, ADR-024 §3). */
 /** Overridable so parallel worktrees can each use their own database. */
@@ -20,33 +28,95 @@ export const TEST_REDIS_URL = "redis://127.0.0.1:6379";
 
 /**
  * In-memory stand-in for the bucket: S3 is a third-party network service,
- * the only thing ADR-024 §2 allows to fake in an integration test.
+ * the only thing ADR-024 §2 allows to fake in an integration test. Same
+ * behaviour as the API's double (`apps/api/src/testing/in-memory-storage.ts`):
+ * `lastModified` backdates an object (default: now), `failDeletes` makes
+ * every delete throw.
  */
-export class InMemoryStorage
-  implements Pick<StorageService, "head" | "getObject" | "putObject" | "deleteObject" | "presignPut">
-{
+export class InMemoryStorage implements Pick<StorageService, keyof StorageService> {
   readonly objects = new Map<string, Uint8Array>();
+  readonly lastModified = new Map<string, Date>();
+  failDeletes = false;
 
-  async head(key: string) {
+  async presignPut(
+    key: string,
+    _contentType: string,
+    options: { contentLength?: number; expiresInSeconds?: number } = {},
+  ): Promise<PresignedUrl> {
+    const { contentLength, expiresInSeconds = 900 } = options;
+    const url = presignedUrl(key, expiresInSeconds);
+    if (contentLength !== undefined) {
+      url.searchParams.set("Content-Length", String(contentLength));
+    }
+    return { url: url.toString(), expiresAt: new Date(Date.now() + expiresInSeconds * 1000) };
+  }
+
+  async presignGet(key: string, expiresInSeconds = 900): Promise<PresignedUrl> {
+    return {
+      url: presignedUrl(key, expiresInSeconds).toString(),
+      expiresAt: new Date(Date.now() + expiresInSeconds * 1000),
+    };
+  }
+
+  async headObject(key: string): Promise<{ sizeBytes: number } | undefined> {
     const object = this.objects.get(key);
     return object ? { sizeBytes: object.byteLength } : undefined;
   }
 
-  async getObject(key: string) {
-    return this.objects.get(key);
+  async getObject(key: string, maxBytes: number): Promise<Uint8Array | undefined> {
+    const object = this.objects.get(key);
+    if (object && object.byteLength > maxBytes) {
+      throw new ObjectTooLargeError(key, maxBytes);
+    }
+    return object;
   }
 
-  async putObject(key: string, body: Uint8Array) {
+  async getObjectRange(
+    key: string,
+    range: { start: number; end: number },
+  ): Promise<Uint8Array | undefined> {
+    return this.objects.get(key)?.slice(range.start, range.end + 1);
+  }
+
+  async listKeys(prefix: string): Promise<ListedObject[]> {
+    return [...this.objects.keys()]
+      .filter((key) => key.startsWith(prefix))
+      .map((key) => ({ key, lastModified: this.lastModified.get(key) ?? new Date() }));
+  }
+
+  async deleteFolder(prefix: string, alsoKeys: readonly string[] = []): Promise<void> {
+    const listed = await this.listKeys(prefix);
+    this.deleteObjectsNow([...listed.map((object) => object.key), ...alsoKeys]);
+  }
+
+  async putObject(key: string, body: Uint8Array): Promise<void> {
     this.objects.set(key, body);
   }
 
-  async deleteObject(key: string) {
-    this.objects.delete(key);
+  async deleteObject(key: string): Promise<void> {
+    this.deleteObjectsNow([key]);
   }
 
-  async presignPut(key: string) {
-    return { url: `https://bucket.test/${key}`, expiresAt: new Date(Date.now() + 900_000) };
+  async deleteObjects(keys: readonly string[]): Promise<void> {
+    this.deleteObjectsNow(keys);
   }
+
+  private deleteObjectsNow(keys: readonly string[]): void {
+    if (this.failDeletes) {
+      throw new Error("bucket unreachable");
+    }
+    for (const key of keys) {
+      this.objects.delete(key);
+      this.lastModified.delete(key);
+    }
+  }
+}
+
+function presignedUrl(key: string, expiresInSeconds: number): URL {
+  const url = new URL(`https://bucket.test/${key}`);
+  url.searchParams.set("X-Amz-Expires", String(expiresInSeconds));
+  url.searchParams.set("X-Amz-Signature", randomUUID());
+  return url;
 }
 
 export interface TestWorkerApp {
@@ -59,7 +129,7 @@ export interface TestWorkerApp {
 }
 
 /**
- * Boots the activities processors (ADR-024 §4 `test-worker-app.ts`) on
+ * Boots the activities, bucket-sweep and avatars processors (ADR-024 §4 `test-worker-app.ts`) on
  * the real dev Postgres and Redis, with a random BullMQ prefix so the
  * queues never mix with a dev worker running on the same Redis.
  */
@@ -84,6 +154,8 @@ export async function bootstrapTestWorkerApp(): Promise<TestWorkerApp> {
       EventEmitterModule.forRoot({ wildcard: true, delimiter: "." }),
       RealtimeBridgeModule,
       ActivitiesProcessorModule,
+      BucketSweepProcessorModule,
+      AvatarsProcessorModule,
     ],
   })
     .overrideProvider(StorageService)

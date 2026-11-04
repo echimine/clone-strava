@@ -16,15 +16,23 @@ final class ActivityEditor {
         var description: String
         var sport: SportType
         var visibility: ActivityVisibility
+        /// "Photos et vidéos" (ADR-037 §10).
+        var media: MediaDraft
+        /// The map tile of the strip.
+        let route: EncodedPolyline?
         /// Why the server turned the last save down (`422`).
         var errorMessage: String?
 
-        init(detail: ActivityDetail) {
+        /// - Parameter media: the Activity's Media in carousel order, those still being sent
+        ///   included; the detail's own by default.
+        init(detail: ActivityDetail, media: [ActivityMedia]? = nil) {
             id = detail.id
             title = detail.title
             description = detail.description ?? ""
             sport = detail.sport
             visibility = detail.visibility
+            route = detail.route
+            self.media = MediaDraft(media: media ?? detail.media, hasMap: detail.route != nil, mediaFirst: detail.mediaFirst)
         }
 
         /// "Enregistrer" is disabled while the title is blank.
@@ -36,7 +44,9 @@ final class ActivityEditor {
                 title: Self.trimmed(title),
                 description: description.isEmpty ? nil : description,
                 sport: sport,
-                visibility: visibility
+                visibility: visibility,
+                mediaOrder: media.hasChanges ? media.order : nil,
+                mediaFirst: media.hasChanges ? media.showsMediaFirst : nil
             )
         }
 
@@ -64,20 +74,28 @@ final class ActivityEditor {
     @ObservationIgnored private let loadDetail: LoadActivityDetail
     @ObservationIgnored private let updateActivity: UpdateActivity
     @ObservationIgnored private let changes: ActivityChanges
+    /// The Media queue; nil where Media cannot be added (previews).
+    @ObservationIgnored private let mediaUploads: ActivityMediaUploads?
     /// The Activity the sheet edits, as it was when the sheet opened.
     @ObservationIgnored private var original: ActivityDetail?
 
     /// - Parameter changes: where every value shown is published, for the feed's card.
-    init(loadDetail: LoadActivityDetail, updateActivity: UpdateActivity, changes: ActivityChanges) {
+    init(
+        loadDetail: LoadActivityDetail,
+        updateActivity: UpdateActivity,
+        changes: ActivityChanges,
+        mediaUploads: ActivityMediaUploads? = nil
+    ) {
         self.loadDetail = loadDetail
         self.updateActivity = updateActivity
         self.changes = changes
+        self.mediaUploads = mediaUploads
     }
 
     /// "Modifier" on the detail: the sheet opens on what it shows.
     func edit(_ detail: ActivityDetail) {
         original = detail
-        form = Form(detail: detail)
+        form = Form(detail: detail, media: mediaUploads?.board.media(of: detail.id, merging: detail.media))
     }
 
     /// "Modifier" on a feed card: the card lacks the description and the visibility, so the
@@ -94,28 +112,52 @@ final class ActivityEditor {
         form = nil
     }
 
-    /// "Enregistrer".
+    /// "Enregistrer": nothing is sent for an unchanged session. The Media changes go first
+    /// (ADR-037 §5, §8): the sheet is already closed, the picked Media show in the author's
+    /// carousel and go in the background, a removed one is deleted; then a single `PATCH`
+    /// carries the full order and `mediaFirst`.
     func save(_ submitted: Form) async {
         guard submitted.canSave, let previous = original, previous.id == submitted.id else { return }
         form = nil
         let edit = submitted.edit
+        guard edit != Form(detail: previous).edit else { return }
         show(edit.applied(to: previous))
+        var mediaDeleted = true
+        if submitted.media.hasChanges, let mediaUploads {
+            mediaDeleted = await mediaUploads.save(submitted.media, to: previous.id, entry: .edit)
+        }
         do {
             show(try await updateActivity(previous.id, with: edit))
+            if !mediaDeleted { toast = ActivityDetailMessages.mediaDeleteFailed }
         } catch .notFound {
             // Deleted or no longer visible meanwhile (ADR-033 §3): nothing to roll back to.
             onUnavailable()
             changes.publish(.deleted(previous.id))
         } catch {
-            show(previous)
+            // The Media changes already went (queued, deleted): only the server's copy comes back.
+            let rolledBack = Self.removing(submitted.media.removed, from: previous)
+            original = rolledBack
+            show(rolledBack)
             if case .invalid(let code) = error {
                 var reopened = submitted
+                reopened.media = Form(detail: rolledBack, media: mediaUploads?.board.media(of: previous.id, merging: rolledBack.media)).media
                 reopened.errorMessage = ActivityDetailMessages.editRefused(code: code)
                 form = reopened
             } else {
                 toast = ActivityDetailMessages.editFailed(error)
             }
         }
+    }
+
+    /// `detail` without the Media deleted; the map first again if the one before it went, as
+    /// the server does on `DELETE`.
+    private static func removing(_ removed: [ActivityMedia], from detail: ActivityDetail) -> ActivityDetail {
+        guard !removed.isEmpty else { return detail }
+        let ids = Set(removed.map(\.id))
+        var kept = detail
+        kept.media.removeAll { ids.contains($0.id) }
+        if let head = detail.media.first, ids.contains(head.id) { kept.mediaFirst = false }
+        return kept
     }
 
     private func show(_ detail: ActivityDetail) {

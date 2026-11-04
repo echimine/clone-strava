@@ -3,7 +3,7 @@ import { EventEmitter2 } from "@nestjs/event-emitter";
 import {
   ACTIVITY_DELETED_EVENT,
   activityImportSourceKey,
-  activityTraceKey,
+  activityPrefix,
   type ActivityDeletedEvent,
 } from "@repo/contracts";
 import { StorageService } from "../../storage/index.js";
@@ -13,8 +13,9 @@ import { GetVisibleActivityUseCase } from "./get-visible-activity.use-case.js";
 
 /**
  * `DELETE /v1/activities/:id` (ADR-031 §13, ADR-033 §6): the author deletes their activity
- * for good (ADR-017) unless the worker is processing it, then its stored files. Not visible:
- * `404`; visible but someone else's: `403`.
+ * for good (ADR-017) unless the worker is processing it, then its stored files: everything
+ * under its folder (trace, Media, Media still being sent) and the import's original file
+ * (ADR-037 §11). Not visible: `404`; visible but someone else's: `403`.
  */
 @Injectable()
 export class DeleteActivityUseCase {
@@ -41,7 +42,7 @@ export class DeleteActivityUseCase {
       });
     }
     // Read before the delete, so nothing after the commit can fail the request.
-    const storedKeys = await this.storedKeys(userId, activity.id);
+    const importKey = await this.importKey(userId, activity.id);
     if (!(await this.activities.deleteUnlessProcessing(activity.id))) {
       if (await this.activities.findById(activity.id)) {
         throw new ConflictException({
@@ -56,23 +57,20 @@ export class DeleteActivityUseCase {
     // After the commit (ADR-021 §3).
     const event: ActivityDeletedEvent = { activityId: activity.id, userId };
     this.events.emit(ACTIVITY_DELETED_EVENT, event);
-    // The row is gone: files left behind are unreachable, so a failure is only logged.
-    await Promise.all(
-      storedKeys.map((key) =>
-        this.storage.deleteObject(key).catch((error: unknown) => {
-          this.logger.warn(`${key} of deleted activity ${activity.id} not removed: ${String(error)}`);
-        }),
-      ),
-    );
+    // The row is gone: files left behind are unreachable, so a failure is only logged and the
+    // daily `bucket-sweep` catches them (ADR-037 §11).
+    try {
+      await this.storage.deleteFolder(activityPrefix(userId, activity.id), importKey ? [importKey] : []);
+    } catch (error: unknown) {
+      this.logger.warn(`Files of deleted activity ${activity.id} not removed: ${String(error)}`);
+    }
   }
 
-  /** The trace and, for an imported activity, the original file (the import id is the activity id, ADR-028 §1). */
-  private async storedKeys(userId: string, activityId: string): Promise<string[]> {
-    const keys = [activityTraceKey(userId, activityId)];
+  /** The original file of an imported activity (the import id is the activity id, ADR-028 §1). */
+  private async importKey(userId: string, activityId: string): Promise<string | undefined> {
     const activityImport = await this.imports.findById(activityId);
-    if (activityImport?.userId === userId) {
-      keys.push(activityImportSourceKey(userId, activityId, activityImport.format));
-    }
-    return keys;
+    return activityImport?.userId === userId
+      ? activityImportSourceKey(userId, activityId, activityImport.format)
+      : undefined;
   }
 }

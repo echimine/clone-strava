@@ -10,7 +10,11 @@ const GOOGLE_CLIENT_ID = "test-google-client-id";
  * served in place of Google's certificates (the only faked `fetch`, every
  * other request goes through). `restore()` puts the real `fetch` back.
  */
-export function fakeGoogleIdTokens(): { idToken(email: string, sub: string): string; restore(): void } {
+export function fakeGoogleIdTokens(): {
+  /** `picture`: the account photo URL Google puts in the token, Better Auth's `user.image`. */
+  idToken(email: string, sub: string, claims?: { picture?: string }): string;
+  restore(): void;
+} {
   const { privateKey, publicKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
   const kid = randomUUID();
   const realFetch = globalThis.fetch;
@@ -21,7 +25,7 @@ export function fakeGoogleIdTokens(): { idToken(email: string, sub: string): str
   });
 
   return {
-    idToken(email, sub) {
+    idToken(email, sub, claims = {}) {
       const encode = (part: object) => Buffer.from(JSON.stringify(part)).toString("base64url");
       const now = Math.floor(Date.now() / 1000);
       const header = encode({ alg: "RS256", kid, typ: "JWT" });
@@ -32,6 +36,7 @@ export function fakeGoogleIdTokens(): { idToken(email: string, sub: string): str
         email,
         email_verified: true,
         name: "Jeanne Martin",
+        ...claims,
         iat: now,
         exp: now + 600,
       });

@@ -225,9 +225,12 @@ export class ActivityRepository {
    */
   async updateIfProcessed(
     id: string,
-    values: Partial<Pick<typeof schema.activity.$inferInsert, "title" | "description" | "sportTypeCode" | "visibility">>,
+    values: Partial<
+      Pick<typeof schema.activity.$inferInsert, "title" | "description" | "sportTypeCode" | "visibility" | "mediaFirst">
+    >,
+    executor: DbExecutor = this.db,
   ) {
-    const [row] = await this.db
+    const [row] = await executor
       .update(schema.activity)
       .set({ ...values, updatedAt: new Date() })
       .where(and(eq(schema.activity.id, id), eq(schema.activity.processingStatus, "processed")))
@@ -242,6 +245,11 @@ export class ActivityRepository {
   async findForUpdate(id: string, tx: DbExecutor) {
     const [row] = await tx.select().from(schema.activity).where(eq(schema.activity.id, id)).for("update");
     return row;
+  }
+
+  /** The map comes first again (ADR-037 §4: the first Media was deleted). */
+  async clearMediaFirst(id: string, executor: DbExecutor = this.db): Promise<void> {
+    await executor.update(schema.activity).set({ mediaFirst: false }).where(eq(schema.activity.id, id));
   }
 
   async incrementAttempts(id: string): Promise<void> {
