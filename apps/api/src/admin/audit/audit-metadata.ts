@@ -35,8 +35,8 @@ export interface AuditDraft {
   details?: Record<string, unknown>;
   /**
    * The reason to record when the body names it otherwise: a report case's closing `note`
-   * (ADR-038 §17, `report.resolve` / `report.dismiss`, optional). Declare such a route
-   * `reason: "none"`.
+   * (ADR-038 §17, `report.resolve` / `report.dismiss`, optional). Such a route is declared
+   * `reason: "optional"`; on a route declared `"none"` it is not recorded (an error is logged).
    */
   reason?: string | null;
 }

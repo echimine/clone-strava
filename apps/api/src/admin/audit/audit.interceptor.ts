@@ -65,6 +65,9 @@ export class AuditInterceptor implements NestInterceptor {
       this.logger.error(`@Audited("${metadata.action}") cannot record ${action}: another target type`);
       action = metadata.action;
     }
+    if (metadata.reason === "none" && draft.reason !== undefined) {
+      this.logger.error(`@Audited("${metadata.action}") is declared without a reason: the handler's is not recorded`);
+    }
     const targetType = AUDIT_ACTION_TARGETS[action];
     const param = metadata.targetParam === undefined ? "id" : metadata.targetParam;
     const routeValue = param === null ? undefined : request.params[param];
@@ -80,7 +83,7 @@ export class AuditInterceptor implements NestInterceptor {
         targetType,
         targetId,
         subjectUserId,
-        reason: draft.reason === undefined ? reason : draft.reason,
+        reason: draft.reason === undefined || metadata.reason === "none" ? reason : draft.reason,
         details: draft.details ?? null,
         requestId: request.id === undefined ? null : String(request.id),
       });

@@ -36,6 +36,22 @@ class AuditProbeController {
     return { paused: name, ignored: body.reason };
   }
 
+  @Post("queues/:name/resume")
+  @HttpCode(200)
+  @Audited("queue.resume", { reason: "none", targetParam: "name" })
+  resume(@Param("name") name: string, @CurrentAuditDraft() draft: AuditDraft) {
+    draft.reason = "a reason the declaration says this route never records";
+    return { resumed: name };
+  }
+
+  @Post("reports/:caseId/dismiss")
+  @HttpCode(200)
+  @Audited("report.dismiss", { reason: "optional", targetParam: "caseId" })
+  dismiss(@Param("caseId") caseId: string, @Body() body: { note?: string }, @CurrentAuditDraft() draft: AuditDraft) {
+    draft.reason = body.note ?? null;
+    return { dismissed: caseId };
+  }
+
   @Post("comments/:id/remove")
   @Audited("comment.remove", { reason: "required" })
   remove(): never {
@@ -138,6 +154,26 @@ describe("@Audited admin writes (ADR-038 §3, integration)", () => {
     expect(response.status).toBe(200);
     const [entry] = await entriesBy(admin);
     expect(entry).toMatchObject({ action: "queue.pause", target_type: "queue", target_id: "activities", reason: null });
+  });
+
+  it("never records a reason the handler gives on a route declared without one", async () => {
+    const response = await t.call("/admin/audit-probe/queues/imports/resume", admin, { method: "POST", body: {} });
+
+    expect(response.status).toBe(200);
+    const [entry] = await entriesBy(admin);
+    expect(entry).toMatchObject({ action: "queue.resume", target_id: "imports", reason: null });
+  });
+
+  it("records the reason the handler reads elsewhere in the body on a route declared with an optional one", async () => {
+    const caseId = randomUUID();
+    const response = await t.call(`/admin/audit-probe/reports/${caseId}/dismiss`, admin, {
+      method: "POST",
+      body: { note: "Pas de problème" },
+    });
+
+    expect(response.status).toBe(200);
+    const [entry] = await entriesBy(admin);
+    expect(entry).toMatchObject({ action: "report.dismiss", target_id: caseId, reason: "Pas de problème" });
   });
 
   it("records nothing when the action fails", async () => {

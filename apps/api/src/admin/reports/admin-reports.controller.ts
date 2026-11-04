@@ -70,7 +70,7 @@ export class AdminReportsController {
    */
   @Post(":caseId/resolve")
   @HttpCode(HttpStatus.OK)
-  @Audited("report.resolve", { reason: "none", targetParam: "caseId" })
+  @Audited("report.resolve", { reason: "optional", targetParam: "caseId" })
   @ZodResponse({ status: 200, type: AdminReportCaseCloseResponseDto })
   async resolve(
     @Param("caseId", ParseUUIDPipe) caseId: string,
@@ -91,7 +91,7 @@ export class AdminReportsController {
   /** « Rejeter »: `409 case_closed` when already closed. */
   @Post(":caseId/dismiss")
   @HttpCode(HttpStatus.OK)
-  @Audited("report.dismiss", { reason: "none", targetParam: "caseId" })
+  @Audited("report.dismiss", { reason: "optional", targetParam: "caseId" })
   @ZodResponse({ status: 200, type: AdminReportCaseCloseResponseDto })
   async dismiss(
     @Param("caseId", ParseUUIDPipe) caseId: string,
