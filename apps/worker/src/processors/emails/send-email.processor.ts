@@ -1,14 +1,18 @@
 import { Processor, WorkerHost } from "@nestjs/bullmq";
 import { Inject, Logger } from "@nestjs/common";
 import { UnrecoverableError, type Job } from "bullmq";
-import { EMAILS_QUEUE_NAME, SEND_EMAIL_JOB_NAME, sendEmailJobSchema } from "@repo/contracts";
+import { EMAILS_QUEUE_NAME, SEND_EMAIL_JOB_NAME, sendEmailJobSchema, type EmailTemplate } from "@repo/contracts";
 import { NotificationsService, emailWordmarkUrl, renderEmailJob } from "@repo/core/notifications";
 import { EMAILS_PROCESSOR_OPTIONS, type EmailsProcessorOptions } from "./emails.constants.js";
 
+/** E-mails to the Administrators themselves: a reply to the team's address would go nowhere useful. */
+const TEAM_TEMPLATES: ReadonlySet<EmailTemplate> = new Set<EmailTemplate>(["report-case-opened"]);
+
 /**
  * The `send-email` job (ADR-038 §4): renders its template with what the job carries and sends it
- * through `notifications`, the team's address as Reply-To. A refused send is retried under the
- * same idempotency key, so Resend never sends it twice; an invalid payload fails for good.
+ * through `notifications`, the team's address as Reply-To on e-mails to athletes. A refused send
+ * is retried under the same idempotency key, so Resend never sends it twice; an invalid payload
+ * fails for good.
  */
 @Processor(EMAILS_QUEUE_NAME, { concurrency: 5 })
 export class SendEmailProcessor extends WorkerHost {
@@ -36,12 +40,13 @@ export class SendEmailProcessor extends WorkerHost {
     }
     const email = parsed.data;
     const { subject, html } = await renderEmailJob(email, { logoUrl: this.logoUrl, contactEmail: this.contactEmail });
+    const replyTo = TEAM_TEMPLATES.has(email.template) ? null : this.contactEmail;
     const result = await this.notifications.sendEmail({
       to: email.to,
       subject,
       html,
       idempotencyKey: email.idempotencyKey,
-      ...(this.contactEmail ? { replyTo: this.contactEmail } : {}),
+      ...(replyTo ? { replyTo } : {}),
     });
     if (!result.sent) {
       throw new Error(`E-mail ${email.template} not sent: ${result.error}`);

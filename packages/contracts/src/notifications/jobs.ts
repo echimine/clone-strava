@@ -8,7 +8,7 @@ import { reportReasonSchema, reportTargetTypeSchema } from "../moderation/report
  * (`@repo/core/notifications`), run by `apps/worker`.
  */
 export const EMAILS_QUEUE_NAME = "emails";
-/** `send-email` job: renders one template and sends it, `CONTACT_EMAIL` as Reply-To. */
+/** `send-email` job: renders one template and sends it, `CONTACT_EMAIL` as Reply-To on e-mails to athletes. */
 export const SEND_EMAIL_JOB_NAME = "send-email";
 
 /**

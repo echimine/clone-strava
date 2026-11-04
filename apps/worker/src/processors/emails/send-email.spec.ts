@@ -92,6 +92,22 @@ describe("send-email (integration)", () => {
     expect(email.html).toContain(`${ADMIN_ORIGIN}/brand/nervo-wordmark-email.png`);
   });
 
+  it("sends the Administrators' new-case e-mail without Reply-To", async () => {
+    const job = {
+      template: "report-case-opened",
+      to: "admin@example.com",
+      idempotencyKey: randomUUID(),
+      userId: null,
+      data: { targetType: "comment", reason: "spam", caseUrl: `${ADMIN_ORIGIN}/reports/${randomUUID()}` },
+    } as SendEmailJob;
+
+    await app.get(EmailJobs).enqueue(job);
+    const email = await waitFor(sentWithKey(job.idempotencyKey));
+
+    expect(email.to).toBe("admin@example.com");
+    expect(email).not.toHaveProperty("replyTo");
+  });
+
   it("enqueues one job per idempotency key", async () => {
     const job = banEmail();
     const emails = app.get(EmailJobs);
