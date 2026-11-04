@@ -1,7 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { and, count, desc, eq, inArray, isNull, lt, or } from "drizzle-orm";
 import { schema, type Database } from "@repo/db";
-import { DATABASE } from "../../infrastructure/index.js";
+import { DATABASE, NO_EXCLUSIONS, notInIds, type ViewerExclusions } from "../../infrastructure/index.js";
 import type { CommentCursor } from "../domain/comment-cursor.js";
 import type { CommentRecord } from "../domain/comment-record.js";
 
@@ -30,9 +30,15 @@ export class CommentRepository {
 
   /**
    * Non-deleted comments of an activity, newest first, strictly older than
-   * `before` when given (keyset on `created_at desc, id desc`).
+   * `before` when given (keyset on `created_at desc, id desc`), without the
+   * hidden authors and reported comments of `exclusions` (ADR-038 §7).
    */
-  findPage(activityId: string, before: CommentCursor | undefined, limit: number): Promise<CommentRecord[]> {
+  findPage(
+    activityId: string,
+    before: CommentCursor | undefined,
+    limit: number,
+    exclusions: ViewerExclusions = NO_EXCLUSIONS,
+  ): Promise<CommentRecord[]> {
     const older = before
       ? or(
           lt(schema.comment.createdAt, before.createdAt),
@@ -42,7 +48,15 @@ export class CommentRepository {
     return this.db
       .select()
       .from(schema.comment)
-      .where(and(eq(schema.comment.activityId, activityId), isNull(schema.comment.deletedAt), older))
+      .where(
+        and(
+          eq(schema.comment.activityId, activityId),
+          isNull(schema.comment.deletedAt),
+          notInIds(schema.comment.userId, exclusions.hiddenAthleteIds),
+          notInIds(schema.comment.id, exclusions.reportedCommentIds),
+          older,
+        ),
+      )
       .orderBy(desc(schema.comment.createdAt), desc(schema.comment.id))
       .limit(limit);
   }

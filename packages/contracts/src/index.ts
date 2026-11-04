@@ -6,6 +6,7 @@ export * from "./common/index.js";
 export * from "./config/index.js";
 export * from "./engagement/index.js";
 export * from "./itineraries/index.js";
+export * from "./moderation/index.js";
 export * from "./notifications/index.js";
 export * from "./realtime/index.js";
 export * from "./segments/index.js";

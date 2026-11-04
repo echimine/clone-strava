@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import type { AthleteProfileResponse } from "@repo/contracts";
 import { ActivitiesService } from "@repo/core/activities";
+import type { ViewerExclusions } from "@repo/core/infrastructure";
 import { ItinerariesService } from "@repo/core/itineraries";
 import { SocialService } from "@repo/core/social";
 import { UsersService } from "@repo/core/users";
@@ -25,14 +26,14 @@ export class AthleteProfileAssembler {
     private readonly itineraries: ItinerariesService,
   ) {}
 
-  /** The caller checks that the athlete exists. */
-  async assemble(viewerId: string, athleteId: string): Promise<AthleteProfileResponse> {
+  /** The caller checks that the athlete exists and is not hidden from the viewer. */
+  async assemble(viewerId: string, athleteId: string, exclusions: ViewerExclusions): Promise<AthleteProfileResponse> {
     const [figures, practiced, counts, statuses, knownIds, own] = await Promise.all([
       this.activities.getAthleteProfileFigures(viewerId, athleteId),
       this.users.getPracticedSports(athleteId),
       this.social.getFollowCounts([athleteId]),
       this.social.getFollowStatuses(viewerId, [athleteId]),
-      this.social.getFollowersYouKnow(viewerId, athleteId, FOLLOWERS_YOU_KNOW),
+      this.social.getFollowersYouKnow(viewerId, athleteId, FOLLOWERS_YOU_KNOW, exclusions),
       viewerId === athleteId ? this.ownFields(athleteId) : undefined,
     ]);
     const identity = await this.identities.resolve([athleteId, ...knownIds]);

@@ -8,6 +8,7 @@ import { Redis } from "ioredis";
 import jwt from "jsonwebtoken";
 import { ZodSerializerInterceptor, ZodValidationPipe } from "nestjs-zod";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { ViewerFilterModule } from "../viewer-filter/viewer-filter.module.js";
 import { ActivitiesModule } from "@repo/core/activities";
 import { AnalyticsModule } from "@repo/core/analytics";
 import { AuthService } from "@repo/core/auth";
@@ -86,6 +87,7 @@ describe("POST /v1/realtime/grants (integration)", () => {
         }),
         GeocodingModule.forRoot({}),
         EventEmitterModule.forRoot({ wildcard: true, delimiter: "." }),
+        ViewerFilterModule,
         ActivitiesModule,
       ],
       controllers: [RealtimeGrantsController],

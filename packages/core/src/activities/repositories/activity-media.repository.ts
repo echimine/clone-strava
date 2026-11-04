@@ -2,7 +2,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import { and, asc, count, desc, eq, inArray, sql, type AnyColumn } from "drizzle-orm";
 import type { Visibility } from "@repo/contracts";
 import { schema, type Database } from "@repo/db";
-import { DATABASE, type DbExecutor } from "../../infrastructure/index.js";
+import { DATABASE, notInIds, type DbExecutor } from "../../infrastructure/index.js";
 import type { ActivityMediaRecord } from "../domain/activity-media.js";
 import type { GalleryCursor } from "../domain/gallery-cursor.js";
 import { mediaPositions } from "../domain/media-order.js";
@@ -54,9 +54,11 @@ export class ActivityMediaRepository {
     userId: string;
     visibilities: readonly Visibility[];
     after: GalleryCursor | undefined;
+    /** Activities the viewer reported (ADR-038 §9): their Media are left out. */
+    excludedActivityIds?: readonly string[];
     limit: number;
   }): Promise<GalleryRow[]> {
-    const { userId, visibilities, after, limit } = params;
+    const { userId, visibilities, after, limit, excludedActivityIds = [] } = params;
     const media = schema.activityMedia;
     const activity = schema.activity;
     const startedAtMicros = micros(activity.startedAt);
@@ -83,6 +85,7 @@ export class ActivityMediaRepository {
           eq(activity.userId, userId),
           eq(activity.processingStatus, "processed"),
           inArray(activity.visibility, [...visibilities]),
+          notInIds(activity.id, excludedActivityIds),
           following,
         ),
       )

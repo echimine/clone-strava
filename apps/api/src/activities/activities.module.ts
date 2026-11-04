@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { ActivitiesModule as CoreActivitiesModule } from "@repo/core/activities";
 import { EngagementModule } from "@repo/core/engagement";
 import { AuthModule } from "../auth/auth.module.js";
+import { ViewerFilterModule } from "../viewer-filter/viewer-filter.module.js";
 import { FeedAssembler } from "../feed/feed-assembler.js";
 import { MediaAssembler } from "../media/media-assembler.js";
 import { IdentitiesModule } from "../identities/identities.module.js";
@@ -14,7 +15,7 @@ import { KudosAssembler } from "./kudos-assembler.js";
 import { KudosController } from "./kudos.controller.js";
 
 @Module({
-  imports: [AuthModule, CoreActivitiesModule, EngagementModule, IdentitiesModule],
+  imports: [AuthModule, CoreActivitiesModule, EngagementModule, IdentitiesModule, ViewerFilterModule],
   controllers: [
     ActivitiesController,
     ActivityImportsController,

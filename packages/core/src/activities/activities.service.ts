@@ -16,6 +16,7 @@ import type {
   ReprocessActivityJob,
   UploadUrlResponse,
 } from "@repo/contracts";
+import type { ViewerExclusions } from "../infrastructure/index.js";
 import { CreateActivityUseCase, type CreateActivityResult } from "./use-cases/create-activity.use-case.js";
 import { RequestUploadUrlUseCase } from "./use-cases/request-upload-url.use-case.js";
 import { CompleteActivityUseCase } from "./use-cases/complete-activity.use-case.js";
@@ -149,46 +150,55 @@ export class ActivitiesService {
     return this.getActivityMediaUseCase.execute(activityIds);
   }
 
+  // Every read on a viewer's behalf takes the viewer filter (ADR-038 §7): hidden authors and
+  // reported activities are left out, as if they did not exist.
+
   /** Feed steps 1-2 (ADR-021 §6, ADR-029): the caller adds authors and engagement. */
-  getFeedPage(viewerId: string, query: { cursor?: string; limit: number }): Promise<FeedActivityPage> {
-    return this.getFeedPageUseCase.execute(viewerId, query);
+  getFeedPage(
+    viewerId: string,
+    query: { cursor?: string; limit: number },
+    exclusions: ViewerExclusions,
+  ): Promise<FeedActivityPage> {
+    return this.getFeedPageUseCase.execute(viewerId, query, exclusions);
   }
 
   /**
    * An athlete's processed Activities that `viewerId` may see, as a feed page (ADR-036 §3). The
-   * caller checks the athlete exists, then adds authors and engagement.
+   * caller checks the athlete exists and is not hidden, then adds authors and engagement.
    */
   getAthleteActivitiesPage(
     viewerId: string,
     athleteId: string,
     query: { cursor?: string; limit: number },
+    exclusions: ViewerExclusions,
   ): Promise<FeedActivityPage> {
-    return this.getAthleteActivitiesPageUseCase.execute(viewerId, athleteId, query);
+    return this.getAthleteActivitiesPageUseCase.execute(viewerId, athleteId, query, exclusions);
   }
 
   /**
    * The Media of an athlete's processed Activities that `viewerId` may see, as a Gallery page
-   * (ADR-037 §9). The caller checks the athlete exists and signs the files.
+   * (ADR-037 §9). The caller checks the athlete exists and is not hidden, and signs the files.
    */
   getAthleteGalleryPage(
     viewerId: string,
     athleteId: string,
     query: { cursor?: string; limit: number },
+    exclusions: ViewerExclusions,
   ): Promise<GalleryMediaPage> {
-    return this.getAthleteGalleryPageUseCase.execute(viewerId, athleteId, query);
+    return this.getAthleteGalleryPageUseCase.execute(viewerId, athleteId, query, exclusions);
   }
 
   /** The activity if `viewerId` may see it, `null` otherwise (ADR-029). */
-  getVisible(viewerId: string, activityId: string): Promise<ActivityRecord | null> {
-    return this.getVisibleActivityUseCase.execute(viewerId, activityId);
+  getVisible(viewerId: string, activityId: string, exclusions: ViewerExclusions): Promise<ActivityRecord | null> {
+    return this.getVisibleActivityUseCase.execute(viewerId, activityId, exclusions);
   }
 
   /**
    * The detail of an activity `viewerId` may see (ADR-033 §2): the author's in any state, others'
    * once processed; `404 activity_not_found` otherwise. The caller adds author and engagement.
    */
-  getDetail(viewerId: string, activityId: string): Promise<ActivityDetailRecord> {
-    return this.getActivityDetailUseCase.execute(viewerId, activityId);
+  getDetail(viewerId: string, activityId: string, exclusions: ViewerExclusions): Promise<ActivityDetailRecord> {
+    return this.getActivityDetailUseCase.execute(viewerId, activityId, exclusions);
   }
 
   /**

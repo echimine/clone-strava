@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { itineraryElevationSourceSchema } from "../itineraries/geometry.js";
+import { reportReasonSchema, reportTargetTypeSchema } from "../moderation/report.js";
 
 /**
  * Typed analytics event catalog (ADR-015 "Event naming and catalog"):
@@ -23,6 +24,8 @@ export const ANALYTICS_EVENTS = {
   /** Account and Onboarding funnel, emitted by the API (ADR-035 §8). */
   USER_SIGNED_UP: "user_signed_up",
   ONBOARDING_ANSWERS_RECEIVED: "onboarding_answers_received",
+  /** A new Report, emitted by the API after commit; nothing on "Déjà signalé" (ADR-038 §9). */
+  REPORT_SUBMITTED: "report_submitted",
 } as const;
 export type AnalyticsEventName = (typeof ANALYTICS_EVENTS)[keyof typeof ANALYTICS_EVENTS];
 
@@ -101,6 +104,13 @@ export type UserSignedUpProperties = z.infer<typeof userSignedUpPropertiesSchema
 export const onboardingAnswersReceivedPropertiesSchema = z.object({});
 export type OnboardingAnswersReceivedProperties = z.infer<typeof onboardingAnswersReceivedPropertiesSchema>;
 
+/** `report_submitted` (ADR-038 §9): the target type and reason, never the target id, the note or a text. */
+export const reportSubmittedPropertiesSchema = z.object({
+  target_type: reportTargetTypeSchema,
+  reason: reportReasonSchema,
+});
+export type ReportSubmittedProperties = z.infer<typeof reportSubmittedPropertiesSchema>;
+
 /** Payload schema for a given catalog event, keyed by its name. */
 export const analyticsEventPropertiesSchemas = {
   [ANALYTICS_EVENTS.ACTIVITY_PROCESSED]: activityProcessedPropertiesSchema,
@@ -114,6 +124,7 @@ export const analyticsEventPropertiesSchemas = {
   [ANALYTICS_EVENTS.ITINERARY_SAVE_FAILED]: itinerarySaveFailedPropertiesSchema,
   [ANALYTICS_EVENTS.USER_SIGNED_UP]: userSignedUpPropertiesSchema,
   [ANALYTICS_EVENTS.ONBOARDING_ANSWERS_RECEIVED]: onboardingAnswersReceivedPropertiesSchema,
+  [ANALYTICS_EVENTS.REPORT_SUBMITTED]: reportSubmittedPropertiesSchema,
 } as const satisfies Record<AnalyticsEventName, z.ZodType>;
 
 /**
@@ -139,6 +150,10 @@ export const APP_ANALYTICS_EVENTS = {
   MEDIA_UPLOAD_FAILED: "media_upload_failed",
   /** The profile's Galerie tab opened, on one's own profile or another athlete's. */
   GALLERY_VIEWED: "gallery_viewed",
+  /** An athlete blocked another one (ADR-038 §8), without the blocked athlete's id. */
+  ATHLETE_BLOCKED: "athlete_blocked",
+  /** "Débloquer" confirmed in Réglages > "Athlètes bloqués", without the athlete's id. */
+  ATHLETE_UNBLOCKED: "athlete_unblocked",
 } as const;
 export type AppAnalyticsEventName = (typeof APP_ANALYTICS_EVENTS)[keyof typeof APP_ANALYTICS_EVENTS];
 
@@ -201,6 +216,18 @@ export type MediaUploadFailedProperties = z.infer<typeof mediaUploadFailedProper
 export const galleryViewedPropertiesSchema = z.object({ isOwn: z.boolean() });
 export type GalleryViewedProperties = z.infer<typeof galleryViewedPropertiesSchema>;
 
+/** `athlete_blocked`: from the profile's "…" menu, or "Bloquer aussi" after a Report. */
+export const athleteBlockedPropertiesSchema = z.object({
+  source: z.enum(["profile", "report_confirmation"]),
+});
+export type AthleteBlockedProperties = z.infer<typeof athleteBlockedPropertiesSchema>;
+
+/** `athlete_unblocked`: only Réglages > "Athlètes bloqués" unblocks (a blocked profile is not found). */
+export const athleteUnblockedPropertiesSchema = z.object({
+  source: z.enum(["settings"]),
+});
+export type AthleteUnblockedProperties = z.infer<typeof athleteUnblockedPropertiesSchema>;
+
 /** Payload schema for a given app event, keyed by its name. */
 export const appAnalyticsEventPropertiesSchemas = {
   [APP_ANALYTICS_EVENTS.AVATAR_CHANGED]: avatarChangedPropertiesSchema,
@@ -212,4 +239,6 @@ export const appAnalyticsEventPropertiesSchemas = {
   [APP_ANALYTICS_EVENTS.ACTIVITY_MEDIA_SAVED]: activityMediaSavedPropertiesSchema,
   [APP_ANALYTICS_EVENTS.MEDIA_UPLOAD_FAILED]: mediaUploadFailedPropertiesSchema,
   [APP_ANALYTICS_EVENTS.GALLERY_VIEWED]: galleryViewedPropertiesSchema,
+  [APP_ANALYTICS_EVENTS.ATHLETE_BLOCKED]: athleteBlockedPropertiesSchema,
+  [APP_ANALYTICS_EVENTS.ATHLETE_UNBLOCKED]: athleteUnblockedPropertiesSchema,
 } as const satisfies Record<AppAnalyticsEventName, z.ZodType>;

@@ -1,7 +1,7 @@
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { and, desc, eq, gt, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { schema, type Database } from "@repo/db";
-import { DATABASE, type DbExecutor } from "../../infrastructure/index.js";
+import { DATABASE, notInIds, type DbExecutor, type ViewerExclusions } from "../../infrastructure/index.js";
 
 type ProcessingStatus = (typeof schema.processingStatusEnum.enumValues)[number];
 type Visibility = (typeof schema.activityVisibilityEnum.enumValues)[number];
@@ -38,15 +38,17 @@ export class ActivityRepository {
    * One feed page (ADR-029): the viewer's own processed activities plus the
    * `public`/`followers` ones of their followees, keyset-paginated on
    * `(started_at desc, id desc)`. Returns up to `limit + 1` rows so the
-   * caller knows whether a next page exists.
+   * caller knows whether a next page exists. Hidden authors and reported
+   * activities of `exclusions` are left out (ADR-038 §7).
    */
   findFeedPage(params: {
     viewerId: string;
     followeeIds: string[];
     before?: { startedAt: Date; id: string };
     limit: number;
+    exclusions: ViewerExclusions;
   }) {
-    const { viewerId, followeeIds, before, limit } = params;
+    const { viewerId, followeeIds, before, limit, exclusions } = params;
     const authors =
       followeeIds.length === 0
         ? eq(schema.activity.userId, viewerId)
@@ -64,6 +66,8 @@ export class ActivityRepository {
         and(
           authors,
           eq(schema.activity.processingStatus, "processed"),
+          notInIds(schema.activity.userId, exclusions.hiddenAthleteIds),
+          notInIds(schema.activity.id, exclusions.reportedActivityIds),
           before
             ? sql`(${schema.activity.startedAt}, ${schema.activity.id}) < (${before.startedAt.toISOString()}::timestamptz, ${before.id}::uuid)`
             : undefined,
@@ -82,8 +86,10 @@ export class ActivityRepository {
     visibilities: readonly Visibility[];
     before?: { startedAt: Date; id: string };
     limit: number;
+    /** Activities the viewer reported (ADR-038 §9). */
+    excludedActivityIds?: readonly string[];
   }) {
-    const { userId, visibilities, before, limit } = params;
+    const { userId, visibilities, before, limit, excludedActivityIds = [] } = params;
     return this.db
       .select()
       .from(schema.activity)
@@ -92,6 +98,7 @@ export class ActivityRepository {
           eq(schema.activity.userId, userId),
           eq(schema.activity.processingStatus, "processed"),
           inArray(schema.activity.visibility, [...visibilities]),
+          notInIds(schema.activity.id, excludedActivityIds),
           before
             ? sql`(${schema.activity.startedAt}, ${schema.activity.id}) < (${before.startedAt.toISOString()}::timestamptz, ${before.id}::uuid)`
             : undefined,

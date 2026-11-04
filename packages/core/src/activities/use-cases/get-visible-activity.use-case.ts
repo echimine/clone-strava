@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { isAthleteHidden, NO_EXCLUSIONS, type ViewerExclusions } from "../../infrastructure/index.js";
 import { SocialService } from "../../social/index.js";
 import { ActivityRepository } from "../repositories/activity.repository.js";
 import { toActivityRecord, type ActivityRecord } from "../domain/activity-record.js";
@@ -6,8 +7,10 @@ import { toActivityRecord, type ActivityRecord } from "../domain/activity-record
 /**
  * An activity as seen by a viewer (ADR-029, ADR-017 visibility): the owner
  * sees everything; others see processed `public` activities, and
- * `followers` ones when they follow the owner. `null` otherwise, so callers
- * answer 404 without revealing that the activity exists.
+ * `followers` ones when they follow the owner. The viewer filter (ADR-038 §7)
+ * hides activities of hidden authors and those the viewer reported, even
+ * public. `null` otherwise, so callers answer 404 without revealing that the
+ * activity exists.
  */
 @Injectable()
 export class GetVisibleActivityUseCase {
@@ -16,19 +19,30 @@ export class GetVisibleActivityUseCase {
     private readonly social: SocialService,
   ) {}
 
-  async execute(viewerId: string, activityId: string): Promise<ActivityRecord | null> {
-    const row = await this.findRow(viewerId, activityId);
+  async execute(
+    viewerId: string,
+    activityId: string,
+    exclusions: ViewerExclusions = NO_EXCLUSIONS,
+  ): Promise<ActivityRecord | null> {
+    const row = await this.findRow(viewerId, activityId, exclusions);
     return row ? toActivityRecord(row) : null;
   }
 
-  /** The full `activity` row under the same rules, for this module's own use cases (ADR-033 §2). */
-  async findRow(viewerId: string, activityId: string) {
+  /**
+   * The full `activity` row under the same rules, for this module's own use cases (ADR-033 §2).
+   * Without `exclusions` (the author's own writes), nothing is filtered: the viewer filter never
+   * hides one's own activity.
+   */
+  async findRow(viewerId: string, activityId: string, exclusions: ViewerExclusions = NO_EXCLUSIONS) {
     const row = await this.activities.findById(activityId);
     if (!row) {
       return null;
     }
     if (row.userId === viewerId) {
       return row;
+    }
+    if (isAthleteHidden(exclusions, row.userId) || exclusions.reportedActivityIds.includes(row.id)) {
+      return null;
     }
     if (row.processingStatus !== "processed" || row.visibility === "private") {
       return null;

@@ -1,17 +1,20 @@
 import { Injectable } from "@nestjs/common";
-import type { PageQuery } from "../infrastructure/index.js";
+import type { PageQuery, ViewerExclusions } from "../infrastructure/index.js";
 import type { FollowListKind, FollowListPage } from "./domain/follow-list.js";
 import type { FollowCounts, FollowRelation, FollowState } from "./domain/follow-state.js";
+import { AthleteBlockRepository } from "./repositories/athlete-block.repository.js";
 import { FollowSettingsRepository } from "./repositories/follow-settings.repository.js";
 import { FollowRepository } from "./repositories/follow.repository.js";
 import { FollowStatusesReader } from "./services/follow-statuses-reader.js";
 import { AcceptFollowRequestUseCase } from "./use-cases/accept-follow-request.use-case.js";
+import { BlockAthleteUseCase } from "./use-cases/block-athlete.use-case.js";
 import { FollowAthleteUseCase } from "./use-cases/follow-athlete.use-case.js";
 import { GetFolloweeIdsUseCase } from "./use-cases/get-followee-ids.use-case.js";
 import { ListFollowRequestsUseCase } from "./use-cases/list-follow-requests.use-case.js";
 import { ListFollowsUseCase } from "./use-cases/list-follows.use-case.js";
 import { RefuseFollowRequestUseCase } from "./use-cases/refuse-follow-request.use-case.js";
 import { RemoveFollowerUseCase } from "./use-cases/remove-follower.use-case.js";
+import { UnblockAthleteUseCase } from "./use-cases/unblock-athlete.use-case.js";
 import { UnfollowAthleteUseCase } from "./use-cases/unfollow-athlete.use-case.js";
 import { UpdateFollowSettingsUseCase } from "./use-cases/update-follow-settings.use-case.js";
 
@@ -35,9 +38,15 @@ export class SocialService {
     private readonly statuses: FollowStatusesReader,
     private readonly follows: FollowRepository,
     private readonly settings: FollowSettingsRepository,
+    private readonly blockAthlete: BlockAthleteUseCase,
+    private readonly unblockAthlete: UnblockAthleteUseCase,
+    private readonly blocks: AthleteBlockRepository,
   ) {}
 
-  /** `accepted`, or `pending` when the athlete approves followers. Idempotent; self is `422 cannot_follow_self`. */
+  /**
+   * `accepted`, or `pending` when the athlete approves followers. Idempotent; self is `422
+   * cannot_follow_self`; `404 athlete_not_found` while either athlete blocks the other (ADR-038 §8).
+   */
   follow(followerId: string, followeeId: string): Promise<FollowState> {
     return this.followAthlete.execute(followerId, followeeId);
   }
@@ -47,14 +56,50 @@ export class SocialService {
     return this.unfollowAthlete.execute(followerId, followeeId);
   }
 
-  /** An athlete's accepted followers or followees, most recent first, with the viewer's relation to each. */
-  listFollows(viewerId: string, athleteId: string, kind: FollowListKind, query: PageQuery): Promise<FollowListPage> {
-    return this.listFollowsUseCase.execute(viewerId, athleteId, kind, query);
+  /**
+   * An athlete's accepted followers or followees, most recent first, with the viewer's relation
+   * to each; athletes hidden from the viewer are left out (ADR-038 §7).
+   */
+  listFollows(
+    viewerId: string,
+    athleteId: string,
+    kind: FollowListKind,
+    query: PageQuery,
+    exclusions: ViewerExclusions,
+  ): Promise<FollowListPage> {
+    return this.listFollowsUseCase.execute(viewerId, athleteId, kind, query, exclusions);
   }
 
   /** The viewer's incoming pending requests, most recent first; `since` is when each was made. */
-  listFollowRequests(userId: string, query: PageQuery): Promise<FollowListPage> {
-    return this.listFollowRequestsUseCase.execute(userId, query);
+  listFollowRequests(userId: string, query: PageQuery, exclusions: ViewerExclusions): Promise<FollowListPage> {
+    return this.listFollowRequestsUseCase.execute(userId, query, exclusions);
+  }
+
+  // --- Blocks (ADR-038 §8) ---
+
+  /**
+   * Blocks `blockedId`: deletes their follows and follow requests both ways in the same
+   * transaction. Idempotent; self is `422 cannot_block_self`. The caller checks the athlete exists.
+   */
+  block(blockerId: string, blockedId: string): Promise<void> {
+    return this.blockAthlete.execute(blockerId, blockedId);
+  }
+
+  /** Lifts `blockerId`'s own Block. Idempotent. */
+  unblock(blockerId: string, blockedId: string): Promise<void> {
+    return this.unblockAthlete.execute(blockerId, blockedId);
+  }
+
+  /** "Athlètes bloqués": those `blockerId` blocked, most recent first (never who blocked them). */
+  listBlocks(blockerId: string): Promise<{ athleteId: string; blockedAt: Date }[]> {
+    return this.blocks
+      .findBlockedBy(blockerId)
+      .then((rows) => rows.map((row) => ({ athleteId: row.athleteId, blockedAt: row.createdAt })));
+  }
+
+  /** The viewer filter's `social` source (ADR-038 §7): athletes blocked by or blocking `userId`. */
+  getBlockedEitherWay(userId: string): Promise<string[]> {
+    return this.blocks.findBlockedEitherWay(userId);
   }
 
   /** `404 follow_request_not_found` without a pending request from `followerId`. */
@@ -102,8 +147,13 @@ export class SocialService {
   }
 
   /** Up to `limit` accepted followers of `athleteId` whom the viewer follows, most recent first (ADR-036 §3). */
-  getFollowersYouKnow(viewerId: string, athleteId: string, limit: number): Promise<string[]> {
-    return this.follows.findFollowersFollowedBy(athleteId, viewerId, limit);
+  getFollowersYouKnow(
+    viewerId: string,
+    athleteId: string,
+    limit: number,
+    exclusions: ViewerExclusions,
+  ): Promise<string[]> {
+    return this.follows.findFollowersFollowedBy(athleteId, viewerId, limit, exclusions.hiddenAthleteIds);
   }
 
   /** The athlete's incoming pending follow requests. */

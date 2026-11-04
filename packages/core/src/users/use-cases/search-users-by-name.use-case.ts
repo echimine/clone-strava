@@ -1,4 +1,5 @@
 import { Injectable, UnprocessableEntityException } from "@nestjs/common";
+import type { ViewerExclusions } from "../../infrastructure/index.js";
 import { UserProfileRepository } from "../repositories/user-profile.repository.js";
 import {
   NAME_QUERY_MAX_LENGTH,
@@ -15,8 +16,11 @@ import {
 export class SearchUsersByNameUseCase {
   constructor(private readonly userProfiles: UserProfileRepository) {}
 
-  /** Ids of at most 20 matching users other than `excludeUserId`; `422 invalid_query` on a bad query. */
-  execute(rawQuery: string | undefined, excludeUserId: string): Promise<string[]> {
+  /**
+   * Ids of at most 20 matching users other than `excludeUserId` and the athletes hidden from them
+   * (ADR-038 §7); `422 invalid_query` on a bad query.
+   */
+  execute(rawQuery: string | undefined, excludeUserId: string, exclusions: ViewerExclusions): Promise<string[]> {
     const query = parseNameQuery(rawQuery);
     if (query === null) {
       throw new UnprocessableEntityException({
@@ -24,6 +28,6 @@ export class SearchUsersByNameUseCase {
         message: `The search must hold ${NAME_QUERY_MIN_LENGTH} to ${NAME_QUERY_MAX_LENGTH} characters`,
       });
     }
-    return this.userProfiles.searchIdsByName(query, excludeUserId, NAME_SEARCH_LIMIT);
+    return this.userProfiles.searchIdsByName(query, excludeUserId, NAME_SEARCH_LIMIT, exclusions.hiddenAthleteIds);
   }
 }

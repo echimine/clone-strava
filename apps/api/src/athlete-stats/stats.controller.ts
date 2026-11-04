@@ -12,6 +12,7 @@ import { ActivitiesService } from "@repo/core/activities";
 import { CurrentUser } from "../auth/current-user.decorator.js";
 import { AthleteIdentities } from "../identities/athlete-identities.js";
 import { SessionGuard, type AuthenticatedUser } from "../auth/session.guard.js";
+import { assertAthleteVisible, ViewerFilter } from "../viewer-filter/viewer-filter.js";
 
 class ProgressQueryDto extends createZodDto(progressQuerySchema) {}
 class ProgressResponseDto extends createZodDto(progressResponseSchema) {}
@@ -28,6 +29,7 @@ export class AthleteStatsController {
   constructor(
     private readonly activities: ActivitiesService,
     private readonly identities: AthleteIdentities,
+    private readonly viewerFilter: ViewerFilter,
   ) {}
 
   /**
@@ -53,6 +55,7 @@ export class AthleteStatsController {
     @Query() query: AthleteStatsQueryDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<AthleteStatsResponse> {
+    assertAthleteVisible(await this.viewerFilter.for(user.userId), athleteId);
     await this.identities.assertExists(athleteId);
     return this.activities.getAthleteStats(user.userId, athleteId, query.sport);
   }

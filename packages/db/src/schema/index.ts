@@ -3,6 +3,7 @@ export * from "./audit.js";
 export * from "./auth.js";
 export * from "./engagement.js";
 export * from "./itineraries.js";
+export * from "./moderation.js";
 export * from "./postgis.js";
 export * from "./segments.js";
 export * from "./social.js";

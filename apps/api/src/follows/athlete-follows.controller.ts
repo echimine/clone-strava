@@ -11,6 +11,7 @@ import { SocialService, type FollowListKind } from "@repo/core/social";
 import { CurrentUser } from "../auth/current-user.decorator.js";
 import { SessionGuard, type AuthenticatedUser } from "../auth/session.guard.js";
 import { AthleteIdentities } from "../identities/athlete-identities.js";
+import { assertAthleteVisible, ViewerFilter } from "../viewer-filter/viewer-filter.js";
 import { FollowListAssembler } from "./follow-list-assembler.js";
 
 class FollowResponseDto extends createZodDto(followResponseSchema) {}
@@ -28,15 +29,20 @@ export class AthleteFollowsController {
     private readonly social: SocialService,
     private readonly identities: AthleteIdentities,
     private readonly assembler: FollowListAssembler,
+    private readonly viewerFilter: ViewerFilter,
   ) {}
 
-  /** Follow: `accepted`, or `pending` when the athlete approves followers. Idempotent; self is `422 cannot_follow_self`. */
+  /**
+   * Follow: `accepted`, or `pending` when the athlete approves followers. Idempotent; self is `422
+   * cannot_follow_self`; an athlete hidden from the viewer (ADR-038 §7) is `404 athlete_not_found`.
+   */
   @Put("follow")
   @ZodResponse({ status: 200, type: FollowResponseDto })
   async follow(
     @Param("id", ParseUUIDPipe) athleteId: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<FollowResponse> {
+    assertAthleteVisible(await this.viewerFilter.for(user.userId), athleteId);
     await this.identities.assertExists(athleteId);
     return this.social.follow(user.userId, athleteId);
   }
@@ -80,7 +86,9 @@ export class AthleteFollowsController {
     kind: FollowListKind,
     query: ListFollowsQueryDto,
   ): Promise<FollowListResponse> {
+    const filter = await this.viewerFilter.for(viewerId);
+    assertAthleteVisible(filter, athleteId);
     await this.identities.assertExists(athleteId);
-    return this.assembler.assemble(await this.social.listFollows(viewerId, athleteId, kind, query));
+    return this.assembler.assemble(await this.social.listFollows(viewerId, athleteId, kind, query, filter));
   }
 }

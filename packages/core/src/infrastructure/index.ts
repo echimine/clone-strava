@@ -20,3 +20,9 @@ export {
   parisDayRange,
   toOffsetPage,
 } from "./admin-list.js";
+export {
+  isAthleteHidden,
+  NO_EXCLUSIONS,
+  notInIds,
+  type ViewerExclusions,
+} from "./viewer-exclusions.js";

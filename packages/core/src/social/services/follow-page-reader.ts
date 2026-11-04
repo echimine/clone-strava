@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { readKeysetPage, type PageQuery } from "../../infrastructure/index.js";
+import { readKeysetPage, type PageQuery, type ViewerExclusions } from "../../infrastructure/index.js";
 import { decodeFollowCursor, encodeFollowCursor } from "../domain/follow-cursor.js";
 import type { FollowListKind, FollowListPage } from "../domain/follow-list.js";
 import type { FollowStatus } from "../domain/follow-state.js";
@@ -24,9 +24,10 @@ export class FollowPageReader {
     side: FollowListKind,
     status: FollowStatus,
     query: PageQuery,
+    exclusions: ViewerExclusions,
   ): Promise<FollowListPage> {
     const { rows, boundary: last } = await readKeysetPage(query, decodeFollowCursor, (after, take) =>
-      this.follows.findPage(athleteId, side, status, after, take),
+      this.follows.findPage(athleteId, side, status, after, take, exclusions.hiddenAthleteIds),
     );
     const relation = await this.statuses.read(
       viewerId,

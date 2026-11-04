@@ -15,6 +15,8 @@ import { AthleteSearchModule } from "./athlete-search/athlete-search.module.js";
 import { AthleteStatsModule } from "./athlete-stats/athlete-stats.module.js";
 import { AthletesModule } from "./athletes/athletes.module.js";
 import { AuthModule } from "./auth/auth.module.js";
+import { BlocksModule } from "./blocks/blocks.module.js";
+import { ReportsModule } from "./reports/reports.module.js";
 import { FeedModule } from "./feed/feed.module.js";
 import { FollowsModule } from "./follows/follows.module.js";
 import { AppBullModule } from "./bull/bull.module.js";
@@ -76,6 +78,8 @@ const config = loadConfig();
     AthleteSearchModule,
     FeedModule,
     FollowsModule,
+    BlocksModule,
+    ReportsModule,
     ActivitiesModule,
     AthleteStatsModule,
     ItinerariesModule,

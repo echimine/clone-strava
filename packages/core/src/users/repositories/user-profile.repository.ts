@@ -1,7 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { and, eq, inArray, ne, sql } from "drizzle-orm";
 import { schema, type Database } from "@repo/db";
-import { DATABASE, type DbExecutor, type Transaction } from "../../infrastructure/index.js";
+import { DATABASE, notInIds, type DbExecutor, type Transaction } from "../../infrastructure/index.js";
 import { escapeLikePattern } from "../domain/name-search.js";
 import type { OnboardingProfileFields } from "../domain/onboarding-answers.js";
 import type { ProfileDetailsFields } from "../domain/profile-details.js";
@@ -33,7 +33,12 @@ export class UserProfileRepository {
    * case and accents (`unaccent` + `ILIKE`, ADR-036 §2). Matches at the start
    * of a word come first, then alphabetical order. Rows without names never match.
    */
-  async searchIdsByName(query: string, excludeUserId: string, limit: number): Promise<string[]> {
+  async searchIdsByName(
+    query: string,
+    excludeUserId: string,
+    limit: number,
+    hiddenUserIds: readonly string[] = [],
+  ): Promise<string[]> {
     const fullName = sql`unaccent(concat_ws(' ', ${t.firstName}, ${t.lastName}))`;
     const term = sql`unaccent(${escapeLikePattern(query)})`;
     const startsAWord = sql`(${fullName} ilike (${term} || '%')
@@ -42,7 +47,9 @@ export class UserProfileRepository {
     const rows = await this.db
       .select({ userId: t.userId })
       .from(t)
-      .where(and(ne(t.userId, excludeUserId), sql`${fullName} ilike ('%' || ${term} || '%')`))
+      .where(
+        and(ne(t.userId, excludeUserId), notInIds(t.userId, hiddenUserIds), sql`${fullName} ilike ('%' || ${term} || '%')`),
+      )
       .orderBy(sql`${startsAWord} desc`, sql`lower(${fullName})`, t.userId)
       .limit(limit);
     return rows.map((row) => row.userId);

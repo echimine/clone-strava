@@ -28,6 +28,7 @@ import {
 import { EngagementService } from "@repo/core/engagement";
 import { CurrentUser } from "../auth/current-user.decorator.js";
 import { SessionGuard, type AuthenticatedUser } from "../auth/session.guard.js";
+import { ViewerFilter } from "../viewer-filter/viewer-filter.js";
 import { CommentAssembler } from "./comment-assembler.js";
 
 class CommentDto extends createZodDto(commentSchema) {}
@@ -47,6 +48,7 @@ export class CommentsController {
   constructor(
     private readonly engagement: EngagementService,
     private readonly assembler: CommentAssembler,
+    private readonly viewerFilter: ViewerFilter,
   ) {}
 
   /** The newest page (or the one older than `before`) in chronological order. */
@@ -57,7 +59,8 @@ export class CommentsController {
     @Query() query: ListCommentsQueryDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<ListCommentsResponse> {
-    const page = await this.engagement.listComments(user.userId, activityId, query);
+    const filter = await this.viewerFilter.for(user.userId);
+    const page = await this.engagement.listComments(user.userId, activityId, query, filter);
     return { items: await this.assembler.assemble(page.items), previousCursor: page.previousCursor };
   }
 
@@ -69,7 +72,8 @@ export class CommentsController {
     @Param("commentId", ParseUUIDPipe) commentId: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<ActivityComment> {
-    return this.assembler.assembleOne(await this.engagement.getComment(user.userId, activityId, commentId));
+    const filter = await this.viewerFilter.for(user.userId);
+    return this.assembler.assembleOne(await this.engagement.getComment(user.userId, activityId, commentId, filter));
   }
 
   /**
@@ -86,7 +90,8 @@ export class CommentsController {
     @CurrentUser() user: AuthenticatedUser,
     @Res({ passthrough: true }) response: Response,
   ): Promise<ActivityComment> {
-    const result = await this.engagement.addComment(user.userId, activityId, body);
+    const filter = await this.viewerFilter.for(user.userId);
+    const result = await this.engagement.addComment(user.userId, activityId, body, filter);
     response.status(result.created ? HttpStatus.CREATED : HttpStatus.OK);
     return this.assembler.assembleOne(result.comment);
   }

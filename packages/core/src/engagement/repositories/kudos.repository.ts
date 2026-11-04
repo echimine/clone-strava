@@ -1,7 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { and, asc, count, desc, eq, inArray, lte, sql } from "drizzle-orm";
 import { schema, type Database } from "@repo/db";
-import { DATABASE } from "../../infrastructure/index.js";
+import { DATABASE, notInIds } from "../../infrastructure/index.js";
 import type { KudosCursor } from "../domain/kudos-cursor.js";
 
 /** Reads and writes on `engagement.kudos` only (ADR-021 §6). */
@@ -44,7 +44,11 @@ export class KudosRepository {
    * (ADR-036 §5), in one query: `row_number()` per activity over
    * `kudos_activity_created_at_idx`. Activities without kudos are absent.
    */
-  async findRecentGiverIds(activityIds: string[], perActivity: number): Promise<Map<string, string[]>> {
+  async findRecentGiverIds(
+    activityIds: string[],
+    perActivity: number,
+    excludedUserIds: readonly string[] = [],
+  ): Promise<Map<string, string[]>> {
     if (activityIds.length === 0 || perActivity <= 0) {
       return new Map();
     }
@@ -58,7 +62,7 @@ export class KudosRepository {
         ),
       })
       .from(schema.kudos)
-      .where(inArray(activityId, activityIds))
+      .where(and(inArray(activityId, activityIds), notInIds(userId, excludedUserIds)))
       .as("ranked");
     const rows = await this.db
       .select({ activityId: ranked.activityId, userId: ranked.userId })
@@ -83,6 +87,7 @@ export class KudosRepository {
     activityId: string,
     after: KudosCursor | undefined,
     limit: number,
+    excludedUserIds: readonly string[] = [],
   ): Promise<{ userId: string; createdAt: Date; at: string }[]> {
     const { createdAt, userId } = schema.kudos;
     const older = after
@@ -95,7 +100,7 @@ export class KudosRepository {
         at: sql<string>`to_char(${createdAt} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
       })
       .from(schema.kudos)
-      .where(and(eq(schema.kudos.activityId, activityId), older))
+      .where(and(eq(schema.kudos.activityId, activityId), notInIds(userId, excludedUserIds), older))
       .orderBy(desc(createdAt), desc(userId))
       .limit(limit);
   }

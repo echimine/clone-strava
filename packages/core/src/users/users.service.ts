@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import type { EditableProfile, OnboardingAnswersRequest, UpdateProfileRequest } from "@repo/contracts";
+import type { ViewerExclusions } from "../infrastructure/index.js";
 import { CopyGoogleAvatarUseCase, type GoogleAvatarCopy } from "./use-cases/copy-google-avatar.use-case.js";
 import { GetUserSummariesUseCase } from "./use-cases/get-user-summaries.use-case.js";
 import { RemoveAvatarUseCase } from "./use-cases/remove-avatar.use-case.js";
@@ -44,10 +45,11 @@ export class UsersService {
   /**
    * Athlete search (ADR-036 §2): ids of at most 20 users whose profile name
    * contains `query` (trimmed, 2 to 50 characters, else `422 invalid_query`),
-   * ignoring case and accents, word starts first, `excludeUserId` left out.
+   * ignoring case and accents, word starts first, `excludeUserId` and the athletes hidden from
+   * them (ADR-038 §7) left out.
    */
-  searchByName(query: string | undefined, excludeUserId: string): Promise<string[]> {
-    return this.searchUsersByName.execute(query, excludeUserId);
+  searchByName(query: string | undefined, excludeUserId: string, exclusions: ViewerExclusions): Promise<string[]> {
+    return this.searchUsersByName.execute(query, excludeUserId, exclusions);
   }
 
   /** Batch read (ADR-021 §2 rule 6), e.g. for feed authors or a profile screen. */
