@@ -2,6 +2,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import { and, desc, eq, isNull, lte, sql } from "drizzle-orm";
 import { schema, type Database } from "@repo/db";
 import { DATABASE } from "../../infrastructure/index.js";
+import { isForeignKeyViolation } from "./user-subscription.repository.js";
 
 const event = schema.revenuecatEvent;
 /** A field of the stored event, whether the payload is the webhook body (`{ event }`) or the event. */
@@ -35,16 +36,23 @@ export class RevenuecatEventRepository {
 
   /**
    * Stores a webhook event once. Returns false for a delivery already stored, or for an athlete
-   * we do not know (a deleted account: the event is ignored, ADR-038 §13).
+   * we do not know (a deleted account, refused by the `user_id` foreign key: the event is
+   * ignored, ADR-038 §13).
    */
   async record(row: { id: string; userId: string; type: string; payload: unknown }): Promise<boolean> {
-    const result = await this.db.execute<{ id: string }>(sql`
-      insert into ${event} (id, user_id, type, payload)
-      select ${row.id}, ${row.userId}, ${row.type}, ${JSON.stringify(row.payload)}::jsonb
-      where exists (select 1 from ${schema.user} where ${schema.user.id} = ${row.userId})
-      on conflict (id) do nothing
-      returning id`);
-    return result.rows.length > 0;
+    try {
+      const inserted = await this.db
+        .insert(event)
+        .values({ id: row.id, userId: row.userId, type: row.type, payload: row.payload })
+        .onConflictDoNothing({ target: event.id })
+        .returning({ id: event.id });
+      return inserted.length > 0;
+    } catch (error) {
+      if (isForeignKeyViolation(error)) {
+        return false;
+      }
+      throw error;
+    }
   }
 
   /** The athlete's events, newest first. */
