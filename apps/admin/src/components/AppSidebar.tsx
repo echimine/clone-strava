@@ -12,7 +12,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@repo/ui/components/sidebar";
-import { Activity, LayoutDashboard, MapPinned, ScrollText, Users } from "lucide-react";
+import { Activity, LayoutDashboard, ListRestart, MapPinned, ScrollText, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "@/lib/auth-client";
@@ -23,6 +23,8 @@ const navItems = [
   { href: "/activities", label: "Activités", icon: Activity },
   { href: "/users", label: "Utilisateurs", icon: Users },
   { href: "/segments", label: "Segments", icon: MapPinned },
+  // ADR-038 §14: failures to relaunch and the BullMQ queues.
+  { href: "/jobs", label: "Jobs", icon: ListRestart },
   // ADR-038 §3: every admin action, newest first.
   { href: "/journal", label: "Journal", icon: ScrollText },
 ];
