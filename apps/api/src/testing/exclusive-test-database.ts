@@ -6,11 +6,12 @@ import { createDb } from "@repo/db";
  * would otherwise move. The database is `<TEST_DATABASE_URL's>_<suffix>`, migrated by the test
  * apps as usual.
  *
- * Must run before the test apps are imported (they read `TEST_DATABASE_URL` once):
+ * Must run before the test apps are imported (they read `TEST_DATABASE_URL` once), so import them
+ * dynamically after it (a top-level `await vi.hoisted(...)` fails `tsc`: the api is CommonJS):
  *
- *     await vi.hoisted(async () => {
- *       const { useExclusiveTestDatabase } = await import("../../testing/exclusive-test-database.js");
+ *     beforeAll(async () => {
  *       await useExclusiveTestDatabase("admin_stats");
+ *       const { bootstrapAdminTestApp } = await import("../../testing/admin-test-app.js");
  *     });
  */
 export async function useExclusiveTestDatabase(suffix: string): Promise<void> {

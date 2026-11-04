@@ -2782,6 +2782,63 @@
         ]
       }
     },
+    "/v1/admin/stats/todo": {
+      "get": {
+        "operationId": "AdminStatsController_todo",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminTodoStatsDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "AdminStats"
+        ]
+      }
+    },
+    "/v1/admin/stats/growth": {
+      "get": {
+        "operationId": "AdminStatsController_growth",
+        "parameters": [
+          {
+            "name": "period",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "30d",
+              "type": "string",
+              "enum": [
+                "7d",
+                "30d",
+                "90d"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminGrowthStatsDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "AdminStats"
+        ]
+      }
+    },
     "/v1/athletes/{id}": {
       "get": {
         "operationId": "AthletesController_profile",
@@ -7085,6 +7142,418 @@
           "data",
           "activityId",
           "userId"
+        ],
+        "additionalProperties": false
+      },
+      "AdminTodoStatsDto_Output": {
+        "type": "object",
+        "properties": {
+          "openReports": {
+            "type": "object",
+            "properties": {
+              "count": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "oldestOpenedAt": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              }
+            },
+            "required": [
+              "count",
+              "oldestOpenedAt"
+            ],
+            "additionalProperties": false
+          },
+          "failedActivities": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "failedImports": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "failedJobs": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "suspiciousEfforts": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "openReports",
+          "failedActivities",
+          "failedImports",
+          "failedJobs",
+          "suspiciousEfforts"
+        ],
+        "additionalProperties": false
+      },
+      "AdminGrowthStatsDto_Output": {
+        "type": "object",
+        "properties": {
+          "period": {
+            "type": "string",
+            "enum": [
+              "7d",
+              "30d",
+              "90d"
+            ]
+          },
+          "from": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "to": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "signUps": {
+            "type": "object",
+            "properties": {
+              "value": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "previous": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "value",
+              "previous"
+            ],
+            "additionalProperties": false
+          },
+          "activeAthletes": {
+            "type": "object",
+            "properties": {
+              "value": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "previous": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "value",
+              "previous"
+            ],
+            "additionalProperties": false
+          },
+          "activities": {
+            "type": "object",
+            "properties": {
+              "total": {
+                "type": "object",
+                "properties": {
+                  "value": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "previous": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "value",
+                  "previous"
+                ],
+                "additionalProperties": false
+              },
+              "recorded": {
+                "type": "object",
+                "properties": {
+                  "value": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "previous": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "value",
+                  "previous"
+                ],
+                "additionalProperties": false
+              },
+              "imported": {
+                "type": "object",
+                "properties": {
+                  "value": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "previous": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "value",
+                  "previous"
+                ],
+                "additionalProperties": false
+              },
+              "manual": {
+                "type": "object",
+                "properties": {
+                  "value": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "previous": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "value",
+                  "previous"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "total",
+              "recorded",
+              "imported",
+              "manual"
+            ],
+            "additionalProperties": false
+          },
+          "premium": {
+            "type": "object",
+            "properties": {
+              "payingActive": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "trialsActive": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "promotionalActive": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "trialsStarted": {
+                "type": "object",
+                "properties": {
+                  "value": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "previous": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "value",
+                  "previous"
+                ],
+                "additionalProperties": false
+              },
+              "newPaying": {
+                "type": "object",
+                "properties": {
+                  "value": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "previous": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "value",
+                  "previous"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "payingActive",
+              "trialsActive",
+              "promotionalActive",
+              "trialsStarted",
+              "newPaying"
+            ],
+            "additionalProperties": false
+          },
+          "engagement": {
+            "type": "object",
+            "properties": {
+              "kudos": {
+                "type": "object",
+                "properties": {
+                  "value": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "previous": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "value",
+                  "previous"
+                ],
+                "additionalProperties": false
+              },
+              "comments": {
+                "type": "object",
+                "properties": {
+                  "value": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "previous": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "value",
+                  "previous"
+                ],
+                "additionalProperties": false
+              },
+              "follows": {
+                "type": "object",
+                "properties": {
+                  "value": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "previous": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "value",
+                  "previous"
+                ],
+                "additionalProperties": false
+              },
+              "media": {
+                "type": "object",
+                "properties": {
+                  "value": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "previous": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "value",
+                  "previous"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "kudos",
+              "comments",
+              "follows",
+              "media"
+            ],
+            "additionalProperties": false
+          },
+          "daily": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "day": {
+                  "type": "string",
+                  "format": "date",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                },
+                "signUps": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "activities": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "day",
+                "signUps",
+                "activities"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "period",
+          "from",
+          "to",
+          "signUps",
+          "activeAthletes",
+          "activities",
+          "premium",
+          "engagement",
+          "daily"
         ],
         "additionalProperties": false
       },

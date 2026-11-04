@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { getQueueToken } from "@nestjs/bullmq";
 import type { Queue } from "bullmq";
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   ACTIVITIES_QUEUE_NAME,
   IMPORTS_QUEUE_NAME,
@@ -18,21 +18,14 @@ import { SegmentsModule } from "@repo/core/segments";
 import { UsersModule } from "@repo/core/users";
 import { AthleteIdentities } from "../../identities/athlete-identities.js";
 import { MediaAssembler } from "../../media/media-assembler.js";
-import { bootstrapAdminTestApp, type AdminTestApp } from "../../testing/admin-test-app.js";
+import type { AdminTestApp } from "../../testing/admin-test-app.js";
+import { useExclusiveTestDatabase } from "../../testing/exclusive-test-database.js";
 import { AdminActivitiesController } from "../activities/admin-activities.controller.js";
 import { AdminActivityAssembler } from "../activities/admin-activity-assembler.js";
 import { AdminActivityImportsController } from "../activity-imports/admin-activity-imports.controller.js";
 import { SanctionNotices } from "../sanctions/sanction-notices.js";
 import { AdminFailureAssembler } from "./admin-failure-assembler.js";
 import { AdminFailuresController } from "./admin-failures.controller.js";
-
-// Global lists and batches over every failure: this file runs on a database of its own. Vitest
-// runs spec files as ES modules; `tsc` sees a CommonJS package and refuses the top-level await.
-// @ts-expect-error TS1309
-await vi.hoisted(async () => {
-  const { useExclusiveTestDatabase } = await import("../../testing/exclusive-test-database.js");
-  await useExclusiveTestDatabase("admin_failures");
-});
 
 /**
  * The "Échecs" tab of the Jobs screen (ADR-038 §14): failed Activities, imports and
@@ -103,6 +96,10 @@ describe("/v1/admin failures (integration)", () => {
     ((await response.json()) as { error: { code: string } }).error.code;
 
   beforeAll(async () => {
+    // Global lists and batches over every failure: this file runs on a database of its own. The
+    // test apps read `TEST_DATABASE_URL` once, when imported: point it there first, then import.
+    await useExclusiveTestDatabase("admin_failures");
+    const { bootstrapAdminTestApp } = await import("../../testing/admin-test-app.js");
     t = await bootstrapAdminTestApp({
       imports: [ActivitiesModule, EngagementModule, SegmentsModule, UsersModule],
       controllers: [AdminFailuresController, AdminActivitiesController, AdminActivityImportsController],

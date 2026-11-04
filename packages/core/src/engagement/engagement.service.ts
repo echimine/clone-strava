@@ -1,5 +1,9 @@
 import { Injectable } from "@nestjs/common";
-import type { PageQuery } from "../infrastructure/index.js";
+import type { InstantRange, PageQuery } from "../infrastructure/index.js";
+import {
+  EngagementAdminStatsRepository,
+  type EngagementGrowthCounts,
+} from "./repositories/engagement-admin-stats.repository.js";
 import { GiveKudosUseCase } from "./use-cases/give-kudos.use-case.js";
 import { AddCommentUseCase, type AddCommentResult } from "./use-cases/add-comment.use-case.js";
 import { ListCommentsUseCase } from "./use-cases/list-comments.use-case.js";
@@ -24,6 +28,7 @@ import type { KudosPage } from "./domain/kudos-view.js";
 @Injectable()
 export class EngagementService {
   constructor(
+    private readonly adminStats: EngagementAdminStatsRepository,
     private readonly giveKudosUseCase: GiveKudosUseCase,
     private readonly listKudosUseCase: ListKudosUseCase,
     private readonly addCommentUseCase: AddCommentUseCase,
@@ -36,6 +41,11 @@ export class EngagementService {
     private readonly comments: CommentRepository,
     private readonly removeCommentAsSanctionUseCase: RemoveCommentAsSanctionUseCase,
   ) {}
+
+  /** Backoffice dashboard, "Croissance" (ADR-038 §15): kudos and comments given in `range`. */
+  getAdminGrowthCounts(range: InstantRange, excludedUserIds: readonly string[]): Promise<EngagementGrowthCounts> {
+    return this.adminStats.countGrowth(range, excludedUserIds);
+  }
 
   giveKudos(userId: string, activityId: string): Promise<KudosState> {
     return this.giveKudosUseCase.execute(userId, activityId);

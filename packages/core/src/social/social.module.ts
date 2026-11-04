@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { UsersModule } from "../users/index.js";
+import { FollowAdminStatsRepository } from "./repositories/follow-admin-stats.repository.js";
 import { FollowSettingsRepository } from "./repositories/follow-settings.repository.js";
 import { FollowRepository } from "./repositories/follow.repository.js";
 import { FollowPageReader } from "./services/follow-page-reader.js";
@@ -20,6 +21,7 @@ import { SocialService } from "./social.service.js";
 @Module({
   imports: [UsersModule],
   providers: [
+    FollowAdminStatsRepository,
     FollowRepository,
     FollowSettingsRepository,
     FollowStateReader,

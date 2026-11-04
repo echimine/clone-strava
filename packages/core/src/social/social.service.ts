@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
-import type { PageQuery } from "../infrastructure/index.js";
+import type { InstantRange, PageQuery } from "../infrastructure/index.js";
+import { FollowAdminStatsRepository } from "./repositories/follow-admin-stats.repository.js";
 import type { FollowListKind, FollowListPage } from "./domain/follow-list.js";
 import type { FollowCounts, FollowRelation, FollowState } from "./domain/follow-state.js";
 import { FollowSettingsRepository } from "./repositories/follow-settings.repository.js";
@@ -23,6 +24,7 @@ import { UpdateFollowSettingsUseCase } from "./use-cases/update-follow-settings.
 @Injectable()
 export class SocialService {
   constructor(
+    private readonly adminStats: FollowAdminStatsRepository,
     private readonly followAthlete: FollowAthleteUseCase,
     private readonly unfollowAthlete: UnfollowAthleteUseCase,
     private readonly listFollowsUseCase: ListFollowsUseCase,
@@ -36,6 +38,11 @@ export class SocialService {
     private readonly follows: FollowRepository,
     private readonly settings: FollowSettingsRepository,
   ) {}
+
+  /** Backoffice dashboard, "Croissance" (ADR-038 §15): Follows made in `range`. */
+  countFollowsCreated(range: InstantRange, excludedUserIds: readonly string[]): Promise<number> {
+    return this.adminStats.countFollowsCreated(range, excludedUserIds);
+  }
 
   /** `accepted`, or `pending` when the athlete approves followers. Idempotent; self is `422 cannot_follow_self`. */
   follow(followerId: string, followeeId: string): Promise<FollowState> {

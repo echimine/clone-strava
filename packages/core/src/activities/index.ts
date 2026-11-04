@@ -1,5 +1,6 @@
 export { ActivitiesModule } from "./activities.module.js";
 export { ActivitiesService } from "./activities.service.js";
+export type { ActivityFailureCounts, ActivityGrowthCounts } from "./domain/activity-admin-stats.js";
 export type { ActivityDetailRecord } from "./domain/activity-detail.js";
 export type { ActivityRecord } from "./domain/activity-record.js";
 export type {
