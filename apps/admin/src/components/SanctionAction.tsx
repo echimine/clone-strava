@@ -13,19 +13,45 @@ export type SanctionActionProps = {
   confirmLabel: string;
   /** Shown once done. */
   successMessage: string;
-  /** Runs the Sanction with the reason (a mutation's `mutateAsync`). */
+  /** Runs the action with the reason (a mutation's `mutateAsync`). */
   run: (reason: string) => Promise<unknown>;
   onDone?: () => void;
+  /** Extra fields between the summary and the reason (a Ban's duration, a typed confirmation). */
+  children?: ReactNode;
+  /** False while those extra fields are not filled in. */
+  canConfirm?: boolean;
+  /** `false` for an action that is not a Sanction (the admin role): optional reason. */
+  reasonRequired?: boolean;
+  /** Called when the dialog opens or closes, e.g. to reset the extra fields. */
+  onOpenChange?: (open: boolean) => void;
 };
 
 /**
  * A button opening the shared Sanction dialog (ADR-038 §4: a required reason the athlete reads),
- * which runs the Sanction with the reason, toasts, and closes; an error stays in the dialog.
+ * which runs the action with the reason, toasts, and closes; an error stays in the dialog. Shared
+ * by every backoffice screen with Sanctions (Activities, users…).
  */
-export function SanctionAction({ trigger, title, summary, confirmLabel, successMessage, run, onDone }: SanctionActionProps) {
+export function SanctionAction({
+  trigger,
+  title,
+  summary,
+  confirmLabel,
+  successMessage,
+  run,
+  onDone,
+  children,
+  canConfirm,
+  reasonRequired,
+  onOpenChange,
+}: SanctionActionProps) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  function changeOpen(next: boolean) {
+    setOpen(next);
+    onOpenChange?.(next);
+  }
 
   async function confirm(reason: string) {
     setPending(true);
@@ -33,7 +59,7 @@ export function SanctionAction({ trigger, title, summary, confirmLabel, successM
     try {
       await run(reason);
       toast.success(successMessage);
-      setOpen(false);
+      changeOpen(false);
       onDone?.();
     } catch (caught: unknown) {
       setError(caught instanceof Error ? caught.message : "Une erreur est survenue");
@@ -50,21 +76,25 @@ export function SanctionAction({ trigger, title, summary, confirmLabel, successM
         aria-label={trigger.ariaLabel}
         onClick={() => {
           setError(null);
-          setOpen(true);
+          changeOpen(true);
         }}
       >
         {trigger.label}
       </Button>
       <SanctionDialog
         open={open}
-        onOpenChange={setOpen}
+        onOpenChange={changeOpen}
         title={title}
         summary={summary}
         confirmLabel={confirmLabel}
         onConfirm={(reason) => void confirm(reason)}
+        canConfirm={canConfirm}
+        reasonRequired={reasonRequired}
         isPending={pending}
         error={error}
-      />
+      >
+        {children}
+      </SanctionDialog>
     </>
   );
 }

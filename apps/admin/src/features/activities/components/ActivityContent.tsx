@@ -3,7 +3,7 @@
 import type { AdminActivityDetail } from "@repo/contracts";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
 import Link from "next/link";
-import { SanctionAction } from "@/features/activities/components/SanctionAction";
+import { SanctionAction } from "@/components/SanctionAction";
 import type { useActivityActions } from "@/features/activities/hooks/useActivityActions";
 import {
   formatDateTime,

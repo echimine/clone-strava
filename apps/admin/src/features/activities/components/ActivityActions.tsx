@@ -4,7 +4,7 @@ import type { AdminActivityDetail } from "@repo/contracts";
 import { Button } from "@repo/ui/components/button";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { SanctionAction } from "@/features/activities/components/SanctionAction";
+import { SanctionAction } from "@/components/SanctionAction";
 import type { useActivityActions } from "@/features/activities/hooks/useActivityActions";
 import { formatDateTime } from "@/features/activities/lib/labels";
 
