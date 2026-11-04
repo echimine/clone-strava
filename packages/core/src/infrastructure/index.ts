@@ -4,7 +4,7 @@ export {
   CoreInfrastructureModule,
   type CoreInfrastructureOptions,
 } from "./infrastructure.module.js";
-export { DEFAULT_JOB_RETRY, enqueueUnique } from "./enqueue-unique.js";
+export { DEFAULT_JOB_RETRY, JOB_RETENTION, enqueueUnique } from "./enqueue-unique.js";
 export {
   decodeKeysetCursor,
   encodeKeysetCursor,

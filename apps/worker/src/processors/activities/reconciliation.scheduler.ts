@@ -2,6 +2,7 @@ import { InjectQueue } from "@nestjs/bullmq";
 import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import type { Queue } from "bullmq";
 import { ACTIVITIES_QUEUE_NAME } from "@repo/contracts";
+import { JOB_RETENTION } from "@repo/core/infrastructure";
 import {
   RECONCILE_ACTIVITIES_JOB_NAME,
   RECONCILE_ACTIVITIES_REPEAT_MS,
@@ -23,11 +24,12 @@ export class ReconciliationScheduler implements OnModuleInit {
     // BullMQ v6 repeatable jobs go through a "job scheduler" rather than the
     // `repeat` option on `.add()` (removed in v6). `upsertJobScheduler` is
     // idempotent on `schedulerId`, so re-registering on every worker
-    // restart or from multiple instances never creates duplicate schedules.
+    // restart or from multiple instances never creates duplicate schedules. The template keeps
+    // its runs no longer than any other job (ADR-038 §14).
     await this.queue.upsertJobScheduler(
       RECONCILE_ACTIVITIES_JOB_NAME,
       { every: RECONCILE_ACTIVITIES_REPEAT_MS },
-      { name: RECONCILE_ACTIVITIES_JOB_NAME },
+      { name: RECONCILE_ACTIVITIES_JOB_NAME, opts: JOB_RETENTION },
     );
     this.logger.log("Reconciliation sweep scheduled every 10 minutes");
   }

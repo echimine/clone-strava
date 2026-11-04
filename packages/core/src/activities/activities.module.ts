@@ -56,6 +56,10 @@ import { ReprocessFailedActivityUseCase } from "./use-cases/reprocess-failed-act
 import { DeleteActivityAsSanctionUseCase } from "./use-cases/delete-activity-as-sanction.use-case.js";
 import { RemoveMediaAsSanctionUseCase } from "./use-cases/remove-media-as-sanction.use-case.js";
 import { ResetActivityTextUseCase } from "./use-cases/reset-activity-text.use-case.js";
+import { AdminFailureRepository } from "./repositories/admin-failure.repository.js";
+import { ListAdminFailuresUseCase } from "./use-cases/list-admin-failures.use-case.js";
+import { RecomputeActivityUseCase } from "./use-cases/recompute-activity.use-case.js";
+import { RelaunchFailuresUseCase } from "./use-cases/relaunch-failures.use-case.js";
 import { ActivitiesService } from "./activities.service.js";
 
 /**
@@ -125,6 +129,11 @@ import { ActivitiesService } from "./activities.service.js";
     DeleteActivityAsSanctionUseCase,
     RemoveMediaAsSanctionUseCase,
     ResetActivityTextUseCase,
+    // Jobs screen, "Échecs" tab (ADR-038 §14)
+    AdminFailureRepository,
+    ListAdminFailuresUseCase,
+    RecomputeActivityUseCase,
+    RelaunchFailuresUseCase,
     ActivitiesService,
   ],
   exports: [ActivitiesService],

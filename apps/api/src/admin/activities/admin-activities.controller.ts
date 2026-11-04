@@ -16,18 +16,22 @@ import {
   adminActivityDetailSchema,
   adminActivityListQuerySchema,
   adminActivityListResponseSchema,
+  adminActivityRecomputeResponseSchema,
   adminActivityReprocessResponseSchema,
   adminActivityTextResponseSchema,
   type AdminActivityDetail,
   type AdminActivityListResponse,
+  type AdminActivityRecomputeResponse,
   type AdminActivityReprocessResponse,
   type AdminActivityTextResponse,
+  type AdminBatchResponse,
 } from "@repo/contracts";
 import { ActivitiesService, type ActivityLabel } from "@repo/core/activities";
 import { AdminGuard } from "../../auth/admin.guard.js";
 import { SessionGuard } from "../../auth/session.guard.js";
 import { RequestId } from "../../common/request-id.decorator.js";
 import { Audited, CurrentAuditDraft, type AuditDraft } from "../audit/audited.decorator.js";
+import { AdminBatchResponseDto, batched } from "../failures/batched.js";
 import { AdminReasonBodyDto } from "../sanctions/admin-reason-body.dto.js";
 import { SanctionNotices, type SanctionNotice } from "../sanctions/sanction-notices.js";
 import { AdminActivityAssembler } from "./admin-activity-assembler.js";
@@ -37,6 +41,7 @@ class AdminActivityListResponseDto extends createZodDto(adminActivityListRespons
 class AdminActivityDetailDto extends createZodDto(adminActivityDetailSchema) {}
 class AdminActivityReprocessResponseDto extends createZodDto(adminActivityReprocessResponseSchema) {}
 class AdminActivityTextResponseDto extends createZodDto(adminActivityTextResponseSchema) {}
+class AdminActivityRecomputeResponseDto extends createZodDto(adminActivityRecomputeResponseSchema) {}
 
 /**
  * `/v1/admin/activities/*` (ADR-038 §11, §17): the list, the detail, « Retraiter » and three
@@ -82,6 +87,48 @@ export class AdminActivitiesController {
     const activity = await this.activities.reprocessFailed(id, requestId);
     audit.subjectUserId = activity.userId;
     return { id: activity.id, processingStatus: activity.processingStatus };
+  }
+
+  /**
+   * « Recalculer » a processed Activity computed for another sport (`409 not_stale` otherwise):
+   * `reprocess-activity` under a new job id (ADR-038 §14). Not a Sanction.
+   */
+  @Post(":id/recompute")
+  @HttpCode(HttpStatus.ACCEPTED)
+  @Audited("activity.recompute", { reason: "none" })
+  @ZodSerializerDto(AdminActivityRecomputeResponseDto)
+  async recompute(
+    @Param("id", ParseUUIDPipe) id: string,
+    @RequestId() requestId: string | undefined,
+    @CurrentAuditDraft() audit: AuditDraft,
+  ): Promise<AdminActivityRecomputeResponse> {
+    const { userId, jobId } = await this.activities.recompute(id, requestId);
+    audit.subjectUserId = userId;
+    return { id, jobId };
+  }
+
+  /** « Retraiter les N en échec »: 500 failed Activities at most; one Journal entry. */
+  @Post("reprocess-failed")
+  @HttpCode(HttpStatus.ACCEPTED)
+  @Audited("activity.reprocess.batch", { reason: "none", targetParam: null })
+  @ZodSerializerDto(AdminBatchResponseDto)
+  async reprocessFailed(
+    @RequestId() requestId: string | undefined,
+    @CurrentAuditDraft() audit: AuditDraft,
+  ): Promise<AdminBatchResponse> {
+    return batched(audit, await this.activities.reprocessAllFailed(requestId));
+  }
+
+  /** « Recalculer » every failed recomputation, 500 at most; one Journal entry. */
+  @Post("recompute-stale")
+  @HttpCode(HttpStatus.ACCEPTED)
+  @Audited("activity.recompute.batch", { reason: "none", targetParam: null })
+  @ZodSerializerDto(AdminBatchResponseDto)
+  async recomputeStale(
+    @RequestId() requestId: string | undefined,
+    @CurrentAuditDraft() audit: AuditDraft,
+  ): Promise<AdminBatchResponse> {
+    return batched(audit, await this.activities.recomputeAllStale(requestId));
   }
 
   /** Sanction: deletes the Activity for good (`409 not_deletable` while processing). */
