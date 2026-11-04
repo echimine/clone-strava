@@ -6,6 +6,7 @@ import {
   PROCESS_ACTIVITY_JOB_NAME,
 } from "../activities/jobs.js";
 import { BUCKET_SWEEP_QUEUE_NAME } from "../common/bucket-sweep.js";
+import { EMAILS_QUEUE_NAME } from "../notifications/jobs.js";
 import { SEGMENTS_QUEUE_NAME } from "../segments/jobs.js";
 import { SUBSCRIPTIONS_QUEUE_NAME } from "../subscriptions/jobs.js";
 import { AVATARS_QUEUE_NAME } from "../users/avatar-jobs.js";
@@ -24,8 +25,7 @@ export const ADMIN_QUEUE_NAMES = [
   BUCKET_SWEEP_QUEUE_NAME,
   // Account deletion (ADR-038 §13): replace by its `ACCOUNTS_QUEUE_NAME` once declared (#214).
   "accounts",
-  // Sanction e-mails (ADR-038 §4): replace by its `EMAILS_QUEUE_NAME` once declared (#218).
-  "emails",
+  EMAILS_QUEUE_NAME,
 ] as const;
 export const adminQueueNameSchema = z.enum(ADMIN_QUEUE_NAMES);
 export type AdminQueueName = z.infer<typeof adminQueueNameSchema>;

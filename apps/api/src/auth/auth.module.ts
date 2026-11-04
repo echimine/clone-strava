@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { NERVO_ADMIN_ORIGIN } from "@repo/contracts";
 import { AuthModule as CoreAuthModule } from "@repo/core/auth";
 import { loadConfig } from "../config/env.js";
 import { AdminGuard } from "./admin.guard.js";
@@ -14,7 +15,7 @@ const coreAuthModule = CoreAuthModule.forRoot({
   // ADR-022: the backoffice (cross-subdomain cookie) and the iOS app
   // (custom scheme) both need to be trusted explicitly. The backoffice also
   // hosts the auth emails' wordmark (ADR-032 §2).
-  adminOrigin: "https://admin.strava.echimine.fr",
+  adminOrigin: NERVO_ADMIN_ORIGIN,
   trustedOrigins: ["app://strava"],
   googleClientId: config.GOOGLE_CLIENT_ID,
   googleClientSecret: config.GOOGLE_CLIENT_SECRET,

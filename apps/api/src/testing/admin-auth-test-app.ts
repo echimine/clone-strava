@@ -128,7 +128,7 @@ export async function bootstrapAdminAuthTestApp(options: {
     ],
   })
     .overrideProvider(NotificationsService)
-    .useValue({ sendAuthEmail: async () => undefined })
+    .useValue({ sendEmail: async () => undefined })
     .overrideProvider(StorageService)
     .useValue(storage)
     .compile();

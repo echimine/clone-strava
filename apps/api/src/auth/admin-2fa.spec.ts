@@ -151,7 +151,7 @@ describe("AdminGuard + twoFactor plugin lifecycle (ADR-022 §5)", () => {
 
   /** Signs in with a Sign-in code (ADR-035 §2) and returns the bearer token. */
   async function signInWithCode(email: string, ip: string): Promise<string> {
-    const spy = vi.spyOn(testApp.notificationsService, "sendAuthEmail");
+    const spy = vi.spyOn(testApp.notificationsService, "sendEmail");
     spy.mockClear();
     const send = await post("/email-otp/send-verification-otp", { email, type: "sign-in" }, ip);
     expect(send.status).toBe(200);

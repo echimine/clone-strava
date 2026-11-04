@@ -39,14 +39,13 @@ export class AuthModule {
     return {
       module: AuthModule,
       // This `NotificationsService` instance is only ever used here to send
-      // auth emails (`sendAuthEmail`), never to verify a webhook signature,
-      // so `webhookSecret` is intentionally inert — `webhooks.module.ts`
-      // imports its own `NotificationsModule.forRoot(...)` with the real one
-      // for that purpose.
+      // auth emails (`sendEmail`), never to verify a webhook signature,
+      // so it has no `webhookSecret` — `webhooks.module.ts` imports its own
+      // `NotificationsModule.forRoot(...)` with the real one for that purpose.
       // The `avatars` queue: the account hook enqueues the Google photo copy (ADR-037 §2), so
       // every app importing this module also needs `BullModule.forRoot`.
       imports: [
-        NotificationsModule.forRoot({ apiKey: options.resendApiKey, webhookSecret: "" }),
+        NotificationsModule.forRoot({ apiKey: options.resendApiKey }),
         BullModule.registerQueue({ name: AVATARS_QUEUE_NAME }),
       ],
       providers: [

@@ -90,7 +90,7 @@ export function createAuthInstance(
       // contract.
       sendResetPassword: async ({ user, url }) => {
         const html = await renderResetPasswordEmail({ url, logoUrl });
-        await notifications.sendAuthEmail({
+        await notifications.sendEmail({
           to: user.email,
           subject: "Reset your password",
           html,
@@ -104,7 +104,7 @@ export function createAuthInstance(
       sendOnSignUp: true,
       sendVerificationEmail: async ({ user, url }) => {
         const html = await renderVerifyEmail({ url, logoUrl });
-        await notifications.sendAuthEmail({
+        await notifications.sendEmail({
           to: user.email,
           subject: "Verify your email",
           html,
@@ -179,7 +179,7 @@ export function createAuthInstance(
             return;
           }
           const html = await renderSignInCodeEmail({ otp, logoUrl });
-          await notifications.sendAuthEmail({
+          await notifications.sendEmail({
             to: email,
             subject: "Votre code de connexion Nervo",
             html,
@@ -196,7 +196,7 @@ export function createAuthInstance(
           period: 5,
           sendOTP: async ({ user, otp }) => {
             const html = await renderAdminOtpEmail({ otp, email: user.email, logoUrl });
-            await notifications.sendAuthEmail({
+            await notifications.sendEmail({
               to: user.email,
               subject: "Your admin verification code",
               html,

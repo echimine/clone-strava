@@ -53,7 +53,7 @@ describe("user_signed_up (ADR-035 §8)", () => {
 
   /** Requests a code, reads it from the email, and signs in with it. */
   async function signInWithCode(email: string, ip: string): Promise<{ id: string }> {
-    const spy = vi.spyOn(testApp.notificationsService, "sendAuthEmail");
+    const spy = vi.spyOn(testApp.notificationsService, "sendEmail");
     spy.mockClear();
     expect((await post("/email-otp/send-verification-otp", { email, type: "sign-in" }, ip)).status).toBe(200);
     const html = spy.mock.calls.find((call) => call[0].to === email)?.[0].html ?? "";
