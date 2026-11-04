@@ -309,7 +309,8 @@ final class Di {
         return ProfileStore(
             loadProfile: LoadProfile(repository: athletes),
             loadYearToDateDistance: LoadYearToDateDistance(repository: APIAthleteStatsRepository(apiClient: apiClient)),
-            renameAthlete: RenameAthlete(repository: profiles),
+            loadEditableProfile: LoadEditableProfile(repository: profiles),
+            updateProfile: UpdateProfile(repository: profiles),
             setApproveFollowers: SetApproveFollowers(repository: profiles),
             activities: ProfileActivitiesStore(
                 loadActivities: LoadProfileActivities(repository: athletes),

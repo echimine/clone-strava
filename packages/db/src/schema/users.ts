@@ -32,6 +32,9 @@ export const userProfile = usersSchema.table("user_profile", {
   lastName: text("last_name"),
   /** ADR-037 §2: `avatars/{userId}/{avatarId}.jpg`, signed by the API when read; null = initials. */
   avatarKey: text("avatar_key"),
+  /** ADR-036 §3 (amended): "Modifier le profil"'s Bio, at most 300 characters. */
+  bio: text("bio"),
+  /** ISO 3166-1 alpha-2 code, e.g. `FR` (ADR-036 §3). */
   country: text("country"),
   city: text("city"),
   birthDate: date("birth_date"),

@@ -106,6 +106,13 @@
       "when": 1793737457030,
       "tag": "0014_media_avatar",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1793779625953,
+      "tag": "0015_profile_bio",
+      "breakpoints": true
     }
   ]
 }

@@ -45,12 +45,21 @@ struct LoadProgress: Sendable {
     }
 }
 
-/// "Modifier le profil" (ADR-036 §3).
-struct RenameAthlete: Sendable {
+/// What "Modifier le profil" starts from (ADR-036 §3).
+struct LoadEditableProfile: Sendable {
     let repository: any ProfileRepository
 
-    func callAsFunction(_ name: ProfileName) async throws(AthleteError) -> ActivityAuthor {
-        try await repository.rename(name)
+    func callAsFunction() async throws(AthleteError) -> EditableProfile {
+        try await repository.editableProfile()
+    }
+}
+
+/// "Modifier le profil"'s Enregistrer (ADR-036 §3).
+struct UpdateProfile: Sendable {
+    let repository: any ProfileRepository
+
+    func callAsFunction(_ update: ProfileUpdate) async throws(AthleteError) -> ActivityAuthor {
+        try await repository.update(update)
     }
 }
 

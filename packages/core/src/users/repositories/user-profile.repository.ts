@@ -4,6 +4,7 @@ import { schema, type Database } from "@repo/db";
 import { DATABASE, type DbExecutor, type Transaction } from "../../infrastructure/index.js";
 import { escapeLikePattern } from "../domain/name-search.js";
 import type { OnboardingProfileFields } from "../domain/onboarding-answers.js";
+import type { ProfileDetailsFields } from "../domain/profile-details.js";
 
 const t = schema.userProfile;
 
@@ -52,12 +53,12 @@ export class UserProfileRepository {
     await executor.insert(t).values({ userId }).onConflictDoNothing({ target: t.userId });
   }
 
-  /** Creates the row with this name, or renames the existing one (ADR-036 §3). */
-  async upsertName(userId: string, name: { firstName: string; lastName: string }): Promise<void> {
-    await this.db
+  /** Creates the row with these fields, or updates the existing one (ADR-036 §3). */
+  async upsert(userId: string, fields: ProfileDetailsFields, executor: DbExecutor = this.db): Promise<void> {
+    await executor
       .insert(t)
-      .values({ userId, ...name })
-      .onConflictDoUpdate({ target: t.userId, set: { ...name, updatedAt: new Date() } });
+      .values({ userId, ...fields })
+      .onConflictDoUpdate({ target: t.userId, set: { ...fields, updatedAt: new Date() } });
   }
 
   /** The Avatar key of an existing row, locked until the end of the transaction. */

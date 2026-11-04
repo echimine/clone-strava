@@ -9,6 +9,7 @@ import { SearchUsersByNameUseCase } from "./use-cases/search-users-by-name.use-c
 import { SetAvatarUseCase } from "./use-cases/set-avatar.use-case.js";
 import { SubmitOnboardingAnswersUseCase } from "./use-cases/submit-onboarding-answers.use-case.js";
 import { SweepAvatarsUseCase } from "./use-cases/sweep-avatars.use-case.js";
+import { UpdateProfileUseCase } from "./use-cases/update-profile.use-case.js";
 import { UsersService } from "./users.service.js";
 
 /** `users` module (ADR-021 §1, layer 0). Exports only its service. */
@@ -24,6 +25,7 @@ import { UsersService } from "./users.service.js";
     RemoveAvatarUseCase,
     SweepAvatarsUseCase,
     CopyGoogleAvatarUseCase,
+    UpdateProfileUseCase,
     UsersService,
   ],
   exports: [UsersService],

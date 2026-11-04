@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import type { OnboardingAnswersRequest } from "@repo/contracts";
+import type { EditableProfile, OnboardingAnswersRequest, UpdateProfileRequest } from "@repo/contracts";
 import { CopyGoogleAvatarUseCase, type GoogleAvatarCopy } from "./use-cases/copy-google-avatar.use-case.js";
 import { GetUserSummariesUseCase } from "./use-cases/get-user-summaries.use-case.js";
 import { RemoveAvatarUseCase } from "./use-cases/remove-avatar.use-case.js";
@@ -11,6 +11,7 @@ import { SearchUsersByNameUseCase } from "./use-cases/search-users-by-name.use-c
 import { SetAvatarUseCase } from "./use-cases/set-avatar.use-case.js";
 import { SubmitOnboardingAnswersUseCase } from "./use-cases/submit-onboarding-answers.use-case.js";
 import { SweepAvatarsUseCase } from "./use-cases/sweep-avatars.use-case.js";
+import { UpdateProfileUseCase } from "./use-cases/update-profile.use-case.js";
 import type { ActiveSportCatalog } from "./domain/active-sport-catalog.js";
 import type { UserSummary } from "./domain/user-summary.js";
 import { UserProfileRepository } from "./repositories/user-profile.repository.js";
@@ -37,6 +38,7 @@ export class UsersService {
     private readonly removeAvatarUseCase: RemoveAvatarUseCase,
     private readonly sweepAvatarsUseCase: SweepAvatarsUseCase,
     private readonly copyGoogleAvatarUseCase: CopyGoogleAvatarUseCase,
+    private readonly updateProfileUseCase: UpdateProfileUseCase,
   ) {}
 
   /**
@@ -64,12 +66,32 @@ export class UsersService {
     return this.userSports.findCodes(userId);
   }
 
+  /** What "Modifier le profil" shows (ADR-036 §3): every field `null` without a profile row. */
+  async getEditableProfile(userId: string): Promise<EditableProfile> {
+    const [profile, sports] = await Promise.all([
+      this.userProfiles.findById(userId),
+      this.userSports.findCodes(userId),
+    ]);
+    return {
+      firstName: profile?.firstName ?? null,
+      lastName: profile?.lastName ?? null,
+      bio: profile?.bio ?? null,
+      city: profile?.city ?? null,
+      country: profile?.country ?? null,
+      mainSportCode: sports[0] ?? null,
+      birthDate: profile?.birthDate ?? null,
+      gender: profile?.gender ?? null,
+      weightKg: profile?.weightKg ?? null,
+    };
+  }
+
   /**
-   * The name everyone sees (ADR-036 §3), already trimmed and validated by the caller. Creates the
-   * profile row if needed.
+   * "Modifier le profil" (ADR-036 §3): the name everyone sees and the fields sent, already
+   * trimmed and validated by the caller; `mainSportCode` becomes the first Practiced sport.
+   * `422` under the minimum age or for an unknown or inactive sport (`sportCatalog`, ADR-021 §2).
    */
-  updateName(userId: string, name: { firstName: string; lastName: string }): Promise<void> {
-    return this.userProfiles.upsertName(userId, name);
+  updateProfile(userId: string, request: UpdateProfileRequest, sportCatalog: ActiveSportCatalog): Promise<void> {
+    return this.updateProfileUseCase.execute(userId, request, sportCatalog);
   }
 
   /**
