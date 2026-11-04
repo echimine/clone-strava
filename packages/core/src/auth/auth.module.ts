@@ -13,6 +13,7 @@ import { AuthAdminStatsRepository } from "./repositories/auth-admin-stats.reposi
 import { AuthUserRepository } from "./repositories/auth-user.repository.js";
 import { GoogleAvatarCopyEnqueuer } from "./services/google-avatar-copy-enqueuer.js";
 import { AccountReader } from "./services/account-reader.js";
+import { AccountRemover } from "./services/account-remover.js";
 import { AuthAdminApi } from "./services/auth-admin-api.js";
 import { BackfillGoogleAvatarsUseCase } from "./use-cases/backfill-google-avatars.use-case.js";
 import { BanUserUseCase } from "./use-cases/ban-user.use-case.js";
@@ -79,6 +80,7 @@ export class AuthModule {
         GoogleAvatarCopyEnqueuer,
         BackfillGoogleAvatarsUseCase,
         AccountReader,
+        AccountRemover,
         AuthAdminApi,
         BanUserUseCase,
         SetUserRoleUseCase,

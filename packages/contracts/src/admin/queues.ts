@@ -9,6 +9,7 @@ import { BUCKET_SWEEP_QUEUE_NAME } from "../common/bucket-sweep.js";
 import { EMAILS_QUEUE_NAME } from "../notifications/jobs.js";
 import { SEGMENTS_QUEUE_NAME } from "../segments/jobs.js";
 import { SUBSCRIPTIONS_QUEUE_NAME } from "../subscriptions/jobs.js";
+import { ACCOUNTS_QUEUE_NAME } from "../users/account-jobs.js";
 import { AVATARS_QUEUE_NAME } from "../users/avatar-jobs.js";
 import { adminListResponseSchema, adminPageQuerySchema } from "./list.js";
 
@@ -23,8 +24,7 @@ export const ADMIN_QUEUE_NAMES = [
   SUBSCRIPTIONS_QUEUE_NAME,
   AVATARS_QUEUE_NAME,
   BUCKET_SWEEP_QUEUE_NAME,
-  // Account deletion (ADR-038 §13): replace by its `ACCOUNTS_QUEUE_NAME` once declared (#214).
-  "accounts",
+  ACCOUNTS_QUEUE_NAME,
   EMAILS_QUEUE_NAME,
 ] as const;
 export const adminQueueNameSchema = z.enum(ADMIN_QUEUE_NAMES);

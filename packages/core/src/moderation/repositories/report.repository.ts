@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, count, desc, eq, gt, inArray, sql, type SQL } from "drizzle-orm";
+import { and, count, desc, eq, gt, inArray, isNotNull, sql, type SQL } from "drizzle-orm";
 import { schema, type Database } from "@repo/db";
 import type { ReportCaseStatus, ReportReason, ReportTargetType } from "@repo/contracts";
 import { DATABASE, type DbExecutor } from "../../infrastructure/index.js";
@@ -62,6 +62,16 @@ export class ReportRepository {
   ): Promise<string> {
     const [row] = await executor.insert(schema.report).values(values).returning({ id: schema.report.id });
     return row!.id;
+  }
+
+  /** Erases the note of every Report `reporterId` sent (ADR-038 §13); returns how many. */
+  async clearNotesOf(reporterId: string): Promise<number> {
+    const rows = await this.db
+      .update(schema.report)
+      .set({ note: null })
+      .where(and(eq(schema.report.reporterId, reporterId), isNotNull(schema.report.note)))
+      .returning({ id: schema.report.id });
+    return rows.length;
   }
 
   /** Reports on `userId` or their content (`received`), newest first. */

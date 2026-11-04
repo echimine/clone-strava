@@ -65,7 +65,10 @@ export const report = moderationSchema.table(
     caseId: uuid("case_id")
       .notNull()
       .references(() => reportCase.id, { onDelete: "cascade" }),
-    /** Null once the reporter's account is deleted ("Compte supprimé"); the note is kept. */
+    /**
+     * Null once the reporter's account is deleted ("Athlète supprimé", ADR-038 §13); the note is
+     * erased just before (`ModerationService.eraseNotesOfReporter`), the Report and its case stay.
+     */
     reporterId: uuid("reporter_id").references(() => user.id, { onDelete: "set null" }),
     reason: reportReasonEnum("reason").notNull(),
     note: text("note"),

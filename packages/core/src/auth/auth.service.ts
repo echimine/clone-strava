@@ -8,6 +8,7 @@ import { AuthAdminStatsRepository } from "./repositories/auth-admin-stats.reposi
 import { AuthUserRepository } from "./repositories/auth-user.repository.js";
 import { activeBan, type ActiveBan } from "./domain/ban.js";
 import { AccountReader } from "./services/account-reader.js";
+import { AccountRemover } from "./services/account-remover.js";
 import { AuthAdminApi, type AdminSessionRecord } from "./services/auth-admin-api.js";
 import { BackfillGoogleAvatarsUseCase } from "./use-cases/backfill-google-avatars.use-case.js";
 import { BanUserUseCase } from "./use-cases/ban-user.use-case.js";
@@ -76,6 +77,7 @@ export class AuthService {
     private readonly adminApi: AuthAdminApi,
     private readonly banUserUseCase: BanUserUseCase,
     private readonly setUserRoleUseCase: SetUserRoleUseCase,
+    private readonly remover: AccountRemover,
   ) {}
 
   // --- Backoffice (ADR-038 §5, §6). `headers` are the Administrator's request headers: the
@@ -130,6 +132,31 @@ export class AuthService {
     await this.accounts.get(userId);
     const sessions = await this.adminApi.listSessions(headers, userId);
     return sessions.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  /**
+   * Sanction « Supprimer le compte » (ADR-038 §13): sessions revoked and the account removed
+   * through the admin plugin. `409 user_is_admin` for an Administrator, `404 user_not_found`.
+   */
+  removeUser(headers: Headers, userId: string): Promise<void> {
+    return this.remover.removeAsAdmin(headers, userId);
+  }
+
+  // --- Account deletion by the athlete (ADR-038 §13) ---
+
+  /** Sends a Sign-in code to `email`, the account's own, to re-verify the athlete. */
+  sendAccountDeletionCode(email: string): Promise<void> {
+    return this.remover.sendCode(email);
+  }
+
+  /** Checks and spends that code: `400 invalid_code` / `code_expired` / `too_many_attempts`. */
+  checkAccountDeletionCode(email: string, code: string): Promise<void> {
+    return this.remover.checkCode(email, code);
+  }
+
+  /** Revokes every session of `userId` and deletes the account; the SQL cascade does the rest. */
+  removeOwnAccount(userId: string): Promise<void> {
+    return this.remover.removeOwn(userId);
   }
 
   /** Every Administrator (`role = admin`): the accounts the backoffice stats leave out (ADR-038 §15). */

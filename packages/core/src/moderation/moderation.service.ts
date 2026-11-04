@@ -38,6 +38,15 @@ export class ModerationService {
     return { received, sent };
   }
 
+  /**
+   * Account deletion (ADR-038 §13): the Reports `reporterId` sent stay, their cases still to
+   * review, but without their note. Called just before the account goes; the foreign key then
+   * sets `reporter_id` to null. Returns how many notes were erased.
+   */
+  eraseNotesOfReporter(reporterId: string): Promise<number> {
+    return this.reports.clearNotesOf(reporterId);
+  }
+
   /** The viewer filter's `moderation` source (ADR-038 §7): what `reporterId` ever reported. */
   async getReportedItems(reporterId: string): Promise<ReportedItems> {
     const rows = await this.reports.findReportedTargets(reporterId, ["activity", "comment"]);

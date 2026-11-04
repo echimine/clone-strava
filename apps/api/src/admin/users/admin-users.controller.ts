@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -31,9 +32,11 @@ import {
 } from "@repo/contracts";
 import { AuthService, type ActiveBan } from "@repo/core/auth";
 import { UsersService } from "@repo/core/users";
+import { AccountDeletion } from "../../account-deletion/account-deletion.js";
 import { AdminGuard } from "../../auth/admin.guard.js";
 import { CurrentUser } from "../../auth/current-user.decorator.js";
 import { SessionGuard, type AuthenticatedUser } from "../../auth/session.guard.js";
+import { RequestId } from "../../common/request-id.decorator.js";
 import { Audited, CurrentAuditDraft, type AuditDraft } from "../audit/audited.decorator.js";
 import { AdminReasonBodyDto } from "../sanctions/admin-reason-body.dto.js";
 import { SanctionNotices, type SanctionNotice } from "../sanctions/sanction-notices.js";
@@ -53,7 +56,7 @@ class AdminRoleBodyDto extends createZodDto(adminRoleBodySchema) {}
  * Administrator's request headers (`AuthService`). Every Sanction but « Déconnecter partout »
  * hands its e-mail to {@link SanctionNotices}.
  *
- * Extension point: #214 adds `DELETE :id` (« Supprimer le compte ») here.
+ * `DELETE :id` (« Supprimer le compte ») goes through the one deletion service, {@link AccountDeletion}.
  */
 @Controller("admin/users")
 @UseGuards(SessionGuard, AdminGuard)
@@ -63,6 +66,7 @@ export class AdminUsersController {
     private readonly users: UsersService,
     private readonly assembler: AdminUserAssembler,
     private readonly notices: SanctionNotices,
+    private readonly deletion: AccountDeletion,
   ) {}
 
   /** Search, filters and sort; newest sign-up first by default. */
@@ -177,6 +181,32 @@ export class AdminUsersController {
     await this.auth.getAccountForAdmin(id);
     await this.users.removeAvatar(id);
     await this.notify(audit, "user.avatar.reset", id, body.reason, { profileField: "avatar" });
+  }
+
+  /**
+   * Sanction « Supprimer le compte » (ADR-038 §13): immediate and final, confirmed in the
+   * backoffice by typing the athlete's name. Sends « Votre compte Nervo a été supprimé » with the
+   * reason itself (not through {@link SanctionNotices}: the account is gone once it returns).
+   * `409 user_is_admin` for an Administrator.
+   */
+  @Delete(":id")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Audited("user.delete", { reason: "required" })
+  async remove(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() body: AdminReasonBodyDto,
+    @Req() request: Request,
+    @RequestId() requestId: string | undefined,
+    @CurrentAuditDraft() audit: AuditDraft,
+  ): Promise<void> {
+    audit.details = { origin: "admin" };
+    await this.deletion.deleteAsSanction({
+      headers: fromNodeHeaders(request.headers),
+      userId: id,
+      reason: body.reason,
+      auditEntryId: audit.entryId,
+      requestId,
+    });
   }
 
   /**

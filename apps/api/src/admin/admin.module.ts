@@ -6,6 +6,7 @@ import { ModerationModule } from "@repo/core/moderation";
 import { EmailJobsModule } from "@repo/core/notifications";
 import { SegmentsModule } from "@repo/core/segments";
 import { UsersModule } from "@repo/core/users";
+import { AccountDeletionModule } from "../account-deletion/account-deletion.module.js";
 import { AuthModule } from "../auth/auth.module.js";
 import { IdentitiesModule } from "../identities/identities.module.js";
 import { MediaAssembler } from "../media/media-assembler.js";
@@ -42,6 +43,8 @@ import { AdminUsersController } from "./users/admin-users.controller.js";
     UsersModule,
     IdentitiesModule,
     AdminQueuesModule,
+    // « Supprimer le compte » (ADR-038 §13).
+    AccountDeletionModule,
     // The `emails` queue: the e-mail to the athlete after a Sanction (ADR-038 §4).
     EmailJobsModule,
     ...ADMIN_STATS_IMPORTS,

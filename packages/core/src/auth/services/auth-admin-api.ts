@@ -45,6 +45,11 @@ export class AuthAdminApi {
     await translated(() => this.auth.api.setRole({ body: { userId, role }, headers }));
   }
 
+  /** Sessions revoked, then the `user` row deleted (its SQL cascade does the rest). */
+  async remove(headers: Headers, userId: string): Promise<void> {
+    await translated(() => this.auth.api.removeUser({ body: { userId }, headers }));
+  }
+
   async listSessions(headers: Headers, userId: string): Promise<AdminSessionRecord[]> {
     const { sessions } = await translated(() => this.auth.api.listUserSessions({ body: { userId }, headers }));
     return sessions.map((session) => ({

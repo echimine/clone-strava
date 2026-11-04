@@ -11,6 +11,7 @@ import { ConfigModule } from "./config/config.module.js";
 import { loadConfig } from "./config/env.js";
 import { HeartbeatModule } from "./heartbeat/heartbeat.module.js";
 import { AppLoggingModule } from "./logging/logging.module.js";
+import { AccountsProcessorModule } from "./processors/accounts/accounts.module.js";
 import { ActivitiesProcessorModule } from "./processors/activities/activities.module.js";
 import { AvatarsProcessorModule } from "./processors/avatars/avatars.module.js";
 import { BucketSweepProcessorModule } from "./processors/bucket-sweep/bucket-sweep.module.js";
@@ -68,6 +69,11 @@ const config = loadConfig();
       resendApiKey: config.RESEND_API_KEY,
       contactEmail: config.CONTACT_EMAIL,
       adminOrigin: NERVO_ADMIN_ORIGIN,
+    }),
+    // ADR-038 §13: the cleanup of a deleted account (bucket, RevenueCat, PostHog).
+    AccountsProcessorModule.forRoot({
+      revenueCat: { apiKey: config.REVENUECAT_API_KEY, projectId: config.REVENUECAT_PROJECT_ID },
+      postHog: { personalApiKey: config.POSTHOG_PERSONAL_API_KEY, projectId: config.POSTHOG_PROJECT_ID },
     }),
   ],
 })

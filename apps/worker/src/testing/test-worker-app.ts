@@ -16,6 +16,8 @@ import {
   type PresignedUrl,
 } from "@repo/core/storage";
 import { runMigrations } from "@repo/db/migrate";
+import { AccountsProcessorModule } from "../processors/accounts/accounts.module.js";
+import type { AccountsProcessorOptions } from "../processors/accounts/accounts.constants.js";
 import { ActivitiesProcessorModule } from "../processors/activities/activities.module.js";
 import { AvatarsProcessorModule } from "../processors/avatars/avatars.module.js";
 import { BucketSweepProcessorModule } from "../processors/bucket-sweep/bucket-sweep.module.js";
@@ -129,11 +131,16 @@ export interface TestWorkerApp {
 }
 
 /**
- * Boots the activities, bucket-sweep and avatars processors (ADR-024 §4 `test-worker-app.ts`) on
+ * Boots the activities, bucket-sweep, avatars and accounts processors (ADR-024 §4 `test-worker-app.ts`) on
  * the real dev Postgres and Redis, with a random BullMQ prefix so the
  * queues never mix with a dev worker running on the same Redis.
  */
-export async function bootstrapTestWorkerApp(): Promise<TestWorkerApp> {
+export async function bootstrapTestWorkerApp(
+  options: {
+    /** The `delete-account` job's third parties: no keys (steps skipped) unless a spec fakes them. */
+    accounts?: AccountsProcessorOptions;
+  } = {},
+): Promise<TestWorkerApp> {
   await runMigrations(TEST_DATABASE_URL);
 
   const storage = new InMemoryStorage();
@@ -156,6 +163,7 @@ export async function bootstrapTestWorkerApp(): Promise<TestWorkerApp> {
       ActivitiesProcessorModule,
       BucketSweepProcessorModule,
       AvatarsProcessorModule,
+      AccountsProcessorModule.forRoot(options.accounts ?? { revenueCat: {}, postHog: {} }),
     ],
   })
     .overrideProvider(StorageService)
