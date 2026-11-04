@@ -148,6 +148,8 @@ final class FeedStore {
         case .restored(let id):
             guard let removed = removedPosts.removeValue(forKey: id), !posts.contains(where: { $0.id == id }) else { return }
             posts.insert(removed.post, at: min(removed.index, posts.count))
+        case .authorHidden(let athleteId):
+            posts.removeAll { $0.author.id == athleteId }
         case .engagement(let id, let engagement):
             let kudosChanged = posts.first { $0.id == id }.map { $0.engagement.kudosCount != engagement.kudosCount } ?? false
             update(id) { $0 = engagement }

@@ -136,6 +136,9 @@ final class AthleteGalleryStore {
         switch change {
         case .deleted(let id):
             items.removeAll { $0.activity.id == id }
+        case .authorHidden:
+            // Only their own profile shows their Media, and it closes with the Block.
+            return
         case .restored:
             await refresh()
         case .updated(let post):

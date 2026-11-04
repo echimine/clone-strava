@@ -37,6 +37,16 @@ struct AccountView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(.systemBackground))
         .onAppear(perform: store.viewed)
+        // ADR-038 §6: a banned athlete's sign-in, by code or Google.
+        .fullScreenCover(isPresented: isSuspended) {
+            if let suspension = store.suspension {
+                AccountSuspendedView(suspension: suspension, onClose: store.dismissSuspension)
+            }
+        }
+    }
+
+    private var isSuspended: Binding<Bool> {
+        Binding(get: { store.suspension != nil }, set: { if !$0 { store.dismissSuspension() } })
     }
 }
 

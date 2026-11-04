@@ -6,6 +6,7 @@ import { CurrentUser } from "../auth/current-user.decorator.js";
 import { SessionGuard, type AuthenticatedUser } from "../auth/session.guard.js";
 import { AthleteIdentities } from "../identities/athlete-identities.js";
 import { MediaAssembler } from "../media/media-assembler.js";
+import { assertAthleteVisible, ViewerFilter } from "../viewer-filter/viewer-filter.js";
 
 class GalleryQueryDto extends createZodDto(galleryQuerySchema) {}
 class GalleryResponseDto extends createZodDto(galleryResponseSchema) {}
@@ -22,6 +23,7 @@ export class AthleteGalleryController {
     private readonly identities: AthleteIdentities,
     private readonly activities: ActivitiesService,
     private readonly media: MediaAssembler,
+    private readonly viewerFilter: ViewerFilter,
   ) {}
 
   /** Newest Activity first, then the Media order; keyset pages (`422 invalid_cursor` on a foreign cursor). */
@@ -32,8 +34,10 @@ export class AthleteGalleryController {
     @Query() query: GalleryQueryDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<GalleryResponse> {
+    const filter = await this.viewerFilter.for(user.userId);
+    assertAthleteVisible(filter, athleteId);
     await this.identities.assertExists(athleteId);
-    const page = await this.activities.getAthleteGalleryPage(user.userId, athleteId, query);
+    const page = await this.activities.getAthleteGalleryPage(user.userId, athleteId, query, filter);
     const items = await Promise.all(
       page.items.map(async (record) => ({
         ...(await this.media.sign(record)),

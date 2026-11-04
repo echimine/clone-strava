@@ -117,6 +117,37 @@ struct APIAuthRepositoryTests {
         }
     }
 
+    /// A banned athlete's sign-in (ADR-038 §6): `403 BANNED_USER` with the Ban's end, its reason
+    /// and the contact address, by Sign-in code or Google.
+    @Test(arguments: [
+        (
+            #"{"code":"BANNED_USER","message":"Votre compte est suspendu jusqu'au 11 novembre 2026 à 14:30.","bannedUntil":"2026-11-11T13:30:00.000Z","banReason":"Propos haineux","contactEmail":"contact@nervo.app"}"#,
+            AccountSuspension(
+                until: Date(timeIntervalSince1970: 1_794_403_800), reason: "Propos haineux", contactEmail: "contact@nervo.app"
+            )
+        ),
+        (
+            #"{"code":"BANNED_USER","message":"Votre compte est suspendu définitivement.","bannedUntil":null,"banReason":null,"contactEmail":null}"#,
+            AccountSuspension(until: nil, reason: nil, contactEmail: nil)
+        ),
+    ])
+    func aBannedAccountsSignInIsSuspended(body: String, expected: AccountSuspension) async throws {
+        let (repository, authSession) = makeRepository()
+        defer { authSession.clear() }
+
+        URLProtocolStub.handler = { request in
+            let response = HTTPURLResponse(url: request.url!, statusCode: 403, httpVersion: nil, headerFields: nil)!
+            return (response, Data(body.utf8))
+        }
+
+        await #expect(throws: AuthError.accountSuspended(expected)) {
+            try await repository.signIn(email: "a@b.com", code: "000000", name: nil)
+        }
+        await #expect(throws: AuthError.accountSuspended(expected)) {
+            try await repository.signInWithGoogle(idToken: "raw-google-id-token")
+        }
+    }
+
     @Test func sendSignInCodeRateLimitedMapsToRateLimited() async throws {
         let (repository, authSession) = makeRepository()
         defer { authSession.clear() }

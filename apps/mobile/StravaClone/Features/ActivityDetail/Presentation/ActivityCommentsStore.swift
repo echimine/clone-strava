@@ -25,6 +25,9 @@ final class ActivityCommentsStore {
             guard status == .sent else { return [] }
             return (comment.viewerCanEdit ? [.edit] : []) + (comment.viewerCanDelete ? [.delete] : [])
         }
+
+        /// "Signaler" (ADR-038 §9): another athlete's comment, once sent.
+        var isReportable: Bool { status == .sent && !comment.viewerCanEdit }
     }
 
     /// "Modifier" or "Supprimer" in a comment's menu.
@@ -298,6 +301,18 @@ final class ActivityCommentsStore {
             onCountChange(1)
             toast = ActivityCommentMessages.deleteFailed
         }
+    }
+
+    // MARK: Hidden for the viewer (ADR-038 §7)
+
+    /// A comment the viewer reported leaves the thread for good; the count does not change.
+    func hide(_ id: UUID) {
+        comments.removeAll { $0.id == id }
+    }
+
+    /// Every comment of an athlete the viewer blocked.
+    func hideComments(of athleteId: String) {
+        comments.removeAll { $0.comment.author.id == athleteId }
     }
 
     private func row(_ id: UUID) -> Row? {

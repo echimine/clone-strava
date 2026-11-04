@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { ActivitiesModule } from "../activities/index.js";
 import { SocialModule } from "../social/index.js";
 import { UsersModule } from "../users/index.js";
+import { EngagementAdminStatsRepository } from "./repositories/engagement-admin-stats.repository.js";
 import { KudosRepository } from "./repositories/kudos.repository.js";
 import { CommentRepository } from "./repositories/comment.repository.js";
 import { CommentEvents } from "./services/comment-events.service.js";
@@ -14,6 +15,7 @@ import { GetCommentUseCase } from "./use-cases/get-comment.use-case.js";
 import { EditCommentUseCase } from "./use-cases/edit-comment.use-case.js";
 import { DeleteCommentUseCase } from "./use-cases/delete-comment.use-case.js";
 import { GetEngagementCountsUseCase } from "./use-cases/get-engagement-counts.use-case.js";
+import { RemoveCommentAsSanctionUseCase } from "./use-cases/remove-comment-as-sanction.use-case.js";
 import { EngagementService } from "./engagement.service.js";
 
 /**
@@ -24,6 +26,7 @@ import { EngagementService } from "./engagement.service.js";
 @Module({
   imports: [ActivitiesModule, SocialModule, UsersModule],
   providers: [
+    EngagementAdminStatsRepository,
     KudosRepository,
     CommentRepository,
     CommentEvents,
@@ -36,6 +39,7 @@ import { EngagementService } from "./engagement.service.js";
     EditCommentUseCase,
     DeleteCommentUseCase,
     GetEngagementCountsUseCase,
+    RemoveCommentAsSanctionUseCase,
     EngagementService,
   ],
   exports: [EngagementService],

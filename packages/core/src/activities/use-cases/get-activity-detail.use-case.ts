@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { NO_EXCLUSIONS, type ViewerExclusions } from "../../infrastructure/index.js";
 import { activityProcessingErrorCodeSchema, type ActivityProcessingErrorCode } from "@repo/contracts";
 import { ActivityStatsRepository } from "../repositories/activity-stats.repository.js";
 import { ActivityTrackRepository } from "../repositories/activity-track.repository.js";
@@ -25,8 +26,12 @@ export class GetActivityDetailUseCase {
     private readonly imports: ActivityImportRepository,
   ) {}
 
-  async execute(viewerId: string, activityId: string): Promise<ActivityDetailRecord> {
-    const row = await this.visible.findRow(viewerId, activityId);
+  async execute(
+    viewerId: string,
+    activityId: string,
+    exclusions: ViewerExclusions = NO_EXCLUSIONS,
+  ): Promise<ActivityDetailRecord> {
+    const row = await this.visible.findRow(viewerId, activityId, exclusions);
     if (!row) {
       throw activityNotFound();
     }

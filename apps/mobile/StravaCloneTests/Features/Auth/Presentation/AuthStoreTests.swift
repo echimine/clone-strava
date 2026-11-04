@@ -37,5 +37,20 @@ struct AuthStoreTests {
         await store.signOut()
 
         #expect(store.state == .signedOut)
+        #expect(store.welcomeNotice == nil)
+    }
+
+    @Test func aDeletedAccountSignsOutLocallyAndTheWelcomeSaysSo() async {
+        let (store, repository) = makeStore()
+        repository.currentUserHandler = { AuthUser(id: "1", email: "a@b.com", name: "Ada") }
+        await store.restoreSession()
+        let signedOut = Locked(false)
+        repository.signOutHandler = { signedOut.value = true }
+
+        await store.accountDeleted()
+
+        #expect(store.state == .signedOut)
+        #expect(signedOut.value)
+        #expect(store.welcomeNotice == "Compte supprimé")
     }
 }

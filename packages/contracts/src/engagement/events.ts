@@ -19,6 +19,17 @@ export const commentEventSchema = z.object({
 export type CommentEvent = z.infer<typeof commentEventSchema>;
 
 /**
+ * `engagement.comment.deleted`: `userId` is the deleter (the comment's author, the Activity's
+ * author, or the Administrator); `bySanction` is true when an Administrator removed it as a
+ * Sanction (ADR-038 §4, §10), and `authorId` is the comment's author in every case.
+ */
+export const commentDeletedEventSchema = commentEventSchema.extend({
+  authorId: z.uuid(),
+  bySanction: z.boolean(),
+});
+export type CommentDeletedEvent = z.infer<typeof commentDeletedEventSchema>;
+
+/**
  * Kudos given or removed (ADR-034 §4). Emitted only when the state really
  * changed: a repeated `PUT` or `DELETE` emits nothing.
  */

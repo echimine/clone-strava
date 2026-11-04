@@ -4,3 +4,9 @@
  * outside its login proxy; the emails link it on the backoffice origin.
  */
 export const EMAIL_WORDMARK_PATH = "/brand/nervo-wordmark-email.png";
+
+/**
+ * Origin of the backoffice in production: trusted by Better Auth and host of the e-mails'
+ * wordmark (ADR-022, ADR-032 §2). Shared by the api (auth e-mails) and the worker (`emails`).
+ */
+export const NERVO_ADMIN_ORIGIN = "https://admin.strava.echimine.fr";

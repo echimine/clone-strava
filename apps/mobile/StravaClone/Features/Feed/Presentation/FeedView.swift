@@ -15,6 +15,7 @@ struct FeedView<TopContent: View>: View {
     @ViewBuilder var topContent: () -> TopContent
     /// "Supprimer" on a card, waiting for its confirmation.
     @State private var deletionCandidate: ActivityID?
+    @Environment(\.reportContent) private var reportContent
 
     var body: some View {
         NavigationStack(path: $store.path) {
@@ -102,13 +103,18 @@ struct FeedView<TopContent: View>: View {
                         .contentShape(.rect(cornerRadius: 20))
                         .onTapGesture { store.open(post.id) }
                         .accessibilityAction(named: Text("Ouvrir l'activité")) { store.open(post.id) }
-                        // Long press on one of my cards; none on other athletes' cards.
+                        // Long press: "Modifier" / "Supprimer" on my cards, "Signaler" on other
+                        // athletes' (ADR-038 §9; the card leaves the feed once reported).
                         .contextMenu {
                             if let editActivity, store.canManage(post.id) {
                                 ActivityManageButtons(
                                     onEdit: { editActivity(post.id) },
                                     onDelete: { deletionCandidate = post.id }
                                 )
+                            } else if let reportContent, !post.viewerIsAuthor {
+                                Button(ModerationLabels.report, systemImage: ModerationLabels.reportImage) {
+                                    reportContent(.activity(post.id, by: post.author))
+                                }
                             }
                         }
                         .task { await store.loadMoreIfNeeded(currentPost: post) }

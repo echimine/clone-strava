@@ -1,4 +1,7 @@
 import { Injectable } from "@nestjs/common";
+import type { InstantRange } from "../infrastructure/index.js";
+import type { ActivityFailureCounts, ActivityGrowthCounts } from "./domain/activity-admin-stats.js";
+import { ActivityAdminStatsRepository } from "./repositories/activity-admin-stats.repository.js";
 import type {
   ActivityImport,
   AthleteStatsResponse,
@@ -16,6 +19,7 @@ import type {
   ReprocessActivityJob,
   UploadUrlResponse,
 } from "@repo/contracts";
+import type { ViewerExclusions } from "../infrastructure/index.js";
 import { CreateActivityUseCase, type CreateActivityResult } from "./use-cases/create-activity.use-case.js";
 import { RequestUploadUrlUseCase } from "./use-cases/request-upload-url.use-case.js";
 import { CompleteActivityUseCase } from "./use-cases/complete-activity.use-case.js";
@@ -53,6 +57,30 @@ import { SweepBucketUseCase } from "./use-cases/sweep-bucket.use-case.js";
 import { RequestMediaUploadUrlsUseCase } from "./use-cases/request-media-upload-urls.use-case.js";
 import { ConfirmMediaUseCase, type ConfirmMediaResult } from "./use-cases/confirm-media.use-case.js";
 import { DeleteMediaUseCase } from "./use-cases/delete-media.use-case.js";
+import { ListAdminActivitiesUseCase } from "./use-cases/list-admin-activities.use-case.js";
+import { GetAdminActivityUseCase } from "./use-cases/get-admin-activity.use-case.js";
+import { ReprocessFailedActivityUseCase } from "./use-cases/reprocess-failed-activity.use-case.js";
+import { DeleteActivityAsSanctionUseCase } from "./use-cases/delete-activity-as-sanction.use-case.js";
+import { RemoveMediaAsSanctionUseCase } from "./use-cases/remove-media-as-sanction.use-case.js";
+import { ResetActivityTextUseCase, type ActivityTextReset } from "./use-cases/reset-activity-text.use-case.js";
+import { AdminActivityRepository } from "./repositories/admin-activity.repository.js";
+import { ListAdminFailuresUseCase } from "./use-cases/list-admin-failures.use-case.js";
+import { RecomputeActivityUseCase } from "./use-cases/recompute-activity.use-case.js";
+import { RelaunchFailuresUseCase } from "./use-cases/relaunch-failures.use-case.js";
+import type {
+  FailedActivityRow,
+  FailedImportRow,
+  FailurePage,
+  StaleActivityRow,
+} from "./domain/admin-failure.js";
+
+type AdminPage = { page: number; pageSize: number };
+import type {
+  ActivityLabel,
+  AdminActivityFilter,
+  AdminActivityRecord,
+  AdminActivityRow,
+} from "./domain/admin-activity.js";
 import type { ActivityDetailRecord } from "./domain/activity-detail.js";
 import type { ActivityMediaRecord, GalleryMediaPage } from "./domain/activity-media.js";
 import type { ActivityRecord } from "./domain/activity-record.js";
@@ -66,6 +94,7 @@ import type { FeedActivityPage } from "./domain/feed-activity.js";
 @Injectable()
 export class ActivitiesService {
   constructor(
+    private readonly adminStats: ActivityAdminStatsRepository,
     private readonly createActivityUseCase: CreateActivityUseCase,
     private readonly requestUploadUrlUseCase: RequestUploadUrlUseCase,
     private readonly completeActivityUseCase: CompleteActivityUseCase,
@@ -94,7 +123,32 @@ export class ActivitiesService {
     private readonly requestMediaUploadUrlsUseCase: RequestMediaUploadUrlsUseCase,
     private readonly confirmMediaUseCase: ConfirmMediaUseCase,
     private readonly deleteMediaUseCase: DeleteMediaUseCase,
+    private readonly listAdminActivitiesUseCase: ListAdminActivitiesUseCase,
+    private readonly getAdminActivityUseCase: GetAdminActivityUseCase,
+    private readonly reprocessFailedActivityUseCase: ReprocessFailedActivityUseCase,
+    private readonly deleteActivityAsSanctionUseCase: DeleteActivityAsSanctionUseCase,
+    private readonly removeMediaAsSanctionUseCase: RemoveMediaAsSanctionUseCase,
+    private readonly resetActivityTextUseCase: ResetActivityTextUseCase,
+    private readonly adminActivities: AdminActivityRepository,
+    private readonly listAdminFailuresUseCase: ListAdminFailuresUseCase,
+    private readonly recomputeActivityUseCase: RecomputeActivityUseCase,
+    private readonly relaunchFailuresUseCase: RelaunchFailuresUseCase,
   ) {}
+
+  /** Backoffice dashboard, "À traiter" (ADR-038 §15): failed Activities and recent failed imports. */
+  getAdminFailureCounts(failedImportsSince: Date, excludedUserIds: readonly string[]): Promise<ActivityFailureCounts> {
+    return this.adminStats.countFailures(failedImportsSince, excludedUserIds);
+  }
+
+  /** Backoffice dashboard, "Croissance" (ADR-038 §15): Activities started, active athletes, Media. */
+  getAdminGrowthCounts(range: InstantRange, excludedUserIds: readonly string[]): Promise<ActivityGrowthCounts> {
+    return this.adminStats.countGrowth(range, excludedUserIds);
+  }
+
+  /** Backoffice dashboard chart (ADR-038 §15): Activities started per Paris day. */
+  countActivitiesPerParisDay(range: InstantRange, excludedUserIds: readonly string[]): Promise<Map<string, number>> {
+    return this.adminStats.countStartedPerParisDay(range, excludedUserIds);
+  }
 
   create(userId: string, request: CreateActivityRequest): Promise<CreateActivityResult> {
     return this.createActivityUseCase.execute(userId, request);
@@ -149,46 +203,55 @@ export class ActivitiesService {
     return this.getActivityMediaUseCase.execute(activityIds);
   }
 
+  // Every read on a viewer's behalf takes the viewer filter (ADR-038 §7): hidden authors and
+  // reported activities are left out, as if they did not exist.
+
   /** Feed steps 1-2 (ADR-021 §6, ADR-029): the caller adds authors and engagement. */
-  getFeedPage(viewerId: string, query: { cursor?: string; limit: number }): Promise<FeedActivityPage> {
-    return this.getFeedPageUseCase.execute(viewerId, query);
+  getFeedPage(
+    viewerId: string,
+    query: { cursor?: string; limit: number },
+    exclusions: ViewerExclusions,
+  ): Promise<FeedActivityPage> {
+    return this.getFeedPageUseCase.execute(viewerId, query, exclusions);
   }
 
   /**
    * An athlete's processed Activities that `viewerId` may see, as a feed page (ADR-036 §3). The
-   * caller checks the athlete exists, then adds authors and engagement.
+   * caller checks the athlete exists and is not hidden, then adds authors and engagement.
    */
   getAthleteActivitiesPage(
     viewerId: string,
     athleteId: string,
     query: { cursor?: string; limit: number },
+    exclusions: ViewerExclusions,
   ): Promise<FeedActivityPage> {
-    return this.getAthleteActivitiesPageUseCase.execute(viewerId, athleteId, query);
+    return this.getAthleteActivitiesPageUseCase.execute(viewerId, athleteId, query, exclusions);
   }
 
   /**
    * The Media of an athlete's processed Activities that `viewerId` may see, as a Gallery page
-   * (ADR-037 §9). The caller checks the athlete exists and signs the files.
+   * (ADR-037 §9). The caller checks the athlete exists and is not hidden, and signs the files.
    */
   getAthleteGalleryPage(
     viewerId: string,
     athleteId: string,
     query: { cursor?: string; limit: number },
+    exclusions: ViewerExclusions,
   ): Promise<GalleryMediaPage> {
-    return this.getAthleteGalleryPageUseCase.execute(viewerId, athleteId, query);
+    return this.getAthleteGalleryPageUseCase.execute(viewerId, athleteId, query, exclusions);
   }
 
   /** The activity if `viewerId` may see it, `null` otherwise (ADR-029). */
-  getVisible(viewerId: string, activityId: string): Promise<ActivityRecord | null> {
-    return this.getVisibleActivityUseCase.execute(viewerId, activityId);
+  getVisible(viewerId: string, activityId: string, exclusions: ViewerExclusions): Promise<ActivityRecord | null> {
+    return this.getVisibleActivityUseCase.execute(viewerId, activityId, exclusions);
   }
 
   /**
    * The detail of an activity `viewerId` may see (ADR-033 §2): the author's in any state, others'
    * once processed; `404 activity_not_found` otherwise. The caller adds author and engagement.
    */
-  getDetail(viewerId: string, activityId: string): Promise<ActivityDetailRecord> {
-    return this.getActivityDetailUseCase.execute(viewerId, activityId);
+  getDetail(viewerId: string, activityId: string, exclusions: ViewerExclusions): Promise<ActivityDetailRecord> {
+    return this.getActivityDetailUseCase.execute(viewerId, activityId, exclusions);
   }
 
   /**
@@ -287,5 +350,101 @@ export class ActivitiesService {
   /** Backoffice reprocessing of a failed import (ADR-028 §7). */
   reprocessImport(importId: string, requestId?: string): Promise<ActivityImport> {
     return this.reprocessActivityImportUseCase.execute(importId, requestId);
+  }
+
+  // --- Backoffice (ADR-038 §11) ---
+
+  /** Every Activity, private ones included, newest created first. The caller adds the athletes. */
+  listForAdmin(
+    filter: AdminActivityFilter,
+    page: { page: number; pageSize: number },
+  ): Promise<{ rows: AdminActivityRow[]; total: number }> {
+    return this.listAdminActivitiesUseCase.execute(filter, page);
+  }
+
+  /** Any Activity with its public trace only; `404 activity_not_found` for an unknown id. */
+  getForAdmin(activityId: string): Promise<AdminActivityRecord> {
+    return this.getAdminActivityUseCase.execute(activityId);
+  }
+
+  /**
+   * « Retraiter »: a `failed` Activity back to `processing` and enqueued again (ADR-019 §6);
+   * `409 not_failed` otherwise. Not to be confused with {@link reprocess}, the worker's job.
+   */
+  reprocessFailed(activityId: string, requestId?: string): Promise<ActivityRecord> {
+    return this.reprocessFailedActivityUseCase.execute(activityId, requestId);
+  }
+
+  /** Sanction: deletes the Activity as its author would, without the author check. */
+  deleteAsSanction(activityId: string): Promise<ActivityLabel> {
+    return this.deleteActivityAsSanctionUseCase.execute(activityId);
+  }
+
+  /** Sanction: deletes a Media as the author would; `404 media_not_found` if already gone. */
+  removeMediaAsSanction(activityId: string, mediaId: string): Promise<ActivityLabel> {
+    return this.removeMediaAsSanctionUseCase.execute(activityId, mediaId);
+  }
+
+  /** Sanction: default title, no description. */
+  resetText(activityId: string): Promise<ActivityTextReset> {
+    return this.resetActivityTextUseCase.execute(activityId);
+  }
+
+  // --- Jobs screen, "Échecs" tab (ADR-038 §14) ---
+
+  /** `failed` Activities, newest first. The caller adds the athletes. */
+  listFailedForAdmin(page: AdminPage): Promise<FailurePage<FailedActivityRow>> {
+    return this.listAdminFailuresUseCase.activities(page);
+  }
+
+  /** `failed` imports, newest first. The caller adds the athletes. */
+  listFailedImportsForAdmin(page: AdminPage): Promise<FailurePage<FailedImportRow>> {
+    return this.listAdminFailuresUseCase.imports(page);
+  }
+
+  /** Failed recomputations: processed Activities computed for another sport. */
+  listStaleForAdmin(page: AdminPage): Promise<FailurePage<StaleActivityRow>> {
+    return this.listAdminFailuresUseCase.recomputes(page);
+  }
+
+  /**
+   * « Recalculer »: `reprocess-activity` again under a new job id; `409 not_stale` unless the
+   * Activity is processed and computed for another sport. Returns the author and the job id.
+   */
+  recompute(activityId: string, requestId?: string): Promise<{ userId: string; jobId: string }> {
+    return this.recomputeActivityUseCase.execute(activityId, requestId);
+  }
+
+  /** « Retraiter les N en échec » (500 at most): the ids of the Activities relaunched. */
+  reprocessAllFailed(requestId?: string): Promise<string[]> {
+    return this.relaunchFailuresUseCase.reprocessFailedActivities(requestId);
+  }
+
+  /** « Recalculer » every failed recomputation (500 at most): the ids relaunched. */
+  recomputeAllStale(requestId?: string): Promise<string[]> {
+    return this.relaunchFailuresUseCase.recomputeStaleActivities(requestId);
+  }
+
+  /** « Retraiter » every failed import (500 at most): the ids relaunched. */
+  reprocessAllFailedImports(requestId?: string): Promise<string[]> {
+    return this.relaunchFailuresUseCase.reprocessFailedImports(requestId);
+  }
+
+  /** Batch read: how e-mails and the backoffice name these Activities (ADR-038 §4). */
+  getLabels(activityIds: string[]): Promise<ActivityLabel[]> {
+    return this.adminActivities.findLabels(activityIds);
+  }
+
+  /**
+   * The user sheet's « Activité » section (ADR-038 §5): every Activity of the athlete, private
+   * and unprocessed ones included, and the start of the latest.
+   */
+  getAdminSummary(userId: string): Promise<{ activityCount: number; lastActivityAt: Date | null }> {
+    return this.adminActivities.findSummary(userId);
+  }
+
+  /** Batch read: the ids among `mediaIds` of Media that still exist (Journal links). */
+  getExistingMediaIds(mediaIds: string[]): Promise<Set<string>> {
+    return this.adminActivities.findExistingMediaIds(mediaIds);
   }
 }

@@ -12,6 +12,8 @@ enum ActivityChange: Hashable, Sendable {
     case restored(ActivityID)
     /// New kudos or comment counts.
     case engagement(ActivityID, ActivityEngagement)
+    /// The viewer blocked this athlete (ADR-038 §8): every card of theirs goes, for good.
+    case authorHidden(athleteId: String)
 }
 
 /// Core-level stream of `ActivityChange`s (ADR-033 §7): the detail publishes, the feed applies,

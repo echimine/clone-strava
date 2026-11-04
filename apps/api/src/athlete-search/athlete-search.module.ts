@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { SocialModule } from "@repo/core/social";
 import { UsersModule } from "@repo/core/users";
 import { AuthModule } from "../auth/auth.module.js";
+import { ViewerFilterModule } from "../viewer-filter/viewer-filter.module.js";
 import { IdentitiesModule } from "../identities/identities.module.js";
 import { AthleteSearchController } from "./athlete-search.controller.js";
 
@@ -11,7 +12,7 @@ import { AthleteSearchController } from "./athlete-search.controller.js";
  * `athletes/:id`, so the static `athletes/search` route is registered first.
  */
 @Module({
-  imports: [AuthModule, UsersModule, SocialModule, IdentitiesModule],
+  imports: [AuthModule, UsersModule, SocialModule, IdentitiesModule, ViewerFilterModule],
   controllers: [AthleteSearchController],
 })
 export class AthleteSearchModule {}

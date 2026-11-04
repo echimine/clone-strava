@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { readKeysetPage, type PageQuery } from "../../infrastructure/index.js";
+import { readKeysetPage, type PageQuery, type ViewerExclusions } from "../../infrastructure/index.js";
 import type { GalleryMediaPage } from "../domain/activity-media.js";
 import { decodeGalleryCursor, encodeGalleryCursor } from "../domain/gallery-cursor.js";
 import { ActivityMediaRepository } from "../repositories/activity-media.repository.js";
@@ -17,10 +17,21 @@ export class GetAthleteGalleryPageUseCase {
     private readonly media: ActivityMediaRepository,
   ) {}
 
-  async execute(viewerId: string, athleteId: string, query: PageQuery): Promise<GalleryMediaPage> {
+  async execute(
+    viewerId: string,
+    athleteId: string,
+    query: PageQuery,
+    exclusions: ViewerExclusions,
+  ): Promise<GalleryMediaPage> {
     const { visibilities } = await this.scopes.resolve(viewerId, athleteId);
     const { rows, boundary: last } = await readKeysetPage(query, decodeGalleryCursor, (after, take) =>
-      this.media.findGalleryPage({ userId: athleteId, visibilities, after, limit: take }),
+      this.media.findGalleryPage({
+        userId: athleteId,
+        visibilities,
+        after,
+        limit: take,
+        excludedActivityIds: exclusions.reportedActivityIds,
+      }),
     );
     return {
       items: rows.map((row) => ({

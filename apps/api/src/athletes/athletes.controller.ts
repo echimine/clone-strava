@@ -12,6 +12,7 @@ import { CurrentUser } from "../auth/current-user.decorator.js";
 import { SessionGuard, type AuthenticatedUser } from "../auth/session.guard.js";
 import { FeedAssembler } from "../feed/feed-assembler.js";
 import { AthleteIdentities } from "../identities/athlete-identities.js";
+import { assertAthleteVisible, ViewerFilter } from "../viewer-filter/viewer-filter.js";
 import { AthleteProfileAssembler } from "./athlete-profile-assembler.js";
 
 class AthleteProfileResponseDto extends createZodDto(athleteProfileResponseSchema) {}
@@ -31,17 +32,23 @@ export class AthletesController {
     private readonly profiles: AthleteProfileAssembler,
     private readonly activities: ActivitiesService,
     private readonly feed: FeedAssembler,
+    private readonly viewerFilter: ViewerFilter,
   ) {}
 
-  /** The profile header; `approveFollowers`, `pendingFollowRequestCount` and `itineraryCount` only for oneself. */
+  /**
+   * The profile header; `approveFollowers`, `pendingFollowRequestCount` and `itineraryCount` only
+   * for oneself. An athlete hidden from the viewer (ADR-038 §7) is `404 athlete_not_found` too.
+   */
   @Get(":id")
   @ZodResponse({ status: 200, type: AthleteProfileResponseDto })
   async profile(
     @Param("id", ParseUUIDPipe) athleteId: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<AthleteProfileResponse> {
+    const filter = await this.viewerFilter.for(user.userId);
+    assertAthleteVisible(filter, athleteId);
     await this.identities.assertExists(athleteId);
-    return this.profiles.assemble(user.userId, athleteId);
+    return this.profiles.assemble(user.userId, athleteId, filter);
   }
 
   /**
@@ -55,8 +62,10 @@ export class AthletesController {
     @Query() query: AthleteActivitiesQueryDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<FeedResponse> {
+    const filter = await this.viewerFilter.for(user.userId);
+    assertAthleteVisible(filter, athleteId);
     await this.identities.assertExists(athleteId);
-    const page = await this.activities.getAthleteActivitiesPage(user.userId, athleteId, query);
-    return { items: await this.feed.assemble(user.userId, page.items), nextCursor: page.nextCursor };
+    const page = await this.activities.getAthleteActivitiesPage(user.userId, athleteId, query, filter);
+    return { items: await this.feed.assemble(user.userId, page.items, filter), nextCursor: page.nextCursor };
   }
 }

@@ -9,12 +9,15 @@ import { ElevationModule } from "@repo/core/elevation";
 import { CoreInfrastructureModule } from "@repo/core/infrastructure";
 import { RealtimeBridgeModule } from "@repo/core/realtime";
 import { StorageModule } from "@repo/core/storage";
+import { RevenueCatModule } from "@repo/core/subscriptions";
 import { AdminModule } from "./admin/admin.module.js";
 import { ActivitiesModule } from "./activities/activities.module.js";
 import { AthleteSearchModule } from "./athlete-search/athlete-search.module.js";
 import { AthleteStatsModule } from "./athlete-stats/athlete-stats.module.js";
 import { AthletesModule } from "./athletes/athletes.module.js";
 import { AuthModule } from "./auth/auth.module.js";
+import { BlocksModule } from "./blocks/blocks.module.js";
+import { ReportsModule } from "./reports/reports.module.js";
 import { FeedModule } from "./feed/feed.module.js";
 import { FollowsModule } from "./follows/follows.module.js";
 import { AppBullModule } from "./bull/bull.module.js";
@@ -56,6 +59,12 @@ const config = loadConfig();
       accessKeyId: config.S3_ACCESS_KEY_ID,
       secretAccessKey: config.S3_SECRET_ACCESS_KEY,
     }),
+    // RevenueCat's API v2 for Promotional Premium (ADR-038 §12); optional: read-only without it.
+    RevenueCatModule.forRoot({
+      apiKey: config.REVENUECAT_API_KEY,
+      projectId: config.REVENUECAT_PROJECT_ID,
+      premiumEntitlementId: config.REVENUECAT_PREMIUM_ENTITLEMENT_ID,
+    }),
     // Processing (the only geocoding user) runs in the worker: no token here (ADR-029).
     GeocodingModule.forRoot({}),
     // Itinerary altitudes (ADR-030 §3): IGN, then Open-Meteo; no key needed.
@@ -76,6 +85,8 @@ const config = loadConfig();
     AthleteSearchModule,
     FeedModule,
     FollowsModule,
+    BlocksModule,
+    ReportsModule,
     ActivitiesModule,
     AthleteStatsModule,
     ItinerariesModule,

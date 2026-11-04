@@ -10,6 +10,7 @@ import { UsersService } from "@repo/core/users";
 import { CurrentUser } from "../auth/current-user.decorator.js";
 import { SessionGuard, type AuthenticatedUser } from "../auth/session.guard.js";
 import { AthleteIdentities } from "../identities/athlete-identities.js";
+import { ViewerFilter } from "../viewer-filter/viewer-filter.js";
 
 class AthleteSearchQueryDto extends createZodDto(athleteSearchQuerySchema) {}
 class AthleteSearchResponseDto extends createZodDto(athleteSearchResponseSchema) {}
@@ -26,11 +27,13 @@ export class AthleteSearchController {
     private readonly users: UsersService,
     private readonly social: SocialService,
     private readonly identities: AthleteIdentities,
+    private readonly viewerFilter: ViewerFilter,
   ) {}
 
   /**
    * At most 20 athletes whose profile name contains `q`, ignoring case and
-   * accents, word starts first, then alphabetical; never the viewer.
+   * accents, word starts first, then alphabetical; never the viewer nor an athlete hidden from
+   * them (ADR-038 §7).
    * `q` trimmed must hold 2 to 50 characters, otherwise `422 invalid_query`.
    */
   @Get("search")
@@ -39,7 +42,7 @@ export class AthleteSearchController {
     @Query() query: AthleteSearchQueryDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<AthleteSearchResponse> {
-    const ids = await this.users.searchByName(query.q, user.userId);
+    const ids = await this.users.searchByName(query.q, user.userId, await this.viewerFilter.for(user.userId));
     const [athlete, statuses] = await Promise.all([
       this.identities.resolve(ids),
       this.social.getFollowStatuses(user.userId, ids),

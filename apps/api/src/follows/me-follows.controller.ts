@@ -11,6 +11,7 @@ import {
 import { SocialService } from "@repo/core/social";
 import { CurrentUser } from "../auth/current-user.decorator.js";
 import { SessionGuard, type AuthenticatedUser } from "../auth/session.guard.js";
+import { ViewerFilter } from "../viewer-filter/viewer-filter.js";
 import { FollowListAssembler } from "./follow-list-assembler.js";
 
 class ListFollowsQueryDto extends createZodDto(listFollowsQuerySchema) {}
@@ -27,6 +28,7 @@ export class MeFollowsController {
   constructor(
     private readonly social: SocialService,
     private readonly assembler: FollowListAssembler,
+    private readonly viewerFilter: ViewerFilter,
   ) {}
 
   /** Incoming `pending` follows, most recent first, keyset pages. */
@@ -36,7 +38,8 @@ export class MeFollowsController {
     @Query() query: ListFollowsQueryDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<FollowRequestListResponse> {
-    return this.assembler.assembleRequests(await this.social.listFollowRequests(user.userId, query));
+    const filter = await this.viewerFilter.for(user.userId);
+    return this.assembler.assembleRequests(await this.social.listFollowRequests(user.userId, query, filter));
   }
 
   /** Accept a request; `404 follow_request_not_found` without one. */

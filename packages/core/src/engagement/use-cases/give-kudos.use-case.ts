@@ -2,6 +2,7 @@ import { Injectable, UnprocessableEntityException } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { KUDOS_GIVEN_EVENT, KUDOS_REMOVED_EVENT, type KudosEvent } from "@repo/contracts";
 import { ActivitiesService, activityNotFound } from "../../activities/index.js";
+import { NO_EXCLUSIONS, type ViewerExclusions } from "../../infrastructure/index.js";
 import { KudosRepository } from "../repositories/kudos.repository.js";
 import type { KudosState } from "../domain/kudos-state.js";
 
@@ -21,24 +22,24 @@ export class GiveKudosUseCase {
     private readonly events: EventEmitter2,
   ) {}
 
-  async execute(userId: string, activityId: string): Promise<KudosState> {
-    await this.assertCanKudos(userId, activityId);
+  async execute(userId: string, activityId: string, exclusions: ViewerExclusions = NO_EXCLUSIONS): Promise<KudosState> {
+    await this.assertCanKudos(userId, activityId, exclusions);
     if (await this.kudos.give(userId, activityId)) {
       this.events.emit(KUDOS_GIVEN_EVENT, { activityId, userId } satisfies KudosEvent);
     }
     return this.state(activityId, true);
   }
 
-  async remove(userId: string, activityId: string): Promise<KudosState> {
-    await this.assertCanKudos(userId, activityId);
+  async remove(userId: string, activityId: string, exclusions: ViewerExclusions = NO_EXCLUSIONS): Promise<KudosState> {
+    await this.assertCanKudos(userId, activityId, exclusions);
     if (await this.kudos.remove(userId, activityId)) {
       this.events.emit(KUDOS_REMOVED_EVENT, { activityId, userId } satisfies KudosEvent);
     }
     return this.state(activityId, false);
   }
 
-  private async assertCanKudos(userId: string, activityId: string): Promise<void> {
-    const activity = await this.activities.getVisible(userId, activityId);
+  private async assertCanKudos(userId: string, activityId: string, exclusions: ViewerExclusions): Promise<void> {
+    const activity = await this.activities.getVisible(userId, activityId, exclusions);
     if (!activity) {
       throw activityNotFound();
     }

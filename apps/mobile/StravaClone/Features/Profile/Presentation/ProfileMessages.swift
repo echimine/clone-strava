@@ -53,6 +53,7 @@ enum ProfileMessages {
     }
     static let approvalFailed = "Le réglage n'a pas pu être modifié, réessayez."
     static let approveFollowers = "Approuver mes abonnés"
+    static let blockedAthletes = "Athlètes bloqués"
     static let approveFollowersFooter = "Activé, chaque nouvel abonné attend votre accord."
 
     static func tab(_ tab: ProfileStore.Tab) -> String {

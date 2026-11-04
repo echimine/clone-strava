@@ -32,7 +32,7 @@ export class DeleteCommentUseCase {
       });
     }
     if (await this.comments.softDelete(commentId, new Date())) {
-      this.events.deleted({ commentId, activityId, userId });
+      this.events.deleted({ commentId, activityId, userId, authorId: comment.userId, bySanction: false });
     }
   }
 }

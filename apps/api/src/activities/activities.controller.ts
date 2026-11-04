@@ -33,6 +33,7 @@ import { CurrentUser } from "../auth/current-user.decorator.js";
 import { SessionGuard, type AuthenticatedUser } from "../auth/session.guard.js";
 import { RequestId } from "../common/request-id.decorator.js";
 import { FeedAssembler } from "../feed/feed-assembler.js";
+import { ViewerFilter } from "../viewer-filter/viewer-filter.js";
 
 class CreateActivityRequestDto extends createZodDto(createActivityRequestSchema) {}
 class CreateActivityResponseDto extends createZodDto(createActivityResponseSchema) {}
@@ -58,6 +59,7 @@ export class ActivitiesController {
   constructor(
     private readonly activitiesService: ActivitiesService,
     private readonly assembler: FeedAssembler,
+    private readonly viewerFilter: ViewerFilter,
   ) {}
 
   /**
@@ -96,7 +98,8 @@ export class ActivitiesController {
     @Param("id", ParseUUIDPipe) activityId: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<ActivityDetail> {
-    const activity = await this.activitiesService.getDetail(user.userId, activityId);
+    const filter = await this.viewerFilter.for(user.userId);
+    const activity = await this.activitiesService.getDetail(user.userId, activityId, filter);
     return this.assembler.assembleDetail(user.userId, activity);
   }
 

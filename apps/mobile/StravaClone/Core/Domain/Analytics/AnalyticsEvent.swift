@@ -92,6 +92,10 @@ enum AnalyticsEvent: Equatable, Sendable {
     case mediaViewerOpened(source: MediaViewerSource, kind: ActivityMedia.Kind, isOwn: Bool)
     /// The profile's Galerie tab opened, mine or another athlete's.
     case galleryViewed(isOwn: Bool)
+    /// An athlete blocked another one (ADR-038 §8), never with their id.
+    case athleteBlocked(source: BlockSource)
+    /// "Débloquer" confirmed in Réglages > "Athlètes bloqués", never with the athlete's id.
+    case athleteUnblocked
 
     var name: String {
         switch self {
@@ -128,6 +132,8 @@ enum AnalyticsEvent: Equatable, Sendable {
         case .avatarPromptDeferred: "avatar_prompt_deferred"
         case .mediaViewerOpened: "media_viewer_opened"
         case .galleryViewed: "gallery_viewed"
+        case .athleteBlocked: "athlete_blocked"
+        case .athleteUnblocked: "athlete_unblocked"
         }
     }
 
@@ -203,6 +209,10 @@ enum AnalyticsEvent: Equatable, Sendable {
             ["source": .string(source.rawValue), "kind": .string(kind.rawValue), "isOwn": .bool(isOwn)]
         case .galleryViewed(let isOwn):
             ["isOwn": .bool(isOwn)]
+        case .athleteBlocked(let source):
+            ["source": .string(source.rawValue)]
+        case .athleteUnblocked:
+            ["source": .string("settings")]
         }
     }
 }

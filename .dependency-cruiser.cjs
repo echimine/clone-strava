@@ -23,6 +23,8 @@
 
 /** Domain modules of `packages/core` (ADR-021 §1 table, domain kind only). */
 const DOMAIN_MODULES = [
+  "audit",
+  "moderation",
   "auth",
   "users",
   "sports",
@@ -43,6 +45,10 @@ const DOMAIN_MODULES = [
  * below), including for the modules with an empty list here.
  */
 const ALLOWED_DEPENDENCIES = {
+  // ADR-038 §3: layer 0. Better Auth hooks and jobs reach it through apps (events, composition).
+  audit: [],
+  // ADR-038 §9, §18: layer 0. `apps/api` reads a Report's target through its module, then calls it.
+  moderation: [],
   auth: [],
   users: [],
   sports: [],

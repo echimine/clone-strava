@@ -4,6 +4,7 @@ import type { Queue } from "bullmq";
 import {
   ACTIVITIES_QUEUE_NAME,
   REPROCESS_ACTIVITY_JOB_NAME,
+  recomputeActivityJobId,
   reprocessActivityJobId,
   reprocessAnalysisJobId,
   type ReprocessActivityJob,
@@ -34,6 +35,17 @@ export class ReprocessJobEnqueuer {
    */
   enqueueForAnalysis(job: ReprocessActivityJob, analysisVersion: number): Promise<boolean> {
     return this.addOnce(job, reprocessAnalysisJobId(job.activityId, analysisVersion));
+  }
+
+  /**
+   * « Recalculer » from the backoffice (ADR-038 §14): always added, under a new id
+   * `reprocess-activity-{activityId}-{at epoch ms}`, since the id of the last edit still holds
+   * the job that failed. Returns the job id.
+   */
+  async enqueueRecompute(job: ReprocessActivityJob, at: Date): Promise<string> {
+    const jobId = recomputeActivityJobId(job.activityId, at);
+    await this.queue.add(REPROCESS_ACTIVITY_JOB_NAME, job, { ...DEFAULT_JOB_RETRY, jobId });
+    return jobId;
   }
 
   private async addOnce(job: ReprocessActivityJob, jobId: string): Promise<boolean> {

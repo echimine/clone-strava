@@ -1,7 +1,21 @@
 export { ActivitiesModule } from "./activities.module.js";
 export { ActivitiesService } from "./activities.service.js";
+export type { ActivityFailureCounts, ActivityGrowthCounts } from "./domain/activity-admin-stats.js";
 export type { ActivityDetailRecord } from "./domain/activity-detail.js";
 export type { ActivityRecord } from "./domain/activity-record.js";
+export type {
+  ActivityLabel,
+  AdminActivityFilter,
+  AdminActivityRecord,
+  AdminActivityRow,
+} from "./domain/admin-activity.js";
+export type {
+  FailedActivityRow,
+  FailedImportRow,
+  FailurePage,
+  StaleActivityRow,
+} from "./domain/admin-failure.js";
+export type { ActivityTextReset } from "./use-cases/reset-activity-text.use-case.js";
 export type { ActivityMediaRecord, GalleryMediaPage, GalleryMediaRecord } from "./domain/activity-media.js";
 export type { FeedActivity, FeedActivityPage, FeedActivityStats } from "./domain/feed-activity.js";
 export type { AthleteProfileFigures } from "./use-cases/get-athlete-profile-figures.use-case.js";

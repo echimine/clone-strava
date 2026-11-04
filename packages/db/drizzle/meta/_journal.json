@@ -113,6 +113,27 @@
       "when": 1793779625953,
       "tag": "0015_profile_bio",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1793805183328,
+      "tag": "0016_audit_log",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1793807696953,
+      "tag": "0017_report_and_block",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1793814856316,
+      "tag": "0018_subscriptions_promotional",
+      "breakpoints": true
     }
   ]
 }

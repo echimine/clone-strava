@@ -7,6 +7,7 @@ import { Test } from "@nestjs/testing";
 import { Redis } from "ioredis";
 import { ZodSerializerInterceptor, ZodValidationPipe } from "nestjs-zod";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { ViewerFilterModule } from "../viewer-filter/viewer-filter.module.js";
 import { activityMediaPrefix, type GalleryResponse } from "@repo/contracts";
 import { ActivitiesModule } from "@repo/core/activities";
 import { AnalyticsModule } from "@repo/core/analytics";
@@ -123,6 +124,7 @@ describe("Athlete Gallery (integration)", () => {
         BullModule.forRoot({ connection: bullConnection, prefix: `test-${randomUUID()}` }),
         AnalyticsModule.forRoot({}),
         EventEmitterModule.forRoot({ wildcard: true, delimiter: "." }),
+        ViewerFilterModule,
         StorageModule.forRoot({
           endpoint: "https://bucket.test",
           region: "test",

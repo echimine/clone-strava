@@ -10,6 +10,7 @@ struct ActivityDetailPage: View {
     @State private var deletionCandidate: ActivityID?
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.reportContent) private var reportContent
 
     init(
         request: ActivityDetailRequest,
@@ -46,7 +47,8 @@ struct ActivityDetailPage: View {
             .accessibilityIdentifier("activityDetail")
     }
 
-    /// "⋯" for the author only (ADR-033 §3).
+    /// "⋯": "Modifier" / "Supprimer" for the author (ADR-033 §3), "Signaler" for anyone else
+    /// (ADR-038 §9): once reported, the Activity is gone for them and the detail closes.
     @ToolbarContentBuilder private var manageMenu: some ToolbarContent {
         if let detail = store.detail, detail.viewerIsAuthor {
             ToolbarItem(placement: .topBarTrailing) {
@@ -60,6 +62,21 @@ struct ActivityDetailPage: View {
                     Label(ActivityDetailMessages.manage, systemImage: "ellipsis")
                 }
                 .accessibilityIdentifier("activityDetail.manage")
+            }
+        } else if let detail = store.detail, let reportContent {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button(ModerationLabels.report, systemImage: ModerationLabels.reportImage) {
+                        // Reported: the detail closes, once (not again if its author is blocked next).
+                        reportContent(.activity(detail.id, by: detail.author)) { hiding in
+                            if hiding == .target { dismiss() }
+                        }
+                    }
+                    .accessibilityIdentifier("activityDetail.report")
+                } label: {
+                    Label(ActivityDetailMessages.manage, systemImage: "ellipsis")
+                }
+                .accessibilityIdentifier("activityDetail.more")
             }
         }
     }

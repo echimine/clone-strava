@@ -11,6 +11,7 @@ import {
   realtimeGrantClaimsSchema,
 } from "@repo/realtime";
 import { CONFIG, type ApiEnv } from "../config/env.js";
+import { ViewerFilter } from "../viewer-filter/viewer-filter.js";
 
 /**
  * Signs subscription grants (ADR-034 §5). The gateway may not read the database (ADR-010 §1),
@@ -22,12 +23,15 @@ export class RealtimeGrantIssuer {
   constructor(
     @Inject(CONFIG) private readonly config: ApiEnv,
     private readonly activities: ActivitiesService,
+    private readonly viewerFilter: ViewerFilter,
   ) {}
 
   /** A 60 s grant for `topic`; `404 activity_not_found` when the Activity is not visible. */
   async grant(userId: string, topic: string): Promise<RealtimeGrantResponse> {
     const parsed = parseTopic(topic);
-    const visible = parsed.kind === "activity" && (await this.activities.getVisible(userId, parsed.activityId));
+    const visible =
+      parsed.kind === "activity" &&
+      (await this.activities.getVisible(userId, parsed.activityId, await this.viewerFilter.for(userId)));
     if (!visible) {
       throw activityNotFound();
     }

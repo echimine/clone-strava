@@ -1,60 +1,43 @@
 "use client";
 
-import { Button } from "@repo/ui/components/button";
-import { useRouter, useSearchParams } from "next/navigation";
+import { activitySourceSchema, processingStatusSchema, visibilitySchema } from "@repo/contracts";
+import { ActivityFilters } from "@/features/activities/components/ActivityFilters";
 import { ActivityTable } from "@/features/activities/components/ActivityTable";
 import { useActivities } from "@/features/activities/hooks/useActivities";
-
-const DEFAULT_LIMIT = 20;
+import { useListUrlState } from "@/lib/list-url-state";
 
 /**
- * Assembles the activities feature (ADR-013 reference feature): pagination
- * state lives in the URL search params so a filtered page can be shared or
- * reloaded.
+ * The backoffice Activities list (ADR-038 §11): every Activity, private ones included, newest
+ * created first, its filters and page in the URL (a user sheet links here with `userId`).
  */
 export function ActivitiesView() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const page = Number(searchParams.get("page") ?? "1");
-  const limit = Number(searchParams.get("limit") ?? String(DEFAULT_LIMIT));
-
-  const { data, isLoading, isPlaceholderData } = useActivities({ page, limit });
-
-  function goToPage(nextPage: number) {
-    const params = new URLSearchParams(searchParams);
-    params.set("page", String(nextPage));
-    router.push(`/activities?${params.toString()}`);
-  }
-
-  const total = data?.total ?? 0;
-  const hasNextPage = data ? page * limit < total : false;
+  const list = useListUrlState();
+  const status = processingStatusSchema.safeParse(list.get("status"));
+  const source = activitySourceSchema.safeParse(list.get("source"));
+  const visibility = visibilitySchema.safeParse(list.get("visibility"));
+  const userId = list.get("userId");
+  const { data, isLoading, isPlaceholderData } = useActivities({
+    page: list.page,
+    pageSize: list.pageSize,
+    q: list.get("q"),
+    status: status.success ? status.data : undefined,
+    source: source.success ? source.data : undefined,
+    sportTypeCode: list.get("sportTypeCode"),
+    visibility: visibility.success ? visibility.data : undefined,
+    userId,
+    from: list.get("from"),
+    to: list.get("to"),
+  });
+  const athleteName = data?.items.find((item) => item.athlete.id === userId)?.athlete.displayName;
 
   return (
     <div className="flex flex-col gap-4">
-      <ActivityTable activities={data?.items ?? []} isLoading={isLoading} />
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          {total > 0 ? `${total} activité${total > 1 ? "s" : ""}` : ""}
-        </p>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page <= 1}
-            onClick={() => goToPage(page - 1)}
-          >
-            Précédent
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!hasNextPage || isPlaceholderData}
-            onClick={() => goToPage(page + 1)}
-          >
-            Suivant
-          </Button>
-        </div>
-      </div>
+      <ActivityFilters list={list} athleteName={athleteName} />
+      <ActivityTable
+        data={data?.items ?? []}
+        isLoading={isLoading}
+        pagination={{ list, total: data?.total ?? 0, itemLabel: "activités", disabled: isPlaceholderData }}
+      />
     </div>
   );
 }

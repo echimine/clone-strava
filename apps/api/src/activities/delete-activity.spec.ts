@@ -8,6 +8,7 @@ import { Test } from "@nestjs/testing";
 import { Redis } from "ioredis";
 import { ZodSerializerInterceptor, ZodValidationPipe } from "nestjs-zod";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi, type MockInstance } from "vitest";
+import { ViewerFilterModule } from "../viewer-filter/viewer-filter.module.js";
 import type { Queue } from "bullmq";
 import {
   ACTIVITIES_QUEUE_NAME,
@@ -148,6 +149,7 @@ describe("DELETE /v1/activities/:id (integration)", () => {
         }),
         GeocodingModule.forRoot({}),
         EventEmitterModule.forRoot({ wildcard: true, delimiter: "." }),
+        ViewerFilterModule,
         ActivitiesModule,
         EngagementModule,
         UsersModule,
@@ -209,7 +211,7 @@ describe("DELETE /v1/activities/:id (integration)", () => {
     expect(response.status).toBe(204);
     expect(await exists(id)).toBe(false);
     expect(objects.has(activityTraceKey(userA, id))).toBe(false);
-    expect(emit).toHaveBeenCalledWith(ACTIVITY_DELETED_EVENT, { activityId: id, userId: userA });
+    expect(emit).toHaveBeenCalledWith(ACTIVITY_DELETED_EVENT, { activityId: id, userId: userA, bySanction: false });
     expect((await call(`/${id}`, userA, { method: "GET" })).status).toBe(404);
     expect((await remove(id)).status).toBe(404);
   });
@@ -305,6 +307,6 @@ describe("DELETE /v1/activities/:id (integration)", () => {
 
     expect(response.status).toBe(204);
     expect(await exists(id)).toBe(false);
-    expect(emit).toHaveBeenCalledWith(ACTIVITY_DELETED_EVENT, { activityId: id, userId: userA });
+    expect(emit).toHaveBeenCalledWith(ACTIVITY_DELETED_EVENT, { activityId: id, userId: userA, bySanction: false });
   });
 });

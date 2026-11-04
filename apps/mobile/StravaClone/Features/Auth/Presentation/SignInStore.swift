@@ -43,6 +43,9 @@ final class SignInStore {
     /// What could not be done, other than a code refused (`codeProblem`).
     private(set) var formError: FormError?
 
+    /// The account is banned (ADR-038 §6): « Compte suspendu » is on screen until closed.
+    private(set) var suspension: AccountSuspension?
+
     /// Seconds before "Recevoir un nouveau code" opens (30 after each code sent, ADR-035 §2).
     private(set) var resendCountdown = 0
 
@@ -104,9 +107,16 @@ final class SignInStore {
             onSignedIn(try await service.signInWithGoogle(), .google)
         } catch .googleSignInCancelled {
             analytics.capture(.authGoogleCancelled)
+        } catch .accountSuspended(let suspension) {
+            self.suspension = suspension
         } catch {
             formError = FormError(error)
         }
+    }
+
+    /// « Compte suspendu »'s button: back to the screen the sign-in was tried from.
+    func dismissSuspension() {
+        suspension = nil
     }
 
     /// The code screen's back chevron: back to the address, to correct it.
@@ -205,6 +215,8 @@ final class SignInStore {
         case .network:
             codeFailed(.network)
             formError = FormError(error)
+        case .accountSuspended(let suspension):
+            self.suspension = suspension
         default:
             formError = FormError(error)
         }

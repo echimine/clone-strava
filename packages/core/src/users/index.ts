@@ -6,3 +6,6 @@ export type { ActiveSportCatalog } from "./domain/active-sport-catalog.js";
 export type { AvatarUpload } from "./use-cases/request-avatar-upload.use-case.js";
 export type { GoogleAvatarCopy } from "./use-cases/copy-google-avatar.use-case.js";
 export { PhotoUnusableError } from "./services/google-photo.js";
+export type { AdminProfile, AdminUserFilter, AdminUserRow } from "./domain/admin-user.js";
+export { AccountJobsModule } from "./account-jobs.module.js";
+export { AccountJobs } from "./account-jobs.js";

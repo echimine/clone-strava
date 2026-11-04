@@ -1,4 +1,5 @@
 export * from "./admin-access.js";
+export * from "./bucket-sweep.js";
 export * from "./enums.js";
 export * from "./error.js";
 export * from "./pagination.js";

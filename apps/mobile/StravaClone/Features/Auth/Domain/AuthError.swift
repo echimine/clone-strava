@@ -14,6 +14,9 @@ enum AuthError: Error, Equatable, Sendable {
     /// The Sign-in code's attempts are used up (`TOO_MANY_ATTEMPTS`): a new one must be requested.
     case tooManyAttempts
     case rateLimited
+    /// The account is banned (`403 BANNED_USER`, ADR-038 §6): « Compte suspendu ». Only the
+    /// sign-in fails; sending a code to a banned athlete is still accepted.
+    case accountSuspended(AccountSuspension)
     case server(message: String)
     case googleSignInCancelled
     case googleSignInFailed(String)

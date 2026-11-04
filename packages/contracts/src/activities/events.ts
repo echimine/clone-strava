@@ -10,7 +10,10 @@ import { activityImportErrorCodeSchema } from "./import.js";
  */
 export const ACTIVITY_PROCESSED_EVENT = "activities.activity.processed";
 export const ACTIVITY_FAILED_EVENT = "activities.activity.failed";
-/** The author deleted the activity, emitted after the commit (ADR-033 §6). */
+/**
+ * The Activity was deleted, emitted after the commit: by its author (ADR-033 §6) or by an
+ * Administrator as a Sanction (ADR-038 §11), which `bySanction` tells apart.
+ */
 export const ACTIVITY_DELETED_EVENT = "activities.activity.deleted";
 
 /** Minimal payload (ADR-021 §3: "identifiers and what the listeners need"). */
@@ -56,11 +59,32 @@ export const activityUpdatedEventSchema = z.object({
 });
 export type ActivityUpdatedEvent = z.infer<typeof activityUpdatedEventSchema>;
 
+/**
+ * `userId` is the Activity's author, whoever deleted it. `bySanction`: an Administrator deleted it
+ * as a Sanction (ADR-038 §4), not its author; the moderation queue closes a case on it as
+ * "Sanctionné" or "Cible supprimée" (ADR-038 §10). Same flag on Media and comment deletions.
+ */
 export const activityDeletedEventSchema = z.object({
   activityId: z.uuid(),
   userId: z.uuid(),
+  bySanction: z.boolean(),
 });
 export type ActivityDeletedEvent = z.infer<typeof activityDeletedEventSchema>;
+
+/**
+ * A Media was deleted, emitted after the commit: by the Activity's author (ADR-037 §4) or by an
+ * Administrator as a Sanction (ADR-038 §11). Not emitted when the row was already gone.
+ */
+export const MEDIA_DELETED_EVENT = "activities.media.deleted";
+
+/** `userId` is the Activity's author, whoever deleted the Media. */
+export const mediaDeletedEventSchema = z.object({
+  mediaId: z.uuid(),
+  activityId: z.uuid(),
+  userId: z.uuid(),
+  bySanction: z.boolean(),
+});
+export type MediaDeletedEvent = z.infer<typeof mediaDeletedEventSchema>;
 
 /** Emitted after the `import-activity` commit (ADR-028 §4 step 11, §10). */
 export const ACTIVITY_IMPORT_COMPLETED_EVENT = "activities.import.completed";

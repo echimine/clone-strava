@@ -1,10 +1,10 @@
+import { UsersView } from "@/features/users/components/UsersView";
+
 export default function UsersPage() {
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-4">
       <h1 className="text-2xl font-semibold">Utilisateurs</h1>
-      <p className="text-sm text-muted-foreground">
-        Gestion des utilisateurs (à venir).
-      </p>
+      <UsersView />
     </div>
   );
 }

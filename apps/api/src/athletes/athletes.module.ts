@@ -6,6 +6,7 @@ import { SocialModule } from "@repo/core/social";
 import { SportsModule } from "@repo/core/sports";
 import { UsersModule } from "@repo/core/users";
 import { AuthModule } from "../auth/auth.module.js";
+import { ViewerFilterModule } from "../viewer-filter/viewer-filter.module.js";
 import { FeedAssembler } from "../feed/feed-assembler.js";
 import { MediaAssembler } from "../media/media-assembler.js";
 import { IdentitiesModule } from "../identities/identities.module.js";
@@ -21,7 +22,7 @@ import { MeProfileController } from "./me-profile.controller.js";
  * the feed.
  */
 @Module({
-  imports: [AuthModule, ActivitiesModule, EngagementModule, ItinerariesModule, SocialModule, SportsModule, UsersModule, IdentitiesModule],
+  imports: [AuthModule, ActivitiesModule, EngagementModule, ItinerariesModule, SocialModule, SportsModule, UsersModule, IdentitiesModule, ViewerFilterModule],
   controllers: [AthletesController, AthleteGalleryController, MeProfileController],
   // Profile Activities are feed items (ADR-036 §3).
   providers: [AthleteProfileAssembler, FeedAssembler, MediaAssembler, SportsActiveCatalog],

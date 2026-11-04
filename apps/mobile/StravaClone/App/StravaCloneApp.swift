@@ -41,6 +41,9 @@ struct StravaCloneApp: App {
                 connectivityChanges: di.connectivityChanges,
                 syncCoordinator: di.syncCoordinator,
                 defaultVisibility: di.defaultVisibility,
+                moderationStore: di.makeModerationStore(),
+                makeBlockedAthletesStore: di.makeBlockedAthletesStore,
+                makeAccountDeletionStore: di.makeAccountDeletionStore,
                 isSplashPresented: !ProcessInfo.processInfo.arguments.contains(SplashView.disablingArgument)
             )
                 .tint(Theme.accent)
@@ -109,6 +112,16 @@ struct RootView: View {
     /// Sends the queued operations and follows the Activities in `processing` (ADR-031 §14).
     let syncCoordinator: SyncQueueCoordinator
     let defaultVisibility: DefaultVisibilityCache
+    /// "Signaler" and "Bloquer" from every tab (ADR-038 §8, §9).
+    @State var moderationStore: ModerationStore
+    /// Réglages > "Athlètes bloqués".
+    let makeBlockedAthletesStore: @MainActor () -> BlockedAthletesStore
+    /// Réglages > « Supprimer mon compte » (ADR-038 §13): told what a sign-out would lose and
+    /// what to do once the account is gone.
+    let makeAccountDeletionStore: @MainActor (
+        @escaping @MainActor () async -> String?,
+        @escaping @MainActor () async -> Void
+    ) -> AccountDeletionStore
     /// The animated splash (ADR-032 §4), over the app from the cold launch until it is revealed.
     /// It lives as long as the scene, so a return from the background does not replay it.
     @State var isSplashPresented = true
@@ -153,6 +166,8 @@ struct RootView: View {
                         AccountView(mode: .signIn, authStore: authStore, onBack: back)
                     }
                 }
+                    // « Compte supprimé » after the account's deletion (ADR-038 §13).
+                    .toast($authStore.welcomeNotice, duration: .seconds(4))
                     .onAppear {
                         feedStore.reset()
                         profileStore.reset()
@@ -253,20 +268,17 @@ struct RootView: View {
                         store: profileStore,
                         account: profileAccount,
                         signOut: { [authStore] in await authStore.signOut() },
-                        signOutWarning: {
-                            // ADR-031 §10, §14: one confirmation for all that a sign-out loses.
-                            SignOutWarning.message(
-                                recordingInProgress: await recordingStore.signOutWarning() != nil,
-                                unsentActivities: await syncCoordinator.unsentActivityCount(),
-                                unsentMedia: await syncCoordinator.unsentMediaCount(),
-                                pendingItineraryChanges: await itinerarySynchronizer.pendingChangeCount()
-                            )
-                        },
-                        beforeSignOut: {
-                            await recordingStore.delete()
-                            await syncCoordinator.signOut()
-                        },
+                        signOutWarning: signOutWarning,
+                        beforeSignOut: wipeLocalData,
                         animationsPreview: Self.animationsPreview,
+                        blockedAthletes: AnyView(BlockedAthletesView(makeStore: makeBlockedAthletesStore)),
+                        accountDeletion: {
+                            AnyView(AccountDeletionView(store: makeAccountDeletionStore(signOutWarning) { [authStore] in
+                                // ADR-038 §13: the same local cleanup as a sign-out, then the Welcome.
+                                await wipeLocalData()
+                                await authStore.accountDeleted()
+                            }))
+                        },
                         destinations: appDestinations(path: $profileStore.path),
                         itineraries: {
                             MyItinerariesView(
@@ -285,6 +297,7 @@ struct RootView: View {
                     .tag(AppTab.profile)
                 }
                 .environment(\.startRecordingWithItinerary, startRecordingWithItinerary)
+                .moderation(moderationStore)
                 .fullScreenCover(isPresented: $itineraryCreation.isPresented) {
                     ItineraryCreationView(
                         makeEditorStore: { [itineraryCreation] sport, id in
@@ -363,6 +376,22 @@ struct RootView: View {
 
     /// The signed-in account, for the Profile tab and its Réglages (ADR-007 rule 5: Profile does
     /// not read the Auth feature's store).
+    /// ADR-031 §10, §14: one confirmation for all that a sign-out, or an account deletion, loses.
+    private func signOutWarning() async -> String? {
+        SignOutWarning.message(
+            recordingInProgress: await recordingStore.signOutWarning() != nil,
+            unsentActivities: await syncCoordinator.unsentActivityCount(),
+            unsentMedia: await syncCoordinator.unsentMediaCount(),
+            pendingItineraryChanges: await itinerarySynchronizer.pendingChangeCount()
+        )
+    }
+
+    /// The local data a sign-out wipes (Recording, local Activities, ADR-031 §10, §14).
+    private func wipeLocalData() async {
+        await recordingStore.delete()
+        await syncCoordinator.signOut()
+    }
+
     private var profileAccount: ProfileAccount? {
         guard case .signedIn(let user) = authStore.state else { return nil }
         return ProfileAccount(id: user.id, name: user.name, email: user.email)

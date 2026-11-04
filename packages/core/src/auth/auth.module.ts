@@ -1,5 +1,6 @@
 import { BullModule } from "@nestjs/bullmq";
 import { Module, type DynamicModule } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { AVATARS_QUEUE_NAME } from "@repo/contracts";
 import type { Database } from "@repo/db";
 import { AnalyticsService } from "../analytics/index.js";
@@ -8,9 +9,15 @@ import { NotificationsModule, NotificationsService } from "../notifications/inde
 import { AUTH_INSTANCE, type AuthModuleOptions } from "./auth.constants.js";
 import { createAuthInstance } from "./create-auth-instance.js";
 import { AuthService } from "./auth.service.js";
+import { AuthAdminStatsRepository } from "./repositories/auth-admin-stats.repository.js";
 import { AuthUserRepository } from "./repositories/auth-user.repository.js";
 import { GoogleAvatarCopyEnqueuer } from "./services/google-avatar-copy-enqueuer.js";
+import { AccountReader } from "./services/account-reader.js";
+import { AccountRemover } from "./services/account-remover.js";
+import { AuthAdminApi } from "./services/auth-admin-api.js";
 import { BackfillGoogleAvatarsUseCase } from "./use-cases/backfill-google-avatars.use-case.js";
+import { BanUserUseCase } from "./use-cases/ban-user.use-case.js";
+import { SetUserRoleUseCase } from "./use-cases/set-user-role.use-case.js";
 
 export type { AuthModuleOptions } from "./auth.constants.js";
 
@@ -33,14 +40,13 @@ export class AuthModule {
     return {
       module: AuthModule,
       // This `NotificationsService` instance is only ever used here to send
-      // auth emails (`sendAuthEmail`), never to verify a webhook signature,
-      // so `webhookSecret` is intentionally inert — `webhooks.module.ts`
-      // imports its own `NotificationsModule.forRoot(...)` with the real one
-      // for that purpose.
+      // auth emails (`sendEmail`), never to verify a webhook signature,
+      // so it has no `webhookSecret` — `webhooks.module.ts` imports its own
+      // `NotificationsModule.forRoot(...)` with the real one for that purpose.
       // The `avatars` queue: the account hook enqueues the Google photo copy (ADR-037 §2), so
       // every app importing this module also needs `BullModule.forRoot`.
       imports: [
-        NotificationsModule.forRoot({ apiKey: options.resendApiKey, webhookSecret: "" }),
+        NotificationsModule.forRoot({ apiKey: options.resendApiKey }),
         BullModule.registerQueue({ name: AVATARS_QUEUE_NAME }),
       ],
       providers: [
@@ -54,7 +60,8 @@ export class AuthModule {
             analytics: AnalyticsService,
             googleAvatars: GoogleAvatarCopyEnqueuer,
             opts: AuthModuleOptions,
-          ) => createAuthInstance(db, redis, notifications, analytics, googleAvatars, opts),
+            events: EventEmitter2 | undefined,
+          ) => createAuthInstance(db, redis, notifications, analytics, googleAvatars, opts, events ?? null),
           // `AnalyticsService` comes from the global `AnalyticsModule` each app registers.
           inject: [
             DATABASE,
@@ -63,11 +70,20 @@ export class AuthModule {
             AnalyticsService,
             GoogleAvatarCopyEnqueuer,
             AUTH_MODULE_OPTIONS,
+            // The app's global `EventEmitterModule`, when it has one: the admin access events
+            // the API records in the Journal (ADR-038 §3).
+            { token: EventEmitter2, optional: true },
           ],
         },
+        AuthAdminStatsRepository,
         AuthUserRepository,
         GoogleAvatarCopyEnqueuer,
         BackfillGoogleAvatarsUseCase,
+        AccountReader,
+        AccountRemover,
+        AuthAdminApi,
+        BanUserUseCase,
+        SetUserRoleUseCase,
         AuthService,
       ],
       exports: [AuthService, AUTH_INSTANCE],

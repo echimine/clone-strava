@@ -3,6 +3,7 @@ import { gzipSync } from "node:zlib";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { TRACE_SCHEMA_VERSION, activityTraceKey } from "@repo/contracts";
 import { ActivitiesService } from "@repo/core/activities";
+import { NO_EXCLUSIONS } from "@repo/core/infrastructure";
 import { bootstrapTestWorkerApp, waitFor, type TestWorkerApp } from "../../testing/test-worker-app.js";
 
 /** Gzipped trace v2 of a 12-minute run with a 2-minute Pause, one point per minute, ~111 m apart. */
@@ -73,7 +74,7 @@ describe("process-activity of a recorded activity (integration)", () => {
     await activities.complete(userId, id, "req-recorded");
 
     const detail = await waitFor(async () => {
-      const own = await activities.getDetail(userId, id);
+      const own = await activities.getDetail(userId, id, NO_EXCLUSIONS);
       return own.processingStatus === "processed" ? own : undefined;
     });
     // 10 legs of ~111.2 m; the leg across the Pause is skipped (ADR-031 §12): 9 legs remain.
@@ -91,7 +92,7 @@ describe("process-activity of a recorded activity (integration)", () => {
     expect(new Set(detail.analysis?.series?.altitudeM)).toEqual(new Set([35]));
     expect(detail.analysis?.series?.heartRateBpm).toBeNull();
 
-    const feed = await activities.getFeedPage(userId, { limit: 20 });
+    const feed = await activities.getFeedPage(userId, { limit: 20 }, NO_EXCLUSIONS);
     expect(feed.items.map((item) => item.id)).toContain(id);
 
     const types = await waitFor(async () => {
@@ -129,7 +130,7 @@ describe("process-activity of a recorded activity (integration)", () => {
       await activities.complete(otherUserId, id, "req-untrimmed");
 
       const detail = await waitFor(async () => {
-        const own = await activities.getDetail(otherUserId, id);
+        const own = await activities.getDetail(otherUserId, id, NO_EXCLUSIONS);
         return own.processingStatus === "processed" ? own : undefined;
       });
       expect(detail.routeTrimmed).toBe(false);

@@ -41,6 +41,9 @@ final class AuthStore {
     private(set) var state = State.checkingSession
     /// iOS's prompt is open: a second tap on "Activer les notifications" does nothing.
     private(set) var isRequestingNotifications = false
+    /// Shown over the Welcome once, e.g. « Compte supprimé » after the account's deletion
+    /// (ADR-038 §13); the Welcome clears it once shown.
+    var welcomeNotice: String?
     /// The last sign-in created the account (`AuthUser.isNewAccount`), for the Paywall's events.
     private(set) var isNewAccount = false
     /// How the last sign-in was made: only an email code leads to the photo screen.
@@ -157,6 +160,13 @@ final class AuthStore {
         await service.signOut()
         analytics.reset()
         state = .signedOut
+    }
+
+    /// The account was just deleted (ADR-038 §13): the same local sign-out, then the Welcome
+    /// says « Compte supprimé ». The app shell has already wiped the local data.
+    func accountDeleted() async {
+        await signOut()
+        welcomeNotice = AccountDeletionMessages.deleted
     }
 
     private func signedIn(_ user: AuthUser, entry: SignInEntry, method: AnalyticsEvent.AuthMethod) {

@@ -2,12 +2,24 @@ import SwiftUI
 
 /// The Commentaires segment of the Kudos and comments screen (ADR-034 §6, ADR-036 §8): "Voir les
 /// commentaires précédents", then the comments oldest first. A long press offers "Modifier" /
-/// "Supprimer".
+/// "Supprimer", and "Signaler" on other athletes' comments (ADR-038 §9).
 struct ActivityCommentsSection: View {
     @Bindable var store: ActivityCommentsStore
 
     /// Scroll id of the end of the thread, placed by the screen under this section.
     static let endAnchor = "activityComments.end"
+
+    @Environment(\.reportContent) private var reportContent
+
+    private func report(_ row: ActivityCommentsStore.Row) {
+        let author = row.comment.author
+        reportContent?(.comment(row.id.uuidString.lowercased(), by: author)) { [store] hiding in
+            switch hiding {
+            case .target: store.hide(row.id)
+            case .author: store.hideComments(of: author.id)
+            }
+        }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -36,6 +48,12 @@ struct ActivityCommentsSection: View {
                                 Button(ActivityCommentMessages.delete, systemImage: "trash", role: .destructive) {
                                     store.requestDeletion(row.id)
                                 }
+                            }
+                        }
+                        // ADR-038 §9: others' comments, also for the Activity's author.
+                        if reportContent != nil, row.isReportable {
+                            Button(ModerationLabels.report, systemImage: ModerationLabels.reportImage) {
+                                report(row)
                             }
                         }
                     }

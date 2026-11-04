@@ -10,6 +10,7 @@ import {
 import { EngagementService } from "@repo/core/engagement";
 import { CurrentUser } from "../auth/current-user.decorator.js";
 import { SessionGuard, type AuthenticatedUser } from "../auth/session.guard.js";
+import { ViewerFilter } from "../viewer-filter/viewer-filter.js";
 import { KudosAssembler } from "./kudos-assembler.js";
 
 class KudosResponseDto extends createZodDto(kudosResponseSchema) {}
@@ -28,9 +29,13 @@ export class KudosController {
   constructor(
     private readonly engagement: EngagementService,
     private readonly assembler: KudosAssembler,
+    private readonly viewerFilter: ViewerFilter,
   ) {}
 
-  /** Most recent first, keyset pages; a cursor this server did not produce is `422 invalid_cursor`. */
+  /**
+   * Most recent first, keyset pages; a cursor this server did not produce is `422
+   * invalid_cursor`. Athletes hidden from the viewer are left out (ADR-038 §7).
+   */
   @Get()
   @ZodResponse({ status: 200, type: ListKudosResponseDto })
   async list(
@@ -38,21 +43,25 @@ export class KudosController {
     @Query() query: ListKudosQueryDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<ListKudosResponse> {
-    return this.assembler.assemble(await this.engagement.listKudos(user.userId, activityId, query));
+    const filter = await this.viewerFilter.for(user.userId);
+    return this.assembler.assemble(await this.engagement.listKudos(user.userId, activityId, query, filter));
   }
 
   @Put()
   @ZodResponse({ status: 200, type: KudosResponseDto })
-  give(@Param("id", ParseUUIDPipe) activityId: string, @CurrentUser() user: AuthenticatedUser): Promise<KudosResponse> {
-    return this.engagement.giveKudos(user.userId, activityId);
+  async give(
+    @Param("id", ParseUUIDPipe) activityId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<KudosResponse> {
+    return this.engagement.giveKudos(user.userId, activityId, await this.viewerFilter.for(user.userId));
   }
 
   @Delete()
   @ZodResponse({ status: 200, type: KudosResponseDto })
-  remove(
+  async remove(
     @Param("id", ParseUUIDPipe) activityId: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<KudosResponse> {
-    return this.engagement.removeKudos(user.userId, activityId);
+    return this.engagement.removeKudos(user.userId, activityId, await this.viewerFilter.for(user.userId));
   }
 }

@@ -1,5 +1,6 @@
 import { UnprocessableEntityException } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
+import { NO_EXCLUSIONS } from "../../infrastructure/index.js";
 import { decodeFeedCursor, encodeFeedCursor } from "../domain/feed-cursor.js";
 import { FeedPageBuilder } from "../services/feed-page-builder.js";
 import { GetFeedPageUseCase } from "./get-feed-page.use-case.js";
@@ -40,9 +41,15 @@ function setup(rows: ReturnType<typeof activity>[], followeeIds: string[] = []) 
 describe("GetFeedPageUseCase", () => {
   it("includes the viewer even without followees and merges stats and map fields", async () => {
     const { useCase, activities } = setup([activity(1)]);
-    const page = await useCase.execute(VIEWER, { limit: 20 });
+    const page = await useCase.execute(VIEWER, { limit: 20 }, NO_EXCLUSIONS);
 
-    expect(activities.findFeedPage).toHaveBeenCalledWith({ viewerId: VIEWER, followeeIds: [], before: undefined, limit: 20 });
+    expect(activities.findFeedPage).toHaveBeenCalledWith({
+      viewerId: VIEWER,
+      followeeIds: [],
+      before: undefined,
+      limit: 20,
+      exclusions: NO_EXCLUSIONS,
+    });
     expect(page.nextCursor).toBeNull();
     expect(page.items[0]).toMatchObject({
       title: "Run 1",
@@ -55,7 +62,7 @@ describe("GetFeedPageUseCase", () => {
   it("returns a cursor on the last kept row when one more row exists", async () => {
     const rows = [activity(1), activity(2, FRIEND), activity(3)];
     const { useCase } = setup(rows, [FRIEND]);
-    const page = await useCase.execute(VIEWER, { limit: 2 });
+    const page = await useCase.execute(VIEWER, { limit: 2 }, NO_EXCLUSIONS);
 
     expect(page.items.map((item) => item.id)).toEqual([rows[0]!.id, rows[1]!.id]);
     expect(decodeFeedCursor(page.nextCursor!)).toEqual({ startedAt: rows[1]!.startedAt, id: rows[1]!.id });
@@ -64,10 +71,10 @@ describe("GetFeedPageUseCase", () => {
   it("passes a decoded cursor through and rejects invalid ones with 422", async () => {
     const { useCase, activities } = setup([]);
     const before = { startedAt: new Date("2026-10-01T08:00:00Z"), id: activity(4).id };
-    await useCase.execute(VIEWER, { cursor: encodeFeedCursor(before), limit: 20 });
+    await useCase.execute(VIEWER, { cursor: encodeFeedCursor(before), limit: 20 }, NO_EXCLUSIONS);
     expect(activities.findFeedPage).toHaveBeenCalledWith(expect.objectContaining({ before }));
 
-    await expect(useCase.execute(VIEWER, { cursor: "garbage", limit: 20 })).rejects.toBeInstanceOf(
+    await expect(useCase.execute(VIEWER, { cursor: "garbage", limit: 20 }, NO_EXCLUSIONS)).rejects.toBeInstanceOf(
       UnprocessableEntityException,
     );
   });

@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import type { ViewerExclusions } from "../../infrastructure/index.js";
 import { ActivityRepository } from "../repositories/activity.repository.js";
 import { AggregateScopeResolver } from "../services/aggregate-scope-resolver.js";
 import { FeedPageBuilder } from "../services/feed-page-builder.js";
@@ -21,10 +22,17 @@ export class GetAthleteActivitiesPageUseCase {
     viewerId: string,
     athleteId: string,
     query: { cursor?: string; limit: number },
+    exclusions: ViewerExclusions,
   ): Promise<FeedActivityPage> {
     const before = this.pages.decodeCursor(query.cursor);
     const { visibilities } = await this.scopes.resolve(viewerId, athleteId);
-    const rows = await this.activities.findAthletePage({ userId: athleteId, visibilities, before, limit: query.limit });
+    const rows = await this.activities.findAthletePage({
+      userId: athleteId,
+      visibilities,
+      before,
+      limit: query.limit,
+      excludedActivityIds: exclusions.reportedActivityIds,
+    });
     return this.pages.build(rows, query.limit);
   }
 }

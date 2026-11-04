@@ -82,6 +82,22 @@ struct FeedStoreActivityDetailTests {
         #expect(store.posts.first == renamed)
     }
 
+    /// ADR-038 §8: once an athlete is blocked, every card of theirs leaves the feed.
+    @Test func aBlockedAthletesCardsLeaveTheFeed() async {
+        let repository = FakeFeedRepository()
+        let blocked = ActivityAuthor(id: "u9", displayName: "Tom Bloqué", avatarURL: nil)
+        let theirs = [ActivityPost.fixture(author: blocked), ActivityPost.fixture(author: blocked)]
+        let kept = ActivityPost.fixture()
+        repository.pages[nil] = .success(FeedPage(posts: [theirs[0], kept, theirs[1]], nextCursor: nil))
+        let changes = ActivityChanges()
+        let store = makeStore(repository, changes: changes)
+        await store.refresh()
+
+        changes.publish(.authorHidden(athleteId: blocked.id))
+
+        #expect(await eventually { store.posts.map(\.id) == [kept.id] })
+    }
+
     /// The detail does not know the card's kudos avatars nor whether the route was trimmed
     /// (ADR-036 §5): an edit keeps the card's.
     @Test func anEditFromTheDetailKeepsTheAvatarsAndTheMaskedLabel() async {

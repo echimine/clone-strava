@@ -1,7 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, count, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { schema, type Database } from "@repo/db";
-import { DATABASE, type DbExecutor } from "../../infrastructure/index.js";
+import { DATABASE, notInIds, type DbExecutor } from "../../infrastructure/index.js";
 import type { FollowCursor } from "../domain/follow-cursor.js";
 import type { FollowListKind } from "../domain/follow-list.js";
 import type { FollowStatus } from "../domain/follow-state.js";
@@ -65,13 +65,19 @@ export class FollowRepository {
    * Up to `limit` accepted followers of `athleteId` whom `viewerId` follows (accepted), most
    * recent follow of the athlete first (ADR-036 §3 "followersYouKnow").
    */
-  async findFollowersFollowedBy(athleteId: string, viewerId: string, limit: number): Promise<string[]> {
+  async findFollowersFollowedBy(
+    athleteId: string,
+    viewerId: string,
+    limit: number,
+    excludedIds: readonly string[] = [],
+  ): Promise<string[]> {
     const rows = await this.db
       .select({ followerId: schema.follow.followerId })
       .from(schema.follow)
       .where(
         and(
           eq(schema.follow.followeeId, athleteId),
+          notInIds(schema.follow.followerId, excludedIds),
           eq(schema.follow.status, "accepted"),
           sql`exists (
             select 1 from ${schema.follow} as known
@@ -100,7 +106,8 @@ export class FollowRepository {
    * `athleteId` (rows where they are the followee) or whom they are
    * `following`, with `status`, most recent first and strictly after
    * `after`. `athleteId` of a row is the listed athlete; `at` is
-   * `created_at` with its microseconds, for the next cursor.
+   * `created_at` with its microseconds, for the next cursor. Listed
+   * athletes in `excludedIds` are left out (the viewer filter, ADR-038 §7).
    */
   findPage(
     athleteId: string,
@@ -108,6 +115,7 @@ export class FollowRepository {
     status: FollowStatus,
     after: FollowCursor | undefined,
     limit: number,
+    excludedIds: readonly string[] = [],
   ): Promise<{ athleteId: string; createdAt: Date; at: string }[]> {
     const { createdAt, followerId, followeeId } = schema.follow;
     const [owner, listed] = side === "followers" ? [followeeId, followerId] : [followerId, followeeId];
@@ -121,7 +129,7 @@ export class FollowRepository {
         at: sql<string>`to_char(${createdAt} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
       })
       .from(schema.follow)
-      .where(and(eq(owner, athleteId), eq(schema.follow.status, status), older))
+      .where(and(eq(owner, athleteId), eq(schema.follow.status, status), notInIds(listed, excludedIds), older))
       .orderBy(desc(createdAt), desc(listed))
       .limit(limit);
   }
@@ -142,6 +150,13 @@ export class FollowRepository {
       .update(schema.follow)
       .set({ status: "accepted" })
       .where(and(eq(schema.follow.followeeId, followeeId), eq(schema.follow.status, "pending")));
+  }
+
+  /** Every follow row between `a` and `b`, both directions, any status (a Block, ADR-038 §8). */
+  async deleteBetween(a: string, b: string, executor: DbExecutor = this.db): Promise<void> {
+    await executor
+      .delete(schema.follow)
+      .where(or(this.row(a, b), this.row(b, a)));
   }
 
   /** Idempotent: deletes the row, restricted to `status` when given. */

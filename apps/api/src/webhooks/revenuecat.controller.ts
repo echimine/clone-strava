@@ -12,6 +12,7 @@ import {
 import { createZodDto } from "nestjs-zod";
 import { revenueCatWebhookBodySchema } from "@repo/contracts";
 import { SubscriptionsService } from "@repo/core/subscriptions";
+import { RequestId } from "../common/request-id.decorator.js";
 import { CONFIG, type ApiEnv } from "../config/env.js";
 
 /** Constant-time comparison; hashing first gives both buffers the same length. */
@@ -39,17 +40,21 @@ export class RevenueCatWebhookController {
   async handle(
     @Headers("authorization") authorization: string | undefined,
     @Body() body: RevenueCatWebhookBodyDto,
+    @RequestId() requestId: string | undefined,
   ): Promise<{ received: true }> {
     if (!secretMatches(authorization, this.config.REVENUECAT_WEBHOOK_SECRET)) {
       throw new UnauthorizedException();
     }
 
-    // ADR-014: dedupe by `body.event.id` (`revenuecat_event` table),
-    // enqueue `sync-subscription`. `app_user_id` is RevenueCat's identifier
-    // for the subscriber, set by the mobile SDK to our own user id. The
-    // worker re-reads the authoritative state from the RevenueCat REST API
-    // rather than trusting this body.
-    await this.subscriptionsService.handleWebhook(body.event.id, body.event.app_user_id);
+    // ADR-014, ADR-038 §12: dedupe by `body.event.id` (`revenuecat_event` table, kept for the
+    // user sheet's history), enqueue `sync-subscription`. `app_user_id` is RevenueCat's
+    // identifier for the subscriber, set by the mobile SDK to our own user id. The worker
+    // re-reads the authoritative state from the RevenueCat REST API rather than trusting this
+    // body.
+    await this.subscriptionsService.handleWebhook(
+      { id: body.event.id, type: body.event.type, appUserId: body.event.app_user_id, payload: body },
+      requestId,
+    );
     return { received: true };
   }
 }

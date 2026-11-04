@@ -43,7 +43,7 @@ describe("Better Auth email sign-up/sign-in (ADR-022)", () => {
     });
 
     it("creates the user, a verification row, and sends the verify-email with the right idempotency key", async () => {
-      const sendAuthEmailSpy = vi.spyOn(testApp.notificationsService, "sendAuthEmail");
+      const sendEmailSpy = vi.spyOn(testApp.notificationsService, "sendEmail");
       const email = uniqueEmail("signup");
 
       const response = await fetch(`${testApp.baseUrl}/api/auth/sign-up/email`, {
@@ -57,9 +57,9 @@ describe("Better Auth email sign-up/sign-in (ADR-022)", () => {
       expect(body.user.email).toBe(email);
 
       // `emailVerification.sendOnSignUp: true` (create-auth-instance.ts):
-      // sendAuthEmail must have been called with the documented idempotency
+      // sendEmail must have been called with the documented idempotency
       // key `verify-email/${user.id}` (plan item 10 / ADR-022 §3).
-      expect(sendAuthEmailSpy).toHaveBeenCalledExactlyOnceWith(
+      expect(sendEmailSpy).toHaveBeenCalledExactlyOnceWith(
         expect.objectContaining({
           to: email,
           idempotencyKey: `verify-email/${body.user.id}`,
@@ -78,7 +78,7 @@ describe("Better Auth email sign-up/sign-in (ADR-022)", () => {
       // `url` is a real, usable one -- verified by extracting it from the
       // rendered HTML and calling the real `GET /api/auth/verify-email`
       // endpoint end-to-end.
-      const sentHtml = sendAuthEmailSpy.mock.calls[0]?.[0]?.html;
+      const sentHtml = sendEmailSpy.mock.calls[0]?.[0]?.html;
       // ADR-032 §2: the header wordmark loads from the backoffice that hosts it.
       expect(sentHtml).toContain('src="https://admin.test/brand/nervo-wordmark-email.png"');
       const urlMatch = /href="([^"]*\/verify-email\?[^"]+)"/.exec(sentHtml ?? "");

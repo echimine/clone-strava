@@ -18,6 +18,7 @@ import {
   ActivitiesService,
   type ActivityDetailRecord,
 } from "@repo/core/activities";
+import { NO_EXCLUSIONS } from "@repo/core/infrastructure";
 import { bootstrapTestWorkerApp, waitFor, type TestWorkerApp } from "../../testing/test-worker-app.js";
 
 const M_PER_DEG_LAT = 111_195;
@@ -100,7 +101,7 @@ describe("reprocess-activity after a sport change (integration)", () => {
     ctx.storage.objects.set(activityTraceKey(userId, id), outingWithFastSpike(start));
     await activities.complete(userId, id);
     return waitFor(async () => {
-      const detail = await activities.getDetail(userId, id);
+      const detail = await activities.getDetail(userId, id, NO_EXCLUSIONS);
       return detail.processingStatus === "processed" ? detail : undefined;
     });
   }
@@ -113,7 +114,7 @@ describe("reprocess-activity after a sport change (integration)", () => {
     await activities.update(userId, asRun.id, { sportTypeCode: "ride" });
 
     const asRide = await waitFor(async () => {
-      const detail = await activities.getDetail(userId, asRun.id);
+      const detail = await activities.getDetail(userId, asRun.id, NO_EXCLUSIONS);
       // Never `processing` (nor anything else) while the job runs (ADR-033 §5).
       expect(detail.processingStatus).toBe("processed");
       return detail.stats?.distanceM !== asRun.stats?.distanceM ? detail : undefined;
@@ -131,7 +132,7 @@ describe("reprocess-activity after a sport change (integration)", () => {
     const listener = async (event: ActivityUpdatedEvent) => {
       if (event.activityId !== asRun.id) return;
       // What a listener reads when the event arrives: committed values only (ADR-021 §3).
-      const detail = await activities.getDetail(userId, asRun.id);
+      const detail = await activities.getDetail(userId, asRun.id, NO_EXCLUSIONS);
       seen.push({ changedFields: event.changedFields, distanceM: detail.stats?.distanceM });
     };
     const emitter = ctx.app.get(EventEmitter2);
@@ -174,7 +175,7 @@ describe("reprocess-activity after a sport change (integration)", () => {
       emitter.off(ACTIVITY_UPDATED_EVENT, listener);
     }
 
-    const detail = await activities.getDetail(userId, asRun.id);
+    const detail = await activities.getDetail(userId, asRun.id, NO_EXCLUSIONS);
     expect(detail.stats?.distanceM).toBe(12345);
     expect(detail.processingStatus).toBe("processed");
     expect(updates.filter((event) => event.activityId === asRun.id)).toEqual([]);
@@ -190,7 +191,7 @@ describe("reprocess-activity after a sport change (integration)", () => {
     const jobId = reprocessActivityJobId(asRun.id, edited.updatedAt);
     await waitFor(async () => ((await activitiesQueue().getJobState(jobId)) === "failed" ? true : undefined));
     expect((await activitiesQueue().getJob(jobId))?.failedReason).toContain("invalid_trace");
-    const detail = await activities.getDetail(userId, asRun.id);
+    const detail = await activities.getDetail(userId, asRun.id, NO_EXCLUSIONS);
     expect(detail.processingStatus).toBe("processed");
     expect(detail.processingError).toBeNull();
     expect(detail.sportTypeCode).toBe("ride");
@@ -211,7 +212,7 @@ describe("reprocess-activity after a sport change (integration)", () => {
     const jobId = reprocessActivityJobId(asRun.id, asRun.updatedAt);
     expect(await activitiesQueue().getJob(jobId)).toBeDefined();
     const asRide = await waitFor(async () => {
-      const detail = await activities.getDetail(userId, asRun.id);
+      const detail = await activities.getDetail(userId, asRun.id, NO_EXCLUSIONS);
       return detail.stats?.distanceM !== asRun.stats?.distanceM ? detail : undefined;
     });
     expect(asRide.stats?.distanceM).toBeCloseTo(8000, -2);
@@ -247,7 +248,7 @@ describe("reprocess-activity after a sport change (integration)", () => {
       "update activities.activity_track set route_trimmed = false where activity_id = $1",
       [asRun.id],
     );
-    const before = await activities.getDetail(userId, asRun.id);
+    const before = await activities.getDetail(userId, asRun.id, NO_EXCLUSIONS);
     expect(before.analysis).toBeNull();
 
     const jobId = reprocessAnalysisJobId(asRun.id, ACTIVITY_ANALYSIS_VERSION);
@@ -257,7 +258,7 @@ describe("reprocess-activity after a sport change (integration)", () => {
       await waitFor(async () => ((await activitiesQueue().getJobState(jobId)) === "completed" ? true : undefined));
     });
 
-    const after = await activities.getDetail(userId, asRun.id);
+    const after = await activities.getDetail(userId, asRun.id, NO_EXCLUSIONS);
     expect(after.analysis?.splits.map((split) => Math.round(split.distanceM))).toEqual([
       1000, 1000, 1000, 1000, 1000, 1000,
     ]);
@@ -283,7 +284,7 @@ describe("reprocess-activity after a sport change (integration)", () => {
 
     const jobId = reprocessAnalysisJobId(asRun.id, ACTIVITY_ANALYSIS_VERSION);
     await waitFor(async () => ((await activitiesQueue().getJobState(jobId)) === "completed" ? true : undefined));
-    expect((await activities.getDetail(userId, asRun.id)).analysis?.splits).toHaveLength(6);
+    expect((await activities.getDetail(userId, asRun.id, NO_EXCLUSIONS)).analysis?.splits).toHaveLength(6);
   }, 30_000);
 
   it("gives a manual Activity an empty analysis, then leaves it out of the sweep", async () => {
@@ -302,7 +303,7 @@ describe("reprocess-activity after a sport change (integration)", () => {
       await waitFor(async () => ((await activitiesQueue().getJobState(jobId)) === "completed" ? true : undefined));
     });
 
-    expect((await activities.getDetail(userId, id)).analysis).toEqual({ splits: [], series: null });
+    expect((await activities.getDetail(userId, id, NO_EXCLUSIONS)).analysis).toEqual({ splits: [], series: null });
     expect(updates.filter((event) => event.activityId === id)).toEqual([]);
     await activitiesQueue().remove(jobId);
     await activities.reconcileStuck();

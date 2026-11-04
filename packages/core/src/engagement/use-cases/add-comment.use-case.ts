@@ -1,5 +1,6 @@
 import { ConflictException, Injectable } from "@nestjs/common";
 import type { ActivityRecord } from "../../activities/index.js";
+import { NO_EXCLUSIONS, type ViewerExclusions } from "../../infrastructure/index.js";
 import type { CommentRecord } from "../domain/comment-record.js";
 import { toCommentView, type CommentView } from "../domain/comment-view.js";
 import { CommentRepository } from "../repositories/comment.repository.js";
@@ -27,8 +28,13 @@ export class AddCommentUseCase {
     private readonly events: CommentEvents,
   ) {}
 
-  async execute(userId: string, activityId: string, request: { id: string; body: string }): Promise<AddCommentResult> {
-    const activity = await this.access.get(userId, activityId);
+  async execute(
+    userId: string,
+    activityId: string,
+    request: { id: string; body: string },
+    exclusions: ViewerExclusions = NO_EXCLUSIONS,
+  ): Promise<AddCommentResult> {
+    const activity = await this.access.get(userId, activityId, exclusions);
     const existing = await this.comments.findById(request.id);
     if (existing) {
       return this.replay(userId, activity, existing);

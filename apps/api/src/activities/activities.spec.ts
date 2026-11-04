@@ -8,6 +8,7 @@ import { Test } from "@nestjs/testing";
 import { Redis } from "ioredis";
 import { ZodSerializerInterceptor, ZodValidationPipe } from "nestjs-zod";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { ViewerFilterModule } from "../viewer-filter/viewer-filter.module.js";
 import type { Queue } from "bullmq";
 import {
   ACTIVITIES_QUEUE_NAME,
@@ -149,6 +150,7 @@ describe("/v1/activities (integration)", () => {
         }),
         GeocodingModule.forRoot({}),
         EventEmitterModule.forRoot({ wildcard: true, delimiter: "." }),
+        ViewerFilterModule,
         ActivitiesModule,
         EngagementModule,
         UsersModule,

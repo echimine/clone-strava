@@ -7,6 +7,7 @@ import { Test } from "@nestjs/testing";
 import { Redis } from "ioredis";
 import { ZodSerializerInterceptor, ZodValidationPipe } from "nestjs-zod";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
+import { ViewerFilterModule } from "../viewer-filter/viewer-filter.module.js";
 import type { ActivityComment, ListCommentsResponse } from "@repo/contracts";
 import { ActivitiesModule } from "@repo/core/activities";
 import { AnalyticsModule } from "@repo/core/analytics";
@@ -111,6 +112,7 @@ describe("/v1/activities/:id/comments (integration)", () => {
         }),
         GeocodingModule.forRoot({}),
         EventEmitterModule.forRoot({ wildcard: true, delimiter: "." }),
+        ViewerFilterModule,
         ActivitiesModule,
         EngagementModule,
         UsersModule,
@@ -385,7 +387,9 @@ describe("/v1/activities/:id/comments (integration)", () => {
 
       const response = await remove(activityId, comment.id, commenter);
       expect(response.status).toBe(204);
-      expect(emitted("engagement.comment.deleted")).toEqual([{ commentId: comment.id, activityId, userId: commenter }]);
+      expect(emitted("engagement.comment.deleted")).toEqual([
+        { commentId: comment.id, activityId, userId: commenter, authorId: commenter, bySanction: false },
+      ]);
       expect((await list(activityId, author)).items.map((item) => item.id)).toEqual([kept.id]);
       expect(await commentCount(activityId)).toBe(1);
       const gone = await call(`/activities/${activityId}/comments/${comment.id}`, commenter);
@@ -399,7 +403,9 @@ describe("/v1/activities/:id/comments (integration)", () => {
       emit.mockClear();
 
       expect((await remove(activityId, comment.id, author)).status).toBe(204);
-      expect(emitted("engagement.comment.deleted")).toEqual([{ commentId: comment.id, activityId, userId: author }]);
+      expect(emitted("engagement.comment.deleted")).toEqual([
+        { commentId: comment.id, activityId, userId: author, authorId: commenter, bySanction: false },
+      ]);
     });
 
     it("refuses a third party with 403", async () => {

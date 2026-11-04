@@ -112,10 +112,14 @@ struct APIAuthRepository: AuthRepository {
         }
     }
 
-    /// Better Auth's error body shape: `{ code, message }` (better-call's `APIError`).
+    /// Better Auth's error body shape: `{ code, message }` (better-call's `APIError`), plus the
+    /// Ban of a `BANNED_USER` refusal (ADR-038 §6).
     private struct ServerErrorBody: Decodable {
         let code: String?
         let message: String?
+        let bannedUntil: Date?
+        let banReason: String?
+        let contactEmail: String?
     }
 
     private func mapError(_ error: APIError) -> AuthError {
@@ -125,8 +129,14 @@ struct APIAuthRepository: AuthRepository {
         case let .http(status: 429, body: _):
             return .rateLimited
         case let .http(status: _, body: body):
-            let server = body.flatMap { try? JSONDecoder().decode(ServerErrorBody.self, from: $0) }
+            let server = body.flatMap { try? APIClient.decoder.decode(ServerErrorBody.self, from: $0) }
             switch server?.code {
+            case "BANNED_USER":
+                return .accountSuspended(
+                    AccountSuspension(
+                        until: server?.bannedUntil, reason: server?.banReason, contactEmail: server?.contactEmail
+                    )
+                )
             case "INVALID_OTP":
                 return .invalidCode
             case "OTP_EXPIRED":

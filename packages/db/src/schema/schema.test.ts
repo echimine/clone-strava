@@ -7,11 +7,13 @@ import {
   activityStats,
   activityTrack,
 } from "./activities.js";
+import { adminAuditEntry } from "./audit.js";
 import { user } from "./auth.js";
 import { comment, kudos } from "./engagement.js";
 import { itinerary, itineraryLeg, itineraryWaypoint } from "./itineraries.js";
+import { report, reportCase } from "./moderation.js";
 import { segment, segmentEffort } from "./segments.js";
-import { follow, followSettings } from "./social.js";
+import { athleteBlock, follow, followSettings } from "./social.js";
 import { sportType } from "./sports.js";
 import { userSubscription } from "./subscriptions.js";
 import { userProfile, userSport } from "./users.js";
@@ -66,6 +68,18 @@ describe("schema table names and owning PostgreSQL schema (ADR-017, ADR-021 §7)
       name: "user_subscription",
       schema: "subscriptions",
     });
+    expect(getTableConfig(adminAuditEntry)).toMatchObject({ name: "admin_audit_entry", schema: "audit" });
+    expect(getTableConfig(athleteBlock)).toMatchObject({ name: "athlete_block", schema: "social" });
+    expect(getTableConfig(reportCase)).toMatchObject({ name: "report_case", schema: "moderation" });
+    expect(getTableConfig(report)).toMatchObject({ name: "report", schema: "moderation" });
+  });
+
+  it("keeps a case's target and author as plain ids, so the case outlives them (ADR-038 §10, §18)", () => {
+    expect(getTableConfig(reportCase).foreignKeys).toHaveLength(0);
+  });
+
+  it("keeps the Journal free of foreign keys, so an entry outlives the accounts it names (ADR-038 §3)", () => {
+    expect(getTableConfig(adminAuditEntry).foreignKeys).toHaveLength(0);
   });
 
   it("gives `activity` and `itinerary` no default id, unlike server-generated identifiers", () => {

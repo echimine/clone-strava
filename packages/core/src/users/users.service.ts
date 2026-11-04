@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import type { EditableProfile, OnboardingAnswersRequest, UpdateProfileRequest } from "@repo/contracts";
+import type { ViewerExclusions } from "../infrastructure/index.js";
 import { CopyGoogleAvatarUseCase, type GoogleAvatarCopy } from "./use-cases/copy-google-avatar.use-case.js";
 import { GetUserSummariesUseCase } from "./use-cases/get-user-summaries.use-case.js";
 import { RemoveAvatarUseCase } from "./use-cases/remove-avatar.use-case.js";
@@ -14,7 +15,10 @@ import { SweepAvatarsUseCase } from "./use-cases/sweep-avatars.use-case.js";
 import { UpdateProfileUseCase } from "./use-cases/update-profile.use-case.js";
 import type { ActiveSportCatalog } from "./domain/active-sport-catalog.js";
 import type { UserSummary } from "./domain/user-summary.js";
+import type { AdminProfile, AdminUserFilter, AdminUserRow } from "./domain/admin-user.js";
+import { AdminUserRepository } from "./repositories/admin-user.repository.js";
 import { UserProfileRepository } from "./repositories/user-profile.repository.js";
+import { ResetProfileTextUseCase } from "./use-cases/reset-profile-text.use-case.js";
 import { UserSportRepository } from "./repositories/user-sport.repository.js";
 import {
   DEFAULT_USER_ACTIVITY_DEFAULTS,
@@ -39,15 +43,60 @@ export class UsersService {
     private readonly sweepAvatarsUseCase: SweepAvatarsUseCase,
     private readonly copyGoogleAvatarUseCase: CopyGoogleAvatarUseCase,
     private readonly updateProfileUseCase: UpdateProfileUseCase,
+    private readonly adminUsers: AdminUserRepository,
+    private readonly resetProfileText: ResetProfileTextUseCase,
   ) {}
+
+  // --- Backoffice (ADR-038 §5) ---
+
+  /**
+   * The backoffice users list: one query over the account, its profile, its Activities and its
+   * Premium (see `AdminUserRepository`). The caller adds names and Avatars.
+   */
+  listForAdmin(
+    filter: AdminUserFilter,
+    page: { page: number; pageSize: number },
+    now = new Date(),
+  ): Promise<{ rows: AdminUserRow[]; total: number }> {
+    return this.adminUsers.findPage(filter, page, now);
+  }
+
+  /** The user sheet's athlete profile: never birth date, gender nor weight. */
+  async getAdminProfile(userId: string): Promise<AdminProfile> {
+    const [profile, sports] = await Promise.all([this.userProfiles.findById(userId), this.userSports.findCodes(userId)]);
+    return {
+      firstName: profile?.firstName ?? null,
+      lastName: profile?.lastName ?? null,
+      bio: profile?.bio ?? null,
+      city: profile?.city ?? null,
+      country: profile?.country ?? null,
+      sports,
+      level: profile?.level ?? null,
+      defaultVisibility: profile?.defaultVisibility ?? "public",
+    };
+  }
+
+  /**
+   * Sanction: first name « Athlète », empty last name. Returns the account name the caller sets
+   * on Better Auth's `user.name` (`AuthService.setName`).
+   */
+  resetName(userId: string): Promise<string> {
+    return this.resetProfileText.resetName(userId);
+  }
+
+  /** Sanction: the bio emptied. */
+  resetBio(userId: string): Promise<void> {
+    return this.resetProfileText.resetBio(userId);
+  }
 
   /**
    * Athlete search (ADR-036 §2): ids of at most 20 users whose profile name
    * contains `query` (trimmed, 2 to 50 characters, else `422 invalid_query`),
-   * ignoring case and accents, word starts first, `excludeUserId` left out.
+   * ignoring case and accents, word starts first, `excludeUserId` and the athletes hidden from
+   * them (ADR-038 §7) left out.
    */
-  searchByName(query: string | undefined, excludeUserId: string): Promise<string[]> {
-    return this.searchUsersByName.execute(query, excludeUserId);
+  searchByName(query: string | undefined, excludeUserId: string, exclusions: ViewerExclusions): Promise<string[]> {
+    return this.searchUsersByName.execute(query, excludeUserId, exclusions);
   }
 
   /** Batch read (ADR-021 §2 rule 6), e.g. for feed authors or a profile screen. */

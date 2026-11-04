@@ -1,18 +1,22 @@
 import { Module } from "@nestjs/common";
 import { EventEmitterModule } from "@nestjs/event-emitter";
+import { NERVO_ADMIN_ORIGIN } from "@repo/contracts";
 import { AnalyticsModule } from "@repo/core/analytics";
 import { GeocodingModule } from "@repo/core/geocoding";
 import { CoreInfrastructureModule } from "@repo/core/infrastructure";
 import { RealtimeBridgeModule } from "@repo/core/realtime";
 import { StorageModule } from "@repo/core/storage";
+import { RevenueCatModule } from "@repo/core/subscriptions";
 import { AppBullModule } from "./bull/bull.module.js";
 import { ConfigModule } from "./config/config.module.js";
 import { loadConfig } from "./config/env.js";
 import { HeartbeatModule } from "./heartbeat/heartbeat.module.js";
 import { AppLoggingModule } from "./logging/logging.module.js";
+import { AccountsProcessorModule } from "./processors/accounts/accounts.module.js";
 import { ActivitiesProcessorModule } from "./processors/activities/activities.module.js";
 import { AvatarsProcessorModule } from "./processors/avatars/avatars.module.js";
 import { BucketSweepProcessorModule } from "./processors/bucket-sweep/bucket-sweep.module.js";
+import { EmailsProcessorModule } from "./processors/emails/emails.module.js";
 import { SegmentsProcessorModule } from "./processors/segments/segments.module.js";
 import { SubscriptionsProcessorModule } from "./processors/subscriptions/subscriptions.module.js";
 
@@ -45,6 +49,12 @@ const config = loadConfig();
       accessKeyId: config.S3_ACCESS_KEY_ID,
       secretAccessKey: config.S3_SECRET_ACCESS_KEY,
     }),
+    // RevenueCat's API v2 for `sync-subscription` (ADR-038 §12); optional: no sync without it.
+    RevenueCatModule.forRoot({
+      apiKey: config.REVENUECAT_API_KEY,
+      projectId: config.REVENUECAT_PROJECT_ID,
+      premiumEntitlementId: config.REVENUECAT_PREMIUM_ENTITLEMENT_ID,
+    }),
     GeocodingModule.forRoot({
       accessToken: config.MAPBOX_GEOCODING_TOKEN,
       permanent: config.MAPBOX_GEOCODING_PERMANENT,
@@ -62,6 +72,16 @@ const config = loadConfig();
     SubscriptionsProcessorModule,
     BucketSweepProcessorModule,
     AvatarsProcessorModule,
+    EmailsProcessorModule.forRoot({
+      resendApiKey: config.RESEND_API_KEY,
+      contactEmail: config.CONTACT_EMAIL,
+      adminOrigin: NERVO_ADMIN_ORIGIN,
+    }),
+    // ADR-038 §13: the cleanup of a deleted account (bucket, RevenueCat through `RevenueCatModule`
+    // above, PostHog).
+    AccountsProcessorModule.forRoot({
+      postHog: { personalApiKey: config.POSTHOG_PERSONAL_API_KEY, projectId: config.POSTHOG_PROJECT_ID },
+    }),
   ],
 })
 export class WorkerModule {}

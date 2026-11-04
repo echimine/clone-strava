@@ -12,6 +12,7 @@ import {
   reprocessActivityJobSchema,
 } from "@repo/contracts";
 import { ActivitiesService, PermanentProcessingError } from "@repo/core/activities";
+import { DEFAULT_JOB_RETRY } from "@repo/core/infrastructure";
 
 /**
  * Job name for the recurring reconciliation sweep (ADR-019 §7).
@@ -77,11 +78,12 @@ export class ProcessActivityProcessor extends WorkerHost {
 
     // Job chaining is the worker's responsibility, not a module's (ADR-021
     // §2 rule 2): enqueue `match-segments` right after a successful
-    // `process-activity`, with a deterministic job id (ADR-019 §8).
+    // `process-activity`, with a deterministic job id (ADR-019 §8) and the default retry policy
+    // and retention (ADR-038 §14).
     await this.segmentsQueue.add(
       MATCH_SEGMENTS_JOB_NAME,
       { activityId: data.activityId, userId: data.userId, requestId: data.requestId },
-      { jobId: matchSegmentsJobId(data.activityId) },
+      { ...DEFAULT_JOB_RETRY, jobId: matchSegmentsJobId(data.activityId) },
     );
   }
 

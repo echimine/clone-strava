@@ -59,7 +59,7 @@ describe("Google photo copy enqueuing (ADR-037 §2)", () => {
   }
 
   async function signInWithCode(email: string): Promise<string> {
-    const spy = vi.spyOn(testApp.notificationsService, "sendAuthEmail");
+    const spy = vi.spyOn(testApp.notificationsService, "sendEmail");
     expect((await post("/email-otp/send-verification-otp", { email, type: "sign-in" })).status).toBe(200);
     const html = spy.mock.calls.find((call) => call[0].to === email)?.[0].html ?? "";
     const otp = /\b\d{6}\b/.exec(html.replace(/<[^>]*>/g, " "))?.[0];

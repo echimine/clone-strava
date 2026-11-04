@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import type { ActivityDetail, FeedItem } from "@repo/contracts";
 import type { ActivityDetailRecord, ActivityRecord, FeedActivity } from "@repo/core/activities";
 import { EngagementService } from "@repo/core/engagement";
+import { NO_EXCLUSIONS, type ViewerExclusions } from "@repo/core/infrastructure";
 import { AthleteIdentities } from "../identities/athlete-identities.js";
 import { MediaAssembler } from "../media/media-assembler.js";
 
@@ -22,9 +23,9 @@ export class FeedAssembler {
     private readonly media: MediaAssembler,
   ) {}
 
-  async assemble(viewerId: string, activities: FeedActivity[]): Promise<FeedItem[]> {
+  async assemble(viewerId: string, activities: FeedActivity[], exclusions: ViewerExclusions): Promise<FeedItem[]> {
     const [{ social, recentKudos }, media] = await Promise.all([
-      this.socialParts(viewerId, activities, RECENT_KUDOS_ON_CARD),
+      this.socialParts(viewerId, activities, RECENT_KUDOS_ON_CARD, exclusions),
       this.media.forActivities(activities.map((activity) => activity.id)),
     ]);
     return activities.map((activity) => ({
@@ -46,8 +47,9 @@ export class FeedAssembler {
 
   /** The detail of one activity (ADR-033 §2): same author and engagement as its feed card. */
   async assembleDetail(viewerId: string, activity: ActivityDetailRecord): Promise<ActivityDetail> {
+    // No kudos avatars on the detail, so the viewer filter has nothing to hide here.
     const [{ social }, media] = await Promise.all([
-      this.socialParts(viewerId, [activity], 0),
+      this.socialParts(viewerId, [activity], 0, NO_EXCLUSIONS),
       this.media.forActivities([activity.id]),
     ]);
     return {
@@ -76,12 +78,18 @@ export class FeedAssembler {
 
   /**
    * Author, engagement and `viewerIsAuthor` of each activity, and its last `recentKudosCount`
-   * kudos givers, with one batch call per module. Authors and givers share one identity lookup.
+   * kudos givers (athletes hidden from the viewer left out, ADR-038 §7), with one batch call per
+   * module. Authors and givers share one identity lookup.
    */
-  private async socialParts(viewerId: string, activities: ActivityRecord[], recentKudosCount: number) {
+  private async socialParts(
+    viewerId: string,
+    activities: ActivityRecord[],
+    recentKudosCount: number,
+    exclusions: ViewerExclusions,
+  ) {
     const activityIds = activities.map((activity) => activity.id);
     const [[identity, recentGivers], counts, kudoed] = await Promise.all([
-      this.engagement.getRecentKudoers(activityIds, recentKudosCount).then(async (givers) => {
+      this.engagement.getRecentKudoers(activityIds, recentKudosCount, exclusions).then(async (givers) => {
         const userIds = [...activities.map((activity) => activity.userId), ...[...givers.values()].flat()];
         return [await this.identities.resolve(userIds), givers] as const;
       }),

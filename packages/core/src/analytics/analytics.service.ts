@@ -10,6 +10,7 @@ import type {
   ItinerarySavedProperties,
   ItinerarySaveFailedProperties,
   OnboardingAnswersReceivedProperties,
+  ReportSubmittedProperties,
   UserSignedUpProperties,
 } from "@repo/contracts";
 import { ANALYTICS_OPTIONS, type AnalyticsModuleOptions } from "./analytics.constants.js";
@@ -32,6 +33,7 @@ export interface AnalyticsEventPropertiesMap {
   itinerary_save_failed: ItinerarySaveFailedProperties;
   user_signed_up: UserSignedUpProperties;
   onboarding_answers_received: OnboardingAnswersReceivedProperties;
+  report_submitted: ReportSubmittedProperties;
 }
 
 /**

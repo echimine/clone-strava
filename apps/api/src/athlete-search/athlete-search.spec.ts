@@ -1,9 +1,11 @@
 import { randomUUID } from "node:crypto";
 import type { INestApplication } from "@nestjs/common";
 import { APP_FILTER, APP_INTERCEPTOR, APP_PIPE } from "@nestjs/core";
+import { EventEmitterModule } from "@nestjs/event-emitter";
 import { Test } from "@nestjs/testing";
 import { ZodSerializerInterceptor, ZodValidationPipe } from "nestjs-zod";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { ViewerFilterModule } from "../viewer-filter/viewer-filter.module.js";
 import type { AthleteSearchResponse } from "@repo/contracts";
 import { AnalyticsModule } from "@repo/core/analytics";
 import { AuthService } from "@repo/core/auth";
@@ -74,6 +76,9 @@ describe("athlete search (integration)", () => {
       imports: [
         CoreInfrastructureModule.forRoot({ databaseUrl: TEST_DATABASE_URL, redisUrl: TEST_REDIS_URL }),
         AnalyticsModule.forRoot({}),
+        // `moderation` (through the viewer filter) emits and listens to domain events.
+        EventEmitterModule.forRoot({ wildcard: true, delimiter: "." }),
+        ViewerFilterModule,
         StorageModule.forRoot({
           endpoint: "https://bucket.test",
           region: "test",
