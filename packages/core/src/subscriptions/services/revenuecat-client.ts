@@ -124,6 +124,25 @@ export class RevenueCatClient {
     await this.ok(response);
   }
 
+  /**
+   * Account deletion (ADR-038 §13): `DELETE …/customers/{id}`, asynchronous on RevenueCat's side;
+   * it does not cancel the Apple subscription. Needs the key and the project only (not the
+   * entitlement): `skipped` without them, `not_found` when RevenueCat has no such customer.
+   */
+  async deleteCustomer(customerId: string): Promise<"deleted" | "not_found" | "skipped"> {
+    const { apiKey, projectId } = this.options ?? {};
+    if (!apiKey || !projectId) {
+      return "skipped";
+    }
+    const path = `/v2/projects/${encodeURIComponent(projectId)}/customers/${encodeURIComponent(customerId)}`;
+    const response = await this.send(apiKey, "DELETE", path);
+    if (response.status === 404) {
+      return "not_found";
+    }
+    await this.ok(response);
+    return "deleted";
+  }
+
   private customerPath(customerId: string): string {
     return `/v2/projects/${this.projectPath()}/customers/${encodeURIComponent(customerId)}`;
   }
@@ -142,8 +161,11 @@ export class RevenueCatClient {
     return this.settings;
   }
 
-  private async call(method: "GET" | "POST", path: string, body?: unknown): Promise<Response> {
-    const { apiKey } = this.require();
+  private call(method: "GET" | "POST", path: string, body?: unknown): Promise<Response> {
+    return this.send(this.require().apiKey, method, path, body);
+  }
+
+  private async send(apiKey: string, method: "GET" | "POST" | "DELETE", path: string, body?: unknown): Promise<Response> {
     try {
       return await this.fetch(`${API_ORIGIN}${path}`, {
         method,

@@ -1,9 +1,9 @@
 /**
- * An account was deleted (ADR-038 §13), emitted by `apps/api` after the deletion committed: by
- * the athlete themself or by an Administrator as a Sanction (`bySanction`). The SQL cascade
- * removes the athlete's content without a per-item event, so listeners act on `userId` (the
- * moderation queue closes every open case on that athlete or their content, ADR-038 §10).
+ * Domain events of the `users` area, emitted by `apps/api` after an account deletion committed
+ * (ADR-021 §3, ADR-038 §13). Same process only: the API's listeners (moderation's auto-close,
+ * #213) see it, the worker does not.
  */
 export const ACCOUNT_DELETED_EVENT = "users.account.deleted";
 
+/** `bySanction`: deleted by an Administrator (`user.delete`), not by the athlete themselves. */
 export type AccountDeletedEvent = { userId: string; bySanction: boolean };

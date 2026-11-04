@@ -55,15 +55,16 @@ describe("/v1/admin/users (integration)", () => {
     const { EmailJobsModule } = await import("@repo/core/notifications");
     const { SocialModule } = await import("@repo/core/social");
     const { SubscriptionsModule } = await import("@repo/core/subscriptions");
-    const { UsersModule } = await import("@repo/core/users");
+    const { AccountJobsModule, UsersModule } = await import("@repo/core/users");
+    const { AccountDeletion } = await import("../../account-deletion/account-deletion.js");
     const { AthleteIdentities } = await import("../../identities/athlete-identities.js");
     const { SanctionNotices: Notices } = await import("../sanctions/sanction-notices.js");
     const { AdminUsersController } = await import("./admin-users.controller.js");
     const { AdminUserAssembler } = await import("./admin-user-assembler.js");
     t = await bootstrapAdminAuthTestApp({
-      imports: [ActivitiesModule, EmailJobsModule, ModerationModule, SocialModule, SubscriptionsModule, UsersModule],
+      imports: [AccountJobsModule, ActivitiesModule, EmailJobsModule, ModerationModule, SocialModule, SubscriptionsModule, UsersModule],
       controllers: [AdminUsersController],
-      providers: [AthleteIdentities, AdminUserAssembler, Notices],
+      providers: [AthleteIdentities, AdminUserAssembler, Notices, AccountDeletion],
       contactEmail: "contact@nervo.test",
     });
     notices = vi.spyOn(t.app.get(Notices), "send");

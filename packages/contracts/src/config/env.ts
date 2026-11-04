@@ -67,6 +67,10 @@ export const workerEnvSchema = z.object({
   ...s3EnvShape,
   ...postHogEnvShape,
   ...revenueCatEnvShape,
+  // ADR-038 §13: the `delete-account` job deletes the PostHog person (`persons/bulk_delete`, EU
+  // host) with a personal key scoped `person:write`. Optional: without them that step is skipped.
+  POSTHOG_PERSONAL_API_KEY: z.string().optional().transform((value) => value?.trim() || undefined),
+  POSTHOG_PROJECT_ID: z.string().optional().transform((value) => value?.trim() || undefined),
   // ADR-029: server-side Mapbox token for reverse geocoding; optional (no place name without it).
   MAPBOX_GEOCODING_TOKEN: z.string().min(1).optional(),
   // ADR-029: Mapbox's terms require the (billed) permanent endpoint to store results.

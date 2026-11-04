@@ -68,6 +68,11 @@ export function resetProfile(id: string, reset: ProfileReset, reason: string): P
   return apiClient(`/v1/admin/users/${id}/${reset}`, noContent, { method: "POST", body: { reason } });
 }
 
+/** « Supprimer le compte » (ADR-038 §13): immediate and final. */
+export function deleteUser(id: string, reason: string): Promise<void> {
+  return apiClient(`/v1/admin/users/${id}`, noContent, { method: "DELETE", body: { reason } });
+}
+
 /** Not a Sanction: optional reason. */
 export function setUserRole(id: string, role: UserRole, reason: string): Promise<void> {
   return apiClient(`/v1/admin/users/${id}/role`, noContent, {

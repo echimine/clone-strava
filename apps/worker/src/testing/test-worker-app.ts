@@ -17,6 +17,8 @@ import {
 } from "@repo/core/storage";
 import { RevenueCatModule, type RevenueCatOptions } from "@repo/core/subscriptions";
 import { runMigrations } from "@repo/db/migrate";
+import { AccountsProcessorModule } from "../processors/accounts/accounts.module.js";
+import type { AccountsProcessorOptions } from "../processors/accounts/accounts.constants.js";
 import { ActivitiesProcessorModule } from "../processors/activities/activities.module.js";
 import { AvatarsProcessorModule } from "../processors/avatars/avatars.module.js";
 import { BucketSweepProcessorModule } from "../processors/bucket-sweep/bucket-sweep.module.js";
@@ -131,14 +133,14 @@ export interface TestWorkerApp {
 }
 
 /**
- * Boots the activities, bucket-sweep, avatars and subscriptions processors (ADR-024 §4
+ * Boots the activities, bucket-sweep, avatars, subscriptions and accounts processors (ADR-024 §4
  * `test-worker-app.ts`) on the real dev Postgres and Redis, with a random BullMQ prefix so the
  * queues never mix with a dev worker running on the same Redis. `revenueCat` configures
- * RevenueCat's API v2 with a simulated `fetch` (`sync-subscription`); without it RevenueCat is
- * not configured.
+ * RevenueCat's API v2 with a simulated `fetch` (`sync-subscription`, `delete-account`); without it
+ * RevenueCat is not configured. `accounts` fakes PostHog for `delete-account` (no keys: skipped).
  */
 export async function bootstrapTestWorkerApp(
-  options: { revenueCat?: RevenueCatOptions } = {},
+  options: { revenueCat?: RevenueCatOptions; accounts?: AccountsProcessorOptions } = {},
 ): Promise<TestWorkerApp> {
   await runMigrations(TEST_DATABASE_URL);
 
@@ -164,6 +166,7 @@ export async function bootstrapTestWorkerApp(
       AvatarsProcessorModule,
       SubscriptionsProcessorModule,
       ...(options.revenueCat ? [RevenueCatModule.forRoot(options.revenueCat)] : []),
+      AccountsProcessorModule.forRoot(options.accounts ?? { postHog: {} }),
     ],
   })
     .overrideProvider(StorageService)

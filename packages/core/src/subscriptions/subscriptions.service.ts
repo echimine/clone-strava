@@ -127,4 +127,12 @@ export class SubscriptionsService {
   sync(userId: string): Promise<void> {
     return this.syncSubscription.execute(userId);
   }
+
+  /**
+   * Account deletion (ADR-038 §13, the `delete-account` job): the athlete's RevenueCat customer.
+   * `skipped` without the key and project, `not_found` when already gone; throws `502` otherwise.
+   */
+  deleteRevenueCatCustomer(userId: string): Promise<"deleted" | "not_found" | "skipped"> {
+    return this.revenueCat.deleteCustomer(userId);
+  }
 }

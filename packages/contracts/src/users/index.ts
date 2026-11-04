@@ -6,3 +6,5 @@ export * from "./avatar.js";
 export * from "./avatar-keys.js";
 export * from "./avatar-jobs.js";
 export * from "./events.js";
+export * from "./account-jobs.js";
+export * from "./account-deletion.js";

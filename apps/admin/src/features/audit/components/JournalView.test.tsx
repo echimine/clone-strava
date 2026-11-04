@@ -82,6 +82,22 @@ describe("JournalView", () => {
     expect(within(cleanupRow).queryByRole("link")).toBeNull();
   });
 
+  it("an account deleted by the athlete themselves has « L'athlète » as author, not « Système »", async () => {
+    serve([
+      {
+        ...cleanup,
+        id: "a1a1a1a1-0000-4000-8000-000000000003",
+        action: "user.delete",
+        details: { origin: "athlete" },
+      },
+    ]);
+    renderWithProviders(<JournalView />);
+
+    const row = (await screen.findByText("L'athlète")).closest("tr")!;
+    expect(within(row).getAllByText("Compte supprimé").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Système")).toBeNull();
+  });
+
   it("asks the API for the filters and page held in the URL", async () => {
     navigation.search = new URLSearchParams(
       `action=user.ban&actorId=${ADMIN}&from=2026-11-01&to=2026-11-04&page=2&pageSize=25`,

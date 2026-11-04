@@ -23,6 +23,11 @@ function Person({ person }: { person: AuditPerson | null }) {
   );
 }
 
+/** « Compte supprimé » by the athlete themselves (ADR-038 §13): no author, but not « Système ». */
+function isDeletedByAthlete(entry: AuditEntry): boolean {
+  return entry.action === "user.delete" && entry.actor === null && entry.details?.origin === "athlete";
+}
+
 function Target({ target }: { target: AuditEntry["target"] }) {
   const label = auditTargetLabels[target.type];
   const href = target.id !== null && target.exists ? targetHref(target.type, target.id) : null;
@@ -67,7 +72,16 @@ function columns(onFilterSubject?: (subject: AuditPerson) => void, withSubject =
       header: "Date",
       cell: ({ row }) => <span className="whitespace-nowrap">{formatParisDateTime(row.original.createdAt)}</span>,
     },
-    { id: "actor", header: "Auteur", cell: ({ row }) => <Person person={row.original.actor} /> },
+    {
+      id: "actor",
+      header: "Auteur",
+      cell: ({ row }) =>
+        isDeletedByAthlete(row.original) ? (
+          <span className="text-muted-foreground">L&apos;athlète</span>
+        ) : (
+          <Person person={row.original.actor} />
+        ),
+    },
     { id: "action", header: "Action", cell: ({ row }) => auditActionLabels[row.original.action] },
     { id: "target", header: "Cible", cell: ({ row }) => <Target target={row.original.target} /> },
     ...(withSubject
