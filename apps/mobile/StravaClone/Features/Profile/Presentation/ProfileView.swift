@@ -17,6 +17,8 @@ struct ProfileView<Itineraries: View, Search: View>: View {
     var animationsPreview: AnyView?
     /// Réglages > "Athlètes bloqués" (ADR-038 §8), from the app shell.
     var blockedAthletes: AnyView?
+    /// Réglages > « Supprimer mon compte » (ADR-038 §13), a new screen each time it is pushed.
+    var accountDeletion: (() -> AnyView)?
     let destinations: AppDestinations
     @ViewBuilder var itineraries: () -> Itineraries
     /// The magnifier: the athlete search (ADR-036 §2).
@@ -64,7 +66,8 @@ struct ProfileView<Itineraries: View, Search: View>: View {
                             signOutWarning: signOutWarning,
                             beforeSignOut: beforeSignOut,
                             animationsPreview: animationsPreview,
-                            blockedAthletes: blockedAthletes
+                            blockedAthletes: blockedAthletes,
+                            accountDeletion: accountDeletion?()
                         )
                     case .itineraries:
                         itineraries()

@@ -143,6 +143,19 @@ describe("account deletion (integration)", () => {
       expect(deleted).toEqual([{ userId: athlete.userId, bySanction: false }]);
     });
 
+    it("the confirmation screen learns whether Apple keeps billing a Premium subscription", async () => {
+      const free = await t.createAthlete("gratuite");
+      const paying = await t.createAthlete("abonnee");
+      await t.sql(
+        `insert into subscriptions.user_subscription (user_id, is_active, store, period_type, will_renew, expires_at)
+         values ($1, true, 'app_store', 'normal', true, now() + interval '20 days')`,
+        [paying.userId],
+      );
+      const preview = async (account: TestAccount) => (await t.call("/me/account-deletion", account.cookie)).json();
+      expect(await preview(free)).toEqual({ appStoreBilled: false });
+      expect(await preview(paying)).toEqual({ appStoreBilled: true });
+    });
+
     it("a wrong code is a 400 and deletes nothing", async () => {
       const athlete = await t.createAthlete("hesitante");
       await requestCode(athlete);

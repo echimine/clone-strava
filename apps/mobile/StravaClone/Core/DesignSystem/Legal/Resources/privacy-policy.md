@@ -22,7 +22,11 @@ Cette politique explique quelles données Nervo collecte, pourquoi, combien de t
 
 ## Conservation
 
-- Vos données sont conservées **jusqu'à la suppression de votre compte**. À la suppression, votre profil, vos activités, vos kudos, vos commentaires et toutes les données liées sont effacés, sans anonymisation ni copie conservée.
+- Vos données sont conservées **jusqu'à la suppression de votre compte**, que vous pouvez demander à tout moment depuis les Réglages de l'app. La suppression est immédiate et définitive : votre profil, vos activités, vos photos, vos kudos, vos commentaires, vos abonnés et abonnements et toutes les données liées sont effacés, sans anonymisation ni copie conservée. Votre client RevenueCat et vos données de mesure d'audience chez PostHog sont supprimés dans la foulée.
+- **Deux exceptions**, qui ne gardent rien qui vous identifie :
+  - les **segments que vous avez créés** restent, sans créateur (« Créateur supprimé »), car leurs classements appartiennent aussi aux autres athlètes ;
+  - les **signalements que vous avez envoyés** restent, sans auteur (« Athlète supprimé ») et sans la note que vous aviez écrite, pour que l'équipe puisse les traiter.
+- La suppression de votre compte ne résilie pas un abonnement Premium payé par Apple : résiliez-le dans les réglages de votre identifiant Apple.
 - Les réponses de l'Onboarding restent seulement sur votre téléphone tant que vous n'avez pas de compte, et elles en sont effacées à la déconnexion.
 
 ## Destinataires

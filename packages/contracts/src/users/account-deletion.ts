@@ -11,6 +11,16 @@ export const accountDeletionRequestSchema = z.object({
 export type AccountDeletionRequest = z.infer<typeof accountDeletionRequestSchema>;
 
 /**
+ * `GET /v1/me/account-deletion`: what the confirmation screen warns about. `appStoreBilled`: an
+ * App Store subscription keeps renewing, which deleting the account does not stop (« Votre
+ * abonnement continue d'être facturé par Apple », ADR-038 §13); it never blocks the deletion.
+ */
+export const accountDeletionPreviewSchema = z.object({
+  appStoreBilled: z.boolean(),
+});
+export type AccountDeletionPreview = z.infer<typeof accountDeletionPreviewSchema>;
+
+/**
  * Error codes of the athlete's account deletion: `403 admin_cannot_delete_account` (« Un
  * administrateur ne peut pas supprimer son compte »); `400` for a wrong, expired or exhausted
  * code (ask for a new one).

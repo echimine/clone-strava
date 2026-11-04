@@ -190,21 +190,26 @@
         ]
       }
     },
-    "/v1/me/account-deletion/code": {
-      "post": {
-        "operationId": "MeAccountDeletionController_requestCode",
+    "/v1/me/account-deletion": {
+      "get": {
+        "operationId": "MeAccountDeletionController_preview",
         "parameters": [],
         "responses": {
-          "204": {
-            "description": "Code sent"
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountDeletionPreviewDto_Output"
+                }
+              }
+            }
           }
         },
         "tags": [
           "MeAccountDeletion"
         ]
-      }
-    },
-    "/v1/me/account-deletion": {
+      },
       "post": {
         "operationId": "MeAccountDeletionController_confirm",
         "parameters": [],
@@ -221,6 +226,20 @@
         "responses": {
           "204": {
             "description": "Account deleted"
+          }
+        },
+        "tags": [
+          "MeAccountDeletion"
+        ]
+      }
+    },
+    "/v1/me/account-deletion/code": {
+      "post": {
+        "operationId": "MeAccountDeletionController_requestCode",
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": "Code sent"
           }
         },
         "tags": [
@@ -3853,6 +3872,18 @@
           "isPremium",
           "defaultVisibility",
           "approveFollowers"
+        ],
+        "additionalProperties": false
+      },
+      "AccountDeletionPreviewDto_Output": {
+        "type": "object",
+        "properties": {
+          "appStoreBilled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "appStoreBilled"
         ],
         "additionalProperties": false
       },
