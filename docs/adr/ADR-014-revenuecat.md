@@ -42,7 +42,7 @@ The app is not authoritative for the API: the API must know by itself whether a 
 
 1. RevenueCat sends a **webhook** to the API: `POST /v1/webhooks/revenuecat`, authenticated by a secret header configured in RevenueCat.
 2. The API checks the secret, records the event (deduplicated by its ID) and **enqueues a job** (`sync-subscription`), then responds `200` immediately.
-3. The worker fetches the **full subscriber state via the RevenueCat REST API** (rather than relying on webhook ordering) and updates the user's premium status in the database.
+3. The worker fetches the **full subscriber state via the RevenueCat REST API** (rather than relying on webhook ordering) and updates the user's premium status in the database. *Amended by [ADR-038](ADR-038-backoffice-moderation-and-account-deletion.md) §12*: **API v2** (`GET …/customers/{id}`; v1's read creates the customer), one secret v2 key `REVENUECAT_API_KEY`; the backoffice grants and revokes Promotional Premium through `actions/grant_entitlement` / `revoke_granted_entitlement`, and the webhook then triggers this sync.
 4. The worker also sends the event to PostHog (`subscription_started`, `subscription_renewed`, `subscription_cancelled`…) to link revenue and usage (ADR-015).
 5. Premium-only endpoints check this status in the database.
 
@@ -95,5 +95,5 @@ Tests of **prices, durations, trials and paywall variants** go through **Revenue
 
 ## Links
 
-- **Amended by**: [ADR-035](ADR-035-onboarding-sign-in-code-paywall.md) (§6 unwired `SubscriptionService` adapter, layouts `A`/`B`/`C`, Paywall skipped when offers fail to load)
+- **Amended by**: [ADR-035](ADR-035-onboarding-sign-in-code-paywall.md) (§6 unwired `SubscriptionService` adapter, layouts `A`/`B`/`C`, Paywall skipped when offers fail to load), [ADR-038](ADR-038-backoffice-moderation-and-account-deletion.md) (§12 RevenueCat API v2, Promotional Premium from the backoffice)
 - **Related**: [ADR-006](ADR-006-mobile-stack.md), [ADR-007](ADR-007-mobile-architecture.md), [ADR-009](ADR-009-backend-api.md), [ADR-011](ADR-011-backend-worker.md), [ADR-015](ADR-015-posthog.md), [ADR-016](ADR-016-experimentation.md), [ADR-023](ADR-023-transactional-email-resend.md) (same webhook secret-header pattern)

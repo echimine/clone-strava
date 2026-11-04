@@ -35,6 +35,8 @@ The worker runs the heavy processing that the API puts in a queue (ADR-001). The
 | `subscriptions` | `sync-subscription`: reads the subscriber state via the RevenueCat REST API, updates the premium status in the database, sends the event to PostHog (ADR-014) | RevenueCat webhook received by the API | Yes, as soon as subscriptions exist |
 | ~~`media`~~ | ~~map thumbnail generation~~ *Amended by [ADR-037](ADR-037-media-avatar-and-gallery.md) §3, §11*: no `media` queue, the phone produces every Media file; the worker only runs a daily `bucket-sweep` of orphan objects and copies a Google photo as Avatar at sign-up | Daily schedule; Google account creation | Yes |
 | `notifications` | APNs delivery | Business events | **Later** (no Apple Developer account yet) |
+| `accounts` | `delete-account`: deletes the user's bucket prefixes, the RevenueCat customer, then the PostHog person (*amended by [ADR-038](ADR-038-backoffice-moderation-and-account-deletion.md) §13*) | Account deletion (app or backoffice) | Yes |
+| `emails` | e-mails to an athlete after a Sanction, account deleted, new report case to the Administrators (*amended by [ADR-038](ADR-038-backoffice-moderation-and-account-deletion.md) §4*) | Admin actions, Reports, account deletion | Yes |
 
 ### Principles
 
@@ -47,6 +49,8 @@ The worker runs the heavy processing that the API puts in a queue (ADR-001). The
 5. **Publish after commit**: the event (`activity.processed`, topic `user:{userId}`) is only published once the transaction is committed (*amended by [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md)*: the module emits the domain event `activities.activity.processed` after the commit, and the realtime bridge publishes it), so a result that is not in the database is never announced. Its payload is minimal (`activityId`, `status`): the mobile app reloads the activity through the API (ADR-010).
 6. **Concurrency set per queue**: CPU jobs (track processing) have limited concurrency; we add worker instances rather than increase the concurrency of a single one.
 7. **Graceful shutdown**: on shutdown, the worker finishes its in-progress jobs before exiting, so deployments do not interrupt processing.
+*Amended by [ADR-038](ADR-038-backoffice-moderation-and-account-deletion.md) §14*: **retention** everywhere: completed jobs `{ age: 7 days, count: 1000 }`, failed jobs `{ age: 30 days, count: 5000 }`, schedulers' templates and `match-segments` included. The backoffice reads and drives the queues through `/v1/admin/queues/*`, never Bull Board.
+
 8. **Correlation**: the `requestId` received in the job data (ADR-009) is added to all the job's logs and to published events.
 
 ### Monitoring
@@ -87,5 +91,5 @@ The worker runs the heavy processing that the API puts in a queue (ADR-001). The
 ## Links
 
 - **Details**: [ADR-003](ADR-003-backend.md)
-- **Amended by**: [ADR-019](ADR-019-activity-creation-flow.md) (jobs and failure policy), [ADR-028](ADR-028-activity-import-from-file.md) (`imports` queue, `import-activity` job, job id separator), [ADR-037](ADR-037-media-avatar-and-gallery.md) (no `media` queue; `bucket-sweep` and the Google Avatar copy)
+- **Amended by**: [ADR-019](ADR-019-activity-creation-flow.md) (jobs and failure policy), [ADR-028](ADR-028-activity-import-from-file.md) (`imports` queue, `import-activity` job, job id separator), [ADR-037](ADR-037-media-avatar-and-gallery.md) (no `media` queue; `bucket-sweep` and the Google Avatar copy), [ADR-038](ADR-038-backoffice-moderation-and-account-deletion.md) (`accounts` and `emails` queues, retention everywhere, queues read through `/v1/admin/queues/*`)
 - **Related**: [ADR-001](ADR-001-global-architecture.md), [ADR-009](ADR-009-backend-api.md) (shared foundation), [ADR-010](ADR-010-backend-realtime.md), [ADR-014](ADR-014-revenuecat.md), [ADR-015](ADR-015-posthog.md), [ADR-023](ADR-023-transactional-email-resend.md) (synchronous, not job-based, for auth emails)

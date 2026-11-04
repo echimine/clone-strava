@@ -132,7 +132,7 @@ On permanent failure:
 - `activity.processing_status = failed`, with `processing_error` (code: `invalid_trace`, `empty_trace`, `processing_error`…) and `processing_attempts`;
 - publish `activity.failed` (topic `user:{userId}`) and PostHog event `activity_failed` (*through the realtime bridge, [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md)*);
 - the app shows the activity as failed and keeps its points (ADR-008);
-- reprocessing possible from the backoffice: `POST /v1/admin/activities/:id/reprocess` (moves back to `processing` and re-enqueues).
+- reprocessing possible from the backoffice: `POST /v1/admin/activities/:id/reprocess` (moves back to `processing` and re-enqueues). *Amended by [ADR-038](ADR-038-backoffice-moderation-and-account-deletion.md) §11, §14*: `failed` only, recorded in the audit log, also run in batches of 500 from the "Jobs" screen; a raw BullMQ retry of `process-activity` is refused.
 
 Target job duration: **under 30 seconds**, compatible with the worker's 120-second shutdown grace period (ADR-018).
 
@@ -148,7 +148,7 @@ Activities that stay `pending` (trace never uploaded, app offline for a long tim
 - Search for candidate segments of the same sport near the route (GiST index), then check that the route actually follows the segment from end to end (tolerance of a few tens of meters).
 - For each segment covered: compute the time from the raw trace, upsert `segment_effort`, **recompute the segment's leaderboard** (`rank`).
 - `private` activities do not appear in public leaderboards.
-- A failure of the segment computation **does not change** the activity's status: it stays `processed`. The job has its own retries.
+- A failure of the segment computation **does not change** the activity's status: it stays `processed`. The job has its own retries (*amended by [ADR-038](ADR-038-backoffice-moderation-and-account-deletion.md) §14*: `DEFAULT_JOB_RETRY`, with the common retention). *Amended by [ADR-038](ADR-038-backoffice-moderation-and-account-deletion.md) §16*: an Effort faster than its sport's maximum is `suspicious` and stays in the leaderboard until an Administrator decides; a `rejected` Effort leaves it, and the decision survives a replay of matching.
 - End of the job: `activity.segments_matched` event (topic `user:{userId}`), so the app reloads the efforts if the screen is open (*emitted as `segments.efforts.matched` and forwarded by the realtime bridge, [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md)*).
 
 ### 9. Mobile side
@@ -218,4 +218,5 @@ Additions to the `activity` table:
 - **Amended by**: [ADR-030](ADR-030-itineraries-on-ios.md) (§5 elevation-gain algorithm shared with Itineraries in `@repo/geo`)
 - **Amended by**: [ADR-031](ADR-031-live-recording-on-ios.md) (§3 trace v2 with Pauses and regular `URLSession`, §5 metrics across Pauses, §9 `GET` and `DELETE /v1/activities/:id`)
 - **Amended by**: [ADR-033](ADR-033-activity-detail-edit-delete.md) (§7 reconciliation also covers reprocessing, §9 `GET` for visible Activities and `DELETE` of processed Activities)
+- **Amended by**: [ADR-038](ADR-038-backoffice-moderation-and-account-deletion.md) (§6 the reprocess endpoint, §8 `match-segments` retries and Suspicious efforts)
 - **Related**: [ADR-001](ADR-001-global-architecture.md), [ADR-008](ADR-008-mobile-offline-sync.md), [ADR-009](ADR-009-backend-api.md), [ADR-010](ADR-010-backend-realtime.md), [ADR-018](ADR-018-docker-vps-deployment.md)

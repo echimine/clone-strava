@@ -94,6 +94,7 @@ Admin action → Hook (TanStack Query) → api.ts → apiClient → NestJS API �
 
 - Pagination, sorting and filters **server-side** (the API returns one page at a time).
 - Filter and pagination state is **in the URL** (search parameters): a filtered view can be shared or reloaded.
+- *Amended by [ADR-038](ADR-038-backoffice-moderation-and-account-deletion.md) §2*: offset pagination with a total (`page`, `pageSize` 25/50/100, response `{ items, total, page, pageSize }`), one accent- and case-insensitive search `q`, `sort`/`order` from a whitelist, filters as query parameters, days in Europe/Paris time.
 
 ### Rules
 
@@ -144,4 +145,5 @@ Admin action → Hook (TanStack Query) → api.ts → apiClient → NestJS API �
 ## Links
 
 - **Details**: [ADR-004](ADR-004-backoffice.md)
+- **Amended by**: [ADR-038](ADR-038-backoffice-moderation-and-account-deletion.md) (§2 admin list conventions)
 - **Related**: [ADR-009](ADR-009-backend-api.md), [ADR-012](ADR-012-backoffice-stack.md), [ADR-022](ADR-022-authentication-better-auth.md) (cookie scope)
