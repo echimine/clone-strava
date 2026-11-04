@@ -144,10 +144,11 @@ export class AdminUsersController {
     @Body() body: AdminReasonBodyDto,
     @CurrentAuditDraft() audit: AuditDraft,
   ): Promise<void> {
-    await this.auth.getAccountForAdmin(id);
+    // Read before the reset: the e-mail greets the athlete by the first name they chose.
+    const recipient = await this.notices.recipientOf(id);
     const name = await this.users.resetName(id);
     await this.auth.setName(id, name);
-    await this.notify(audit, "user.name.reset", id, body.reason, { profileField: "name" });
+    await this.notify(audit, "user.name.reset", id, body.reason, { profileField: "name", recipient });
   }
 
   /** Sanction: the bio emptied. */
@@ -201,7 +202,7 @@ export class AdminUsersController {
     action: SanctionNotice["action"],
     athleteId: string,
     reason: string,
-    extra: Pick<SanctionNotice, "ban" | "profileField">,
+    extra: Pick<SanctionNotice, "ban" | "profileField" | "recipient">,
   ): Promise<void> {
     return this.notices.send({
       auditEntryId: audit.entryId,

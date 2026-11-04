@@ -3,6 +3,7 @@ import { ActivitiesModule } from "@repo/core/activities";
 import { AuditModule } from "@repo/core/audit";
 import { EngagementModule } from "@repo/core/engagement";
 import { ModerationModule } from "@repo/core/moderation";
+import { EmailJobsModule } from "@repo/core/notifications";
 import { SegmentsModule } from "@repo/core/segments";
 import { UsersModule } from "@repo/core/users";
 import { AuthModule } from "../auth/auth.module.js";
@@ -41,6 +42,8 @@ import { AdminUsersController } from "./users/admin-users.controller.js";
     UsersModule,
     IdentitiesModule,
     AdminQueuesModule,
+    // The `emails` queue: the e-mail to the athlete after a Sanction (ADR-038 §4).
+    EmailJobsModule,
     ...ADMIN_STATS_IMPORTS,
   ],
   controllers: [

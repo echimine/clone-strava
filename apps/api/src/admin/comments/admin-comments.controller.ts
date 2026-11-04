@@ -41,7 +41,7 @@ export class AdminCommentsController {
       athleteId: comment.userId,
       reason: body.reason,
       activity: activity ? { title: activity.title, startedAt: activity.startedAt.toISOString() } : null,
-      comment: { body: comment.body },
+      comment: { body: comment.body, postedAt: comment.createdAt.toISOString() },
     });
   }
 }
