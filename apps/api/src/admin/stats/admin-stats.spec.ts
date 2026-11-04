@@ -130,10 +130,28 @@ describe("Backoffice dashboard stats (ADR-038 §15, integration)", () => {
       });
     });
 
+    it("counts the open report cases and gives the oldest opening; closed cases are left out", async () => {
+      const reported = await t.seedUser("Athlète Signalé");
+      const seedCase = (status: string, openedAt: string) =>
+        t.sql(
+          `insert into moderation.report_case (target_type, target_id, target_user_id, status, opened_at)
+           values ('athlete', $1, $1, $2, $3)`,
+          [status === "open" ? randomUUID() : reported, status, openedAt],
+        );
+      const before = await get<AdminTodoStats>("/admin/stats/todo");
+      expect(before.openReports).toEqual({ count: 0, oldestOpenedAt: null });
+
+      await seedCase("open", "2030-01-14T10:00:00Z");
+      await seedCase("open", "2030-01-13T08:00:00Z");
+      await seedCase("dismissed", "2030-01-01T08:00:00Z");
+
+      const after = await get<AdminTodoStats>("/admin/stats/todo");
+      expect(after.openReports).toEqual({ count: 2, oldestOpenedAt: "2030-01-13T08:00:00.000Z" });
+    });
+
     it("shows 0 for the tiles whose data does not exist yet", async () => {
       const todo = await get<AdminTodoStats>("/admin/stats/todo");
 
-      expect(todo.openReports).toEqual({ count: 0, oldestOpenedAt: null });
       expect(todo.suspiciousEfforts).toBe(0);
     });
   });

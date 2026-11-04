@@ -4,6 +4,7 @@ import { ActivitiesService } from "@repo/core/activities";
 import type { AuditEntryRecord } from "@repo/core/audit";
 import { AuthService } from "@repo/core/auth";
 import { EngagementService } from "@repo/core/engagement";
+import { ModerationService } from "@repo/core/moderation";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -26,8 +27,11 @@ export class AuditEntryAssembler {
     private readonly auth: AuthService,
     activities: ActivitiesService,
     engagement: EngagementService,
+    moderation: ModerationService,
   ) {
     this.existence = {
+      // A closed case still exists: the Journal links its closing to it.
+      report_case: (ids) => moderation.getExistingCaseIds(ids),
       user: async (ids) => new Set((await auth.getPublicIdentities(ids)).map((identity) => identity.userId)),
       activity: async (ids) => new Set((await activities.getMany(ids)).map((activity) => activity.id)),
       media: (ids) => activities.getExistingMediaIds(ids),

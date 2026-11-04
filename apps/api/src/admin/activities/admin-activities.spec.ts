@@ -18,6 +18,7 @@ import {
 } from "@repo/contracts";
 import { ActivitiesModule } from "@repo/core/activities";
 import { EngagementModule } from "@repo/core/engagement";
+import { ModerationModule } from "@repo/core/moderation";
 import { SegmentsModule } from "@repo/core/segments";
 import { UsersModule } from "@repo/core/users";
 import { AthleteIdentities } from "../../identities/athlete-identities.js";
@@ -103,7 +104,7 @@ describe("/v1/admin/activities (integration)", () => {
 
   beforeAll(async () => {
     t = await bootstrapAdminTestApp({
-      imports: [ActivitiesModule, EngagementModule, SegmentsModule, UsersModule],
+      imports: [ActivitiesModule, EngagementModule, ModerationModule, SegmentsModule, UsersModule],
       controllers: [AdminActivitiesController, AdminCommentsController, AuditEntriesController],
       providers: [
         AdminActivityAssembler, AthleteIdentities, MediaAssembler, AuditEntryAssembler,

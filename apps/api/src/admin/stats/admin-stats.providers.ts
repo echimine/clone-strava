@@ -2,6 +2,7 @@ import { BullModule } from "@nestjs/bullmq";
 import type { DynamicModule, Provider, Type } from "@nestjs/common";
 import { ActivitiesModule } from "@repo/core/activities";
 import { EngagementModule } from "@repo/core/engagement";
+import { ModerationModule } from "@repo/core/moderation";
 import { SocialModule } from "@repo/core/social";
 import { SubscriptionsModule } from "@repo/core/subscriptions";
 import { AdminStatsAssembler, StatsClock } from "./admin-stats.assembler.js";
@@ -19,6 +20,7 @@ export { StatsClock } from "./admin-stats.assembler.js";
 export const ADMIN_STATS_IMPORTS: (Type | DynamicModule)[] = [
   ActivitiesModule,
   EngagementModule,
+  ModerationModule,
   SocialModule,
   SubscriptionsModule,
   BullModule.registerQueue(...dashboardQueueNames().map((name) => ({ name }))),

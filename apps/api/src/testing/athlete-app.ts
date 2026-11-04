@@ -71,6 +71,8 @@ export async function bootstrapAthleteApp(): Promise<AthleteApp> {
       },
       getPublicIdentities: (userIds: string[]) =>
         sql('select id as "userId", name from "user" where id = any($1)', [userIds]),
+      // No Administrator to e-mail when a Report opens a case (ADR-038 §10).
+      listAdminRecipients: async () => [],
     })
     .overrideProvider(StorageService)
     .useValue(new InMemoryStorage())

@@ -22,6 +22,9 @@ import { AdminController } from "./admin.controller.js";
 import { AuditEntriesController } from "./audit/audit-entries.controller.js";
 import { AuditEntryAssembler } from "./audit/audit-entry-assembler.js";
 import { AuthAuditListener } from "./audit/auth-audit.listener.js";
+import { AdminReportAssembler } from "./reports/admin-report-assembler.js";
+import { AdminReportsController } from "./reports/admin-reports.controller.js";
+import { ReportCaseAlerts } from "./reports/report-case-alerts.listener.js";
 import { AdminStatsController } from "./stats/admin-stats.controller.js";
 import { ADMIN_STATS_IMPORTS, ADMIN_STATS_PROVIDERS } from "./stats/admin-stats.providers.js";
 import { AdminUserAssembler } from "./users/admin-user-assembler.js";
@@ -56,6 +59,7 @@ import { AdminUsersController } from "./users/admin-users.controller.js";
     AdminQueuesController,
     AdminStatsController,
     AdminUsersController,
+    AdminReportsController,
   ],
   providers: [
     AuditEntryAssembler,
@@ -65,6 +69,9 @@ import { AdminUsersController } from "./users/admin-users.controller.js";
     SanctionNotices,
     AdminUserAssembler,
     AdminFailureAssembler,
+    AdminReportAssembler,
+    // The Administrators' e-mail when a report case opens (ADR-038 §10).
+    ReportCaseAlerts,
     ...ADMIN_STATS_PROVIDERS,
   ],
 })

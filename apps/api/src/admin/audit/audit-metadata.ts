@@ -33,4 +33,10 @@ export interface AuditDraft {
   targetId?: string | null;
   /** The action's parameters only (a Ban's duration, a batch's count and ids), never content. */
   details?: Record<string, unknown>;
+  /**
+   * The reason to record when the body names it otherwise: a report case's closing `note`
+   * (ADR-038 §17, `report.resolve` / `report.dismiss`, optional). Declare such a route
+   * `reason: "none"`.
+   */
+  reason?: string | null;
 }

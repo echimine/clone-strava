@@ -4,6 +4,7 @@ import type { AuditActorListResponse, AuditEntryListResponse } from "@repo/contr
 import { ActivitiesModule } from "@repo/core/activities";
 import { EngagementModule } from "@repo/core/engagement";
 import { containsIgnoringAccents, DATABASE, type Database } from "@repo/core/infrastructure";
+import { ModerationModule } from "@repo/core/moderation";
 import { schema } from "@repo/db";
 import { bootstrapAdminTestApp, type AdminTestApp } from "../../testing/admin-test-app.js";
 import { AuditEntriesController } from "./audit-entries.controller.js";
@@ -62,7 +63,7 @@ describe("GET /v1/admin/audit-entries (integration)", () => {
 
   beforeAll(async () => {
     t = await bootstrapAdminTestApp({
-      imports: [ActivitiesModule, EngagementModule],
+      imports: [ActivitiesModule, EngagementModule, ModerationModule],
       controllers: [AuditEntriesController],
       providers: [AuditEntryAssembler],
     });

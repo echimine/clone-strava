@@ -80,7 +80,7 @@ export class AuditInterceptor implements NestInterceptor {
         targetType,
         targetId,
         subjectUserId,
-        reason,
+        reason: draft.reason === undefined ? reason : draft.reason,
         details: draft.details ?? null,
         requestId: request.id === undefined ? null : String(request.id),
       });
