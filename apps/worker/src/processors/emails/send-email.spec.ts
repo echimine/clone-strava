@@ -148,9 +148,11 @@ describe("send-email (integration)", () => {
     const jobId = `send-email-${randomUUID()}`;
 
     await queue.add(SEND_EMAIL_JOB_NAME, { template: "user-banned", to: "x" }, { jobId, attempts: 3, backoff: { type: "fixed", delay: 10 } });
+    // `finishedOn` and `attemptsMade` come from the same read of the job: a state read after it
+    // could already say `failed` while that read still showed the job running.
     const failed = await waitFor(async () => {
       const stored = await queue.getJob(jobId);
-      return stored && (await stored.getState()) === "failed" ? stored : undefined;
+      return stored?.finishedOn && (await stored.getState()) === "failed" ? stored : undefined;
     });
 
     expect(failed.attemptsMade).toBe(1);
