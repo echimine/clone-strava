@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Réglages (ADR-036 §10), pushed by the profile's gear; it takes over the former "Compte"
 /// form (ADR-035 §8): Compte (Nom opens "Modifier le profil", Email), Mes Itinéraires,
-/// Confidentialité ("Approuver mes abonnés", legal texts), Debug, and
+/// Confidentialité ("Approuver mes abonnés", "Athlètes bloqués", legal texts), Debug, and
 /// sign-out. When `signOutWarning` returns a message, a confirmation shows it first
 /// (ADR-030 §8). The account and the sign-out come from the app shell (ADR-007 rule 5).
 struct SettingsView: View {
@@ -15,6 +15,8 @@ struct SettingsView: View {
     var beforeSignOut: @MainActor () async -> Void = {}
     /// Debug builds only: the app shell passes its animations preview screen.
     var animationsPreview: AnyView?
+    /// Réglages > "Athlètes bloqués" (ADR-038 §8), from the app shell.
+    var blockedAthletes: AnyView?
 
     @State private var pendingSignOutWarning: String?
     @State private var openedDocument: LegalDocument?
@@ -104,6 +106,14 @@ struct SettingsView: View {
                     set: { approve in Task { await store.setApproveFollowers(approve) } }
                 ))
                 .accessibilityIdentifier("privacy.approveFollowers")
+            }
+            if let blockedAthletes {
+                NavigationLink {
+                    blockedAthletes
+                } label: {
+                    Label(ProfileMessages.blockedAthletes, systemImage: "hand.raised")
+                }
+                .accessibilityIdentifier("privacy.blockedAthletes")
             }
             ForEach(LegalDocument.allCases) { document in
                 Button {

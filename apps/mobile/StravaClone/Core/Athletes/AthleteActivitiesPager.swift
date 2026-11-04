@@ -117,6 +117,8 @@ final class AthleteActivitiesPager {
             // A deletion the server turned down: the card comes back in its place.
             guard let removed = removedPosts.removeValue(forKey: id), !posts.contains(where: { $0.id == id }) else { return }
             posts.insert(removed.post, at: min(removed.index, posts.count))
+        case .authorHidden(let athleteId):
+            posts.removeAll { $0.author.id == athleteId }
         case .engagement(let id, let engagement):
             guard let index = posts.firstIndex(where: { $0.id == id }) else { return }
             posts[index].engagement = engagement

@@ -68,7 +68,8 @@ extension ActivityPost {
         elevationGain: Double? = 120,
         avgSpeedMs: Double? = nil,
         routeTrimmed: Bool = false,
-        recentKudos: [ActivityAuthor] = []
+        recentKudos: [ActivityAuthor] = [],
+        author: ActivityAuthor = ActivityAuthor(id: "u1", displayName: "Camille Martin", avatarURL: nil)
     ) -> ActivityPost {
         ActivityPost(
             id: id,
@@ -82,7 +83,7 @@ extension ActivityPost {
             avgSpeedMs: avgSpeedMs,
             route: nil,
             routeTrimmed: routeTrimmed,
-            author: ActivityAuthor(id: "u1", displayName: "Camille Martin", avatarURL: nil),
+            author: author,
             engagement: ActivityEngagement(kudosCount: kudos, commentCount: comments, viewerHasKudoed: viewerHasKudoed),
             recentKudos: recentKudos,
             viewerIsAuthor: viewerIsAuthor

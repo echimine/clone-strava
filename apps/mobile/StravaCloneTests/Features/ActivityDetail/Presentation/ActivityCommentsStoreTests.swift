@@ -42,6 +42,27 @@ struct ActivityCommentsStoreTests {
         #expect(repository.calls == [.page(before: nil), .page(before: "c1")])
     }
 
+    /// ADR-038 §9: "Signaler" on others' sent comments; a reported comment, then everything of a
+    /// blocked author, leaves the thread without changing the count.
+    @Test func reportedAndBlockedCommentsLeaveTheThread() async {
+        let repository = FakeActivityCommentRepository()
+        let tom = ActivityAuthor(id: "tom", displayName: "Tom", avatarURL: nil)
+        let mine = ActivityComment.fixture(body: "Moi", createdAt: at(0), mine: true)
+        let reported = ActivityComment.fixture(body: "Insulte", createdAt: at(60))
+        let byTom = ActivityComment.fixture(body: "Tom 1", createdAt: at(120), author: tom)
+        repository.setPage(.success(ActivityCommentsPage(items: [mine, reported, byTom], previousCursor: nil)))
+        var counted = 0
+        let store = makeStore(repository) { counted += $0 }
+        await store.load()
+
+        #expect(store.comments.map(\.isReportable) == [false, true, true])
+        store.hide(reported.id)
+        store.hideComments(of: tom.id)
+
+        #expect(store.comments.map(\.comment) == [mine])
+        #expect(counted == 0)
+    }
+
     @Test func aFailedLoadOffersARetry() async {
         let repository = FakeActivityCommentRepository()
         repository.setPage(.failure(.offline))

@@ -41,6 +41,8 @@ struct StravaCloneApp: App {
                 connectivityChanges: di.connectivityChanges,
                 syncCoordinator: di.syncCoordinator,
                 defaultVisibility: di.defaultVisibility,
+                moderationStore: di.makeModerationStore(),
+                makeBlockedAthletesStore: di.makeBlockedAthletesStore,
                 isSplashPresented: !ProcessInfo.processInfo.arguments.contains(SplashView.disablingArgument)
             )
                 .tint(Theme.accent)
@@ -109,6 +111,10 @@ struct RootView: View {
     /// Sends the queued operations and follows the Activities in `processing` (ADR-031 §14).
     let syncCoordinator: SyncQueueCoordinator
     let defaultVisibility: DefaultVisibilityCache
+    /// "Signaler" and "Bloquer" from every tab (ADR-038 §8, §9).
+    @State var moderationStore: ModerationStore
+    /// Réglages > "Athlètes bloqués".
+    let makeBlockedAthletesStore: @MainActor () -> BlockedAthletesStore
     /// The animated splash (ADR-032 §4), over the app from the cold launch until it is revealed.
     /// It lives as long as the scene, so a return from the background does not replay it.
     @State var isSplashPresented = true
@@ -267,6 +273,7 @@ struct RootView: View {
                             await syncCoordinator.signOut()
                         },
                         animationsPreview: Self.animationsPreview,
+                        blockedAthletes: AnyView(BlockedAthletesView(makeStore: makeBlockedAthletesStore)),
                         destinations: appDestinations(path: $profileStore.path),
                         itineraries: {
                             MyItinerariesView(
@@ -285,6 +292,7 @@ struct RootView: View {
                     .tag(AppTab.profile)
                 }
                 .environment(\.startRecordingWithItinerary, startRecordingWithItinerary)
+                .moderation(moderationStore)
                 .fullScreenCover(isPresented: $itineraryCreation.isPresented) {
                     ItineraryCreationView(
                         makeEditorStore: { [itineraryCreation] sport, id in

@@ -3,6 +3,8 @@ import Foundation
 /// French strings of another athlete's profile and the follow button (ADR-036 §1, §3).
 enum AthletesMessages {
     static let follow = "Suivre"
+    /// The "⋯" of another athlete's profile (ADR-038 §8, §9).
+    static let more = "Plus d'options"
     static let requestSent = "Demande envoyée"
     static let following = "Abonné"
     static let unfollow = "Se désabonner"

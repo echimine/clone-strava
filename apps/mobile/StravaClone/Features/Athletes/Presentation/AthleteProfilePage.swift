@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// Another athlete's profile (ADR-036 §3, §10), pushed in the current tab's stack: back (no "⋯":
-/// "Partager le profil" is not shown and nothing else goes there), their header, counters and
-/// follow button, then Activités · Galerie · Plus.
+/// Another athlete's profile (ADR-036 §3, §10), pushed in the current tab's stack: back and "⋯"
+/// ("Signaler", "Bloquer", ADR-038 §8, §9; once blocked, the profile closes), their header,
+/// counters and follow button, then Activités · Galerie · Plus.
 /// Knows nothing of other features (ADR-007 rule 5): the app shell pushes the Activity detail,
 /// the Kudos and comments screen and the Statistiques screen.
 struct AthleteProfilePage: View {
@@ -15,6 +15,9 @@ struct AthleteProfilePage: View {
     private let openFollows: (@MainActor (AthleteFollowsRequest) -> Void)?
 
     @Environment(\.openAthlete) private var openAthlete
+    @Environment(\.reportContent) private var reportContent
+    @Environment(\.blockAthlete) private var blockAthlete
+    @Environment(\.dismiss) private var dismiss
 
     init(
         request: AthleteProfileRequest,
@@ -37,6 +40,7 @@ struct AthleteProfilePage: View {
             .background(Color(.systemBackground))
             .navigationTitle(store.profile?.athlete.displayName ?? "")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar { moreMenu }
             .task { await store.load() }
             .toast(Binding(get: { store.follows.toast }, set: { store.follows.toast = $0 }))
             .toast(Binding(get: { store.activities.notice }, set: { store.activities.notice = $0 }))
@@ -52,6 +56,34 @@ struct AthleteProfilePage: View {
                 }
             })
             .accessibilityIdentifier("athleteProfile")
+    }
+
+    /// "⋯": "Signaler" and "Bloquer". Never on one's own profile, which is the Profile tab.
+    @ToolbarContentBuilder private var moreMenu: some ToolbarContent {
+        if let athlete = store.profile?.athlete, reportContent != nil || blockAthlete != nil {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    if let reportContent {
+                        // A reported athlete is never hidden by the Report itself, only by "Bloquer aussi".
+                        Button(ModerationLabels.report, systemImage: ModerationLabels.reportImage) {
+                            reportContent(.athlete(athlete)) { hiding in
+                                if hiding == .author { dismiss() }
+                            }
+                        }
+                        .accessibilityIdentifier("athleteProfile.report")
+                    }
+                    if let blockAthlete {
+                        Button(ModerationLabels.block, systemImage: ModerationLabels.blockImage, role: .destructive) {
+                            blockAthlete(athlete) { dismiss() }
+                        }
+                        .accessibilityIdentifier("athleteProfile.block")
+                    }
+                } label: {
+                    Label(AthletesMessages.more, systemImage: "ellipsis")
+                }
+                .accessibilityIdentifier("athleteProfile.more")
+            }
+        }
     }
 
     @ViewBuilder private var content: some View {
