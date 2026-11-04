@@ -7,7 +7,6 @@ import {
   type AdminReportCaseListQuery,
   type AdminReportCaseListResponse,
   type AdminReportTargetContent,
-  type AuditTargetType,
   type ReportTargetType,
 } from "@repo/contracts";
 import { ActivitiesService } from "@repo/core/activities";
@@ -18,19 +17,12 @@ import { ModerationService, type ReportCaseRecord } from "@repo/core/moderation"
 import { UsersService } from "@repo/core/users";
 import { AthleteIdentities } from "../../identities/athlete-identities.js";
 import { MediaAssembler } from "../../media/media-assembler.js";
-import { changedSince, previewOf, readCopy, toAdminCopy, type CurrentTexts } from "./report-copy.js";
+import { auditTargetOf, changedSince, previewOf, readCopy, toAdminCopy, type TypedSnapshot } from "./report-copy.js";
 
-/** The Journal's type for a case's target: a Sanction on it lets the case close as « Sanctionné ». */
-const AUDIT_TARGET: Record<ReportTargetType, AuditTargetType> = {
-  comment: "comment",
-  activity: "activity",
-  athlete: "user",
-};
-
-/** The target now, as shown and as compared with the copies. */
+/** The target now, as shown and as a snapshot compared with the copies. */
 interface CurrentTarget {
   content: AdminReportTargetContent;
-  texts: CurrentTexts;
+  snapshot: TypedSnapshot;
 }
 
 /**
@@ -117,7 +109,7 @@ export class AdminReportAssembler {
           note: report.note,
           createdAt: report.createdAt.toISOString(),
           copy: copy ? toAdminCopy(copy) : null,
-          changedSince: changedSince(copy, current?.texts ?? null),
+          changedSince: changedSince(copy, current?.snapshot ?? null),
         };
       }),
       canResolve,
@@ -143,7 +135,7 @@ export class AdminReportAssembler {
     }
     const sanctions = await this.audit.countSanctions({
       subjectUserId: reportCase.targetUserId,
-      target: { type: AUDIT_TARGET[reportCase.targetType], id: reportCase.targetId },
+      target: { type: auditTargetOf(reportCase.targetType), id: reportCase.targetId },
       since: reportCase.openedAt,
     });
     return sanctions > 0;
@@ -197,7 +189,7 @@ export class AdminReportAssembler {
             updatedAt: comment.updatedAt?.toISOString() ?? null,
             activity: activity ? { id: activity.id, title: activity.title } : null,
           },
-          texts: { kind: "comment", body: comment.body },
+          snapshot: { kind: "comment", snapshot: { body: comment.body, activityId: comment.activityId } },
         };
       }
       case "activity": {
@@ -218,11 +210,13 @@ export class AdminReportAssembler {
             startedAt: activity.startedAt.toISOString(),
             media: await Promise.all(activity.media.map((media) => this.media.sign(media))),
           },
-          texts: {
+          snapshot: {
             kind: "activity",
-            title: activity.title,
-            description: activity.description,
-            mediaIds: activity.media.map((media) => media.id),
+            snapshot: {
+              title: activity.title,
+              description: activity.description,
+              mediaIds: activity.media.map((media) => media.id),
+            },
           },
         };
       }
@@ -239,7 +233,10 @@ export class AdminReportAssembler {
         const { displayName, avatarUrl } = identity(targetId);
         return {
           content: { kind: "athlete", displayName, bio: profile.bio, avatarUrl },
-          texts: { kind: "athlete", name: displayName, bio: profile.bio, avatarKey: summary?.avatarKey ?? null },
+          snapshot: {
+            kind: "athlete",
+            snapshot: { name: displayName, bio: profile.bio, avatarKey: summary?.avatarKey ?? null },
+          },
         };
       }
     }
