@@ -6,6 +6,7 @@ enum FeedMessages {
     static let emptyDescription = "Importez ou enregistrez une activité : elle apparaîtra ici, avec celles des athlètes que vous suivez."
     static let errorTitle = "Fil indisponible"
     static let retry = "Réessayer"
+    static let refreshed = "Fil actualisé"
 
     static func message(for error: FeedError) -> String {
         switch error {

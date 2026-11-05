@@ -12,7 +12,7 @@ struct AthleteActivitiesTab: View {
     var body: some View {
         switch store.phase {
         case .idle, .loading where store.posts.isEmpty:
-            ProgressView().padding(.top, 40)
+            ProgressView().accessibilityLabel("Chargement").padding(.top, 40)
         case .failed(let message) where store.posts.isEmpty:
             ContentUnavailableView {
                 Label(AthletesMessages.errorTitle, systemImage: "wifi.exclamationmark")
@@ -47,6 +47,7 @@ struct AthleteActivitiesTab: View {
                 )
                 .contentShape(.rect(cornerRadius: 20))
                 .onTapGesture { openActivity(post.id) }
+                .accessibilityAddTraits(.isButton)
                 .accessibilityAction(named: Text(AthletesMessages.openActivity)) { openActivity(post.id) }
                 .task { await store.loadMoreIfNeeded(currentPost: post) }
             }

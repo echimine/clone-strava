@@ -7,6 +7,8 @@ import SwiftUI
 struct FollowButton: View {
     let status: FollowStatus
     var controlSize: ControlSize = .regular
+    /// The athlete's name, for VoiceOver ("Suivre Marie"); nil: the visible title alone.
+    var athleteName: String?
     let onFollow: () -> Void
     /// "Se désabonner", or a tap on "Demande envoyée".
     let onUnfollow: () -> Void
@@ -18,11 +20,13 @@ struct FollowButton: View {
                 Button(AthletesMessages.follow, action: onFollow)
                     .buttonStyle(.borderedProminent)
                     .tint(Theme.accent)
+                    .accessibilityLabel(athleteName.map(AthletesMessages.followLabel) ?? AthletesMessages.follow)
                     .accessibilityIdentifier("followButton.follow")
             case .pending:
                 Button(AthletesMessages.requestSent, action: onUnfollow)
                     .buttonStyle(.bordered)
                     .tint(.secondary)
+                    .accessibilityLabel(athleteName.map(AthletesMessages.requestSentLabel) ?? AthletesMessages.requestSent)
                     .accessibilityHint(Text(AthletesMessages.cancelRequestHint))
                     .accessibilityIdentifier("followButton.pending")
             case .accepted:
@@ -32,11 +36,13 @@ struct FollowButton: View {
                     HStack(spacing: 4) {
                         Text(AthletesMessages.following)
                         Image(systemName: "chevron.down").font(.caption.weight(.semibold))
+                            .accessibilityHidden(true)
                     }
                 }
                 .menuStyle(.button)
                 .buttonStyle(.bordered)
                 .tint(.secondary)
+                .accessibilityLabel(athleteName.map(AthletesMessages.followingLabel) ?? AthletesMessages.following)
                 .accessibilityIdentifier("followButton.following")
             }
         }
@@ -50,11 +56,12 @@ extension FollowButton {
     /// The button of a list row or a search result: its status and changes go through `store`;
     /// nothing for the viewer themself.
     @MainActor @ViewBuilder
-    static func row(athleteId: String, store: FollowStore) -> some View {
+    static func row(athleteId: String, athleteName: String? = nil, store: FollowStore) -> some View {
         if let status = store.status(of: athleteId) {
             FollowButton(
                 status: status,
                 controlSize: .small,
+                athleteName: athleteName,
                 onFollow: { Task { await store.follow(athleteId) } },
                 onUnfollow: { Task { await store.unfollow(athleteId) } }
             )

@@ -146,6 +146,7 @@ private struct AccountEmailStep: View {
         .buttonStyle(.plain)
         .disabled(!store.canUseGoogle)
         .opacity(store.canUseGoogle ? 1 : 0.45)
+        .accessibilityLabel(store.isSigningInWithGoogle ? "Connexion avec Google en cours" : "Continuer avec Google")
         .accessibilityIdentifier("account.google")
     }
 
@@ -241,6 +242,7 @@ struct AuthMessage: View {
             .font(.subheadline.weight(.semibold))
             .foregroundStyle(.red)
             .accessibilityAddTraits(.updatesFrequently)
+            .onAppear { AccessibilityNotification.Announcement(text).post() }
     }
 }
 

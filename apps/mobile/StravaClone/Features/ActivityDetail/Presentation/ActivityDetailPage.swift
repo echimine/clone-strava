@@ -85,6 +85,7 @@ struct ActivityDetailPage: View {
         switch store.phase {
         case .loading:
             ProgressView()
+                .accessibilityLabel("Chargement")
         case .failed(let message):
             ContentUnavailableView {
                 Label(ActivityDetailMessages.errorTitle, systemImage: "wifi.exclamationmark")
@@ -133,6 +134,7 @@ struct ActivityDetailContent<Engagement: View>: View {
                     ActivityCardHeader(post: detail.post)
                     Text(detail.title)
                         .font(.title2.weight(.bold))
+                        .accessibilityAddTraits(.isHeader)
                         .accessibilityIdentifier("activityDetail.title")
                     if let description = detail.description {
                         Text(description)

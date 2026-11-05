@@ -42,6 +42,7 @@ struct PaywallLayoutA: View {
                             .tracking(-0.3)
                             .multilineTextAlignment(.center)
                             .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityAddTraits(.isHeader)
                         VStack(alignment: .leading, spacing: 0) {
                             ForEach(steps.indices, id: \.self) { index in
                                 step(steps[index], isLast: index == steps.count - 1)
@@ -78,8 +79,10 @@ struct PaywallLayoutA: View {
         HStack(alignment: .top, spacing: 26) {
             VStack(spacing: 6) {
                 Circle().fill(Theme.accent).frame(width: 9, height: 9).padding(.top, 9)
+                    .accessibilityHidden(true)
                 if isLast {
                     Image(systemName: "arrow.down")
+                        .accessibilityHidden(true)
                         .font(.system(size: 30, weight: .bold))
                         .foregroundStyle(Color(.systemGray))
                 } else {
@@ -88,6 +91,7 @@ struct PaywallLayoutA: View {
                         .stroke(Theme.accent, style: StrokeStyle(lineWidth: 5, lineCap: .round, dash: [0.1, 10]))
                         .frame(width: 5)
                         .frame(maxHeight: .infinity)
+                        .accessibilityHidden(true)
                 }
             }
             .frame(width: 30)
@@ -99,6 +103,7 @@ struct PaywallLayoutA: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.bottom, isLast ? 0 : 22)
+            .accessibilityElement(children: .combine)
         }
     }
 }

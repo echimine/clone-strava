@@ -71,6 +71,7 @@ struct ItineraryDetailContent: View {
                             .accessibilityIdentifier("itineraryTrackMessage")
                     } else {
                         ProgressView()
+                            .accessibilityLabel("Chargement du tracé")
                     }
                 }
             }
@@ -86,6 +87,7 @@ struct ItineraryDetailContent: View {
                 .foregroundStyle(.secondary)
             Text(summary.name)
                 .font(.title2.weight(.bold))
+                .accessibilityAddTraits(.isHeader)
                 .accessibilityIdentifier("itineraryDetailName")
         }
         .padding(.horizontal, Theme.spacing)
@@ -108,6 +110,7 @@ struct ItineraryDetailContent: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text(ItineraryMessages.elevationProfile)
                     .font(.headline)
+                    .accessibilityAddTraits(.isHeader)
                 ElevationProfileChart(profile: profile)
                     .frame(height: 160)
                 if let source = store.elevationSourceText {

@@ -151,6 +151,9 @@ struct EditProfileCountryRow: View {
             Text(countryCode.map(EditProfileFormat.country) ?? ProfileMessages.country)
                 .foregroundStyle(countryCode == nil ? .tertiary : .primary)
                 .editProfileRow()
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(ProfileMessages.country)
+                .accessibilityValue(countryCode.map(EditProfileFormat.country) ?? ProfileMessages.notSet)
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("editProfile.country")

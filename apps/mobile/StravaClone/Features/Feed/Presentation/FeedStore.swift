@@ -168,8 +168,9 @@ final class FeedStore {
     /// Pull-to-refresh: the first page, and the queued operations sent meanwhile.
     func pullToRefresh() async {
         async let sending: Void = onPullToRefresh()
-        await refresh()
+        let refreshed = await refresh()
         await sending
+        if refreshed { AccessibilityNotification.Announcement(FeedMessages.refreshed).post() }
     }
 
     /// Back to the top of the list, then the first page again.

@@ -77,6 +77,7 @@ struct ItineraryNameSheet: View {
                         Label(message, systemImage: "exclamationmark.triangle")
                             .foregroundStyle(.red)
                             .accessibilityIdentifier("itinerarySaveError")
+                            .onAppear { AccessibilityNotification.Announcement(message).post() }
                         if canRetry {
                             Button("Réessayer", action: save)
                                 .accessibilityIdentifier("retrySaveItinerary")
@@ -94,6 +95,7 @@ struct ItineraryNameSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     if isSaving {
                         ProgressView()
+                            .accessibilityLabel("Enregistrement en cours")
                     } else {
                         Button("Enregistrer", action: save)
                             .disabled(!store.isNameValid)

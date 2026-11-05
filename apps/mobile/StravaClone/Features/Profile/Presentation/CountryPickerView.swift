@@ -55,10 +55,12 @@ struct CountryPickerView: View {
                 Spacer()
                 if selection == code {
                     Image(systemName: "checkmark").foregroundStyle(Theme.accent)
+                        .accessibilityHidden(true)
                 }
             }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(selection == code ? .isSelected : [])
     }
 }

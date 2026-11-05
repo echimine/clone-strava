@@ -73,13 +73,14 @@ struct SignInCodeView: View {
             .foregroundStyle(.clear)
             .tint(.clear)
             .accessibilityLabel("Code à 6 chiffres")
-            .accessibilityValue(store.code)
+            .accessibilityValue(Self.spokenProgress(store.code.count))
             .accessibilityIdentifier("signInCode.field")
     }
 
     @ViewBuilder private var messages: some View {
         if store.isVerifyingCode {
             ProgressView()
+                .accessibilityLabel("Vérification du code en cours")
                 .padding(.top, 12)
         }
         if store.codeProblem == .wrong {
@@ -98,6 +99,10 @@ struct SignInCodeView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(RoundedRectangle(cornerRadius: 12).fill(Color.red.opacity(0.08)))
             .padding(.top, 16)
+            .accessibilityElement(children: .combine)
+            .onAppear {
+                AccessibilityNotification.Announcement("Ce code n'est plus valable. Demandez-en un nouveau.").post()
+            }
         }
         if let error = store.formError {
             AuthMessage(text: error.text)
@@ -119,6 +124,7 @@ struct SignInCodeView: View {
             }
         }
         .disabled(!store.canResendCode)
+        .accessibilityValue(store.resendCountdown > 0 ? "Possible dans \(Self.spokenCountdown(store.resendCountdown))" : "")
         .accessibilityIdentifier("signInCode.resend")
 
         if store.codeProblem == .noLongerValid {
@@ -141,6 +147,7 @@ struct SignInCodeView: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
+                        .accessibilityHidden(true)
                 }
             }
             .padding(.top, 18)
@@ -157,6 +164,20 @@ struct SignInCodeView: View {
                 .frame(minHeight: 44)
         }
         .buttonStyle(.plain)
+    }
+
+    /// "3 chiffres saisis sur 6".
+    static func spokenProgress(_ count: Int) -> String {
+        let total = SignInStore.codeLength
+        switch count {
+        case 0: return "Aucun chiffre saisi sur \(total)"
+        case 1: return "1 chiffre saisi sur \(total)"
+        default: return "\(count) chiffres saisis sur \(total)"
+        }
+    }
+
+    private static func spokenCountdown(_ seconds: Int) -> String {
+        seconds >= 60 ? "\(seconds / 60) minute \(seconds % 60) secondes" : "\(seconds) secondes"
     }
 
     /// "0:24".

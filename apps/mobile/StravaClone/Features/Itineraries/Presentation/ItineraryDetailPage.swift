@@ -25,6 +25,7 @@ struct ItineraryDetailPage: View {
             } label: {
                 if editFlow.isLoading {
                     ProgressView()
+                        .accessibilityLabel("Chargement")
                 } else {
                     Text(ItineraryMessages.edit)
                 }

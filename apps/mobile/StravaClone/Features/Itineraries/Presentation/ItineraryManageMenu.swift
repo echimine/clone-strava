@@ -28,6 +28,7 @@ struct ItineraryManageMenu: View {
             Label(ItineraryMessages.actions, systemImage: "ellipsis.circle")
         }
         .disabled(store.summary == nil)
+        .accessibilityLabel(ItineraryMessages.actions)
         .accessibilityIdentifier("itineraryActions")
         .alert(ItineraryMessages.renameTitle, isPresented: $isRenaming) {
             TextField(ItineraryMessages.namePlaceholder, text: $draftName)

@@ -26,6 +26,7 @@ struct FollowListPage: View {
             } label: {
                 EmptyView()
             }
+            .accessibilityLabel(AthletesMessages.followListPicker)
             .pickerStyle(.segmented)
             .padding(.horizontal, Theme.spacing)
             .padding(.vertical, 8)
@@ -68,6 +69,7 @@ struct FollowListPage: View {
         switch store.phase(of: list) {
         case .idle, .loading:
             ProgressView()
+                .accessibilityLabel("Chargement")
         case .failed(let message):
             ContentUnavailableView {
                 Label(AthletesMessages.errorTitle, systemImage: "wifi.exclamationmark")
@@ -89,7 +91,7 @@ struct FollowListPage: View {
             }
             ForEach(store.items(of: list)) { item in
                 AthleteRow(athlete: item.athlete) {
-                    FollowButton.row(athleteId: item.id, store: store.follows)
+                    FollowButton.row(athleteId: item.id, athleteName: item.athlete.displayName, store: store.follows)
                 }
                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                     if list == .followers, store.canRemoveFollowers {
@@ -97,10 +99,14 @@ struct FollowListPage: View {
                             .tint(.red)
                     }
                 }
+                .modifier(RemoveFollowerAction(
+                    isEnabled: list == .followers && store.canRemoveFollowers,
+                    name: item.athlete.displayName
+                ) { removalCandidate = item })
                 .task { await store.loadMoreIfNeeded(current: item) }
             }
             if store.isLoadingMore(list) {
-                ProgressView().frame(maxWidth: .infinity)
+                ProgressView().accessibilityLabel("Chargement").frame(maxWidth: .infinity)
             }
         }
         .listStyle(.plain)
@@ -123,6 +129,7 @@ struct FollowListPage: View {
                 Image(systemName: "person.badge.clock")
                     .foregroundStyle(Theme.accent)
                     .frame(width: 44)
+                    .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(AthletesMessages.followRequests)
                         .font(.body.weight(.semibold))
@@ -134,10 +141,12 @@ struct FollowListPage: View {
                 Image(systemName: "chevron.right")
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
             }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
         .accessibilityIdentifier("followList.requests")
     }
 }
@@ -163,8 +172,10 @@ struct FollowRequestsView: View {
         switch store.phase {
         case .idle:
             ProgressView()
+                .accessibilityLabel("Chargement")
         case .loading where store.items.isEmpty:
             ProgressView()
+                .accessibilityLabel("Chargement")
         case .failed(let message) where store.items.isEmpty:
             ContentUnavailableView {
                 Label(AthletesMessages.errorTitle, systemImage: "wifi.exclamationmark")
@@ -182,10 +193,12 @@ struct FollowRequestsView: View {
                             Button(AthletesMessages.accept) { Task { await store.accept(request.id) } }
                                 .buttonStyle(.borderedProminent)
                                 .tint(Theme.accent)
+                                .accessibilityLabel(AthletesMessages.acceptLabel(request.athlete.displayName))
                                 .accessibilityIdentifier("followRequests.accept")
                             Button(AthletesMessages.refuse) { Task { await store.refuse(request.id) } }
                                 .buttonStyle(.bordered)
                                 .tint(.secondary)
+                                .accessibilityLabel(AthletesMessages.refuseLabel(request.athlete.displayName))
                                 .accessibilityIdentifier("followRequests.refuse")
                         }
                         .controlSize(.small)
@@ -205,6 +218,21 @@ struct FollowRequestsView: View {
                     )
                 }
             }
+        }
+    }
+}
+
+/// The swipe to remove a follower, as a VoiceOver action too.
+private struct RemoveFollowerAction: ViewModifier {
+    let isEnabled: Bool
+    let name: String
+    let action: () -> Void
+
+    func body(content: Content) -> some View {
+        if isEnabled {
+            content.accessibilityAction(named: Text(AthletesMessages.removeLabel(name)), action)
+        } else {
+            content
         }
     }
 }

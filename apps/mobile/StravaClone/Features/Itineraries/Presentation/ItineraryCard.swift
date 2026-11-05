@@ -24,6 +24,7 @@ struct ItineraryCard: View {
             .padding([.horizontal, .top], Theme.spacing)
 
             ItineraryThumbnail(mapPolyline: itinerary.mapPolyline)
+                .accessibilityHidden(true)
         }
         .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 20))
         .clipShape(.rect(cornerRadius: 20))

@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import SwiftUI
 
 /// The follow buttons of one screen (ADR-036 §1, §10): another athlete's profile, a followers
 /// or following list, the search. Each athlete's status, as the server last gave it or as just
@@ -71,6 +72,7 @@ final class FollowStore {
         do {
             let change = try await send()
             statuses[athleteId] = change.status
+            AccessibilityNotification.Announcement(AthletesMessages.announcement(for: change.status)).post()
             for observer in observers {
                 observer(previous, change)
             }

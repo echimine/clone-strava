@@ -32,6 +32,9 @@ struct MapScreen<Bottom: View>: View {
                 FocusedPathContent(coordinates: focusedPath.map(\.locationCoordinate))
             }
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Carte")
+        .accessibilityValue(focusedPath.map { $0.count >= 2 ? "Itinéraire sélectionné tracé sur la carte" : "" } ?? "")
         .accessibilityIdentifier("mapScreen")
         .overlay(alignment: .top) {
             VStack(alignment: .trailing, spacing: 8) {
@@ -84,17 +87,23 @@ struct MapScreen<Bottom: View>: View {
     private var locationBanner: some View {
         HStack(spacing: 12) {
             Image(systemName: "location.slash")
+                .accessibilityHidden(true)
             Text("Autorisez la localisation pour voir votre position.")
                 .font(.footnote)
             Spacer(minLength: 0)
             Button("Réglages", action: permission.openSettings)
                 .font(.footnote.bold())
+                .accessibilityLabel("Ouvrir les Réglages")
         }
         .padding(12)
         .glassBackground(in: .rect(cornerRadius: 12))
         .padding(.horizontal, Theme.spacing)
         .padding(.top, 8)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("locationPermissionBanner")
+        .onAppear {
+            AccessibilityNotification.Announcement("Autorisez la localisation pour voir votre position.").post()
+        }
     }
 }
 

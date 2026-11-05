@@ -151,6 +151,7 @@ struct RootView: View {
             switch authStore.state {
             case .checkingSession:
                 ProgressView()
+                    .accessibilityLabel("Chargement")
             case .signedOut:
                 WelcomeView(
                     isRevealed: !isSplashPresented,
@@ -322,6 +323,8 @@ struct RootView: View {
             if isSplashPresented {
                 SplashView(isSessionKnown: authStore.state != .checkingSession) {
                     isSplashPresented = false
+                    // The splash was hidden from VoiceOver: hand it the screen underneath.
+                    AccessibilityNotification.ScreenChanged(nil).post()
                 }
             }
         }

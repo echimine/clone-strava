@@ -57,10 +57,12 @@ struct MediaManagementSection: View {
     private var header: some View {
         HStack {
             Text(MediaUploadMessages.sectionTitle)
+                .accessibilityAddTraits(.isHeader)
             Spacer()
             Text(MediaUploadMessages.counter(draft.count, limit: MediaDraft.limit))
                 .monospacedDigit()
                 .foregroundStyle(draft.remaining == 0 ? Color.red : .secondary)
+                .accessibilityLabel(Text("\(draft.count) sur \(MediaDraft.limit)"))
                 .accessibilityIdentifier("mediaSection.counter")
         }
     }
@@ -163,6 +165,7 @@ struct MediaManagementSection: View {
                         .padding(.vertical, 2)
                         .background(.black.opacity(0.55), in: Capsule())
                         .padding(5)
+                        .accessibilityHidden(true)
                 }
                 .accessibilityIdentifier("mediaSection.map")
         case .media(.existing(let media)):
@@ -184,6 +187,11 @@ struct MediaManagementSection: View {
             .onTapGesture {
                 if case .failed = media.upload { failedTile = media } else { actionTarget = .existing(media) }
             }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(ActivityCarouselMessages.label(for: media))
+            .accessibilityValue(Self.statusLabel(media.upload))
+            .accessibilityHint(MediaUploadMessages.tapHint)
+            .accessibilityAddTraits(.isButton)
             .accessibilityIdentifier("mediaSection.media")
         case .media(.added(let media)):
             let preparation = uploads?.preparation(of: media.id)
@@ -199,6 +207,11 @@ struct MediaManagementSection: View {
                         actionTarget = .added(media)
                     }
                 }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(media.kind == .video ? MediaUploadMessages.video : MediaUploadMessages.photo)
+                .accessibilityValue(Self.preparationLabel(preparation))
+                .accessibilityHint(MediaUploadMessages.tapHint)
+                .accessibilityAddTraits(.isButton)
                 .accessibilityIdentifier("mediaSection.added")
         }
     }
@@ -215,6 +228,7 @@ struct MediaManagementSection: View {
             VStack(spacing: 6) {
                 Image(systemName: remaining == 0 ? "photo.badge.exclamationmark" : "photo.badge.plus")
                     .font(.title3)
+                    .accessibilityHidden(true)
                 Text(remaining == 0 ? MediaUploadMessages.limitReached : MediaUploadMessages.add)
                     .font(.caption.weight(.semibold))
                     .multilineTextAlignment(.center)
@@ -231,6 +245,25 @@ struct MediaManagementSection: View {
             guard !items.isEmpty else { return }
             draft.add(items.map(PickedMedia.init(item:)))
             picked = []
+        }
+    }
+
+    /// What VoiceOver reads after a strip tile's name: the upload state, nothing when confirmed.
+    private static func statusLabel(_ upload: MediaUploadStatus?) -> String {
+        switch upload {
+        case .exporting: MediaUploadMessages.preparing
+        case .sending: MediaUploadMessages.sending
+        case .failed: MediaUploadMessages.failed
+        case nil: ""
+        }
+    }
+
+    private static func preparationLabel(_ preparation: MediaUploadBoard.Preparation?) -> String {
+        switch preparation {
+        case .exporting: MediaUploadMessages.preparing
+        case .failed: MediaUploadMessages.failed
+        case .unavailable: MediaUploadMessages.unavailableOffline
+        case .ready, nil: ""
         }
     }
 
@@ -264,7 +297,7 @@ private struct PreparationOverlay: View {
         ZStack {
             Color.black.opacity(0.55)
             VStack(spacing: 4) {
-                Image(systemName: systemImage)
+                Image(systemName: systemImage).accessibilityHidden(true)
                 Text(text).multilineTextAlignment(.center)
             }
             .font(.caption2.weight(.bold))

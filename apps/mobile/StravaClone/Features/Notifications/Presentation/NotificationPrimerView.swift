@@ -18,6 +18,7 @@ struct NotificationPrimerView: View {
                 .offset(y: isBannerShown ? 0 : -140)
                 .opacity(isBannerShown ? 1 : 0)
                 .accessibilityElement(children: .combine)
+                .accessibilityHint("Exemple de notification")
 
             Spacer(minLength: 24)
 
@@ -31,6 +32,7 @@ struct NotificationPrimerView: View {
                     .font(.system(size: 32, weight: .bold))
                     .tracking(-0.4)
                     .multilineTextAlignment(.center)
+                    .accessibilityAddTraits(.isHeader)
                 VStack(alignment: .leading, spacing: 18) {
                     reason("Kudos et commentaires sur vos activités", systemImage: "hand.thumbsup.fill")
                     reason("Un rappel avant la fin de votre essai gratuit", systemImage: "calendar.badge.clock")
@@ -57,6 +59,7 @@ struct NotificationPrimerView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(.systemBackground))
+        .onAppear { AccessibilityNotification.ScreenChanged(nil).post() }
         .task {
             withAnimation(.spring(duration: 0.6, bounce: 0.25).delay(0.3)) { isBannerShown = true }
         }
@@ -71,6 +74,7 @@ struct NotificationPrimerView: View {
             Image(systemName: systemImage)
                 .foregroundStyle(Theme.accent)
                 .frame(width: 28)
+                .accessibilityHidden(true)
         }
     }
 }
