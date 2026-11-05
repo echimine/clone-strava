@@ -1598,6 +1598,37 @@
         ]
       }
     },
+    "/v1/activities/{id}/best-efforts/{distanceM}": {
+      "delete": {
+        "operationId": "BestEffortsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "distanceM",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removed"
+          }
+        },
+        "tags": [
+          "BestEfforts"
+        ]
+      }
+    },
     "/v1/me/progress": {
       "get": {
         "operationId": "AthleteStatsController_progress",
@@ -1907,6 +1938,106 @@
         },
         "tags": [
           "Itineraries"
+        ]
+      }
+    },
+    "/v1/segments/{id}/favorite": {
+      "put": {
+        "operationId": "SegmentCreationController_favorite",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Starred"
+          }
+        },
+        "tags": [
+          "SegmentCreation"
+        ]
+      },
+      "delete": {
+        "operationId": "SegmentCreationController_unfavorite",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Unstarred"
+          }
+        },
+        "tags": [
+          "SegmentCreation"
+        ]
+      }
+    },
+    "/v1/segments": {
+      "get": {
+        "operationId": "SegmentMapController_list",
+        "parameters": [
+          {
+            "name": "bbox",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "maxLength": 200,
+              "type": "string"
+            }
+          },
+          {
+            "name": "sport",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "run",
+                "ride",
+                "walk",
+                "hike"
+              ]
+            }
+          },
+          {
+            "name": "favorites",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListMapSegmentsResponseDto_Output"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "zone_too_large"
+          }
+        },
+        "tags": [
+          "SegmentMap"
         ]
       }
     },
@@ -6671,6 +6802,106 @@
           "name"
         ]
       },
+      "ListMapSegmentsResponseDto_Output": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "sportTypeCode": {
+                  "type": "string",
+                  "enum": [
+                    "run",
+                    "ride",
+                    "walk",
+                    "hike"
+                  ]
+                },
+                "name": {
+                  "type": "string"
+                },
+                "verified": {
+                  "type": "boolean"
+                },
+                "starred": {
+                  "type": "boolean"
+                },
+                "distanceM": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "averageGradePct": {
+                  "type": "number"
+                },
+                "climbCategory": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "enum": [
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "hc",
+                    null
+                  ]
+                },
+                "athleteCount": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "myBestTimeS": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "leaderTimeS": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "mapPolyline": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "sportTypeCode",
+                "name",
+                "verified",
+                "starred",
+                "distanceM",
+                "averageGradePct",
+                "climbCategory",
+                "athleteCount",
+                "myBestTimeS",
+                "leaderTimeS",
+                "mapPolyline"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      },
       "RealtimeGrantRequestDto": {
         "type": "object",
         "properties": {
@@ -7556,14 +7787,6 @@
                   "type": "string",
                   "format": "date-time",
                   "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
-                },
-                "rank": {
-                  "type": [
-                    "integer",
-                    "null"
-                  ],
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991
                 }
               },
               "required": [
@@ -7571,8 +7794,7 @@
                 "segmentId",
                 "segmentName",
                 "elapsedTimeS",
-                "startedAt",
-                "rank"
+                "startedAt"
               ],
               "additionalProperties": false
             }

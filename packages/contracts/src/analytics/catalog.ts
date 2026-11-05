@@ -154,6 +154,8 @@ export const APP_ANALYTICS_EVENTS = {
   ATHLETE_BLOCKED: "athlete_blocked",
   /** "Débloquer" confirmed in Réglages > "Athlètes bloqués", without the athlete's id. */
   ATHLETE_UNBLOCKED: "athlete_unblocked",
+  /** A Segment starred (ADR-039 §16), with no property. */
+  SEGMENT_FAVORITED: "segment_favorited",
 } as const;
 export type AppAnalyticsEventName = (typeof APP_ANALYTICS_EVENTS)[keyof typeof APP_ANALYTICS_EVENTS];
 
@@ -228,6 +230,9 @@ export const athleteUnblockedPropertiesSchema = z.object({
 });
 export type AthleteUnblockedProperties = z.infer<typeof athleteUnblockedPropertiesSchema>;
 
+export const segmentFavoritedPropertiesSchema = z.object({});
+export type SegmentFavoritedProperties = z.infer<typeof segmentFavoritedPropertiesSchema>;
+
 /** Payload schema for a given app event, keyed by its name. */
 export const appAnalyticsEventPropertiesSchemas = {
   [APP_ANALYTICS_EVENTS.AVATAR_CHANGED]: avatarChangedPropertiesSchema,
@@ -241,4 +246,5 @@ export const appAnalyticsEventPropertiesSchemas = {
   [APP_ANALYTICS_EVENTS.GALLERY_VIEWED]: galleryViewedPropertiesSchema,
   [APP_ANALYTICS_EVENTS.ATHLETE_BLOCKED]: athleteBlockedPropertiesSchema,
   [APP_ANALYTICS_EVENTS.ATHLETE_UNBLOCKED]: athleteUnblockedPropertiesSchema,
+  [APP_ANALYTICS_EVENTS.SEGMENT_FAVORITED]: segmentFavoritedPropertiesSchema,
 } as const satisfies Record<AppAnalyticsEventName, z.ZodType>;

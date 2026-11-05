@@ -10,6 +10,8 @@ import { MatchSegmentHistoryUseCase } from "./use-cases/match-segment-history.us
 import { ActivityMatchingRepository } from "./repositories/activity-matching.repository.js";
 import { EffortRecorder } from "./services/effort-recorder.js";
 import { ActivityEffortRepository } from "./repositories/activity-effort.repository.js";
+import { SegmentMapRepository } from "./repositories/segment-map.repository.js";
+import { SegmentFavoriteRepository } from "./repositories/segment-favorite.repository.js";
 import { SegmentsService } from "./segments.service.js";
 
 /**
@@ -24,6 +26,8 @@ import { SegmentsService } from "./segments.service.js";
   providers: [
     SegmentRepository,
     SegmentEffortRepository,
+    SegmentMapRepository,
+    SegmentFavoriteRepository,
     ActivityEffortRepository,
     ActivityMatchingRepository,
     EffortRecorder,
