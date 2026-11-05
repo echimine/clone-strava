@@ -84,7 +84,7 @@ final class Di {
     private let feedRepository: APIFeedRepository
     private let activityDetailRepository: APIActivityDetailRepository
     private let activityKudosRepository: APIActivityKudosRepository
-    private let itineraryRouter: MapboxDirectionsRouter
+    let itineraryRouter: MapboxDirectionsRouter
     private let itineraryRepository: APIItineraryRepository
     private let itineraryCache: GRDBItineraryCache
 

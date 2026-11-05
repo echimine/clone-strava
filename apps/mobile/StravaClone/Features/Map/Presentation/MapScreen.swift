@@ -9,6 +9,7 @@ import SwiftUI
 /// MapboxMaps reads the access token from `MBXAccessToken` (Info.plist).
 struct MapScreen<Bottom: View>: View {
     var onCreateItinerary: () -> Void = {}
+    var onCreateSegment: () -> Void = {}
     /// Path drawn and framed on the map (the Itinerary centred in the carousel), if any.
     var focusedPath: [Coordinate]?
     @ViewBuilder var bottom: () -> Bottom
@@ -67,8 +68,18 @@ struct MapScreen<Bottom: View>: View {
         }
     }
 
+    /// « Créer » is a menu (ADR-039 §15, amends ADR-030): « Un Itinéraire » or « Un Segment ».
     private var createItineraryButton: some View {
-        Button(action: onCreateItinerary) {
+        Menu {
+            Button(action: onCreateItinerary) {
+                Label("Un Itinéraire", systemImage: "map")
+            }
+            .accessibilityIdentifier("createMenu.itinerary")
+            Button(action: onCreateSegment) {
+                Label("Un Segment", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
+            }
+            .accessibilityIdentifier("createMenu.segment")
+        } label: {
             Label("Créer", systemImage: "plus")
                 .font(.subheadline.bold())
                 .padding(.horizontal, 16)
@@ -80,7 +91,8 @@ struct MapScreen<Bottom: View>: View {
         .foregroundStyle(Theme.accent)
         .padding(.horizontal, Theme.spacing)
         .padding(.top, 8)
-        .accessibilityLabel("Créer un Itinéraire")
+        .accessibilityLabel("Créer")
+        .accessibilityHint("Un Itinéraire ou un Segment")
         .accessibilityIdentifier("createItineraryButton")
     }
 
