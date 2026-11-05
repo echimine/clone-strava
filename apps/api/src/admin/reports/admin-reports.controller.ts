@@ -28,7 +28,7 @@ import { AdminGuard } from "../../auth/admin.guard.js";
 import { CurrentUser } from "../../auth/current-user.decorator.js";
 import { SessionGuard, type AuthenticatedUser } from "../../auth/session.guard.js";
 import { Audited, CurrentAuditDraft, type AuditDraft } from "../audit/audited.decorator.js";
-import { AdminReportAssembler } from "./admin-report-assembler.js";
+import { AdminReportAssembler, authorOf } from "./admin-report-assembler.js";
 
 class AdminReportCaseListQueryDto extends createZodDto(adminReportCaseListQuerySchema) {}
 class AdminReportCaseListResponseDto extends createZodDto(adminReportCaseListResponseSchema) {}
@@ -113,7 +113,7 @@ export class AdminReportsController {
   ): Promise<AdminReportCaseCloseResponse> {
     const note = body.note ?? null;
     const closed = await this.moderation.close(reportCase.id, outcome, administrator.userId, note);
-    audit.subjectUserId = reportCase.targetUserId;
+    audit.subjectUserId = authorOf(reportCase);
     audit.details = { count: closed.count };
     audit.reason = note;
     return { id: closed.id, status: closed.status, closedAt: closed.closedAt.toISOString(), count: closed.count };

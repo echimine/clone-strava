@@ -8,6 +8,16 @@ import { EffortRecorder } from "./services/effort-recorder.js";
 import type { ActivityEffortRecord } from "./domain/activity-effort.js";
 import { SEGMENT_MATCHING_VERSION } from "./domain/match-segment.js";
 import { SEGMENT_SPORTS } from "./domain/segment-sports.js";
+import {
+  GetSegmentLeaderboardUseCase,
+  type LeaderboardReader,
+  type LeaderboardRequest,
+  type LeaderboardView,
+} from "./use-cases/get-segment-leaderboard.use-case.js";
+import { GetSegmentSheetUseCase, type SegmentSheetView } from "./use-cases/get-segment-sheet.use-case.js";
+import { SegmentSheetRepository } from "./repositories/segment-sheet.repository.js";
+import { LeaderboardRepository } from "./repositories/leaderboard.repository.js";
+import type { ViewerExclusions } from "../infrastructure/index.js";
 
 /** ADR-039 §13: Activities the sweep enqueues at most per run. */
 export const RECONCILE_SEGMENT_MATCHING_BATCH = 100;
@@ -24,7 +34,38 @@ export class SegmentsService {
     private readonly activityEfforts: ActivityEffortRepository,
     private readonly matchings: ActivityMatchingRepository,
     private readonly recorder: EffortRecorder,
+    private readonly getLeaderboardUseCase: GetSegmentLeaderboardUseCase,
+    private readonly getSheetUseCase: GetSegmentSheetUseCase,
+    private readonly sheets: SegmentSheetRepository,
+    private readonly leaderboards: LeaderboardRepository,
   ) {}
+
+  /**
+   * The current Local Legend (Tous) of each Segment that has one, after the viewer filter
+   * (ADR-039 §8): the laurel crown on an Effort whose athlete holds the title. Nothing stored.
+   */
+  async getLocalLegends(segmentIds: readonly string[], exclusions: ViewerExclusions): Promise<Map<string, string>> {
+    const legends = await this.leaderboards.findLocalLegends(segmentIds, "all", exclusions.hiddenAthleteIds);
+    return new Map([...legends].map(([segmentId, legend]) => [segmentId, legend.userId]));
+  }
+
+  /** A Report's target (ADR-039 §11): `undefined` once deleted. The creator is never shown. */
+  getReportTarget(segmentId: string): Promise<{ name: string; createdBy: string | null } | undefined> {
+    return this.sheets.findReportTarget(segmentId);
+  }
+
+  /** `GET /v1/segments/:id` (ADR-039 §12): free; `404 segment_not_found` once deleted. */
+  getSheet(segmentId: string, reader: LeaderboardReader): Promise<SegmentSheetView> {
+    return this.getSheetUseCase.execute(segmentId, reader);
+  }
+
+  /**
+   * `GET /v1/segments/:id/leaderboard` (ADR-039 §8, §9): `404 segment_not_found`,
+   * `403 premium_required`, `422` for an unknown filter or cursor.
+   */
+  getLeaderboard(segmentId: string, request: LeaderboardRequest, reader: LeaderboardReader): Promise<LeaderboardView> {
+    return this.getLeaderboardUseCase.execute(segmentId, request, reader);
+  }
 
   /** Called by `apps/worker`'s `match-segments` processor (ADR-011 §1, ADR-039 §6). */
   matchSegments(job: MatchSegmentsJob): Promise<void> {

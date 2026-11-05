@@ -19,6 +19,17 @@ import { AthleteIdentities } from "../../identities/athlete-identities.js";
 import { MediaAssembler } from "../../media/media-assembler.js";
 import { auditTargetOf, changedSince, previewOf, readCopy, toAdminCopy, type TypedSnapshot } from "./report-copy.js";
 
+/**
+ * The case's target athlete. Only a Segment case may have none (ADR-039 §11), and the queue
+ * leaves those out until #219.
+ */
+export function authorOf(reportCase: { targetUserId: string | null }): string {
+  if (reportCase.targetUserId === null) {
+    throw new Error("A Segment case has no target athlete; the queue does not read it yet (#219)");
+  }
+  return reportCase.targetUserId;
+}
+
 /** The target now, as shown and as a snapshot compared with the copies. */
 interface CurrentTarget {
   content: AdminReportTargetContent;
@@ -57,7 +68,7 @@ export class AdminReportAssembler {
       },
       { page: query.page, pageSize: query.pageSize },
     );
-    const athlete = await this.athletes(page.items.map((row) => row.targetUserId));
+    const athlete = await this.athletes(page.items.map((row) => authorOf(row)));
     return {
       ...page,
       items: page.items.map((row) => ({
@@ -67,7 +78,7 @@ export class AdminReportAssembler {
         status: row.status,
         openedAt: row.openedAt.toISOString(),
         closedAt: row.closedAt?.toISOString() ?? null,
-        author: athlete(row.targetUserId),
+        author: athlete(authorOf(row)),
         preview: previewOf(readCopy(row.targetType, row.firstSnapshot)),
         reportCount: row.reportCount,
         reasons: row.reasons,
@@ -77,15 +88,16 @@ export class AdminReportAssembler {
 
   async detail(caseId: string): Promise<AdminReportCaseDetail> {
     const { reportCase, reports } = await this.getCase(caseId);
+    const authorId = authorOf(reportCase);
     const people = [
-      reportCase.targetUserId,
+      authorId,
       ...(reportCase.closedBy ? [reportCase.closedBy] : []),
       ...reports.flatMap((report) => (report.reporterId ? [report.reporterId] : [])),
     ];
     const [current, athlete, author, canResolve] = await Promise.all([
       this.readCurrent(reportCase.targetType, reportCase.targetId),
       this.athletes(people),
-      this.author(reportCase.targetUserId),
+      this.author(authorId),
       this.canResolve(reportCase),
     ]);
     const person = (userId: string) => ({ id: userId, displayName: athlete(userId).displayName });
@@ -99,7 +111,7 @@ export class AdminReportAssembler {
       closedBy: reportCase.closedBy ? person(reportCase.closedBy) : null,
       closeNote: reportCase.closeNote,
       current: current?.content ?? null,
-      author: { ...athlete(reportCase.targetUserId), ...author },
+      author: { ...athlete(authorId), ...author },
       reports: reports.map((report) => {
         const copy = readCopy(reportCase.targetType, report.snapshot);
         return {
@@ -116,10 +128,10 @@ export class AdminReportAssembler {
     };
   }
 
-  /** The case, or `404 report_case_not_found`. */
+  /** The case, or `404 report_case_not_found` (also for a Segment case until #219, ADR-039 §11). */
   async getCase(caseId: string) {
     const found = await this.moderation.getCase(caseId);
-    if (!found) {
+    if (!found || found.reportCase.targetType === "segment") {
       throw new NotFoundException({ code: ADMIN_REPORT_ERROR_CODES.notFound, message: "Report case not found" });
     }
     return found;
@@ -134,7 +146,7 @@ export class AdminReportAssembler {
       return false;
     }
     const sanctions = await this.audit.countSanctions({
-      subjectUserId: reportCase.targetUserId,
+      subjectUserId: authorOf(reportCase),
       target: { type: auditTargetOf(reportCase.targetType), id: reportCase.targetId },
       since: reportCase.openedAt,
     });
@@ -239,6 +251,8 @@ export class AdminReportAssembler {
           },
         };
       }
+      case "segment":
+        return null;
     }
   }
 }

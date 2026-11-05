@@ -1,6 +1,14 @@
 export { SegmentsModule } from "./segments.module.js";
 export { SegmentsService, RECONCILE_SEGMENT_MATCHING_BATCH } from "./segments.service.js";
 export type { ActivityEffortRecord } from "./domain/activity-effort.js";
+export type {
+  LeaderboardReader,
+  LeaderboardRequest,
+  LeaderboardView,
+  LocalLegendView,
+} from "./use-cases/get-segment-leaderboard.use-case.js";
+export type { LeaderboardLine } from "./repositories/leaderboard.repository.js";
+export type { SegmentSheetView, SheetEffort } from "./use-cases/get-segment-sheet.use-case.js";
 // Pure matching, reused to create Segments and by the Nervo generator (ADR-039 §5, §10).
 export {
   isSameSegment,

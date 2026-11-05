@@ -154,6 +154,8 @@ export const APP_ANALYTICS_EVENTS = {
   ATHLETE_BLOCKED: "athlete_blocked",
   /** "Débloquer" confirmed in Réglages > "Athlètes bloqués", without the athlete's id. */
   ATHLETE_UNBLOCKED: "athlete_unblocked",
+  /** A Segment's Leaderboard screen opened, or its filter changed (ADR-039 §16). */
+  LEADERBOARD_VIEWED: "leaderboard_viewed",
 } as const;
 export type AppAnalyticsEventName = (typeof APP_ANALYTICS_EVENTS)[keyof typeof APP_ANALYTICS_EVENTS];
 
@@ -228,6 +230,12 @@ export const athleteUnblockedPropertiesSchema = z.object({
 });
 export type AthleteUnblockedProperties = z.infer<typeof athleteUnblockedPropertiesSchema>;
 
+/** `leaderboard_viewed`: the filter shown (`all`, `male`, `female`, or the other filter's name). */
+export const leaderboardViewedPropertiesSchema = z.object({
+  filter: z.enum(["all", "male", "female", "period", "following", "age", "weight"]),
+});
+export type LeaderboardViewedProperties = z.infer<typeof leaderboardViewedPropertiesSchema>;
+
 /** Payload schema for a given app event, keyed by its name. */
 export const appAnalyticsEventPropertiesSchemas = {
   [APP_ANALYTICS_EVENTS.AVATAR_CHANGED]: avatarChangedPropertiesSchema,
@@ -241,4 +249,5 @@ export const appAnalyticsEventPropertiesSchemas = {
   [APP_ANALYTICS_EVENTS.GALLERY_VIEWED]: galleryViewedPropertiesSchema,
   [APP_ANALYTICS_EVENTS.ATHLETE_BLOCKED]: athleteBlockedPropertiesSchema,
   [APP_ANALYTICS_EVENTS.ATHLETE_UNBLOCKED]: athleteUnblockedPropertiesSchema,
+  [APP_ANALYTICS_EVENTS.LEADERBOARD_VIEWED]: leaderboardViewedPropertiesSchema,
 } as const satisfies Record<AppAnalyticsEventName, z.ZodType>;
