@@ -33,6 +33,21 @@ extension AnalyticsEvent {
         case a, b, c
     }
 
+    /// Where the Paywall opened (ADR-039 §9): after the Onboarding, or from a lock.
+    enum PaywallEntry: String, Sendable {
+        case onboarding
+        /// « Voir le classement complet avec Premium ».
+        case segmentLeaderboard = "segment_leaderboard"
+        /// A locked chip of the Leaderboard screen.
+        case leaderboardFilter = "leaderboard_filter"
+    }
+
+    /// `leaderboard_viewed`'s filter: the sex chip alone, or the other filter (mirrored in
+    /// `packages/contracts/src/analytics/catalog.ts`).
+    enum LeaderboardViewedFilter: String, Sendable {
+        case all, male, female, period, following, age, weight
+    }
+
     enum TrialPeriod: String, Sendable {
         case year, month
     }

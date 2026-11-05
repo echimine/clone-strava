@@ -6852,16 +6852,20 @@
             "minimum": 0
           },
           "avgGrade": {
-            "type": "array",
-            "items": {
-              "type": "number"
-            }
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": -100,
+            "maximum": 100
           },
           "maxGrade": {
-            "type": "array",
-            "items": {
-              "type": "number"
-            }
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": -100,
+            "maximum": 100
           },
           "climbCategory": {
             "type": [
@@ -7326,7 +7330,8 @@
                 "type": [
                   "string",
                   "null"
-                ]
+                ],
+                "minLength": 1
               }
             },
             "required": [
@@ -7567,10 +7572,11 @@
             "maximum": 9007199254740991
           },
           "nextCursor": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
           }
         },
         "required": [

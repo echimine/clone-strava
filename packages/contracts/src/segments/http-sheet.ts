@@ -86,7 +86,7 @@ export const leaderboardResponseSchema = z.object({
   me: leaderboardEntrySchema.nullable(),
   localLegend: localLegendSchema,
   athleteCount: z.number().int().nonnegative(),
-  nextCursor: z.string().nullable(),
+  nextCursor: z.string().min(1).nullable(),
 });
 export type LeaderboardResponse = z.infer<typeof leaderboardResponseSchema>;
 
@@ -114,8 +114,9 @@ export const segmentSheetSchema = z.object({
   verified: z.boolean(),
   distanceM: z.number().nonnegative(),
   elevationGainM: z.number().nonnegative().nullable(),
-  avgGrade: z.number().nullable(),
-  maxGrade: z.number().nullable(),
+  /** In percent. Bounded so Nest's Swagger keeps the nullable a scalar (not an array). */
+  avgGrade: z.number().min(-100).max(100).nullable(),
+  maxGrade: z.number().min(-100).max(100).nullable(),
   climbCategory: segmentClimbCategorySchema.nullable(),
   /** The path every point, as polyline6, and its altitudes in meters, one per point. */
   track: z.object({

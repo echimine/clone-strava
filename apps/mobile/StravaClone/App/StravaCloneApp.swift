@@ -44,6 +44,7 @@ struct StravaCloneApp: App {
                 moderationStore: di.makeModerationStore(),
                 makeBlockedAthletesStore: di.makeBlockedAthletesStore,
                 makeAccountDeletionStore: di.makeAccountDeletionStore,
+                segmentScreens: di.makeSegmentScreens(),
                 isSplashPresented: !ProcessInfo.processInfo.arguments.contains(SplashView.disablingArgument)
             )
                 .tint(Theme.accent)
@@ -122,6 +123,8 @@ struct RootView: View {
         @escaping @MainActor () async -> String?,
         @escaping @MainActor () async -> Void
     ) -> AccountDeletionStore
+    /// A Segment's sheet and Leaderboard, pushed in any stack (ADR-039 §15).
+    let segmentScreens: SegmentScreens
     /// The animated splash (ADR-032 §4), over the app from the cold launch until it is revealed.
     /// It lives as long as the scene, so a return from the background does not replay it.
     @State var isSplashPresented = true
@@ -421,7 +424,8 @@ struct RootView: View {
             engagement: { AnyView(activityEngagement($0)) },
             athleteProfile: { AnyView(athleteProfile($0, path: path)) },
             statistics: { AnyView(athleteStatistics($0)) },
-            follows: { AnyView(followLists($0)) }
+            follows: { AnyView(followLists($0)) },
+            segment: { AnyView(segmentSheet($0, path: path)) }
         )
     }
 
