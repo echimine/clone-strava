@@ -336,6 +336,18 @@ final class Di {
             deleter: activityDeleter,
             events: RealtimeActivityEventSource(channel: webSocketClient),
             mediaUploads: activityMediaUploads,
+            analytics: analytics,
+            results: makeActivityResultsStore(id: id)
+        )
+    }
+
+    /// « Résultats » of the detail (spec #252).
+    private func makeActivityResultsStore(id: ActivityID) -> ActivityResultsStore {
+        let repository = APIActivityResultsRepository(apiClient: apiClient)
+        return ActivityResultsStore(
+            id: id,
+            loadResults: LoadActivityResults(repository: repository),
+            removeBestEffort: RemoveBestEffort(repository: repository),
             analytics: analytics
         )
     }

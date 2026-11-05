@@ -43,6 +43,17 @@ struct ActivityCardStatsTests {
         #expect(ActivityCardStat.mapSummary(for: .fixture(sport: .ride, avgSpeedMs: nil))[1] == ActivityCardStat(label: "Vitesse", value: "–"))
     }
 
+    /// ADR-039 §15: a 4th value « Performances » (the three ribbon medals and the Medal count),
+    /// only when the Activity has a Medal.
+    @Test func performancesShowOnlyWithAMedal() {
+        var post = ActivityPost.fixture()
+        #expect(ActivityCardStat.performances(for: post) == nil)
+
+        post.medalCounts = MedalCounts(gold: 2, silver: 0, bronze: 1)
+
+        #expect(ActivityCardStat.performances(for: post)?.total == 3)
+    }
+
     @Test func aMissingValueShowsADash() {
         let walk = ActivityPost.fixture(sport: .walk, avgSpeedMs: nil)
         let ride = ActivityPost.fixture(sport: .ride, elevationGain: nil)

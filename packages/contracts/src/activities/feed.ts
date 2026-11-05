@@ -2,6 +2,7 @@ import { z } from "zod";
 import { visibilitySchema } from "../common/enums.js";
 import { sportTypeCodeSchema } from "../sports/sport-type.js";
 import { ACTIVITY_MEDIA_MAX, mediaSchema } from "./media.js";
+import { medalCountsSchema } from "./results.js";
 
 /** `GET /v1/feed` query (ADR-029): opaque keyset cursor, no page numbers. */
 export const feedQuerySchema = z.object({
@@ -61,6 +62,8 @@ export const feedItemSchema = z.object({
   media: z.array(mediaSchema).max(ACTIVITY_MEDIA_MAX),
   /** The first Media comes before the map (ADR-037 §8); no effect without a map or Media. */
   mediaFirst: z.boolean(),
+  /** « Performances » (ADR-039 §12): the Activity's Medals the viewer may see. */
+  medalCounts: medalCountsSchema,
 });
 export type FeedItem = z.infer<typeof feedItemSchema>;
 

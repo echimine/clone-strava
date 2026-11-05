@@ -1629,6 +1629,36 @@
         ]
       }
     },
+    "/v1/activities/{id}/results": {
+      "get": {
+        "operationId": "ActivityResultsController_results",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivityResultsDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "ActivityResults"
+        ]
+      }
+    },
     "/v1/me/progress": {
       "get": {
         "operationId": "AthleteStatsController_progress",
@@ -4758,6 +4788,32 @@
                 },
                 "mediaFirst": {
                   "type": "boolean"
+                },
+                "medalCounts": {
+                  "type": "object",
+                  "properties": {
+                    "gold": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "silver": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "bronze": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "gold",
+                    "silver",
+                    "bronze"
+                  ],
+                  "additionalProperties": false
                 }
               },
               "required": [
@@ -4775,7 +4831,8 @@
                 "recentKudos",
                 "viewerIsAuthor",
                 "media",
-                "mediaFirst"
+                "mediaFirst",
+                "medalCounts"
               ],
               "additionalProperties": false
             }
@@ -5568,6 +5625,32 @@
           "mediaFirst": {
             "type": "boolean"
           },
+          "medalCounts": {
+            "type": "object",
+            "properties": {
+              "gold": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "silver": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "bronze": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "gold",
+              "silver",
+              "bronze"
+            ],
+            "additionalProperties": false
+          },
           "updatedAt": {
             "type": "string",
             "format": "date-time",
@@ -5592,6 +5675,7 @@
           "viewerIsAuthor",
           "media",
           "mediaFirst",
+          "medalCounts",
           "updatedAt"
         ],
         "additionalProperties": false
@@ -6187,6 +6271,164 @@
         "required": [
           "body"
         ]
+      },
+      "ActivityResultsDto_Output": {
+        "type": "object",
+        "properties": {
+          "matchingInProgress": {
+            "type": "boolean"
+          },
+          "poolLengthM": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "exclusiveMinimum": 0
+          },
+          "bestEfforts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "distanceM": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "elapsedTimeMs": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "medal": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "enum": [
+                    "gold",
+                    "silver",
+                    "bronze",
+                    null
+                  ]
+                },
+                "isFirst": {
+                  "type": "boolean"
+                },
+                "isCurrentRecord": {
+                  "type": "boolean"
+                },
+                "removable": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "distanceM",
+                "elapsedTimeMs",
+                "medal",
+                "isFirst",
+                "isCurrentRecord",
+                "removable"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "efforts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "segment": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "distanceM": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "verified": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "distanceM",
+                    "verified"
+                  ],
+                  "additionalProperties": false
+                },
+                "elapsedTimeS": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "medal": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "enum": [
+                    "gold",
+                    "silver",
+                    "bronze",
+                    null
+                  ]
+                },
+                "isFirstPass": {
+                  "type": "boolean"
+                },
+                "localLegend": {
+                  "type": "boolean"
+                },
+                "startPoint": {
+                  "type": "object",
+                  "properties": {
+                    "lat": {
+                      "type": "number"
+                    },
+                    "lon": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "lat",
+                    "lon"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "id",
+                "segment",
+                "elapsedTimeS",
+                "medal",
+                "isFirstPass",
+                "localLegend",
+                "startPoint"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "matchingInProgress",
+          "poolLengthM",
+          "bestEfforts",
+          "efforts"
+        ],
+        "additionalProperties": false
       },
       "ProgressResponseDto_Output": {
         "type": "object",
@@ -10788,6 +11030,32 @@
                 },
                 "mediaFirst": {
                   "type": "boolean"
+                },
+                "medalCounts": {
+                  "type": "object",
+                  "properties": {
+                    "gold": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "silver": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "bronze": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "gold",
+                    "silver",
+                    "bronze"
+                  ],
+                  "additionalProperties": false
                 }
               },
               "required": [
@@ -10805,7 +11073,8 @@
                 "recentKudos",
                 "viewerIsAuthor",
                 "media",
-                "mediaFirst"
+                "mediaFirst",
+                "medalCounts"
               ],
               "additionalProperties": false
             }

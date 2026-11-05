@@ -117,7 +117,8 @@ private extension Components.Schemas.ActivityDetailDto_Output {
             ),
             viewerIsAuthor: viewerIsAuthor,
             media: media.models,
-            mediaFirst: mediaFirst
+            mediaFirst: mediaFirst,
+            medalCounts: MedalCounts(gold: medalCounts.gold, silver: medalCounts.silver, bronze: medalCounts.bronze)
         )
     }
 }

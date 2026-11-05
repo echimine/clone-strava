@@ -69,7 +69,8 @@ struct APIFeedRepositoryTests {
                 "url": "https://bucket.test/m2/original.jpg?X-Amz-Signature=d", "posterUrl": null,
                 "thumbUrl": "https://bucket.test/m2/thumb.jpg?X-Amz-Signature=e" }
             ],
-            "mediaFirst": true
+            "mediaFirst": true,
+            "medalCounts": { "gold": 2, "silver": 0, "bronze": 1 }
           }],
           "nextCursor": "abc"
         }
@@ -125,6 +126,7 @@ struct APIFeedRepositoryTests {
         let post = try #require(try await repository.page(cursor: nil).posts.first)
 
         #expect(post.mediaFirst)
+        #expect(post.medalCounts == MedalCounts(gold: 2, silver: 0, bronze: 1))
         #expect(post.media == [
             ActivityMedia(
                 id: UUID(uuidString: "3f1c2a4e-8b6d-4e2f-9a1b-5c7d8e9f0a11")!,

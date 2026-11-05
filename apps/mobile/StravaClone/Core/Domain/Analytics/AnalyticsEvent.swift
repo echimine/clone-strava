@@ -96,6 +96,9 @@ enum AnalyticsEvent: Equatable, Sendable {
     case athleteBlocked(source: BlockSource)
     /// "Débloquer" confirmed in Réglages > "Athlètes bloqués", never with the athlete's id.
     case athleteUnblocked
+    /// « Retirer ce temps de mes meilleurs efforts » went through (ADR-039 §16): the distance in
+    /// meters (21 097,5 for the half marathon).
+    case bestEffortRemoved(distanceM: Double)
     /// A Segment starred (ADR-039 §16), from a Map card or its sheet; no property.
     case segmentFavorited
 
@@ -136,6 +139,7 @@ enum AnalyticsEvent: Equatable, Sendable {
         case .galleryViewed: "gallery_viewed"
         case .athleteBlocked: "athlete_blocked"
         case .athleteUnblocked: "athlete_unblocked"
+        case .bestEffortRemoved: "best_effort_removed"
         case .segmentFavorited: "segment_favorited"
         }
     }
@@ -217,6 +221,8 @@ enum AnalyticsEvent: Equatable, Sendable {
             ["source": .string(source.rawValue)]
         case .athleteUnblocked:
             ["source": .string("settings")]
+        case .bestEffortRemoved(let distanceM):
+            ["distance": .double(distanceM)]
         }
     }
 }
@@ -260,6 +266,7 @@ enum AnalyticsValue: Equatable, Sendable, ExpressibleByStringLiteral, Expressibl
     case string(String)
     case int(Int)
     case bool(Bool)
+    case double(Double)
 
     init(stringLiteral value: String) { self = .string(value) }
     init(integerLiteral value: Int) { self = .int(value) }
@@ -271,6 +278,7 @@ enum AnalyticsValue: Equatable, Sendable, ExpressibleByStringLiteral, Expressibl
         case .string(let value): value
         case .int(let value): value
         case .bool(let value): value
+        case .double(let value): value
         }
     }
 }
