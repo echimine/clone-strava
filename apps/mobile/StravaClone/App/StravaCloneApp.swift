@@ -44,6 +44,7 @@ struct StravaCloneApp: App {
                 moderationStore: di.makeModerationStore(),
                 makeBlockedAthletesStore: di.makeBlockedAthletesStore,
                 makeAccountDeletionStore: di.makeAccountDeletionStore,
+                dataSources: DataSource.all(apiBaseURL: di.configuration.apiBaseURL),
                 isSplashPresented: !ProcessInfo.processInfo.arguments.contains(SplashView.disablingArgument)
             )
                 .tint(Theme.accent)
@@ -122,6 +123,8 @@ struct RootView: View {
         @escaping @MainActor () async -> String?,
         @escaping @MainActor () async -> Void
     ) -> AccountDeletionStore
+    /// Réglages > « Sources des données » (ADR-039 §10).
+    var dataSources: [DataSource] = []
     /// The animated splash (ADR-032 §4), over the app from the cold launch until it is revealed.
     /// It lives as long as the scene, so a return from the background does not replay it.
     @State var isSplashPresented = true
@@ -286,6 +289,7 @@ struct RootView: View {
                         beforeSignOut: wipeLocalData,
                         animationsPreview: Self.animationsPreview,
                         blockedAthletes: AnyView(BlockedAthletesView(makeStore: makeBlockedAthletesStore)),
+                        dataSources: AnyView(DataSourcesView(sources: dataSources)),
                         accountDeletion: {
                             AnyView(AccountDeletionView(store: makeAccountDeletionStore(signOutWarning) { [authStore] in
                                 // ADR-038 §13: the same local cleanup as a sign-out, then the Welcome.
