@@ -55,8 +55,10 @@ final class Di {
     let activitySender: ActivitySender
     /// The Onboarding answers, sent once a session exists (ADR-035 §5).
     let onboardingAnswersSender: OnboardingAnswersSender
-    /// The Paywall's offers (ADR-035 §6): unwired until RevenueCat replaces this adapter (ADR-014).
+    /// The Paywall's offers (ADR-035 §6): RevenueCat's (ADR-014), unwired without a key.
     let subscriptionService: any SubscriptionService
+    /// Tells RevenueCat who buys, at each sign-in and sign-out (ADR-014).
+    let subscriberIdentity: any SubscriberIdentity
     /// `defaultVisibility` of `GET /v1/me`, for the finish screen (ADR-031 §11, §13).
     let defaultVisibility: DefaultVisibilityCache
     /// What the Activity detail changes, applied by the feed (ADR-033 §7).
@@ -96,9 +98,15 @@ final class Di {
         locationProvider = CoreLocationProvider()
         locationPermission = LocationPermissionService()
 
-        // ADR-035 §6: hard-coded offers, layout C, nothing sold. A RevenueCat adapter (ADR-014)
-        // will fill the same types from the current offering.
-        subscriptionService = UnwiredSubscriptionService()
+        // ADR-014: RevenueCat's current offering (Test Store key for now). Without a key, the
+        // hard-coded offers of ADR-035 §6, layout C, nothing sold.
+        if let revenueCat = RevenueCatSubscriptionService.make(apiKey: configuration.revenueCatAPIKey) {
+            subscriptionService = revenueCat
+            subscriberIdentity = revenueCat
+        } else {
+            subscriptionService = UnwiredSubscriptionService()
+            subscriberIdentity = NoSubscriberIdentity()
+        }
         analytics = PostHogAnalyticsClient.make(projectToken: configuration.postHogAPIKey) ?? NoAnalyticsClient()
         // TODO(ADR-022): Apple Sign-In — blocked on a paid Apple Developer Program membership.
         // TODO(ADR-022 §5): admin 2FA — credential-only, backoffice web, not applicable to mobile.
@@ -257,6 +265,7 @@ final class Di {
         return AuthStore(
             service: authService,
             analytics: analytics,
+            subscriberIdentity: subscriberIdentity,
             submitOnboardingAnswers: { await onboardingAnswersSender.submit() },
             notificationPermission: UserNotificationsPermission()
         )

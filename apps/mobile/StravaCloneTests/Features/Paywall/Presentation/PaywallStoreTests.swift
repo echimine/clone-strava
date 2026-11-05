@@ -74,4 +74,47 @@ struct PaywallStoreTests {
         #expect(store.message == "Restaurer les achats : non branché pour l'instant.")
         #expect(finished.value == 0)
     }
+
+    @Test func aPurchaseThatGoesThroughContinues() async {
+        service.trialOutcome = .subscribed
+        let store = makeStore()
+        await store.load()
+
+        await store.startTrial()
+
+        #expect(finished.value == 1)
+    }
+
+    @Test func aCancelledPurchaseStaysOnThePaywall() async {
+        service.trialOutcome = .cancelled
+        let store = makeStore()
+        await store.load()
+
+        await store.startTrial()
+
+        #expect(store.message == nil)
+        #expect(finished.value == 0)
+    }
+
+    @Test func aFailedPurchaseStaysWithAMessage() async {
+        service.trialOutcome = .failed
+        let store = makeStore()
+        await store.load()
+
+        await store.startTrial()
+
+        #expect(store.message == "L'achat n'a pas abouti. Réessayez.")
+        #expect(finished.value == 0)
+    }
+
+    @Test func aFailedRestoreStaysWithAMessage() async {
+        service.restoreOutcome = .failed
+        let store = makeStore()
+        await store.load()
+
+        await store.restorePurchases()
+
+        #expect(store.message == "Impossible de restaurer les achats. Réessayez.")
+        #expect(finished.value == 0)
+    }
 }

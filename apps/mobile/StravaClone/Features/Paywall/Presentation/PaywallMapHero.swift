@@ -56,7 +56,8 @@ struct PaywallMapHero: View {
                 .padding(.leading, Theme.spacing)
                 .padding(.bottom, 44)
         }
-        .overlay(alignment: .topTrailing) {
+        // Top leading: the Paywall's close button sits top trailing.
+        .overlay(alignment: .topLeading) {
             Text("PREMIUM")
                 .font(.caption.weight(.heavy))
                 .tracking(1.2)
@@ -64,7 +65,7 @@ struct PaywallMapHero: View {
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
                 .background(Capsule().fill(Theme.accent))
-                .padding(.trailing, Theme.spacing)
+                .padding(.leading, Theme.spacing)
                 .padding(.top, 62)
         }
         .clipped()
