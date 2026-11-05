@@ -7,6 +7,11 @@ enum EditProfileColors {
     static let cell = Color(.secondarySystemGroupedBackground)
 }
 
+/// The text fields of "Modifier le profil", so a tap elsewhere can end the typing.
+enum EditProfileField: Hashable {
+    case firstName, lastName, bio, city, weight
+}
+
 /// Dates and weights as the sheet shows them, in French.
 enum EditProfileFormat {
     private static let french = Locale(identifier: "fr_FR")
@@ -40,6 +45,7 @@ struct EditProfileIdentity: View {
     let store: ProfileStore
     @Binding var firstName: String
     @Binding var lastName: String
+    var focused: FocusState<EditProfileField?>.Binding
     let changePhoto: () -> Void
 
     var body: some View {
@@ -60,12 +66,17 @@ struct EditProfileIdentity: View {
             VStack(spacing: 0) {
                 TextField(ProfileMessages.firstName, text: $firstName)
                     .textContentType(.givenName)
+                    .focused(focused, equals: .firstName)
+                    .submitLabel(.next)
+                    .onSubmit { focused.wrappedValue = .lastName }
                     .accessibilityIdentifier("editProfile.firstName")
                     .padding(.horizontal, 10)
                     .frame(height: 60)
                 Divider()
                 TextField(ProfileMessages.lastName, text: $lastName)
                     .textContentType(.familyName)
+                    .focused(focused, equals: .lastName)
+                    .submitLabel(.done)
                     .accessibilityIdentifier("editProfile.lastName")
                     .padding(.horizontal, 10)
                     .frame(height: 60)
@@ -113,15 +124,19 @@ struct EditProfileTextRow: View {
     let placeholder: String
     @Binding var text: String
     let maxLength: Int
+    let field: EditProfileField
+    var focused: FocusState<EditProfileField?>.Binding
     var axis: Axis = .horizontal
 
     var body: some View {
         TextField(placeholder, text: $text, axis: axis)
             .lineLimit(axis == .vertical ? 1...6 : 1...1)
+            .focused(focused, equals: field)
             .onChange(of: text) { _, new in
                 if new.count > maxLength { text = String(new.prefix(maxLength)) }
             }
             .editProfileRow()
+            .onTapGesture { focused.wrappedValue = field }
     }
 }
 
@@ -142,17 +157,19 @@ struct EditProfileCountryRow: View {
     }
 }
 
+/// Sport principal: opens the list of active sports.
 struct EditProfileSportRow: View {
     @Binding var sport: SportType?
 
     var body: some View {
-        Menu {
-            Picker(ProfileMessages.mainSport, selection: $sport) {
-                ForEach(SportType.active, id: \.self) { sport in
-                    Label(ActivityFormatters.sportLabel(sport), systemImage: ActivityFormatters.sportSymbol(sport))
-                        .tag(Optional(sport))
-                }
-            }
+        NavigationLink {
+            EditProfileChoiceList(
+                title: ProfileMessages.mainSport,
+                options: SportType.active,
+                selection: $sport,
+                label: ActivityFormatters.sportLabel,
+                symbol: ActivityFormatters.sportSymbol
+            )
         } label: {
             EditProfileValueLabel(title: ProfileMessages.mainSport, value: sport.map(ActivityFormatters.sportLabel))
         }
@@ -177,10 +194,13 @@ struct EditProfileSectionHeader: View {
     }
 }
 
-/// The date opens a wheel under the row; no one under 15 (ADR-035 §5).
+/// The date opens a wheel under the row; no one under 15 (ADR-035 §5). `onTap` ends the typing.
 struct EditProfileBirthDateRow: View {
+    static let pickerID = "editProfile.birthDatePicker"
+
     @Binding var birthDate: CalendarDay?
-    @State private var isPicking = false
+    @Binding var isPicking: Bool
+    let onTap: () -> Void
 
     private var latest: Date {
         Calendar.current.date(byAdding: .year, value: -OnboardingAnswers.minimumAge, to: .now) ?? .now
@@ -193,6 +213,7 @@ struct EditProfileBirthDateRow: View {
     var body: some View {
         VStack(spacing: 0) {
             Button {
+                onTap()
                 withAnimation(.snappy) { isPicking.toggle() }
             } label: {
                 EditProfileValueLabel(title: ProfileMessages.birthDate, value: birthDate.map(EditProfileFormat.birthDate))
@@ -213,21 +234,25 @@ struct EditProfileBirthDateRow: View {
                 .labelsHidden()
                 .environment(\.locale, Locale(identifier: "fr_FR"))
                 .frame(maxWidth: .infinity)
+                .id(Self.pickerID)
+                .onAppear { if birthDate == nil { birthDate = CalendarDay(latest) } }
             }
         }
     }
 }
 
+/// Sexe: opens the list of answers.
 struct EditProfileGenderRow: View {
     @Binding var gender: Gender?
 
     var body: some View {
-        Menu {
-            Picker(ProfileMessages.gender, selection: $gender) {
-                ForEach(Gender.allCases, id: \.self) { gender in
-                    Text(ProfileMessages.gender(gender)).tag(Optional(gender))
-                }
-            }
+        NavigationLink {
+            EditProfileChoiceList(
+                title: ProfileMessages.gender,
+                options: Gender.allCases,
+                selection: $gender,
+                label: ProfileMessages.gender
+            )
         } label: {
             EditProfileValueLabel(title: ProfileMessages.gender, value: gender.map(ProfileMessages.gender))
         }
@@ -236,8 +261,10 @@ struct EditProfileGenderRow: View {
     }
 }
 
+/// Poids (kg): a tap anywhere on the row starts typing.
 struct EditProfileWeightRow: View {
     @Binding var text: String
+    var focused: FocusState<EditProfileField?>.Binding
 
     var body: some View {
         HStack(spacing: 12) {
@@ -246,10 +273,50 @@ struct EditProfileWeightRow: View {
             TextField("", text: $text, prompt: Text("–"))
                 .keyboardType(.decimalPad)
                 .multilineTextAlignment(.trailing)
+                .focused(focused, equals: .weight)
                 .frame(maxWidth: 120)
                 .accessibilityLabel(ProfileMessages.weight)
                 .accessibilityIdentifier("editProfile.weight")
         }
         .editProfileRow()
+        .onTapGesture { focused.wrappedValue = .weight }
+    }
+}
+
+/// A pushed list to pick one option (Sport principal, Sexe); picking goes back.
+struct EditProfileChoiceList<Option: Hashable>: View {
+    let title: String
+    let options: [Option]
+    @Binding var selection: Option?
+    let label: (Option) -> String
+    var symbol: ((Option) -> String)?
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        List(options, id: \.self) { option in
+            Button {
+                selection = option
+                dismiss()
+            } label: {
+                HStack(spacing: 12) {
+                    if let symbol {
+                        Image(systemName: symbol(option))
+                            .foregroundStyle(Theme.accent)
+                            .frame(width: 28)
+                    }
+                    Text(label(option)).foregroundStyle(.primary)
+                    Spacer()
+                    if selection == option {
+                        Image(systemName: "checkmark").foregroundStyle(Theme.accent)
+                    }
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+        .listStyle(.plain)
+        .navigationTitle(title)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
     }
 }
