@@ -2,7 +2,8 @@ import SwiftUI
 
 /// Réglages (ADR-036 §10), pushed by the profile's gear; it takes over the former "Compte"
 /// form (ADR-035 §8): Compte (Nom opens "Modifier le profil", Email), Mes Itinéraires,
-/// Confidentialité ("Approuver mes abonnés", "Athlètes bloqués", legal texts), Debug,
+/// Confidentialité ("Approuver mes abonnés", "Athlètes bloqués", legal texts), « Sources des
+/// données » (ADR-039 §10), Debug,
 /// sign-out and, last, « Supprimer mon compte ». When `signOutWarning` returns a message, a confirmation shows it first
 /// (ADR-030 §8). The account and the sign-out come from the app shell (ADR-007 rule 5).
 struct SettingsView: View {
@@ -17,6 +18,8 @@ struct SettingsView: View {
     var animationsPreview: AnyView?
     /// Réglages > "Athlètes bloqués" (ADR-038 §8), from the app shell.
     var blockedAthletes: AnyView?
+    /// « Sources des données » (ADR-039 §10), from the app shell.
+    var dataSources: AnyView?
     /// « Supprimer mon compte » at the very bottom (ADR-038 §13), from the app shell.
     var accountDeletion: AnyView?
 
@@ -50,6 +53,16 @@ struct SettingsView: View {
                 .accessibilityIdentifier("myItinerariesLink")
             }
             privacySection
+            if let dataSources {
+                Section {
+                    NavigationLink {
+                        dataSources
+                    } label: {
+                        Label(DataSourcesView.title, systemImage: "map")
+                    }
+                    .accessibilityIdentifier("settings.dataSources")
+                }
+            }
             if let animationsPreview {
                 Section("Debug") {
                     NavigationLink {

@@ -26,10 +26,10 @@ import { ConfigModule } from "./config/config.module.js";
 import { loadConfig } from "./config/env.js";
 import { HealthModule } from "./health/health.module.js";
 import { ItinerariesModule } from "./itineraries/itineraries.module.js";
+import { SegmentsModule } from "./segments/segments.module.js";
 import { AppLoggingModule } from "./logging/logging.module.js";
 import { MeModule } from "./me/me.module.js";
 import { RealtimeTokenModule } from "./realtime-token/realtime-token.module.js";
-import { SegmentsModule } from "./segments/segments.module.js";
 import { WebhooksModule } from "./webhooks/webhooks.module.js";
 
 // `forRoot(...)` dynamic modules below are synchronous (no DI injection of

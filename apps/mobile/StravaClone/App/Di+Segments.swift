@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// Creating a Segment and Plus › « Segments » (ADR-039 §15). The Segment is drawn with the
+/// Segments (ADR-039 §15): the Map tab's Segments mode, creating a Segment and Plus ›
+/// « Segments ». The Segment is drawn with the
 /// Itinerary editor: built here, the composition root, since features never build each other's
 /// screens (ADR-007 rule 5).
 extension Di {
@@ -52,5 +53,14 @@ extension Di {
     /// A new one each time Plus pushes the list.
     func makeStarredSegmentsStore() -> StarredSegmentsStore {
         StarredSegmentsStore(repository: APIStarredSegmentsRepository(apiClient: apiClient))
+    }
+
+    /// One for the Map tab, kept across mode switches.
+    func makeSegmentMapStore() -> SegmentMapStore {
+        SegmentMapStore(
+            repository: APISegmentMapRepository(apiClient: apiClient),
+            favorites: APISegmentFavoriteRepository(apiClient: apiClient),
+            analytics: analytics
+        )
     }
 }

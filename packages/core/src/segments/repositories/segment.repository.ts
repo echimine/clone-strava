@@ -1,8 +1,39 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, eq, isNotNull, sql } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNotNull, sql } from "drizzle-orm";
 import { schema, type Database } from "@repo/db";
 import type { LonLat } from "@repo/geo";
-import { DATABASE } from "../../infrastructure/index.js";
+import { DATABASE, type DbExecutor } from "../../infrastructure/index.js";
+import type { ClimbCategory } from "../domain/climb-category.js";
+
+/** A Segment as the ODbL file offers it (ADR-039 §10). */
+export interface OpenDataSegmentRow {
+  id: string;
+  name: string;
+  sport: string;
+  coordinates: Array<[number, number, number]>;
+  distanceM: number | null;
+  elevationGainM: number | null;
+  avgGrade: number | null;
+  maxGrade: number | null;
+  climbCategory: ClimbCategory | null;
+}
+
+/** A line of the Nervo generator, ready to insert (ADR-039 §10). */
+export interface NervoSegmentToInsert {
+  sourceKey: string;
+  sportTypeCode: string;
+  name: string;
+  /** `[lon, lat, altitude]`. */
+  path: ReadonlyArray<readonly [number, number, number]>;
+  distanceM: number;
+  avgGrade: number;
+  maxGrade: number;
+  elevationGainM: number;
+  minAltitudeM: number;
+  maxAltitudeM: number;
+  climbCategory: ClimbCategory | null;
+  mapPolyline: string;
+}
 
 /** A Segment as the matching reads it (ADR-039 §6). */
 export interface SegmentToMatch {
@@ -65,6 +96,89 @@ export class SegmentRepository {
     }
     const segment = toSegmentToMatch(row);
     return { ...segment, start: segment.path[0]!, end: segment.path.at(-1)! };
+  }
+
+  /** The keys among `sourceKeys` already loaded (ADR-039 §10: the import is idempotent on them). */
+  async existingSourceKeys(sourceKeys: string[]): Promise<Set<string>> {
+    if (sourceKeys.length === 0) {
+      return new Set();
+    }
+    const rows = await this.db
+      .select({ sourceKey: schema.segment.sourceKey })
+      .from(schema.segment)
+      .where(inArray(schema.segment.sourceKey, sourceKeys));
+    return new Set(rows.map((row) => row.sourceKey!));
+  }
+
+  /**
+   * A Segment created by Nervo (ADR-039 §5, §10): no creator, unverified, figures from the
+   * generator. `false` when its source key is already there (a concurrent run).
+   */
+  async insertNervo(segment: NervoSegmentToInsert): Promise<boolean> {
+    const [start, end] = [segment.path[0]!, segment.path.at(-1)!];
+    const point = ([lon, lat]: readonly number[]) => `SRID=4326;POINT(${lon} ${lat})`;
+    const rows = await this.db
+      .insert(schema.segment)
+      .values({
+        name: segment.name,
+        sportTypeCode: segment.sportTypeCode,
+        origin: "nervo",
+        createdBy: null,
+        sourceKey: segment.sourceKey,
+        path: `SRID=4326;LINESTRING Z(${segment.path.map((coordinate) => coordinate.join(" ")).join(",")})`,
+        startPoint: point(start),
+        endPoint: point(end),
+        distanceM: segment.distanceM,
+        avgGrade: segment.avgGrade,
+        maxGrade: segment.maxGrade,
+        elevationGainM: segment.elevationGainM,
+        minAltitudeM: segment.minAltitudeM,
+        maxAltitudeM: segment.maxAltitudeM,
+        climbCategory: segment.climbCategory,
+        mapPolyline: segment.mapPolyline,
+      })
+      .onConflictDoNothing({ target: schema.segment.sourceKey })
+      .returning({ id: schema.segment.id });
+    return rows.length > 0;
+  }
+
+  /** Deletes a Segment, cascading to its Efforts and stars; its provenance, if it existed. */
+  async deleteReturningProvenance(
+    id: string,
+    tx: DbExecutor = this.db,
+  ): Promise<{ origin: "athlete" | "nervo"; sourceKey: string | null } | undefined> {
+    const [row] = await tx
+      .delete(schema.segment)
+      .where(eq(schema.segment.id, id))
+      .returning({ origin: schema.segment.origin, sourceKey: schema.segment.sourceKey });
+    return row;
+  }
+
+  /**
+   * One page of every Segment with a path, by id after `afterId`, for the ODbL file (ADR-039
+   * §10): no creator, no provenance.
+   */
+  async pageForOpenData(afterId: string | null, limit: number): Promise<OpenDataSegmentRow[]> {
+    const rows = await this.db
+      .select({
+        id: schema.segment.id,
+        name: schema.segment.name,
+        sport: schema.segment.sportTypeCode,
+        path: pathGeoJson,
+        distanceM: schema.segment.distanceM,
+        elevationGainM: schema.segment.elevationGainM,
+        avgGrade: schema.segment.avgGrade,
+        maxGrade: schema.segment.maxGrade,
+        climbCategory: schema.segment.climbCategory,
+      })
+      .from(schema.segment)
+      .where(and(isNotNull(schema.segment.path), afterId === null ? undefined : gt(schema.segment.id, afterId)))
+      .orderBy(asc(schema.segment.id))
+      .limit(limit);
+    return rows.map(({ path, ...row }) => ({
+      ...row,
+      coordinates: (JSON.parse(path) as { coordinates: Array<[number, number, number]> }).coordinates,
+    }));
   }
 
   /** ADR-039 §7: the last retro-matching page is done. */

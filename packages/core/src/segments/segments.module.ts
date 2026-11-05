@@ -10,11 +10,16 @@ import { MatchSegmentHistoryUseCase } from "./use-cases/match-segment-history.us
 import { ActivityMatchingRepository } from "./repositories/activity-matching.repository.js";
 import { EffortRecorder } from "./services/effort-recorder.js";
 import { ActivityEffortRepository } from "./repositories/activity-effort.repository.js";
+import { SegmentMapRepository } from "./repositories/segment-map.repository.js";
+import { SegmentFavoriteRepository } from "./repositories/segment-favorite.repository.js";
 import { SegmentsService } from "./segments.service.js";
 import { SegmentCreationRepository } from "./repositories/segment-creation.repository.js";
-import { SegmentFavoriteRepository } from "./repositories/segment-favorite.repository.js";
 import { ManageOwnSegmentUseCase } from "./use-cases/manage-own-segment.use-case.js";
 import { SegmentFavoritesUseCase } from "./use-cases/segment-favorites.use-case.js";
+import { ExcludedSourceKeyRepository } from "./repositories/excluded-source-key.repository.js";
+import { ImportNervoSegmentsUseCase } from "./use-cases/import-nervo-segments.use-case.js";
+import { DeleteSegmentAsAdministratorUseCase } from "./use-cases/delete-segment-as-administrator.use-case.js";
+import { ExportOpenSegmentsUseCase } from "./use-cases/export-open-segments.use-case.js";
 
 /**
  * `segments` module (ADR-021 §1/§2: layer 3, may depend on `activities`,
@@ -28,15 +33,20 @@ import { SegmentFavoritesUseCase } from "./use-cases/segment-favorites.use-case.
   providers: [
     SegmentRepository,
     SegmentEffortRepository,
+    SegmentMapRepository,
+    SegmentFavoriteRepository,
     ActivityEffortRepository,
     ActivityMatchingRepository,
     EffortRecorder,
     MatchSegmentsUseCase,
     MatchSegmentHistoryUseCase,
     SegmentCreationRepository,
-    SegmentFavoriteRepository,
     ManageOwnSegmentUseCase,
     SegmentFavoritesUseCase,
+    ExcludedSourceKeyRepository,
+    ImportNervoSegmentsUseCase,
+    DeleteSegmentAsAdministratorUseCase,
+    ExportOpenSegmentsUseCase,
     SegmentsService,
   ],
   exports: [SegmentsService],

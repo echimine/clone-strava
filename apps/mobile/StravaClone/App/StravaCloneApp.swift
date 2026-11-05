@@ -34,6 +34,7 @@ struct StravaCloneApp: App {
                 makeItinerarySaveStore: di.makeItinerarySaveStore,
                 itineraryListStore: di.makeItineraryListStore(),
                 mapItinerariesStore: di.makeMapItinerariesStore(),
+                segmentMapStore: di.makeSegmentMapStore(),
                 makeItineraryDetailStore: { [di] id in di.makeItineraryDetailStore(id: id, source: .profile) },
                 makeItineraryEditFlow: di.makeItineraryEditFlow,
                 itineraryCreation: di.makeItineraryCreationFlow(),
@@ -46,6 +47,7 @@ struct StravaCloneApp: App {
                 moderationStore: di.makeModerationStore(),
                 makeBlockedAthletesStore: di.makeBlockedAthletesStore,
                 makeAccountDeletionStore: di.makeAccountDeletionStore,
+                dataSources: DataSource.all(apiBaseURL: di.configuration.apiBaseURL),
                 isSplashPresented: !ProcessInfo.processInfo.arguments.contains(SplashView.disablingArgument)
             )
                 .tint(Theme.accent)
@@ -105,6 +107,8 @@ struct RootView: View {
     let makeItinerarySaveStore: @MainActor () -> ItinerarySaveStore
     @State var itineraryListStore: ItineraryListStore
     @State var mapItinerariesStore: MapItinerariesStore
+    /// The Map tab's Segments mode (ADR-039 §15).
+    @State var segmentMapStore: SegmentMapStore
     /// Details pushed from Profil > Mes Itinéraires.
     let makeItineraryDetailStore: @MainActor (ItineraryID) -> ItineraryDetailStore
     let makeItineraryEditFlow: @MainActor (ItineraryID) -> ItineraryEditFlow
@@ -127,12 +131,16 @@ struct RootView: View {
         @escaping @MainActor () async -> String?,
         @escaping @MainActor () async -> Void
     ) -> AccountDeletionStore
+    /// Réglages > « Sources des données » (ADR-039 §10).
+    var dataSources: [DataSource] = []
     /// The animated splash (ADR-032 §4), over the app from the cold launch until it is revealed.
     /// It lives as long as the scene, so a return from the background does not replay it.
     @State var isSplashPresented = true
 
     @Environment(\.scenePhase) private var scenePhase
     @State var selectedTab = AppTab.feed
+    /// The Map tab's stack (ADR-039 §15): an Itinerary, a Segment's sheet and `AppDestinations`.
+    @State private var mapPath = NavigationPath()
     /// The Paywall opened by "S'abonner" in the home header.
     @State private var isSubscribePaywallPresented = false
     /// A queued Itinerary change the server turned down (ADR-030 §8).
@@ -259,22 +267,15 @@ struct RootView: View {
                     }
                     .tabItem { Label("Accueil", systemImage: "house") }
                     .tag(AppTab.feed)
-                    NavigationStack {
-                        MapScreen(
-                            onCreateItinerary: { itineraryCreation.start(from: .mapTab) },
-                            onCreateSegment: { segmentCreation.start(from: .mapTab) },
-                            focusedPath: mapItinerariesStore.focusedPath
-                        ) {
-                            MapItinerariesCarousel(store: mapItinerariesStore)
-                        }
-                        .navigationDestination(for: ItineraryID.self) { [mapItinerariesStore] id in
-                            ItineraryDetailPage(
-                                id: id,
-                                makeDetailStore: mapItinerariesStore.makeDetailStore,
-                                makeEditFlow: mapItinerariesStore.makeEditFlow
-                            )
-                        }
-                    }
+                    MapTab(
+                        path: $mapPath,
+                        itineraries: mapItinerariesStore,
+                        segments: segmentMapStore,
+                        destinations: appDestinations(path: $mapPath),
+                        onCreateItinerary: { itineraryCreation.start(from: .mapTab) },
+                        onCreateSegment: { segmentCreation.start(from: .mapTab) }
+                    )
+                    .environment(\.openAthlete, openAthlete(in: $mapPath))
                     .tabItem { Label("Map", systemImage: "map") }
                     .tag(AppTab.map)
                     RecordingView(
@@ -292,6 +293,7 @@ struct RootView: View {
                         beforeSignOut: wipeLocalData,
                         animationsPreview: Self.animationsPreview,
                         blockedAthletes: AnyView(BlockedAthletesView(makeStore: makeBlockedAthletesStore)),
+                        dataSources: AnyView(DataSourcesView(sources: dataSources)),
                         accountDeletion: {
                             AnyView(AccountDeletionView(store: makeAccountDeletionStore(signOutWarning) { [authStore] in
                                 // ADR-038 §13: the same local cleanup as a sign-out, then the Welcome.

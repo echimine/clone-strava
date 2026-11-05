@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, asc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { schema, type Database } from "@repo/db";
 import { DATABASE, type DbExecutor } from "../../infrastructure/index.js";
 
@@ -19,6 +19,29 @@ export class ActivityMatchingRepository {
         target: schema.activityMatching.activityId,
         set: { version, matchedAt: sql`now()` },
       });
+  }
+
+  /**
+   * One page of every processed Activity of these sports, by id after `afterId` (ADR-039 §7: the
+   * per-Activity replay after a Nervo import).
+   */
+  pageProcessed(
+    sportTypeCodes: readonly string[],
+    afterId: string | null,
+    limit: number,
+  ): Promise<Array<{ activityId: string; userId: string }>> {
+    const view = schema.leaderboardActivity;
+    return this.db
+      .select({ activityId: view.id, userId: view.userId })
+      .from(view)
+      .where(
+        and(
+          inArray(view.sportTypeCode, [...sportTypeCodes]),
+          afterId === null ? undefined : gt(view.id, afterId),
+        ),
+      )
+      .orderBy(asc(view.id))
+      .limit(limit);
   }
 
   /**

@@ -10,6 +10,7 @@
     "openapi:export": "node --env-file-if-exists=.env dist/openapi/export.js",
     "backfill:google-avatars": "node --env-file-if-exists=.env dist/scripts/backfill-google-avatars.js",
     "clean:queues": "node --env-file-if-exists=.env dist/scripts/clean-queues.js",
+    "segments:import": "node --env-file-if-exists=.env dist/scripts/import-nervo-segments.js",
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
