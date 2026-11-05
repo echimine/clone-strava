@@ -55,39 +55,59 @@ private struct ProtoCard<Content: View>: View {
     }
 }
 
-// MARK: - A — Section « Résultats » à la Strava, sous les chiffres
+// MARK: - A — « Résultats » comme Strava, juste avant les Splits
 
 struct ProtoResultsVariantA: View {
     let state: ProtoResultsState
 
     var body: some View {
         if !state.isEmpty {
-            let items = ProtoResultItem.ranked(state)
-            ProtoCard {
-                HStack(spacing: 6) {
-                    Image(systemName: "trophy.fill").foregroundStyle(LinearGradient(colors: ProtoMedal.gradients[0], startPoint: .top, endPoint: .bottom))
-                    Text("Résultats").font(.headline)
-                }
-                ProtoCounters(state: state)
-                Divider()
-                if state.isMatching { ProtoMatchingRow() }
-                ForEach(items.prefix(3)) { item in
-                    ProtoResultItemRow(state: state, item: item)
-                }
-                ProtoPrivacyNote(state: state)
-                if items.count > 3 || state.isMatching {
+            // Meilleurs efforts d'abord, puis les Segments dans l'ordre de la trace ; seulement les médaillés ici.
+            let medalled = state.records.filter { $0.medal != nil }.map(ProtoResultItem.record)
+                + state.segments.filter { $0.medal != nil }.map(ProtoResultItem.segment)
+            let total = state.records.count + state.segments.count
+            ActivityAnalysisCard(title: "Résultats") {
+                VStack(alignment: .leading, spacing: 18) {
+                    ProtoStravaCounters(state: state)
+                    ForEach(medalled.prefix(3)) { item in
+                        switch item {
+                        case .segment(let segment): ProtoStravaSegmentRow(state: state, segment: segment)
+                        case .record(let record): ProtoStravaRecordRow(state: state, record: record)
+                        }
+                    }
+                    if state.isMatching { ProtoMatchingRow() }
                     NavigationLink(value: ProtoResultsRoute.all) {
-                        Text("Afficher tous les résultats (\(items.count))")
-                            .font(.subheadline.weight(.semibold))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                            .background(Theme.accent.opacity(0.12), in: .rect(cornerRadius: 12))
+                        Text("Afficher tous les résultats").font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Theme.accent)
+                            .frame(maxWidth: .infinity, alignment: .trailing)
                     }
                     .buttonStyle(.plain)
-                    .foregroundStyle(Theme.accent)
+                    .opacity(total > 3 || state.isMatching ? 1 : 0)
                 }
             }
+            .id("protoResults")
         }
+    }
+}
+
+/// Trois compteurs, le libellé au-dessus du nombre : Meilleurs efforts, Segments, Performances.
+struct ProtoStravaCounters: View {
+    let state: ProtoResultsState
+
+    var body: some View {
+        HStack {
+            counter("Meilleurs efforts", "\(state.records.count)")
+            if state.sport == .ride { counter("Segments", state.isMatching ? "…" : "\(state.segments.count)") }
+            counter("Performances", "\(state.medalCount)")
+        }
+    }
+
+    private func counter(_ label: String, _ value: String) -> some View {
+        VStack(spacing: 4) {
+            Text(label).font(.subheadline).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.8)
+            Text(value).font(.title3.weight(.bold)).monospacedDigit()
+        }
+        .frame(maxWidth: .infinity)
     }
 }
 
@@ -192,7 +212,7 @@ struct ProtoResultsCTabs: View {
         if !state.isEmpty {
             Picker("Vue", selection: $state.tab) {
                 Text("Aperçu").tag(0)
-                Text("Résultats · \(state.medalCount) 🏆").tag(1)
+                Text("Résultats · \(state.medalCount)").tag(1)
             }
             .pickerStyle(.segmented)
             .padding(.horizontal, Theme.spacing)

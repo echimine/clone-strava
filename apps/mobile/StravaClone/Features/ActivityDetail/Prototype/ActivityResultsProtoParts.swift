@@ -28,8 +28,10 @@ struct ProtoResultsMap: View {
                     badge(segment, number: index + 1)
                         .onTapGesture { tap(segment) }
                 }
-                .allowOverlap(true)
-                .variableAnchors([ViewAnnotationAnchorConfig(anchor: .bottom)])
+                .allowOverlap(state.variant != "A")
+                .variableAnchors([state.variant == "A"
+                    ? ViewAnnotationAnchorConfig(anchor: .left, offsetX: -14)
+                    : ViewAnnotationAnchorConfig(anchor: .bottom)])
             }
         }
         .mapStyle(.outdoors)
@@ -66,18 +68,19 @@ struct ProtoResultsMap: View {
     @ViewBuilder private func badge(_ segment: ProtoSegmentResult, number: Int) -> some View {
         switch state.variant {
         case "A":
+            // Comme Strava : la médaille sur la trace, et à droite « Record personnel » puis le nom, sans fond.
             if let medal = segment.medal {
-                VStack(spacing: 2) {
-                    HStack(spacing: 4) {
-                        ProtoMedal(place: medal, size: 18)
-                        Text(segment.name).font(.caption2.weight(.semibold)).lineLimit(1)
+                HStack(spacing: 4) {
+                    ProtoMedal(place: medal, size: 28)
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(ProtoMedalText.label(medal) ?? "")
+                        Text(segment.name).lineLimit(2)
                     }
-                    .padding(.leading, 3).padding(.trailing, 8).padding(.vertical, 3)
-                    .background(.background, in: Capsule())
-                    .shadow(radius: 2)
-                    Rectangle().fill(.primary).frame(width: 2, height: 8)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color(white: 0.15))
+                    .shadow(color: .white, radius: 1).shadow(color: .white, radius: 1).shadow(color: .white, radius: 2)
                 }
-                .frame(maxWidth: 190)
+                .frame(width: 190, alignment: .leading)
             }
         case "B":
             ZStack {
@@ -107,15 +110,13 @@ enum ProtoMedalColor {
 
 // MARK: - Lignes
 
-/// Médaille, ou un cercle vide sans Médaille : les lignes restent alignées.
+/// Médaille, ou un vide de même largeur sans Médaille : les lignes restent alignées.
 struct ProtoMedalSlot: View {
     let medal: Int?
-    var size: CGFloat = 26
+    var size: CGFloat = 30
     var body: some View {
         if let medal { ProtoMedal(place: medal, size: size) } else {
-            Image(systemName: "trophy").font(.system(size: size * 0.5)).foregroundStyle(Color(.systemGray3))
-                .frame(width: size, height: size)
-                .overlay(Circle().stroke(Color(.systemGray5), lineWidth: 1.5))
+            Color.clear.frame(width: size, height: size)
         }
     }
 }
@@ -208,8 +209,8 @@ struct ProtoPrivacyNote: View {
     var body: some View {
         if state.visibility != .public, state.sport == .ride {
             Label(state.visibility == .private
-                  ? "Activité privée : ses Efforts ne comptent pas au Classement. Les Médailles restent."
-                  : "Activité visible des abonnés : ses Efforts ne comptent pas au Classement. Les Médailles restent.",
+                  ? "Activité privée : ses Efforts ne comptent pas au Classement. Les médailles restent."
+                  : "Activité visible des abonnés : ses Efforts ne comptent pas au Classement. Les médailles restent.",
                   systemImage: "lock")
                 .font(.caption).foregroundStyle(.secondary)
         }
@@ -223,22 +224,22 @@ struct ProtoAllResultsScreen: View {
 
     var body: some View {
         List {
+            Section {
+                ForEach(state.records) { ProtoStravaRecordRow(state: state, record: $0) }
+            } header: {
+                Text(state.sport == .pool ? "Meilleurs efforts · piscine, bassin de 25 m" : "Meilleurs efforts")
+            } footer: {
+                if state.isMine { Text("Appui long sur un temps pour le retirer de tes meilleurs efforts.") }
+            }
             if state.sport == .ride {
                 Section {
                     if state.isMatching { ProtoMatchingRow() }
-                    ForEach(state.segments) { ProtoSegmentResultRow(state: state, segment: $0) }
+                    ForEach(state.segments) { ProtoStravaSegmentRow(state: state, segment: $0) }
                 } header: {
-                    Text("Segments (\(state.segments.count))")
+                    Text("Segments")
                 } footer: {
                     ProtoPrivacyNote(state: state)
                 }
-            }
-            Section {
-                ForEach(state.records) { ProtoRecordResultRow(state: state, record: $0) }
-            } header: {
-                Text(state.sport == .pool ? "Records · piscine, bassin de 25 m" : "Records (\(state.records.count))")
-            } footer: {
-                if state.isMine { Text("Appui long sur un temps pour le retirer de tes Records.") }
             }
         }
         .navigationTitle("Résultats")
@@ -253,13 +254,13 @@ struct ProtoCounters: View {
 
     var body: some View {
         HStack(spacing: tiles ? 8 : 0) {
-            counter("\(state.medalCount)", "Trophées", "trophy.fill")
+            counter("\(state.records.count)", "Meilleurs efforts", "stopwatch")
             if state.sport == .ride {
                 if !tiles { Divider().frame(height: 32) }
                 counter(state.isMatching ? "…" : "\(state.segments.count)", "Segments", "point.topleft.down.to.point.bottomright.curvepath")
             }
             if !tiles { Divider().frame(height: 32) }
-            counter("\(state.records.count)", "Records", "stopwatch")
+            counter("\(state.medalCount)", "Performances", "medal.fill")
         }
     }
 
@@ -271,6 +272,79 @@ struct ProtoCounters: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, tiles ? 10 : 0)
         .background(tiles ? Color(.secondarySystemGroupedBackground) : .clear, in: .rect(cornerRadius: 14))
+    }
+}
+#endif
+
+#if DEBUG
+// MARK: - A, comme Strava
+
+/// Une ligne de « Résultats » : médaille, titre, temps et allure (vitesse), puis la phrase de la médaille.
+struct ProtoStravaRow: View {
+    let state: ProtoResultsState
+    let title: String
+    let meters: Double
+    let seconds: Int
+    let medal: Int?
+    var showsDistance = false
+    var note: String?
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 16) {
+            ProtoMedalSlot(medal: medal)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title).font(.body).multilineTextAlignment(.leading)
+                HStack(spacing: 14) {
+                    if showsDistance { Text(ProtoMapFormat.distance(meters)) }
+                    Text(ProtoFicheData.time(seconds))
+                    Text(pace)
+                }
+                .font(.subheadline).monospacedDigit().foregroundStyle(.secondary)
+                if let note { Text(note).font(.subheadline) }
+            }
+            Spacer(minLength: 0)
+        }
+        .contentShape(.rect)
+    }
+
+    /// Vélo : km/h ; natation : /100 m ; sinon /km.
+    private var pace: String {
+        switch state.sport {
+        case .ride:
+            return "\((meters / Double(seconds) * 3.6).formatted(.number.precision(.fractionLength(1)).locale(ActivityFormatters.locale))) km/h"
+        case .pool:
+            let per100 = Int((Double(seconds) / meters * 100).rounded())
+            return "\(ProtoFicheData.time(per100)) /100 m"
+        }
+    }
+}
+
+struct ProtoStravaSegmentRow: View {
+    let state: ProtoResultsState
+    let segment: ProtoSegmentResult
+
+    var body: some View {
+        NavigationLink(value: ProtoMapRoute.segment(segment.id)) {
+            ProtoStravaRow(state: state, title: segment.name, meters: segment.meters, seconds: segment.seconds,
+                           medal: segment.medal, showsDistance: true,
+                           note: segment.medal.flatMap(ProtoMedalText.label).map { segment.isFirstPass ? "\($0) · 1er passage" : $0 })
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+struct ProtoStravaRecordRow: View {
+    let state: ProtoResultsState
+    let record: ProtoRecordResult
+
+    var body: some View {
+        ProtoStravaRow(state: state, title: record.label.uppercased(), meters: record.meters, seconds: record.seconds,
+                       medal: record.medal, note: ProtoMedalText.bestEffort(record.medal))
+            .contextMenu {
+                if state.isMine {
+                    Button("Retirer ce temps de mes meilleurs efforts", systemImage: "minus.circle", role: .destructive) { state.remove(record) }
+                }
+            }
     }
 }
 #endif

@@ -68,9 +68,19 @@ enum ProtoResultsSport: String, CaseIterable { case ride = "Vélo", pool = "Nata
 enum ProtoMedalText {
     static func label(_ medal: Int?) -> String? {
         switch medal {
-        case 1: "Meilleur temps"
+        case 1: "Record personnel"
         case 2: "2e meilleur temps"
         case 3: "3e meilleur temps"
+        default: nil
+        }
+    }
+
+    /// Phrase d'un meilleur effort (Record), comme Strava.
+    static func bestEffort(_ medal: Int?) -> String? {
+        switch medal {
+        case 1: "Nouveau record absolu !"
+        case 2: "Nouveau 2e record absolu !"
+        case 3: "Nouveau 3e record absolu !"
         default: nil
         }
     }
@@ -139,7 +149,7 @@ final class ProtoResultsState {
 
     func remove(_ record: ProtoRecordResult) {
         withAnimation { _ = removedRecords.insert(record.label) }
-        say("\(record.label) : temps retiré de tes Records. Les Médailles des autres temps sont recalculées.")
+        say("\(record.label) : temps retiré de tes meilleurs efforts. Les médailles des autres temps sont recalculées.")
     }
 
     func say(_ text: String) {
@@ -188,7 +198,7 @@ final class ProtoResultsState {
 
     private func view(_ slot: ProtoResultsSlot) -> AnyView? {
         switch (variant, slot) {
-        case ("A", .afterStats): AnyView(ProtoResultsVariantA(state: self))
+        case ("A", .beforeSplits): AnyView(ProtoResultsVariantA(state: self))
         case ("B", .underTitle): AnyView(ProtoResultsBMedalLine(state: self))
         case ("B", .afterEngagement): AnyView(ProtoResultsBSegments(state: self))
         case ("B", .beforeSplits): AnyView(ProtoResultsBRecords(state: self))
@@ -272,7 +282,7 @@ struct ProtoResultsPill: View {
 
 struct ProtoResultsBar: View {
     @Bindable var state: ProtoResultsState
-    static let variants = [("A", "Section Résultats"), ("B", "Segments et Records séparés"), ("C", "Onglet Résultats")]
+    static let variants = [("A", "Résultats comme Strava"), ("B", "Segments et Records séparés"), ("C", "Onglet Résultats")]
 
     var body: some View {
         HStack(spacing: 4) {

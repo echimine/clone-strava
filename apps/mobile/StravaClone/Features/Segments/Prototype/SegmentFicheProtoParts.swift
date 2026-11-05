@@ -116,28 +116,51 @@ struct ProtoFreshBanner: View {
 
 // MARK: - Médailles, Légende locale
 
+/// Médaille à ruban comme Strava : « PR » sur l'or, « 2 » sur l'argent, « 3 » sur le bronze.
 struct ProtoMedal: View {
     let place: Int
     var size: CGFloat = 22
 
-    /// Or, argent, bronze métallisés (clair en haut, foncé en bas), comme les trophées de Strava.
+    /// Or, argent, bronze (clair en haut, foncé en bas).
     static let gradients: [[Color]] = [
-        [Color(red: 1.0, green: 0.86, blue: 0.35), Color(red: 0.85, green: 0.62, blue: 0.0)],
-        [Color(red: 0.93, green: 0.93, blue: 0.95), Color(red: 0.6, green: 0.62, blue: 0.66)],
-        [Color(red: 0.95, green: 0.68, blue: 0.45), Color(red: 0.63, green: 0.36, blue: 0.16)],
+        [Color(red: 0.98, green: 0.80, blue: 0.30), Color(red: 0.86, green: 0.62, blue: 0.08)],
+        [Color(red: 0.70, green: 0.72, blue: 0.75), Color(red: 0.50, green: 0.52, blue: 0.56)],
+        [Color(red: 0.80, green: 0.52, blue: 0.33), Color(red: 0.62, green: 0.36, blue: 0.20)],
     ]
 
     var body: some View {
-        ZStack {
-            Circle().fill(LinearGradient(colors: Self.gradients[place - 1], startPoint: .top, endPoint: .bottom))
-            Circle().strokeBorder(.white.opacity(0.55), lineWidth: max(1, size * 0.05))
-            Image(systemName: "trophy.fill")
-                .font(.system(size: size * 0.5, weight: .bold))
-                .foregroundStyle(.white)
-                .shadow(color: .black.opacity(0.25), radius: 0.5, y: 0.5)
+        let colors = Self.gradients[place - 1]
+        ZStack(alignment: .top) {
+            ProtoRibbon()
+                .fill(colors[1])
+                .frame(width: size * 0.62, height: size * 0.42)
+            Circle()
+                .fill(LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom))
+                .overlay(Circle().strokeBorder(.white.opacity(0.5), lineWidth: max(1, size * 0.06)).padding(size * 0.07))
+                .overlay(
+                    Text(place == 1 ? "PR" : "\(place)")
+                        .font(.system(size: size * (place == 1 ? 0.26 : 0.32), weight: .heavy))
+                        .foregroundStyle(.white)
+                )
+                .frame(width: size * 0.74, height: size * 0.74)
+                .padding(.top, size * 0.28)
         }
-        .frame(width: size, height: size)
-        .accessibilityLabel(["Trophée d'or", "Trophée d'argent", "Trophée de bronze"][place - 1])
+        .frame(width: size, height: size * 1.02)
+        .accessibilityLabel(["Record personnel", "2e meilleur temps", "3e meilleur temps"][place - 1])
+    }
+}
+
+/// Le ruban au-dessus de la médaille : un trapèze ouvert en V vers le bas.
+struct ProtoRibbon: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX - rect.width * 0.18, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.midX, y: rect.maxY - rect.height * 0.35))
+        path.addLine(to: CGPoint(x: rect.minX + rect.width * 0.18, y: rect.maxY))
+        path.closeSubpath()
+        return path
     }
 }
 

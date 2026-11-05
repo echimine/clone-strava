@@ -144,6 +144,7 @@ struct ActivityDetailContent<Engagement: View>: View {
 
     var body: some View {
         let sections = ActivityDetailSections(detail: detail)
+        ScrollViewReader { proxy in
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.spacing) {
                 header(sections)
@@ -175,6 +176,15 @@ struct ActivityDetailContent<Engagement: View>: View {
                 }
             }
             .padding(.bottom, Theme.spacing)
+        }
+        #if DEBUG
+        // PROTOTYPE (#239): `-protoScroll YES` opens on the Results, for screenshots.
+        .task {
+            guard UserDefaults.standard.bool(forKey: "protoScroll") else { return }
+            try? await Task.sleep(for: .seconds(1.5))
+            proxy.scrollTo("protoResults", anchor: .top)
+        }
+        #endif
         }
     }
 
