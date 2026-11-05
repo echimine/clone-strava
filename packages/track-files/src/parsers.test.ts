@@ -108,8 +108,41 @@ describe("parseFit", () => {
     expect(() => parseFit(bad)).toThrowError(expect.objectContaining({ code: "invalid_file" }));
   });
 
+  it("has no pool outside a pool swim", () => {
+    expect(r.pool).toBeUndefined();
+  });
+
   it("rejects garbage with a FIT-like header only", () => {
     const bad = fixture("ride.fit").slice(0, 20);
     expect(() => parseFit(bad)).toThrowError(expect.objectContaining({ code: "invalid_file" }));
+  });
+});
+
+describe("parseFit on a pool swim (ADR-039 §4)", () => {
+  const POOL_START = Date.parse("2026-05-02T07:00:00Z");
+  const r = parseFit(fixture("pool-25m.fit"));
+
+  it("keeps the lap swimming sub-sport and has no position", () => {
+    expect(r.sport).toBe("swimming:lapswimming");
+    expect(r.points).toEqual([]);
+    expect(r.pointsWithoutPosition).toBe(9);
+    expect(r.startedAtMs).toBe(POOL_START);
+    expect(r.endedAtMs).toBe(POOL_START + 292_000);
+  });
+
+  it("reads the pool length and every length, active or idle, in order", () => {
+    expect(r.pool?.lengthM).toBe(25);
+    expect(r.pool?.unit).toBe("metric");
+    expect(r.pool?.lengths).toHaveLength(9);
+    expect(r.pool?.lengths[0]).toEqual({ startMs: POOL_START, elapsedS: 30, active: true });
+    expect(r.pool?.lengths[4]).toEqual({ startMs: POOL_START + 118_000, elapsedS: 60, active: false });
+    expect(r.pool?.lengths[8]).toEqual({ startMs: POOL_START + 262_000, elapsedS: 30, active: true });
+  });
+
+  it("reads a pool in yards as statute, its length in meters", () => {
+    const yards = parseFit(fixture("pool-25yd.fit"));
+    expect(yards.pool?.unit).toBe("statute");
+    expect(yards.pool?.lengthM).toBeCloseTo(22.86, 5);
+    expect(yards.pool?.lengths).toHaveLength(4);
   });
 });

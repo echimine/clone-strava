@@ -6,6 +6,8 @@ import {
   traceSchema,
   type ActivityAnalysis,
   type Trace,
+  type TraceLength,
+  type TracePool,
 } from "@repo/contracts";
 import type { schema } from "@repo/db";
 import { simplifyTrack } from "@repo/geo";
@@ -19,9 +21,14 @@ import { ActivityTrackRepository } from "../repositories/activity-track.reposito
 import { applyPrivacyZone } from "../domain/apply-privacy-zone.js";
 import { cleanTrace, MAX_TRACE_ACCURACY_M, maxPlausibleSpeedMs } from "../domain/clean-trace.js";
 import { recordSetOf } from "../domain/best-efforts.js";
-import { ACTIVITY_ANALYSIS_VERSION, computeAnalysis } from "../domain/compute-analysis.js";
+import {
+  ACTIVITY_ANALYSIS_VERSION,
+  EMPTY_ACTIVITY_ANALYSIS,
+  computeAnalysis,
+} from "../domain/compute-analysis.js";
 import { computeMetrics } from "../domain/compute-metrics.js";
 import { feedPolyline } from "../domain/feed-polyline.js";
+import { poolBestEfforts, poolMetrics } from "../domain/pool-swim.js";
 import { computeHeartRate } from "../domain/heart-rate.js";
 import { toLineStringEwkt, toPointEwkt } from "../domain/ewkt.js";
 import { BestEffortWriter, type ComputedBestEfforts } from "./best-effort-writer.js";
@@ -36,6 +43,8 @@ export interface ActivityToCompute {
   sportTypeCode: string;
   /** Copied onto the Best efforts: their Medals are replayed in this order (ADR-039 §8). */
   startedAt: Date;
+  /** With `startedAt`, the elapsed time of a pool swim, which has no point (ADR-039 §4). */
+  endedAt: Date;
 }
 
 export interface ComputeOptions {
@@ -54,7 +63,8 @@ export type LoadedTrace = { trace: Trace } | { problem: TraceProblem };
 /** The rows `process-activity` and `reprocess-activity` write, computed for one sport. */
 export interface OfficialValues {
   stats: typeof schema.activityStats.$inferInsert;
-  track: typeof schema.activityTrack.$inferInsert;
+  /** None for a pool swim: no route, no map, no Segment (ADR-039 §4). */
+  track: typeof schema.activityTrack.$inferInsert | null;
   /** Splits and series (ADR-036 §6), from the cleaned trace before the privacy zone. */
   analysis: ActivityAnalysis;
   /** Best efforts over the sport's Record distances (ADR-039 §3), same trace as the analysis. */
@@ -108,7 +118,7 @@ export class OfficialValuesService {
     if (!parsed.success) {
       return { problem: "invalid_trace" };
     }
-    if (parsed.data.points.length === 0) {
+    if (parsed.data.points.length === 0 && !parsed.data.lengths?.some((length) => length.active)) {
       return { problem: "empty_trace" };
     }
     return { trace: parsed.data };
@@ -124,6 +134,9 @@ export class OfficialValuesService {
     trace: Trace,
     { geocode = true }: ComputeOptions = {},
   ): Promise<OfficialValues | undefined> {
+    if (trace.pool && trace.lengths) {
+      return this.computePoolSwim(activity, trace.pool, trace.lengths);
+    }
     const points = cleanTrace(trace.points, {
       maxAccuracyM: MAX_TRACE_ACCURACY_M,
       maxSpeedMs: maxPlausibleSpeedMs(activity.sportTypeCode),
@@ -187,12 +200,53 @@ export class OfficialValuesService {
   }
 
   /**
+   * A pool swim (ADR-039 §4): distance and times from its lengths, no route, an empty analysis
+   * (no split, no series), and the `swim_pool` Best efforts while its sport is `swim`.
+   */
+  private computePoolSwim(
+    activity: ActivityToCompute,
+    pool: TracePool,
+    lengths: TraceLength[],
+  ): OfficialValues | undefined {
+    if (!lengths.some((length) => length.active)) {
+      return undefined;
+    }
+    const metrics = poolMetrics(lengths, pool);
+    const swimming = activity.sportTypeCode === "swim";
+    return {
+      stats: {
+        activityId: activity.id,
+        distanceM: metrics.distanceM,
+        movingTimeS: Math.round(metrics.movingTimeS),
+        elapsedTimeS: Math.round((activity.endedAt.getTime() - activity.startedAt.getTime()) / 1000),
+        elevationGainM: null,
+        avgSpeedMs: metrics.avgSpeedMs,
+        maxSpeedMs: metrics.maxSpeedMs,
+        avgHeartRate: null,
+        maxHeartRate: null,
+        computedForSportTypeCode: activity.sportTypeCode,
+      },
+      track: null,
+      analysis: EMPTY_ACTIVITY_ANALYSIS,
+      bestEfforts: {
+        activityId: activity.id,
+        userId: activity.userId,
+        activityStartedAt: activity.startedAt,
+        recordSet: swimming ? "swim_pool" : null,
+        efforts: swimming ? poolBestEfforts(lengths, pool) : [],
+      },
+    };
+  }
+
+  /**
    * Upserts `activity_stats`, `activity_track`, `activity_analysis` and the Best efforts, then
    * replays the athlete's Medals they touch, inside the caller's transaction.
    */
   async save(values: OfficialValues, tx: DbExecutor): Promise<void> {
     await this.activityStats.upsert(values.stats, tx);
-    await this.activityTracks.upsert(values.track, tx);
+    if (values.track) {
+      await this.activityTracks.upsert(values.track, tx);
+    }
     await this.saveAnalysis(values.stats.activityId, values.analysis, tx);
     await this.bestEfforts.save(values.bestEfforts, tx);
   }

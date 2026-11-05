@@ -97,6 +97,9 @@ export const activity = activitiesSchema.table(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
     // ADR-037 §8: the first Media comes before the map (no effect without a map).
     mediaFirst: boolean("media_first").notNull().default(false),
+    // ADR-039 §4: the pool length of a pool swim imported from FIT, in meters (25 yd = 22.86);
+    // null when the Activity is not a pool swim.
+    poolLengthM: real("pool_length_m"),
   },
   (table) => [
     // ADR-017 "Main indexes": a user's activities, feed.
