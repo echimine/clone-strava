@@ -69,7 +69,7 @@ struct StravaCloneApp: App {
     /// PROTOTYPE (#237), debug builds only: the Segments-on-the-map prototype instead of the app.
     private static var showsSegmentMapPrototype: Bool {
         #if DEBUG
-        ProcessInfo.processInfo.arguments.contains(SegmentMapProto.launchArgument)
+        ProcessInfo.processInfo.arguments.contains(SegmentMapProto.launchArgument) || SegmentFicheProto.isActive
         #else
         false
         #endif

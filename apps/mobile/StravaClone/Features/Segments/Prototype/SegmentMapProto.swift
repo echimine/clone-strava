@@ -123,6 +123,9 @@ struct ProtoCamera: Equatable {
 enum ProtoMapRoute: Hashable {
     case segment(Int)
     case explore
+    /// Prototype de la fiche (#238), variante C.
+    case leaderboard(Int)
+    case myEfforts(Int)
 }
 
 @MainActor @Observable
@@ -397,9 +400,13 @@ struct ProtoMapSwitcher: View {
 
 struct SegmentMapPrototypeView: View {
     @State private var store = ProtoMapStore()
+    @State private var fiche = ProtoFicheState()
     @State private var tab = 1
-    /// `-protoExplore YES` : variante C ouverte sur l'écran Segments.
-    @State private var path = NavigationPath(UserDefaults.standard.bool(forKey: "protoExplore") ? [ProtoMapRoute.explore] : [])
+    /// `-protoExplore YES` : variante C ouverte sur l'écran Segments ; `-SegmentDetailPrototype` : la fiche ouverte.
+    @State private var path = NavigationPath(
+        SegmentFicheProto.isActive ? [ProtoMapRoute.segment(SegmentFicheProto.startSegmentID)]
+            : UserDefaults.standard.bool(forKey: "protoExplore") ? [ProtoMapRoute.explore] : []
+    )
     @Environment(\.mapboxAccessToken) private var token
 
     var body: some View {
@@ -417,8 +424,10 @@ struct SegmentMapPrototypeView: View {
                 .id(store.variant)
                 .navigationDestination(for: ProtoMapRoute.self) { route in
                     switch route {
-                    case .segment(let id): ProtoSegmentFicheStub(store: store, id: id)
+                    case .segment(let id): ProtoSegmentFiche(store: store, fiche: fiche, id: id)
                     case .explore: ProtoExploreScreen(store: store)
+                    case .leaderboard(let id): ProtoLeaderboardScreen(store: store, fiche: fiche, id: id)
+                    case .myEfforts(let id): ProtoMyEffortsScreen(store: store, fiche: fiche, id: id)
                     }
                 }
             }
@@ -426,9 +435,12 @@ struct SegmentMapPrototypeView: View {
             placeholder("Enregistrer").tabItem { Label("Enregistrer", systemImage: "record.circle") }.tag(2)
             placeholder("Profil").tabItem { Label("Profil", systemImage: "person") }.tag(3)
         }
+        .overlay(alignment: .bottom) {
+            if SegmentFicheProto.isActive { ProtoFicheBar(fiche: fiche).padding(.bottom, 58) }
+        }
         .overlay(alignment: .top) {
             VStack(spacing: 4) {
-                ProtoMapSwitcher(current: $store.variant)
+                if !SegmentFicheProto.isActive { ProtoMapSwitcher(current: $store.variant) }
                 if let message = store.pathsMessage {
                     Text(message).font(.caption2).padding(.horizontal, 8).padding(.vertical, 3)
                         .background(.regularMaterial, in: Capsule())
@@ -436,6 +448,10 @@ struct SegmentMapPrototypeView: View {
             }
         }
         .onChange(of: store.variant) { path = NavigationPath() }
+        .sheet(isPresented: Binding(get: { fiche.paywallEntry != nil }, set: { if !$0 { fiche.paywallEntry = nil } })) {
+            ProtoPaywallSheet(fiche: fiche)
+        }
+        .alert(fiche.message ?? "", isPresented: Binding(get: { fiche.message != nil }, set: { if !$0 { fiche.message = nil } })) {}
         .task { await store.loadPaths(token: token) }
     }
 
