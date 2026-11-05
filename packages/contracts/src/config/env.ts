@@ -56,6 +56,11 @@ export const apiEnvSchema = z.object({
   // ADR-038 §4, §6: the team's contact address, shown on « Compte suspendu » and the Reply-To of
   // the e-mails to an athlete. Optional: without it the app shows no address.
   CONTACT_EMAIL: z.email().optional(),
+  // Sign in with Apple is optional: without all three, the `apple` provider is not registered
+  // and « Continuer avec Apple » signs nobody in (no Apple developer credentials today).
+  APPLE_CLIENT_ID: z.string().min(1).optional(),
+  APPLE_CLIENT_SECRET: z.string().min(1).optional(),
+  APPLE_APP_BUNDLE_ID: z.string().min(1).optional(),
 });
 export type ApiEnv = z.infer<typeof apiEnvSchema>;
 

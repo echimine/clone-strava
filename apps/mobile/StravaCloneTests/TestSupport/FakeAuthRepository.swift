@@ -7,6 +7,7 @@ final class FakeAuthRepository: AuthRepository, @unchecked Sendable {
     var sendSignInCodeHandler: (@Sendable (String) async throws(AuthError) -> Void)?
     var signInHandler: (@Sendable (String, String, String?) async throws(AuthError) -> AuthUser)?
     var signInWithGoogleHandler: (@Sendable (String) async throws(AuthError) -> AuthUser)?
+    var signInWithAppleHandler: (@Sendable (String) async throws(AuthError) -> AuthUser)?
     var signOutHandler: (@Sendable () async -> Void)?
     var currentUserHandler: (@Sendable () async throws(AuthError) -> AuthUser)?
 
@@ -23,6 +24,11 @@ final class FakeAuthRepository: AuthRepository, @unchecked Sendable {
     func signInWithGoogle(idToken: String) async throws(AuthError) -> AuthUser {
         guard let signInWithGoogleHandler else { fatalError("FakeAuthRepository.signInWithGoogleHandler not set") }
         return try await signInWithGoogleHandler(idToken)
+    }
+
+    func signInWithApple(idToken: String) async throws(AuthError) -> AuthUser {
+        guard let signInWithAppleHandler else { fatalError("FakeAuthRepository.signInWithAppleHandler not set") }
+        return try await signInWithAppleHandler(idToken)
     }
 
     func signOut() async {

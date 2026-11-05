@@ -8,11 +8,13 @@ import Foundation
 actor AuthService {
     private let repository: any AuthRepository
     private let googleAuthProvider: any GoogleAuthProvider
+    private let appleAuthProvider: any AppleAuthProvider
     private(set) var currentUser: AuthUser?
 
-    init(repository: any AuthRepository, googleAuthProvider: any GoogleAuthProvider) {
+    init(repository: any AuthRepository, googleAuthProvider: any GoogleAuthProvider, appleAuthProvider: any AppleAuthProvider = UnavailableAppleAuthProvider()) {
         self.repository = repository
         self.googleAuthProvider = googleAuthProvider
+        self.appleAuthProvider = appleAuthProvider
     }
 
     /// Validates whatever session token is already in the Keychain at launch.
@@ -35,6 +37,13 @@ actor AuthService {
     func signInWithGoogle() async throws(AuthError) -> AuthUser {
         let idToken = try await googleAuthProvider.signIn()
         let user = try await repository.signInWithGoogle(idToken: idToken)
+        currentUser = user
+        return user
+    }
+
+    func signInWithApple() async throws(AuthError) -> AuthUser {
+        let idToken = try await appleAuthProvider.signIn()
+        let user = try await repository.signInWithApple(idToken: idToken)
         currentUser = user
         return user
     }

@@ -142,7 +142,8 @@ final class Di {
         )
         authService = AuthService(
             repository: APIAuthRepository(apiClient: apiClient, authSession: authSession),
-            googleAuthProvider: GIDGoogleAuthProvider()
+            googleAuthProvider: GIDGoogleAuthProvider(),
+            appleAuthProvider: ASAuthorizationAppleProvider()
         )
         localActivities = GRDBLocalActivityStore(database: database)
         activitySender = ActivitySender(

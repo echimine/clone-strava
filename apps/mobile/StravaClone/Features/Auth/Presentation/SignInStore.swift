@@ -23,6 +23,7 @@ final class SignInStore {
     private(set) var code = ""
     private(set) var isVerifyingCode = false
     private(set) var isSigningInWithGoogle = false
+    private(set) var isSigningInWithApple = false
     private(set) var codeProblem: CodeProblem?
 
     enum CodeProblem: Equatable {
@@ -37,6 +38,7 @@ final class SignInStore {
     }
 
     var canUseGoogle: Bool { !isBusy }
+    var canUseApple: Bool { !isBusy }
 
     var isCodeEntryDisabled: Bool { codeProblem == .noLongerValid }
 
@@ -117,6 +119,16 @@ final class SignInStore {
     /// « Compte suspendu »'s button: back to the screen the sign-in was tried from.
     func dismissSuspension() {
         suspension = nil
+    }
+
+    func signInWithApple() async {
+        guard canUseApple else { return }
+        isSigningInWithApple = true
+        formError = nil
+        defer { isSigningInWithApple = false }
+        do throws(AuthError) { onSignedIn(try await service.signInWithApple(), .apple) }
+        catch .appleSignInCancelled { }
+        catch { formError = FormError(error) }
     }
 
     /// The code screen's back chevron: back to the address, to correct it.
@@ -233,7 +245,7 @@ final class SignInStore {
         stopCountdown()
     }
 
-    private var isBusy: Bool { isSendingCode || isVerifyingCode || isSigningInWithGoogle }
+    private var isBusy: Bool { isSendingCode || isVerifyingCode || isSigningInWithGoogle || isSigningInWithApple }
 
     private var trimmedEmail: String {
         email.trimmingCharacters(in: .whitespacesAndNewlines)
