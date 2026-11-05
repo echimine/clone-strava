@@ -11,6 +11,8 @@ import { ActivityMatchingRepository } from "./repositories/activity-matching.rep
 import { EffortRecorder } from "./services/effort-recorder.js";
 import { ActivityEffortRepository } from "./repositories/activity-effort.repository.js";
 import { EffortResultsRepository } from "./repositories/effort-results.repository.js";
+import { SegmentMapRepository } from "./repositories/segment-map.repository.js";
+import { SegmentFavoriteRepository } from "./repositories/segment-favorite.repository.js";
 import { SegmentsService } from "./segments.service.js";
 
 /**
@@ -25,6 +27,8 @@ import { SegmentsService } from "./segments.service.js";
   providers: [
     SegmentRepository,
     SegmentEffortRepository,
+    SegmentMapRepository,
+    SegmentFavoriteRepository,
     ActivityEffortRepository,
     ActivityMatchingRepository,
     EffortResultsRepository,

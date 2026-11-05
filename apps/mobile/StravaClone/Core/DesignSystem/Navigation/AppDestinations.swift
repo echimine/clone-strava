@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// A Segment's sheet (ADR-039 §15), pushed from the Map, Plus › « Segments » and « Résultats ».
+/// Opening of a Segment's sheet (ADR-039 §15): pushed from the Map's carousel, Plus ›
+/// « Segments » and an Activity's « Résultats ».
 struct SegmentRequest: Hashable {
     let segmentID: String
 }

@@ -2,6 +2,7 @@ export { SegmentsModule } from "./segments.module.js";
 export { SegmentsService, RECONCILE_SEGMENT_MATCHING_BATCH } from "./segments.service.js";
 export type { ActivityEffortRecord } from "./domain/activity-effort.js";
 export type { ActivitySegmentResults, EffortMedalCount, EffortResult } from "./domain/effort-result.js";
+export type { MapSegmentRecord, MapSegmentSearch } from "./repositories/segment-map.repository.js";
 // Pure matching, reused to create Segments and by the Nervo generator (ADR-039 §5, §10).
 export {
   isSameSegment,

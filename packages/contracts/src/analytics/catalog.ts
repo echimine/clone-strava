@@ -156,6 +156,8 @@ export const APP_ANALYTICS_EVENTS = {
   ATHLETE_UNBLOCKED: "athlete_unblocked",
   /** « Retirer ce temps de mes meilleurs efforts » went through (ADR-039 §16). */
   BEST_EFFORT_REMOVED: "best_effort_removed",
+  /** A Segment starred (ADR-039 §16), without its id. */
+  SEGMENT_FAVORITED: "segment_favorited",
 } as const;
 export type AppAnalyticsEventName = (typeof APP_ANALYTICS_EVENTS)[keyof typeof APP_ANALYTICS_EVENTS];
 
@@ -233,6 +235,9 @@ export type AthleteUnblockedProperties = z.infer<typeof athleteUnblockedProperti
 /** `best_effort_removed`: the Best effort's distance in meters (21,097.5 for the half marathon). */
 export const bestEffortRemovedPropertiesSchema = z.object({ distance: z.number().positive() });
 export type BestEffortRemovedProperties = z.infer<typeof bestEffortRemovedPropertiesSchema>;
+/** `segment_favorited`: no property. */
+export const segmentFavoritedPropertiesSchema = z.object({});
+export type SegmentFavoritedProperties = z.infer<typeof segmentFavoritedPropertiesSchema>;
 
 /** Payload schema for a given app event, keyed by its name. */
 export const appAnalyticsEventPropertiesSchemas = {
@@ -248,4 +253,5 @@ export const appAnalyticsEventPropertiesSchemas = {
   [APP_ANALYTICS_EVENTS.ATHLETE_BLOCKED]: athleteBlockedPropertiesSchema,
   [APP_ANALYTICS_EVENTS.ATHLETE_UNBLOCKED]: athleteUnblockedPropertiesSchema,
   [APP_ANALYTICS_EVENTS.BEST_EFFORT_REMOVED]: bestEffortRemovedPropertiesSchema,
+  [APP_ANALYTICS_EVENTS.SEGMENT_FAVORITED]: segmentFavoritedPropertiesSchema,
 } as const satisfies Record<AppAnalyticsEventName, z.ZodType>;

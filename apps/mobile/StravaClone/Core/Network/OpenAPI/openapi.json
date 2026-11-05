@@ -1971,6 +1971,106 @@
         ]
       }
     },
+    "/v1/segments/{id}/favorite": {
+      "put": {
+        "operationId": "SegmentCreationController_favorite",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Starred"
+          }
+        },
+        "tags": [
+          "SegmentCreation"
+        ]
+      },
+      "delete": {
+        "operationId": "SegmentCreationController_unfavorite",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Unstarred"
+          }
+        },
+        "tags": [
+          "SegmentCreation"
+        ]
+      }
+    },
+    "/v1/segments": {
+      "get": {
+        "operationId": "SegmentMapController_list",
+        "parameters": [
+          {
+            "name": "bbox",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "maxLength": 200,
+              "type": "string"
+            }
+          },
+          {
+            "name": "sport",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "run",
+                "ride",
+                "walk",
+                "hike"
+              ]
+            }
+          },
+          {
+            "name": "favorites",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListMapSegmentsResponseDto_Output"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "zone_too_large"
+          }
+        },
+        "tags": [
+          "SegmentMap"
+        ]
+      }
+    },
     "/v1/realtime/token": {
       "post": {
         "operationId": "RealtimeTokenController_issueToken",
@@ -6943,6 +7043,106 @@
         "required": [
           "name"
         ]
+      },
+      "ListMapSegmentsResponseDto_Output": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "sportTypeCode": {
+                  "type": "string",
+                  "enum": [
+                    "run",
+                    "ride",
+                    "walk",
+                    "hike"
+                  ]
+                },
+                "name": {
+                  "type": "string"
+                },
+                "verified": {
+                  "type": "boolean"
+                },
+                "starred": {
+                  "type": "boolean"
+                },
+                "distanceM": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "averageGradePct": {
+                  "type": "number"
+                },
+                "climbCategory": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "enum": [
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "hc",
+                    null
+                  ]
+                },
+                "athleteCount": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "myBestTimeS": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "leaderTimeS": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "mapPolyline": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "sportTypeCode",
+                "name",
+                "verified",
+                "starred",
+                "distanceM",
+                "averageGradePct",
+                "climbCategory",
+                "athleteCount",
+                "myBestTimeS",
+                "leaderTimeS",
+                "mapPolyline"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
       },
       "RealtimeGrantRequestDto": {
         "type": "object",

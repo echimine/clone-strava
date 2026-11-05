@@ -1,4 +1,5 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
+import { SegmentFavoriteRepository } from "./repositories/segment-favorite.repository.js";
 import type { MatchSegmentHistoryJob, MatchSegmentsJob, ReplaySegmentMedalsJob } from "@repo/contracts";
 import { MatchSegmentsUseCase } from "./use-cases/match-segments.use-case.js";
 import { MatchSegmentHistoryUseCase } from "./use-cases/match-segment-history.use-case.js";
@@ -10,6 +11,16 @@ import type { ActivitySegmentResults, EffortMedalCount } from "./domain/effort-r
 import { EffortResultsRepository } from "./repositories/effort-results.repository.js";
 import { SEGMENT_MATCHING_VERSION } from "./domain/match-segment.js";
 import { SEGMENT_SPORTS } from "./domain/segment-sports.js";
+import type { ViewerExclusions } from "../infrastructure/index.js";
+import {
+  SegmentMapRepository,
+  type MapSegmentRecord,
+  type MapSegmentSearch,
+} from "./repositories/segment-map.repository.js";
+
+function segmentNotFound(): NotFoundException {
+  return new NotFoundException({ code: "segment_not_found", message: "Segment not found" });
+}
 
 /** ADR-039 §13: Activities the sweep enqueues at most per run. */
 export const RECONCILE_SEGMENT_MATCHING_BATCH = 100;
@@ -27,7 +38,32 @@ export class SegmentsService {
     private readonly matchings: ActivityMatchingRepository,
     private readonly recorder: EffortRecorder,
     private readonly effortResults: EffortResultsRepository,
+    private readonly mapSegments: SegmentMapRepository,
+    private readonly favorites: SegmentFavoriteRepository,
   ) {}
+
+  /** Stars a Segment (ADR-039 §5), idempotent; `404 segment_not_found`. */
+  async favorite(userId: string, segmentId: string): Promise<void> {
+    if (!(await this.favorites.add(userId, segmentId))) {
+      throw segmentNotFound();
+    }
+  }
+
+  /** Unstars a Segment, idempotent; `404 segment_not_found`. */
+  async unfavorite(userId: string, segmentId: string): Promise<void> {
+    if (!(await this.favorites.remove(userId, segmentId))) {
+      throw segmentNotFound();
+    }
+  }
+
+  /**
+   * The Segments of a zone of the Map tab (ADR-039 §12), the most athletes first. `apps/api`
+   * passes the viewer filter: it only hides blocked and banned athletes from `leaderTimeS`, never
+   * from the counters (§8).
+   */
+  findOnMap(search: MapSegmentSearch, exclusions: ViewerExclusions): Promise<MapSegmentRecord[]> {
+    return this.mapSegments.search(search, exclusions);
+  }
 
   /** Called by `apps/worker`'s `match-segments` processor (ADR-011 §1, ADR-039 §6). */
   matchSegments(job: MatchSegmentsJob): Promise<void> {
