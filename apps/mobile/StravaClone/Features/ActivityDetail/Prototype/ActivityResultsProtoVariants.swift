@@ -64,7 +64,10 @@ struct ProtoResultsVariantA: View {
         if !state.isEmpty {
             let items = ProtoResultItem.ranked(state)
             ProtoCard {
-                Label("Résultats", systemImage: "trophy.fill").font(.headline)
+                HStack(spacing: 6) {
+                    Image(systemName: "trophy.fill").foregroundStyle(LinearGradient(colors: ProtoMedal.gradients[0], startPoint: .top, endPoint: .bottom))
+                    Text("Résultats").font(.headline)
+                }
                 ProtoCounters(state: state)
                 Divider()
                 if state.isMatching { ProtoMatchingRow() }
@@ -153,7 +156,7 @@ struct ProtoResultsBRecords: View {
                         Text("Distance").frame(width: 80, alignment: .leading)
                         Text("Temps").frame(width: 80, alignment: .leading)
                         Spacer()
-                        Text("Médaille")
+                        Text("Trophée")
                     }
                     .font(.caption).foregroundStyle(.secondary)
                     ForEach(state.records) { record in
@@ -189,7 +192,7 @@ struct ProtoResultsCTabs: View {
         if !state.isEmpty {
             Picker("Vue", selection: $state.tab) {
                 Text("Aperçu").tag(0)
-                Text("Résultats · \(state.medalCount) 🏅").tag(1)
+                Text("Résultats · \(state.medalCount) 🏆").tag(1)
             }
             .pickerStyle(.segmented)
             .padding(.horizontal, Theme.spacing)
@@ -202,10 +205,10 @@ struct ProtoResultsCList: View {
     @State private var filter = "Tout"
 
     var body: some View {
-        let filters = state.sport == .ride ? ["Tout", "Médailles", "Segments", "Records"] : ["Tout", "Médailles"]
+        let filters = state.sport == .ride ? ["Tout", "Trophées", "Segments", "Records"] : ["Tout", "Trophées"]
         let items = ProtoResultItem.ranked(state).filter { item in
             switch filter {
-            case "Médailles": item.medal != nil
+            case "Trophées": item.medal != nil
             case "Segments": item.isSegment
             case "Records": !item.isSegment
             default: true

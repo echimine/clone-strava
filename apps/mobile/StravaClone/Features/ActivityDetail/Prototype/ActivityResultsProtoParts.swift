@@ -101,7 +101,7 @@ struct ProtoResultsMap: View {
 
 enum ProtoMedalColor {
     static func color(_ place: Int) -> Color {
-        [Color(red: 0.93, green: 0.73, blue: 0.13), Color(white: 0.66), Color(red: 0.78, green: 0.5, blue: 0.26)][place - 1]
+        ProtoMedal.gradients[place - 1][1]
     }
 }
 
@@ -113,7 +113,9 @@ struct ProtoMedalSlot: View {
     var size: CGFloat = 26
     var body: some View {
         if let medal { ProtoMedal(place: medal, size: size) } else {
-            Circle().stroke(Color(.systemGray4), lineWidth: 1.5).frame(width: size, height: size)
+            Image(systemName: "trophy").font(.system(size: size * 0.5)).foregroundStyle(Color(.systemGray3))
+                .frame(width: size, height: size)
+                .overlay(Circle().stroke(Color(.systemGray5), lineWidth: 1.5))
         }
     }
 }
@@ -251,7 +253,7 @@ struct ProtoCounters: View {
 
     var body: some View {
         HStack(spacing: tiles ? 8 : 0) {
-            counter("\(state.medalCount)", "Médailles", "medal.fill")
+            counter("\(state.medalCount)", "Trophées", "trophy.fill")
             if state.sport == .ride {
                 if !tiles { Divider().frame(height: 32) }
                 counter(state.isMatching ? "…" : "\(state.segments.count)", "Segments", "point.topleft.down.to.point.bottomright.curvepath")

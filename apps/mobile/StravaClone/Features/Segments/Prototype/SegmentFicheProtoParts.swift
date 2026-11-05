@@ -120,15 +120,24 @@ struct ProtoMedal: View {
     let place: Int
     var size: CGFloat = 22
 
-    private static let colors = [Color(red: 0.93, green: 0.73, blue: 0.13), Color(white: 0.66), Color(red: 0.78, green: 0.5, blue: 0.26)]
+    /// Or, argent, bronze métallisés (clair en haut, foncé en bas), comme les trophées de Strava.
+    static let gradients: [[Color]] = [
+        [Color(red: 1.0, green: 0.86, blue: 0.35), Color(red: 0.85, green: 0.62, blue: 0.0)],
+        [Color(red: 0.93, green: 0.93, blue: 0.95), Color(red: 0.6, green: 0.62, blue: 0.66)],
+        [Color(red: 0.95, green: 0.68, blue: 0.45), Color(red: 0.63, green: 0.36, blue: 0.16)],
+    ]
 
     var body: some View {
         ZStack {
-            Circle().fill(Self.colors[place - 1])
-            Text("\(place)").font(.system(size: size * 0.55, weight: .bold)).foregroundStyle(.white)
+            Circle().fill(LinearGradient(colors: Self.gradients[place - 1], startPoint: .top, endPoint: .bottom))
+            Circle().strokeBorder(.white.opacity(0.55), lineWidth: max(1, size * 0.05))
+            Image(systemName: "trophy.fill")
+                .font(.system(size: size * 0.5, weight: .bold))
+                .foregroundStyle(.white)
+                .shadow(color: .black.opacity(0.25), radius: 0.5, y: 0.5)
         }
         .frame(width: size, height: size)
-        .accessibilityLabel(["Médaille d'or", "Médaille d'argent", "Médaille de bronze"][place - 1])
+        .accessibilityLabel(["Trophée d'or", "Trophée d'argent", "Trophée de bronze"][place - 1])
     }
 }
 
