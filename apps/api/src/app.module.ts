@@ -18,6 +18,7 @@ import { AthletesModule } from "./athletes/athletes.module.js";
 import { AuthModule } from "./auth/auth.module.js";
 import { BlocksModule } from "./blocks/blocks.module.js";
 import { ReportsModule } from "./reports/reports.module.js";
+import { SegmentsModule } from "./segments/segments.module.js";
 import { FeedModule } from "./feed/feed.module.js";
 import { FollowsModule } from "./follows/follows.module.js";
 import { AppBullModule } from "./bull/bull.module.js";
@@ -90,6 +91,7 @@ const config = loadConfig();
     ActivitiesModule,
     AthleteStatsModule,
     ItinerariesModule,
+    SegmentsModule,
     RealtimeTokenModule,
     WebhooksModule,
     AdminModule,

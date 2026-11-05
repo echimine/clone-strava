@@ -11,6 +11,9 @@ import { ActivityMatchingRepository } from "./repositories/activity-matching.rep
 import { EffortRecorder } from "./services/effort-recorder.js";
 import { ActivityEffortRepository } from "./repositories/activity-effort.repository.js";
 import { SegmentsService } from "./segments.service.js";
+import { ExcludedSourceKeyRepository } from "./repositories/excluded-source-key.repository.js";
+import { ImportNervoSegmentsUseCase } from "./use-cases/import-nervo-segments.use-case.js";
+import { DeleteSegmentAsAdministratorUseCase } from "./use-cases/delete-segment-as-administrator.use-case.js";
 
 /**
  * `segments` module (ADR-021 §1/§2: layer 3, may depend on `activities`,
@@ -29,6 +32,9 @@ import { SegmentsService } from "./segments.service.js";
     EffortRecorder,
     MatchSegmentsUseCase,
     MatchSegmentHistoryUseCase,
+    ExcludedSourceKeyRepository,
+    ImportNervoSegmentsUseCase,
+    DeleteSegmentAsAdministratorUseCase,
     SegmentsService,
   ],
   exports: [SegmentsService],

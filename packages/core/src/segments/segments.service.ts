@@ -8,6 +8,11 @@ import { EffortRecorder } from "./services/effort-recorder.js";
 import type { ActivityEffortRecord } from "./domain/activity-effort.js";
 import { SEGMENT_MATCHING_VERSION } from "./domain/match-segment.js";
 import { SEGMENT_SPORTS } from "./domain/segment-sports.js";
+import {
+  ImportNervoSegmentsUseCase,
+  type NervoImportReport,
+} from "./use-cases/import-nervo-segments.use-case.js";
+import { DeleteSegmentAsAdministratorUseCase } from "./use-cases/delete-segment-as-administrator.use-case.js";
 
 /** ADR-039 §13: Activities the sweep enqueues at most per run. */
 export const RECONCILE_SEGMENT_MATCHING_BATCH = 100;
@@ -24,6 +29,8 @@ export class SegmentsService {
     private readonly activityEfforts: ActivityEffortRepository,
     private readonly matchings: ActivityMatchingRepository,
     private readonly recorder: EffortRecorder,
+    private readonly importNervoSegmentsUseCase: ImportNervoSegmentsUseCase,
+    private readonly deleteSegmentAsAdministratorUseCase: DeleteSegmentAsAdministratorUseCase,
   ) {}
 
   /** Called by `apps/worker`'s `match-segments` processor (ADR-011 §1, ADR-039 §6). */
@@ -58,5 +65,21 @@ export class SegmentsService {
   /** An Activity's efforts on Segments, read-only in the backoffice (ADR-038 §11). */
   getActivityEfforts(activityId: string): Promise<ActivityEffortRecord[]> {
     return this.activityEfforts.findByActivityId(activityId);
+  }
+
+  /**
+   * `pnpm segments:import` (ADR-039 §10): the generator's NDJSON lines, idempotent on
+   * `source_key`, then the per-Activity replay of `match-segments` at low priority (§7).
+   */
+  importNervoSegments(lines: AsyncIterable<string> | Iterable<string>): Promise<NervoImportReport> {
+    return this.importNervoSegmentsUseCase.execute(lines);
+  }
+
+  /**
+   * Deletes a Segment for good on an Administrator's decision (ADR-039 §10, §11; screen in #219);
+   * a Nervo Segment's source key is excluded from every later import.
+   */
+  deleteSegmentAsAdministrator(segmentId: string): Promise<{ deleted: boolean; excludedSourceKey: string | null }> {
+    return this.deleteSegmentAsAdministratorUseCase.execute(segmentId);
   }
 }
