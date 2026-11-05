@@ -61,9 +61,11 @@ struct OnboardingSportTile: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Image(systemName: ActivityFormatters.sportSymbol(sport))
+                        .accessibilityHidden(true)
                         .font(.title2)
                     Spacer()
                     Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                        .accessibilityHidden(true)
                         .font(.title3)
                         .foregroundStyle(isSelected ? Color(.systemBackground) : Color(.systemGray3))
                         .contentTransition(.symbolEffect(.replace))

@@ -82,6 +82,9 @@ struct OnboardingPersonalizing: View {
         .sensoryFeedback(.impact(weight: .light), trigger: checked)
         .sensoryFeedback(.success, trigger: isReady)
         .task { await play() }
+        .onChange(of: isReady) { _, ready in
+            if ready { AccessibilityNotification.Announcement(title).post() }
+        }
     }
 
     private var createAccountButton: some View {
@@ -128,6 +131,7 @@ struct OnboardingPersonalizing: View {
                         .font(.callout.weight(.medium))
                         .foregroundStyle(.white)
                         .opacity(index < checked ? 1 : 0.55)
+                        .accessibilityValue(index < checked ? "Terminé" : "En cours")
                 }
             }
         }

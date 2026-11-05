@@ -20,6 +20,9 @@ struct RecordingPreStartView: View {
         AppMap(viewport: $viewport, bottomInset: 190) {
             ItineraryTrackLine(track: itineraryTrack)
         }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Carte de ta position")
+            .accessibilityValue(itineraryTrack.count >= 2 ? "Itinéraire choisi affiché" : "")
             .overlay(alignment: .top) {
                 HStack {
                     RecordingGPSStatus()
@@ -68,6 +71,7 @@ struct RecordingPreStartView: View {
                     .font(.footnote)
                     .multilineTextAlignment(.center)
                 Button("Ouvrir Réglages", action: permission.openSettings)
+                    .accessibilityHint("Ouvre les réglages pour autoriser la position")
                     .font(.headline)
                     .frame(maxWidth: .infinity, minHeight: 56)
                     .background(Color(.secondarySystemFill), in: Capsule())
@@ -84,6 +88,7 @@ struct RecordingPreStartView: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(store.isBusy)
+                .accessibilityLabel("Démarrer l'enregistrement")
                 .accessibilityIdentifier("recordingStartButton")
             }
         }
@@ -109,11 +114,14 @@ struct RecordingPreStartView: View {
                 .background(Color(.secondarySystemFill), in: Capsule())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Sport")
+        .accessibilityValue(RecordingFormatters.sportLabel(store.sport))
+        .accessibilityHint("Choisir un sport")
         .accessibilityIdentifier("recordingSportChip")
     }
 
     /// "Aucun" by default; every cached Itinerary, newest first; one without its track on the
-    /// phone is listed but not selectable; none at all offers "Créer un Itinéraire".
+    /// phone is listed but not selectable; "Créer un Itinéraire" is always offered last.
     private var itineraryPicker: some View {
         Menu {
             Button {
@@ -124,9 +132,6 @@ struct RecordingPreStartView: View {
                 } else {
                     Text(RecordingMessages.noItinerary)
                 }
-            }
-            if store.itineraries.isEmpty {
-                Button(RecordingMessages.createItinerary, systemImage: "plus", action: onCreateItinerary)
             }
             ForEach(store.itineraries) { listing in
                 Button {
@@ -141,6 +146,7 @@ struct RecordingPreStartView: View {
                 }
                 .disabled(!listing.hasTrack)
             }
+            Button(RecordingMessages.createItinerary, systemImage: "plus", action: onCreateItinerary)
         } label: {
             Label(store.chosenItinerary?.name ?? RecordingMessages.noItinerary, systemImage: "point.topleft.down.to.point.bottomright.curvepath")
                 .font(.subheadline.weight(.semibold))
@@ -150,6 +156,9 @@ struct RecordingPreStartView: View {
                 .background(Color(.secondarySystemFill), in: Capsule())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Itinéraire")
+        .accessibilityValue(store.chosenItinerary?.name ?? RecordingMessages.noItinerary)
+        .accessibilityHint("Choisir un itinéraire à suivre")
         .accessibilityIdentifier("recordingItineraryChip")
     }
 }

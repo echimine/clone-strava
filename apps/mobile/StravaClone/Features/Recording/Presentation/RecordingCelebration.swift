@@ -39,8 +39,12 @@ struct RecordingCelebration<Background: View>: View {
         }
         .contentShape(Rectangle())
         .onTapGesture { finish(skipped: true) }
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isButton)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Félicitations, activité terminée")
+        .accessibilityValue(
+            FinishStatsCountUp.items(stats, progress: 1).map { "\($0.label) : \($0.spokenValue)" }.joined(separator: ", ")
+        )
+        .accessibilityAddTraits([.isButton, .isModal])
         .accessibilityHint("Touchez pour passer")
         .accessibilityIdentifier("recordingCelebration")
         // The form is usable as soon as it appears.

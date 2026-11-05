@@ -19,6 +19,10 @@ export interface AuthModuleOptions {
   trustedOrigins: string[];
   googleClientId: string;
   googleClientSecret: string;
+  /** Sign in with Apple is registered only when the client id and secret are both set. */
+  appleClientId?: string;
+  appleClientSecret?: string;
+  appleAppBundleIdentifier?: string;
   resendApiKey: string;
   /**
    * Keeps `POST /api/auth/sign-up/email` open. Password sign-up is closed

@@ -54,6 +54,7 @@ struct MediaUploadOverlay: View {
                 Color.black.opacity(0.25)
                 ProgressView().tint(.white)
             }
+            .accessibilityElement()
             .accessibilityLabel(MediaUploadMessages.preparing)
             .allowsHitTesting(false)
         case .sending(let progress):

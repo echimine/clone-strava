@@ -23,6 +23,7 @@ struct ProfileProgressTab: View {
         switch store.phase {
         case .idle, .loading where store.progress == nil:
             ProgressView()
+                .accessibilityLabel("Chargement")
                 .frame(maxWidth: .infinity)
                 .padding(.top, 40)
         case .empty:
@@ -110,6 +111,7 @@ private struct ProgressCard<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title).font(.headline)
+                .accessibilityAddTraits(.isHeader)
             content()
         }
         .padding(Theme.spacing)
@@ -188,6 +190,7 @@ private struct StreakCard: View {
                             .frame(maxWidth: .infinity)
                     }
                 }
+                .accessibilityHidden(true)
                 ForEach(month.weeks.indices, id: \.self) { row in
                     GridRow {
                         ForEach(0..<7, id: \.self) { column in
@@ -221,6 +224,25 @@ private struct DayCell: View {
         }
         .frame(width: 32, height: 32)
         .frame(maxWidth: .infinity)
-        .accessibilityHidden(cell == nil)
+        .modifier(DayCellAccessibility(cell: cell))
+    }
+}
+
+/// A day of the Série calendar: its number, "actif" when an Activity was done, "aujourd'hui".
+private struct DayCellAccessibility: ViewModifier {
+    let cell: StreakMonth.Cell?
+
+    func body(content: Content) -> some View {
+        if let cell {
+            content
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("\(cell.day)")
+                .accessibilityValue([
+                    cell.isActive ? "actif" : "inactif",
+                    cell.isToday ? "aujourd'hui" : nil,
+                ].compactMap { $0 }.joined(separator: ", "))
+        } else {
+            content.accessibilityHidden(true)
+        }
     }
 }

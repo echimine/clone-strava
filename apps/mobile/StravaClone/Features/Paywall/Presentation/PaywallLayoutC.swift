@@ -25,6 +25,7 @@ struct PaywallLayoutC: View {
                     .tracking(-0.4)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityAddTraits(.isHeader)
                 Text("Classements complets, itinéraires sur mesure, analyse de vos progrès et plus encore.")
                     .font(.callout)
                     .foregroundStyle(.secondary)

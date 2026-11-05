@@ -28,7 +28,7 @@ struct RecordingView: View {
     private var content: some View {
         switch store.screen {
         case .loading:
-            ProgressView()
+            ProgressView().accessibilityLabel("Chargement")
         case .preStart:
             RecordingPreStartView(store: store, onCreateItinerary: onCreateItinerary)
         case .recording, .finishing:
@@ -73,7 +73,13 @@ struct RecordingGPSChip: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .glassBackground(in: Capsule())
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Signal GPS")
+            .accessibilityValue(text)
             .accessibilityIdentifier("recordingGPSIndicator")
+            .onChange(of: indicator) { _, _ in
+                AccessibilityNotification.Announcement(text).post()
+            }
     }
 
     private var text: String {

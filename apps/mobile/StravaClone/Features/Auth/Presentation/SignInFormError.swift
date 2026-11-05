@@ -10,7 +10,7 @@ extension SignInStore {
         /// shown verbatim rather than folded into a generic "something went wrong".
         case message(String)
         /// Nothing more precise to say: an empty server message, or an error the store handles
-        /// before it gets here (refused code, cancelled Google sheet, no session, suspended account).
+        /// before it gets here (refused code, cancelled Google or Apple sheet, no session, suspended account).
         case unexpected
 
         init(_ error: AuthError) {
@@ -20,8 +20,9 @@ extension SignInStore {
             case .network(.offline): self = .offline
             case .network(let apiError): self = .message(FormError.describe(apiError))
             case .googleSignInFailed(let message): self = .message("Google : \(message)")
+            case .appleSignInFailed(let message): self = .message("Apple : \(message)")
             case .notSignedIn, .invalidCode, .codeExpired, .tooManyAttempts, .googleSignInCancelled,
-                 .accountSuspended:
+                 .appleSignInCancelled, .accountSuspended:
                 self = .unexpected
             }
         }

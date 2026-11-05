@@ -11,6 +11,9 @@ name: StravaClone
 
 options:
   bundleIdPrefix: fr.echimine
+  # The UI is written in French: VoiceOver picks its voice from the app's declared language,
+  # so with `en` it read every French text with an English voice.
+  developmentLanguage: fr
   deploymentTarget:
     iOS: "17.0"
   createIntermediateGroups: true
@@ -78,6 +81,7 @@ targets:
       path: StravaClone/Info.plist
       properties:
         CFBundleDisplayName: Nervo
+        CFBundleLocalizations: [fr]
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         # Plain #FC5200, identical to the first frame of the animated splash (ADR-032 §4).

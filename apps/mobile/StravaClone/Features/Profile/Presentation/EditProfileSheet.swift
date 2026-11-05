@@ -60,12 +60,16 @@ struct EditProfileSheet: View {
             editor: store.avatar,
             entry: .editProfile
         )
+        .onChange(of: error) { _, message in
+            if let message { AccessibilityNotification.Announcement(message).post() }
+        }
     }
 
     @ViewBuilder private var content: some View {
         switch loaded {
         case nil:
             ProgressView()
+                .accessibilityLabel("Chargement")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .failure(let failure):
             ContentUnavailableView {
@@ -208,6 +212,8 @@ private struct EditProfileTopBar: View {
                 .opacity(canSave || isSaving ? 1 : 0.35)
             }
             .disabled(!canSave)
+            .accessibilityLabel(ProfileMessages.save)
+            .accessibilityValue(isSaving ? "En cours" : "")
             .accessibilityIdentifier("editProfile.save")
         }
         .overlay {

@@ -26,6 +26,7 @@ struct ActivityCardHeader: View {
                         .foregroundStyle(.secondary)
                     HStack(spacing: 4) {
                         Image(systemName: ActivityFormatters.sportSymbol(post.sport))
+                            .accessibilityHidden(true)
                         Text(subtitle).lineLimit(1)
                     }
                     .font(.footnote)

@@ -11,15 +11,20 @@ struct ImportStatusBanner: View {
             icon
                 .font(.title3)
                 .frame(width: 28)
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.subheadline.weight(.semibold))
-                if let detail {
-                    Text(detail).font(.footnote).foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(.subheadline.weight(.semibold))
+                    if let detail {
+                        Text(detail).font(.footnote).foregroundStyle(.secondary)
+                    }
                 }
+                .accessibilityElement(children: .combine)
                 if case .failed(_, true) = banner {
                     Button("Choisir le sport", action: onPickSport)
                         .font(.footnote.weight(.semibold))
                         .padding(.top, 2)
+                        .accessibilityHint("Choisissez le sport pour relancer l'import")
                         .accessibilityIdentifier("import.pickSport")
                 }
             }
@@ -32,6 +37,7 @@ struct ImportStatusBanner: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Fermer")
+                .accessibilityHint("Masque le message d'import")
             }
         }
         .padding(14)
@@ -39,6 +45,16 @@ struct ImportStatusBanner: View {
         .padding(.horizontal, Theme.spacing)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("import.banner")
+        .onAppear { announce() }
+        .onChange(of: spokenStatus) { announce() }
+    }
+
+    private var spokenStatus: String {
+        [title, detail].compactMap { $0 }.joined(separator: ". ")
+    }
+
+    private func announce() {
+        AccessibilityNotification.Announcement(spokenStatus).post()
     }
 
     private var isFinished: Bool {

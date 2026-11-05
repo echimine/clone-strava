@@ -18,6 +18,7 @@ struct ProfileIdentity: View {
                 Text(athlete.displayName)
                     .font(.title2.weight(.bold))
                     .lineLimit(2)
+                    .accessibilityAddTraits(.isHeader)
                     .accessibilityIdentifier(nameIdentifier)
                 Text(activityCount)
                     .font(.body)
@@ -88,6 +89,7 @@ struct ProfileMenuRow: View {
             Image(systemName: systemImage)
                 .font(.title2)
                 .frame(width: 32)
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.body)
                 if let subtitle {
@@ -102,6 +104,7 @@ struct ProfileMenuRow: View {
                 Image(systemName: "chevron.right")
                     .font(.body)
                     .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
             }
         }
         .foregroundStyle(.primary)

@@ -9,6 +9,22 @@ enum AthletesMessages {
     static let following = "Abonné"
     static let unfollow = "Se désabonner"
     static let cancelRequestHint = "Annule la demande"
+    static func followLabel(_ name: String) -> String { "Suivre \(name)" }
+    static func requestSentLabel(_ name: String) -> String { "Demande envoyée à \(name)" }
+    static func followingLabel(_ name: String) -> String { "Abonné à \(name)" }
+    static func unfollowLabel(_ name: String) -> String { "Se désabonner de \(name)" }
+    static func acceptLabel(_ name: String) -> String { "Accepter la demande de \(name)" }
+    static func refuseLabel(_ name: String) -> String { "Refuser la demande de \(name)" }
+    /// Spoken once a follow change is confirmed.
+    static func announcement(for status: FollowStatus) -> String {
+        switch status {
+        case .none: "Désabonné"
+        case .pending: requestSent
+        case .accepted: following
+        }
+    }
+    static let followListPicker = "Liste"
+    static func removeLabel(_ name: String) -> String { "Retirer \(name) de vos abonnés" }
     static let followFailed = "L'abonnement n'a pas abouti, réessayez."
     static let unfollowFailed = "Le désabonnement n'a pas abouti, réessayez."
     static let cancelFailed = "La demande n'a pas pu être annulée, réessayez."

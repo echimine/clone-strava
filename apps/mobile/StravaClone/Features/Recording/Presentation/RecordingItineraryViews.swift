@@ -22,7 +22,11 @@ struct RecordingItineraryPanel: View {
                 .font(.footnote.weight(.medium))
                 .foregroundStyle(itinerary.state == .offTrack ? .orange : .secondary)
         }
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(item.label)
+        .accessibilityValue(
+            "\(item.spokenValue), \(Int((itinerary.progress.fraction * 100).rounded())) pour cent de l'itinéraire parcouru"
+        )
         .accessibilityIdentifier("recordingItineraryRemaining")
     }
 }

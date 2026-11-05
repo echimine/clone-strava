@@ -17,6 +17,32 @@ struct RecordingStatItem: Equatable, Identifiable {
     var caption: String {
         unit.isEmpty ? label : "\(label) (\(unit))"
     }
+
+    /// The value as VoiceOver should read it: "12 minutes 30 secondes", "5,2 kilomètres".
+    var spokenValue: String {
+        guard value.first?.isNumber == true else { return "Non disponible" }
+        let parts = value.split(separator: ":").compactMap { Int($0) }
+        switch stat {
+        case .elapsed where parts.count == 3:
+            return Self.spokenDuration(hours: parts[0], minutes: parts[1], seconds: parts[2])
+        case .averagePace where parts.count == 2:
+            return Self.spokenDuration(hours: 0, minutes: parts[0], seconds: parts[1]) + " par kilomètre"
+        case .currentSpeed, .averageSpeed:
+            return "\(value) kilomètres par heure"
+        case .distance, .itineraryRemaining:
+            return "\(value) \(value == "1" || value == "1,00" ? "kilomètre" : "kilomètres")"
+        default:
+            return value
+        }
+    }
+
+    private static func spokenDuration(hours: Int, minutes: Int, seconds: Int) -> String {
+        var words: [String] = []
+        if hours > 0 { words.append("\(hours) \(hours > 1 ? "heures" : "heure")") }
+        if minutes > 0 { words.append("\(minutes) \(minutes > 1 ? "minutes" : "minute")") }
+        if seconds > 0 || words.isEmpty { words.append("\(seconds) \(seconds > 1 ? "secondes" : "seconde")") }
+        return words.joined(separator: " ")
+    }
 }
 
 /// French display formats of a Recording's provisional values (ADR-031 §5): "0,00 km", "h:mm:ss",

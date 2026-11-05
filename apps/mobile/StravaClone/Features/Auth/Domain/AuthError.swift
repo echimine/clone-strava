@@ -20,5 +20,7 @@ enum AuthError: Error, Equatable, Sendable {
     case server(message: String)
     case googleSignInCancelled
     case googleSignInFailed(String)
+    case appleSignInCancelled
+    case appleSignInFailed(String)
     case network(APIError)
 }

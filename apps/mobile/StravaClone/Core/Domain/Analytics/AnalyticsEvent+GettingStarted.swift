@@ -18,7 +18,7 @@ extension AnalyticsEvent {
     }
 
     enum AuthMethod: String, Sendable {
-        case google, email
+        case google, apple, email
     }
 
     /// Why a Sign-in code was refused.

@@ -33,8 +33,9 @@ We use **RevenueCat** for in-app purchases, with a **custom SwiftUI paywall**.
 - **Prices, durations and trials** come from offerings: changing them does not require a new version.
 - **Offering metadata** (JSON configurable in RevenueCat) drives the display variants coded in the app: title, highlighted selling point, recommended offer, layout variant (`"layout": "A"` or `"B"`). *Amended by [ADR-035](ADR-035-onboarding-sign-in-code-paywall.md) §6*: three layouts, `A` (Strava), `B` (AllTrails) and `C` (Duolingo with a real map, the default).
 - A paywall variant that does not yet exist in the code requires a new version.
+- *Amended 2026-11-05*: offering metadata keys are **`layout`** (`A`, `B` or `C`, default `C`) and **`recommended`** (a product id, default the yearly one). Only monthly and yearly subscriptions are shown; a free trial comes from the product's introductory offer.
 
-**Architecture (ADR-007)**: the paywall is a `Features/Paywall` feature. The RevenueCat SDK stays in `Infrastructure/`, behind a domain protocol (`SubscriptionService`: offers, purchase, restore, status). Other features only know this protocol. *Amended by [ADR-035](ADR-035-onboarding-sign-in-code-paywall.md) §6*: until RevenueCat is wired, an **unwired adapter** (hard-coded offers, `layout = C`, no purchase) is created in `Di.swift`; the protocol is `paywallOffering()`, `startTrial(offer)`, `restorePurchases()`. When offers fail to load, the Paywall is skipped without blocking the flow.
+**Architecture (ADR-007)**: the paywall is a `Features/Paywall` feature. The RevenueCat SDK stays in `Infrastructure/`, behind a domain protocol (`SubscriptionService`: offers, purchase, restore, status). Other features only know this protocol. *Amended 2026-11-05*: `RevenueCatSubscriptionService` (the only file importing `RevenueCat`) replaces the unwired adapter whenever a RevenueCat key is set, the unwired one remains for builds without a key; it also implements `SubscriberIdentity` (`logIn` / `logOut`, called by `AuthStore` next to PostHog's `identify` / `reset`), and the offering waits for the last identity change so that an Experiment enrolls our user id. A failed purchase or restore keeps the Paywall with a message. *Amended by [ADR-035](ADR-035-onboarding-sign-in-code-paywall.md) §6*: until RevenueCat is wired, an **unwired adapter** (hard-coded offers, `layout = C`, no purchase) is created in `Di.swift`; the protocol is `paywallOffering()`, `startTrial(offer)`, `restorePurchases()`. When offers fail to load, the Paywall is skipped without blocking the flow.
 
 ### Backend side
 
@@ -54,9 +55,10 @@ Tests of **prices, durations, trials and paywall variants** go through **Revenue
 
 ### Prerequisites
 
-- **Paid Apple Developer account** and "Paid Apps" agreement signed in App Store Connect: **mandatory**, including for sandbox testing. **Blocking until the account question is resolved.**
-- Subscription products created in App Store Connect, In-App Purchase API key and App Store server notifications configured to RevenueCat.
-- StoreKit configuration file in Xcode to test locally without App Store Connect early in development.
+- ~~**Paid Apple Developer account** and "Paid Apps" agreement signed in App Store Connect: **mandatory**, including for sandbox testing. **Blocking until the account question is resolved.**~~
+- ~~Subscription products created in App Store Connect, In-App Purchase API key and App Store server notifications configured to RevenueCat.~~
+- ~~StoreKit configuration file in Xcode to test locally without App Store Connect early in development.~~
+- *Amended 2026-11-05: the app will never be published and there is no Apple Developer account*: purchases run on **RevenueCat's Test Store** only. The app is configured with the Test Store's `test_` public key (`REVENUECAT_API_KEY` in `Secrets.xcconfig`), in Debug **and Release** (`forceAllowTestStoreInReleaseBuilds`, since no build ever reaches the App Store). Products, the `premium` entitlement and the offerings live in the Test Store; a purchase opens RevenueCat's test dialog (valid purchase, failed purchase, cancel) and is reported as **sandbox data**. An App Store app (`appl_` key) would only be added if the app were ever published.
 
 ## Alternatives Considered
 
@@ -79,7 +81,7 @@ Tests of **prices, durations, trials and paywall variants** go through **Revenue
 - Premium status known to the API, so premium features are protected server-side.
 
 ### Negative / Risks
-- **Apple Developer account required** before any real implementation.
+- ~~**Apple Developer account required** before any real implementation.~~ (*Amended 2026-11-05*: Test Store only, see Prerequisites.)
 - **Cost**: RevenueCat is free up to a certain tracked monthly revenue, then takes a percentage. Check the current pricing.
 - **Dependency** on a third-party service for subscription state (the App Store remains the true source).
 - **Custom paywall**: each new layout variant requires an app release.

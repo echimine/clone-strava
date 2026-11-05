@@ -2,8 +2,9 @@ import Foundation
 import Observation
 
 /// The Paywall (ADR-035 §6), shown once right after the sign-in that ends the Onboarding. It only
-/// knows the `SubscriptionService` port. Nothing is sold yet: "Démarrer l'essai" and "Passer" /
-/// "Non merci" continue the flow, and no Premium is granted.
+/// knows the `SubscriptionService` port. A purchase that goes through, or "Passer" / "Non merci",
+/// continues the flow; a cancelled one stays; a failed one stays with a message. Unwired (no
+/// RevenueCat key), "Démarrer l'essai" continues without granting Premium.
 ///
 /// It is measured, never driven, by PostHog (ADR-016, ADR-035 §8): `paywall_viewed`,
 /// `paywall_skipped`, `paywall_trial_tapped` and `paywall_dismissed`.
@@ -64,6 +65,7 @@ final class PaywallStore {
         switch outcome {
         case .subscribed, .unavailable: finish()
         case .cancelled: break
+        case .failed: message = "L'achat n'a pas abouti. Réessayez."
         }
     }
 
@@ -83,6 +85,7 @@ final class PaywallStore {
         switch outcome {
         case .restored: finish()
         case .nothingToRestore: message = "Aucun achat à restaurer."
+        case .failed: message = "Impossible de restaurer les achats. Réessayez."
         case .unavailable: message = "Restaurer les achats : non branché pour l'instant."
         }
     }

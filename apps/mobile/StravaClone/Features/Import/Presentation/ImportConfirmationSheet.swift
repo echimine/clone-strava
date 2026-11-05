@@ -42,6 +42,7 @@ struct ImportConfirmationSheet: View {
                     }
                     .accessibilityIdentifier("import.sport")
                     TextField("Titre (facultatif)", text: $title)
+                        .accessibilityLabel("Titre, facultatif")
                         .accessibilityIdentifier("import.title")
                     Picker("Visibilité", selection: $visibility) {
                         Text("Par défaut du profil").tag(ImportVisibility?.none)

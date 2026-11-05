@@ -144,6 +144,16 @@ final class ItineraryEditorStore {
         return editor.draft.legs.first(where: { $0.id == id })?.mode
     }
 
+    /// Text alternative to the map for VoiceOver: how many Waypoints and the distance so far.
+    var accessibilitySummary: String {
+        let count = editor.draft.waypoints.count
+        switch count {
+        case 0: return "Aucun point de passage"
+        case 1: return "1 point de passage"
+        default: return "\(count) points de passage, distance \(distanceText)"
+        }
+    }
+
     var canUndo: Bool {
         editor.canUndo
     }
@@ -222,6 +232,29 @@ final class ItineraryEditorStore {
 
     func dismissSelection() {
         selection = nil
+    }
+
+    /// Same as the bubble's "Supprimer", reachable without it (VoiceOver action).
+    func removeWaypoint(_ id: WaypointID) {
+        selection = nil
+        editor.removeWaypoint(id)
+    }
+
+    func removeLastWaypoint() {
+        guard let last = editor.draft.waypoints.last else { return }
+        removeWaypoint(last.id)
+    }
+
+    /// Inserts a Waypoint in the middle of a Leg without a drag (VoiceOver action).
+    func insertWaypoint(intoLeg id: LegID, at coordinate: Coordinate) {
+        selection = nil
+        editor.beginInsertion(intoLeg: id, at: coordinate)
+        editor.endDrag()
+    }
+
+    func setMode(_ mode: LegMode, ofLeg id: LegID) {
+        selection = nil
+        editor.setMode(mode, ofLeg: id)
     }
 
     func removeSelectedWaypoint() {

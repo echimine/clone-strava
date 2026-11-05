@@ -43,6 +43,7 @@ struct OnboardingQuestionsView: View {
         .onAppear(perform: focusName)
         .onChange(of: store.step) { _, step in
             if step == .name { focusName() }
+            AccessibilityNotification.LayoutChanged(nil).post()
         }
     }
 
@@ -92,7 +93,8 @@ struct OnboardingQuestionsView: View {
         }
         .animation(.easeInOut(duration: 0.35), value: index)
         .accessibilityElement()
-        .accessibilityLabel("Étape \(index + 1) sur \(OnboardingStep.questions.count)")
+        .accessibilityLabel("Progression")
+        .accessibilityValue("Étape \(index + 1) sur \(OnboardingStep.questions.count)")
     }
 
     private func goForward() {
@@ -246,10 +248,11 @@ struct OnboardingQuestionsView: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Date de naissance")
             .accessibilityValue(store.answers.birthDate.map(Self.longDate) ?? "Aucune")
+            .accessibilityHint(showsWheel ? "Referme le sélecteur de date" : "Ouvre le sélecteur de date")
             .accessibilityIdentifier("onboarding.birthDate")
 
             if showsWheel {
-                DatePicker("", selection: birthDate, in: ...Date.now, displayedComponents: .date)
+                DatePicker("Date de naissance", selection: birthDate, in: ...Date.now, displayedComponents: .date)
                     .datePickerStyle(.wheel)
                     .labelsHidden()
                     .environment(\.locale, Locale(identifier: "fr_FR"))
@@ -264,6 +267,7 @@ struct OnboardingQuestionsView: View {
                     .foregroundStyle(.red)
                     .transition(.opacity)
                     .accessibilityIdentifier("onboarding.tooYoung")
+                    .onAppear { AccessibilityNotification.Announcement(OnboardingCopy.tooYoung).post() }
             }
             OnboardingNote(text: OnboardingCopy.birthDateMention, systemImage: "lock.fill")
         }

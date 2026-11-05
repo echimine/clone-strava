@@ -204,6 +204,7 @@ erDiagram
         geometry end_point
         float distance_m
         float avg_grade
+        uuid created_by FK "ADR-039: origin, source_key, verified_at, figures, history_matched_at"
     }
     SEGMENT_EFFORT {
         uuid id PK
@@ -212,7 +213,11 @@ erDiagram
         uuid user_id FK
         int elapsed_time_s
         timestamp started_at
-        int rank "denormalized"
+        int start_index "ADR-039: rank dropped, several Efforts per Activity"
+        int end_index
+        float min_distance_to_activity_start_m "ADR-039"
+        float min_distance_to_activity_end_m "ADR-039"
+        enum medal "gold, silver, bronze (ADR-039)"
         enum status "valid, suspicious, rejected (ADR-038)"
     }
     USER_SUBSCRIPTION {
@@ -250,9 +255,9 @@ erDiagram
 | `social` | `social` | `follow`, `follow_settings`, `athlete_block` | Slide 09 (*amended by [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md)*: `follow_settings`; *amended by [ADR-038](ADR-038-backoffice-moderation-and-account-deletion.md) §8*: `athlete_block`) |
 | `engagement` | `engagement` | `kudos`, `comment` | Slide 09 (*amended by ADR-021*: split from `social`) |
 | `sports` | `sports` | `sport_type` (reference data, populated by migration) | Slide 09 |
-| `activities` | `activities` | `activity`, `activity_stats`, `activity_track`, `activity_media`, `activity_import`, `activity_analysis` | Slide 09 (*amended by ADR-028*: `activity_import`; *amended by [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md)*: `activity_analysis`; *amended by [ADR-037](ADR-037-media-avatar-and-gallery.md)*: `activity_attachment` renamed `activity_media`) |
+| `activities` | `activities` | `activity`, `activity_stats`, `activity_track`, `activity_media`, `activity_import`, `activity_analysis`, `best_effort` | Slide 09 (*amended by [ADR-039](ADR-039-segments-and-records.md)*: `best_effort`, `activity.pool_length_m`; *amended by ADR-028*: `activity_import`; *amended by [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md)*: `activity_analysis`; *amended by [ADR-037](ADR-037-media-avatar-and-gallery.md)*: `activity_attachment` renamed `activity_media`) |
 | `itineraries` | `itineraries` | `itinerary`, `itinerary_waypoint`, `itinerary_leg` | **Addition** (*amended by [ADR-030](ADR-030-itineraries-on-ios.md)*) |
-| `segments` | `segments` | `segment`, `segment_effort` | Slide 09 |
+| `segments` | `segments` | `segment`, `segment_effort`, `segment_favorite`, `excluded_source_key`, `activity_matching` | Slide 09 (*amended by [ADR-039](ADR-039-segments-and-records.md)*: favourites, excluded Nervo keys, matching version; Segment provenance, verification and figures; `segment_effort` without `rank`) |
 | `subscriptions` | `subscriptions` | `user_subscription`, `revenuecat_event` | **Addition** (ADR-014) |
 | `audit` | `audit` | `admin_audit_entry` | **Addition** (*amended by [ADR-038](ADR-038-backoffice-moderation-and-account-deletion.md) §3, §18*) |
 | `moderation` | `moderation` | `report`, `report_case` | **Addition** (*amended by [ADR-038](ADR-038-backoffice-moderation-and-account-deletion.md) §9, §10, §18*) |
@@ -298,7 +303,8 @@ We **do not copy** products or offerings into our database:
 | `activity` | Partial on `processing_status` (excluding `processed`) | Resync of in-progress activities (ADR-008) |
 | `activity_track` | GiST on `route` and `start_point` | Spatial search, segment detection |
 | `segment` | GiST on `path` and `start_point` | Segments near a route |
-| `segment_effort` | `(segment_id, elapsed_time_s)` | Segment leaderboard |
+| `segment_effort` | `(segment_id, elapsed_time_s)` (*amended by [ADR-039](ADR-039-segments-and-records.md)*: `(segment_id, status, elapsed_time_s)` and `(user_id, segment_id, started_at)`) | Segment leaderboard, Medals |
+| `best_effort` | `(user_id, record_set, distance_m, elapsed_time_ms)` (*added by [ADR-039](ADR-039-segments-and-records.md)*) | Records and Medals |
 | `follow` | `(followee_id, status)` | A user's followers |
 | `follow` | `(follower_id, status)` (*amended by [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md)*) | Whom a user follows, following counts |
 | `comment` | Partial `(activity_id, created_at)` (`deleted_at is null`) | An activity's comments |
@@ -336,7 +342,7 @@ We **do not copy** products or offerings into our database:
 
 ### Negative / Risks
 - **Better Auth columns**: the exact schema depends on the Better Auth version and plugins; to be generated and then integrated into `packages/db`.
-- **Denormalized `segment_effort.rank`**: must be recomputed when a new effort changes the leaderboard (in the worker).
+- ~~**Denormalized `segment_effort.rank`**: must be recomputed when a new effort changes the leaderboard (in the worker).~~ (*Amended by [ADR-039](ADR-039-segments-and-records.md)*: the rank is computed at read time, the column is dropped.)
 - **Health data** (`birth_date`, `weight_kg`, `gender`, heart rate): sensitive data under the GDPR, to be protected (access, export, account deletion).
 - **`revenuecat_event` grows** over time: plan a purge of old, already processed events.
 
@@ -350,5 +356,5 @@ We **do not copy** products or offerings into our database:
 
 ## Links
 
-- **Amended by**: [ADR-019](ADR-019-activity-creation-flow.md) (processing-tracking columns), [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md) (`kudos` and `comment` move to the `engagement` module; one PostgreSQL schema per module), [ADR-028](ADR-028-activity-import-from-file.md) (`activity_import` table, `activity.source`), [ADR-029](ADR-029-activity-feed-and-card.md) (`activity_track.map_polyline`, `location_name`), [ADR-030](ADR-030-itineraries-on-ios.md) (`itineraries` schema: `itinerary`, `itinerary_waypoint`, `itinerary_leg`), [ADR-033](ADR-033-activity-detail-edit-delete.md) (`activity.updated_at`, `activity_stats.computed_for_sport_type_code`), [ADR-034](ADR-034-activity-engagement-and-live-detail.md) (`comment.updated_at`, app-generated comment id), [ADR-035](ADR-035-onboarding-sign-in-code-paywall.md) (`gender` enum, `level`, `goals`, `users.user_sport`), [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md) (`social.follow_settings`, `follow` check and index, `activity_track.route_trimmed`, `activities.activity_analysis`, `unaccent`), [ADR-037](ADR-037-media-avatar-and-gallery.md) (`activity_media`, `media_kind`, `activity.media_first`, `user_profile.avatar_key`), [ADR-038](ADR-038-backoffice-moderation-and-account-deletion.md) (`audit` and `moderation` schemas, `social.athlete_block`, `segment_effort.status`, `promotional` in `store` and `period_type`)
+- **Amended by**: [ADR-019](ADR-019-activity-creation-flow.md) (processing-tracking columns), [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md) (`kudos` and `comment` move to the `engagement` module; one PostgreSQL schema per module), [ADR-028](ADR-028-activity-import-from-file.md) (`activity_import` table, `activity.source`), [ADR-029](ADR-029-activity-feed-and-card.md) (`activity_track.map_polyline`, `location_name`), [ADR-030](ADR-030-itineraries-on-ios.md) (`itineraries` schema: `itinerary`, `itinerary_waypoint`, `itinerary_leg`), [ADR-033](ADR-033-activity-detail-edit-delete.md) (`activity.updated_at`, `activity_stats.computed_for_sport_type_code`), [ADR-034](ADR-034-activity-engagement-and-live-detail.md) (`comment.updated_at`, app-generated comment id), [ADR-035](ADR-035-onboarding-sign-in-code-paywall.md) (`gender` enum, `level`, `goals`, `users.user_sport`), [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md) (`social.follow_settings`, `follow` check and index, `activity_track.route_trimmed`, `activities.activity_analysis`, `unaccent`), [ADR-037](ADR-037-media-avatar-and-gallery.md) (`activity_media`, `media_kind`, `activity.media_first`, `user_profile.avatar_key`), [ADR-038](ADR-038-backoffice-moderation-and-account-deletion.md) (`audit` and `moderation` schemas, `social.athlete_block`, `segment_effort.status`, `promotional` in `store` and `period_type`), [ADR-039](ADR-039-segments-and-records.md) (§17 data model)
 - **Related**: [ADR-003](ADR-003-backend.md) (modules and owned tables), [ADR-008](ADR-008-mobile-offline-sync.md), [ADR-009](ADR-009-backend-api.md), [ADR-011](ADR-011-backend-worker.md), [ADR-014](ADR-014-revenuecat.md), [ADR-022](ADR-022-authentication-better-auth.md) (`admin` plugin on the `role` column)

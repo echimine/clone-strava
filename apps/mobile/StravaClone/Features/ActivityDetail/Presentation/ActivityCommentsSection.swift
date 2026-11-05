@@ -39,6 +39,9 @@ struct ActivityCommentsSection: View {
             }
             ForEach(store.comments) { row in
                 ActivityCommentRow(row: row) { Task { await store.retry(row.id) } }
+                    .commentAccessibilityActions(row.actions,
+                        edit: { store.startEditing(row.id) },
+                        delete: { store.requestDeletion(row.id) })
                     .contextMenu {
                         ForEach(row.actions, id: \.self) { action in
                             switch action {
@@ -73,6 +76,26 @@ struct ActivityCommentsSection: View {
             Button(ActivityCommentMessages.cancel, role: .cancel) { store.pendingDeletion = nil }
         }
         .accessibilityIdentifier("activityComments")
+    }
+}
+
+private extension View {
+    /// The context menu's "Modifier" / "Supprimer" as VoiceOver actions, only those the viewer has.
+    @ViewBuilder
+    func commentAccessibilityActions(
+        _ actions: [ActivityCommentsStore.CommentAction],
+        edit: @escaping () -> Void,
+        delete: @escaping () -> Void
+    ) -> some View {
+        if #available(iOS 18.0, *) {
+            accessibilityActions {
+                if actions.contains(.edit) { Button(ActivityCommentMessages.edit, action: edit) }
+                if actions.contains(.delete) { Button(ActivityCommentMessages.delete, action: delete) }
+            }
+        } else {
+            accessibilityAction(named: ActivityCommentMessages.edit) { if actions.contains(.edit) { edit() } }
+                .accessibilityAction(named: ActivityCommentMessages.delete) { if actions.contains(.delete) { delete() } }
+        }
     }
 }
 

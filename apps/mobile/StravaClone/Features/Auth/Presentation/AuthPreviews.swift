@@ -5,7 +5,7 @@ import Foundation
 /// any other code is wrong.
 extension AuthStore {
     static var preview: AuthStore {
-        AuthStore(service: AuthService(repository: PreviewAuthRepository(), googleAuthProvider: PreviewGoogle()))
+        AuthStore(service: AuthService(repository: PreviewAuthRepository(), googleAuthProvider: PreviewGoogle(), appleAuthProvider: PreviewApple()))
     }
 }
 
@@ -20,11 +20,16 @@ private struct PreviewAuthRepository: AuthRepository {
     }
 
     func signInWithGoogle(idToken: String) async throws(AuthError) -> AuthUser { Self.user }
+    func signInWithApple(idToken: String) async throws(AuthError) -> AuthUser { Self.user }
     func signOut() async {}
     func currentUser() async throws(AuthError) -> AuthUser { throw .notSignedIn }
 }
 
 private struct PreviewGoogle: GoogleAuthProvider {
     func signIn() async throws(AuthError) -> String { throw .googleSignInCancelled }
+}
+
+private struct PreviewApple: AppleAuthProvider {
+    func signIn() async throws(AuthError) -> String { "preview" }
 }
 #endif

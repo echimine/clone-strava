@@ -128,6 +128,8 @@ struct RootView: View {
 
     @Environment(\.scenePhase) private var scenePhase
     @State private var selectedTab = AppTab.feed
+    /// The Paywall opened by "S'abonner" in the home header.
+    @State private var isSubscribePaywallPresented = false
     /// A queued Itinerary change the server turned down (ADR-030 §8).
     @State private var itineraryChangeToast: String?
 
@@ -151,6 +153,7 @@ struct RootView: View {
             switch authStore.state {
             case .checkingSession:
                 ProgressView()
+                    .accessibilityLabel("Chargement")
             case .signedOut:
                 WelcomeView(
                     isRevealed: !isSplashPresented,
@@ -201,6 +204,7 @@ struct RootView: View {
                     FeedView(
                         store: feedStore,
                         onImportActivity: importStore.startImport,
+                        onSubscribe: { isSubscribePaywallPresented = true },
                         editActivity: { [feedActivityEditor] id in Task { await feedActivityEditor.edit(id: id) } },
                         deleteActivity: { [activityDeleter] id in Task { await activityDeleter.delete(id) } },
                         destinations: appDestinations(path: $feedStore.path)
@@ -229,6 +233,16 @@ struct RootView: View {
                             onConfirm: { options in Task { await importStore.confirm(options) } },
                             onCancel: importStore.cancelConfirmation
                         )
+                    }
+                    // "S'abonner" in the home header: the same Paywall as after the Onboarding,
+                    // in full screen, as often as tapped; any way out closes it.
+                    .fullScreenCover(isPresented: $isSubscribePaywallPresented) {
+                        if case .signedIn(let user) = authStore.state {
+                            PaywallView(
+                                store: makePaywallStore(false) { isSubscribePaywallPresented = false },
+                                firstName: user.firstName
+                            )
+                        }
                     }
                     .tabItem { Label("Accueil", systemImage: "house") }
                     .tag(AppTab.feed)
@@ -314,6 +328,8 @@ struct RootView: View {
             if isSplashPresented {
                 SplashView(isSessionKnown: authStore.state != .checkingSession) {
                     isSplashPresented = false
+                    // The splash was hidden from VoiceOver: hand it the screen underneath.
+                    AccessibilityNotification.ScreenChanged(nil).post()
                 }
             }
         }

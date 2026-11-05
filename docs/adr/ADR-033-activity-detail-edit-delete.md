@@ -79,6 +79,7 @@ Fixing the sport is the main reason to edit (a ride saved as a run lost every po
 - **Failure**: BullMQ retries with backoff; after the last attempt the old values stay, the error is logged, and nothing changes for the athlete (no `failed` state for a processed Activity).
 - **Reconciliation**: the existing recurring reconciliation (ADR-019 §7) also enqueues `reprocess-activity` for processed Activities whose `computed_for_sport_type_code` differs from `sport_type_code` (covers a crash between commit and enqueue). *Amended 2026-10-17 (review of #88/#89)*: it uses the job id of the last edit, so a reprocessing that failed for good is not re-enqueued (a job already holds that id) and the old values stay; any later `PATCH` (of any field) sets a new `updated_at`, hence a new job id, so after the next edit the sweep retries it.
 - **Success**: emits `activities.activity.updated` with `changedFields: ["stats"]`.
+- *Amended by [ADR-039](ADR-039-segments-and-records.md)* §3, §6: when the sport changed, the job enqueues `match-segments` at its end; when only the analysis lags, it does not redo the reverse geocoding and keeps the place name; analysis v2 adds the Best efforts.
 - *Amended by [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md) §6, §7*: the job also computes the Activity analysis (splits, series) and `route_trimmed`, and runs when the analysis is missing or outdated; the sweep backfills processed Activities with job id `reprocess-{activityId}-analysis-v{version}`, emitting no event unless the sport changed.
 
 ### 6. `DELETE /v1/activities/:id` for processed Activities (amends ADR-031 §13, ADR-028)
@@ -112,6 +113,8 @@ The bridge forwards the new domain events on `user:{userId}`, so the author's ot
 - ADR-034 adds the `activity:{id}` topic to both events for other viewers.
 
 ### 9. Segments, later
+
+*Amended by [ADR-039](ADR-039-segments-and-records.md)* §6, §8, §13: replaced. Nothing is stored that a visibility change would invalidate (the rank is read), a sport change replays `match-segments`, and a delete enqueues `replay-segment-medals`.
 
 Segments and leaderboards are stubs, so nothing is recomputed now. When they are built:
 
@@ -162,5 +165,5 @@ These are must-happen reactions: the `activities` use cases (or `reprocess-activ
 
 - **Depends on**: [ADR-019](ADR-019-activity-creation-flow.md), [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md), [ADR-029](ADR-029-activity-feed-and-card.md), [ADR-031](ADR-031-live-recording-on-ios.md)
 - **Amends**: [ADR-008](ADR-008-mobile-offline-sync.md) (§1 detail read from the API, §3 no queue for edit and delete of processed Activities), [ADR-010](ADR-010-backend-realtime.md) (`activity.updated`, `activity.deleted` events), [ADR-017](ADR-017-data-model.md) (`activity.updated_at`, `activity_stats.computed_for_sport_type_code`), [ADR-019](ADR-019-activity-creation-flow.md) (§9 `GET` and `DELETE`, §7 reconciliation also covers reprocessing), [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md) (§5 `reprocess-activity` job, `activities.activity.updated` / `deleted` events), [ADR-028](ADR-028-activity-import-from-file.md) (original file deleted with its Activity), [ADR-031](ADR-031-live-recording-on-ios.md) (§13 `GET` for visible Activities, `DELETE` of processed Activities)
-- **Amended by**: [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md) (§2 detail fields, §3 detail screen, §5 analysis and backfill), [ADR-037](ADR-037-media-avatar-and-gallery.md) (§2 `media` and `mediaFirst`, §3 the header carousel, §4 `mediaFirst` and `mediaOrder` on `PATCH`, §6 delete by prefix, §10 Media)
+- **Amended by**: [ADR-036](ADR-036-athlete-profile-follows-and-activity-analysis.md) (§2 detail fields, §3 detail screen, §5 analysis and backfill), [ADR-037](ADR-037-media-avatar-and-gallery.md) (§2 `media` and `mediaFirst`, §3 the header carousel, §4 `mediaFirst` and `mediaOrder` on `PATCH`, §6 delete by prefix, §10 Media), [ADR-039](ADR-039-segments-and-records.md) (§5 match after a sport change, no geocoding for analysis-only; §9 replaced)
 - **Related**: [ADR-007](ADR-007-mobile-architecture.md), [ADR-026](ADR-026-openapi-swift-codegen.md), [ADR-030](ADR-030-itineraries-on-ios.md), [ADR-034](ADR-034-activity-engagement-and-live-detail.md)

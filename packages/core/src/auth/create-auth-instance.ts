@@ -112,8 +112,6 @@ export function createAuthInstance(
         });
       },
     },
-    // ADR-022: Google only — Apple Sign-In is deferred (blocked on the
-    // Apple Developer Program), not even stubbed here.
     session: {
       // ADR-035 §3: how the session was opened; only `password_2fa`
       // carries admin rights. `input: false` keeps it out of
@@ -127,6 +125,15 @@ export function createAuthInstance(
         clientId: options.googleClientId,
         clientSecret: options.googleClientSecret,
       },
+      ...(options.appleClientId && options.appleClientSecret
+        ? {
+            apple: {
+              clientId: options.appleClientId,
+              clientSecret: options.appleClientSecret,
+              appBundleIdentifier: options.appleAppBundleIdentifier,
+            },
+          }
+        : {}),
     },
     advanced: {
       // ADR-017: identifiers are `uuid`, not Better Auth's default text id.

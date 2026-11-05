@@ -57,7 +57,7 @@ private struct LegalBlockView: View {
                 .font(.body)
         case .bullet(let text):
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text("•").foregroundStyle(.secondary)
+                Text("•").foregroundStyle(.secondary).accessibilityHidden(true)
                 Text(Self.inline(text))
             }
             .font(.body)

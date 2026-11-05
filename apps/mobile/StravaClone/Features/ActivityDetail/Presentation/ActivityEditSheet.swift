@@ -47,6 +47,9 @@ struct ActivityEditSheet: View {
                     .accessibilityIdentifier("activityEdit.visibility")
                 }
             }
+            .onChange(of: form.errorMessage) { _, message in
+                if let message { AccessibilityNotification.Announcement(message).post() }
+            }
             .navigationTitle(ActivityDetailMessages.editTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

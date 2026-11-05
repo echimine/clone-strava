@@ -21,7 +21,7 @@ struct APIAuthRepository: AuthRepository {
     }
 
     private struct SignInSocialBody: Encodable {
-        let provider = "google"
+        let provider: String
         let idToken: IdTokenBody
         struct IdTokenBody: Encodable { let token: String }
     }
@@ -65,11 +65,20 @@ struct APIAuthRepository: AuthRepository {
         do {
             return try await performAuthRequest(
                 path: "/api/auth/sign-in/social",
-                body: SignInSocialBody(idToken: .init(token: idToken))
+                body: SignInSocialBody(provider: "google", idToken: .init(token: idToken))
             )
         } catch {
             throw error as! AuthError
         }
+    }
+
+    func signInWithApple(idToken: String) async throws(AuthError) -> AuthUser {
+        do {
+            return try await performAuthRequest(
+                path: "/api/auth/sign-in/social",
+                body: SignInSocialBody(provider: "apple", idToken: .init(token: idToken))
+            )
+        } catch { throw error as! AuthError }
     }
 
     func signOut() async {

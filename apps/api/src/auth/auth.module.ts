@@ -19,6 +19,9 @@ const coreAuthModule = CoreAuthModule.forRoot({
   trustedOrigins: ["app://strava"],
   googleClientId: config.GOOGLE_CLIENT_ID,
   googleClientSecret: config.GOOGLE_CLIENT_SECRET,
+  appleClientId: config.APPLE_CLIENT_ID,
+  appleClientSecret: config.APPLE_CLIENT_SECRET,
+  appleAppBundleIdentifier: config.APPLE_APP_BUNDLE_ID,
   resendApiKey: config.RESEND_API_KEY,
   // ADR-035 §2: dev Sign-in code helpers, only with `NODE_ENV=development` (the `dev` script).
   devSignInCodes: config.NODE_ENV === "development",

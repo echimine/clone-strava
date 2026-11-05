@@ -1,9 +1,9 @@
 import Foundation
 
 /// What the Paywall knows about subscriptions (ADR-014, amended by ADR-035 §6). The screen only
-/// talks to this port: today `UnwiredSubscriptionService` answers with hard-coded offers; later a
-/// RevenueCat adapter in `Infrastructure/` maps the current offering (localised prices, trial,
-/// `layout` metadata) onto the same types, and the screen does not change.
+/// talks to this port: `RevenueCatSubscriptionService` maps the current offering (localised
+/// prices, trial, `layout` metadata) onto these types; without a RevenueCat key,
+/// `UnwiredSubscriptionService` answers with hard-coded offers.
 protocol SubscriptionService: Sendable {
     /// The current offering. Throws when it cannot be loaded (offline, outage): the Paywall is
     /// then skipped.
@@ -59,12 +59,30 @@ enum PaywallLayout: String, CaseIterable, Sendable {
 
 enum PurchaseOutcome: Sendable {
     case subscribed, cancelled
+    /// The store refused or failed the purchase: the Paywall stays, with a message.
+    case failed
     /// Purchases are not wired yet: no Premium is granted.
     case unavailable
 }
 
 enum RestoreOutcome: Sendable {
     case restored, nothingToRestore
+    /// The store could not be reached: the Paywall stays, with a message.
+    case failed
     /// Purchases are not wired yet.
     case unavailable
+}
+
+/// Who buys (ADR-014): RevenueCat identifies the subscriber by our user id, the same as the
+/// database and PostHog. Told by the auth flow at each sign-in, session restore and sign-out;
+/// never awaited by it.
+protocol SubscriberIdentity: Sendable {
+    func logIn(userId: String)
+    func logOut()
+}
+
+/// No subscriber to identify: the unwired adapter, previews and tests.
+struct NoSubscriberIdentity: SubscriberIdentity {
+    func logIn(userId: String) {}
+    func logOut() {}
 }

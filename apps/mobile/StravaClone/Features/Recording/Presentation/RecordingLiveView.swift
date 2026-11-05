@@ -35,6 +35,12 @@ struct RecordingLiveView: View {
         }
         .safeAreaInset(edge: .bottom) { controls }
         .animation(.snappy, value: snapshot.recording.phase)
+        .onAppear {
+            AccessibilityNotification.Announcement("Enregistrement en cours").post()
+        }
+        .onChange(of: isPaused) { _, paused in
+            AccessibilityNotification.Announcement(paused ? "Enregistrement en pause" : "Enregistrement repris").post()
+        }
         .confirmationDialog(RecordingMessages.finishTitle, isPresented: $confirmsFinish, titleVisibility: .visible) {
             Button("Terminer") { Task { await store.finish() } }
         } message: {
@@ -56,6 +62,7 @@ struct RecordingLiveView: View {
                     .background(Color.recordingPause)
                     .foregroundStyle(.black)
                     .padding(.top, 12)
+                    .accessibilityAddTraits(.isHeader)
                     .accessibilityIdentifier("recordingPausedBanner")
             }
             traceWriteWarning.padding(.top, 8)
@@ -90,6 +97,7 @@ struct RecordingLiveView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
                 .background(.red, in: Capsule())
+                .accessibilityLabel(RecordingMessages.traceWriteFailing)
                 .accessibilityIdentifier("recordingTraceWriteWarning")
         }
     }
@@ -101,6 +109,8 @@ struct RecordingLiveView: View {
                 systemImage: RecordingFormatters.sportSymbol(snapshot.recording.sport)
             )
             .font(.subheadline.weight(.semibold))
+            .accessibilityLabel("Sport")
+            .accessibilityValue(RecordingFormatters.sportLabel(snapshot.recording.sport))
             Spacer()
             RecordingGPSStatus()
             RecordingMoreMenu(store: store, snapshot: snapshot)
@@ -120,7 +130,9 @@ struct RecordingLiveView: View {
                 .font(.footnote.weight(.medium))
                 .foregroundStyle(.secondary)
         }
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(item.label)
+        .accessibilityValue(item.spokenValue)
         .accessibilityIdentifier("recordingStat.\(item.label)")
     }
 
@@ -133,11 +145,15 @@ struct RecordingLiveView: View {
                     Text(item.value).font(.title3.weight(.bold)).monospacedDigit()
                     Text(item.label).font(.caption2).foregroundStyle(.secondary)
                 }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(item.label)
+                .accessibilityValue(item.spokenValue)
             }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
         .glassBackground(in: RoundedRectangle(cornerRadius: 18))
+        .accessibilityElement(children: .contain)
         .overlay(alignment: .bottom) {
             if isPaused {
                 Text(RecordingMessages.paused.uppercased())
@@ -146,6 +162,7 @@ struct RecordingLiveView: View {
                     .background(Color.recordingPause, in: Capsule())
                     .foregroundStyle(.black)
                     .offset(y: 26)
+                    .accessibilityHidden(true)
             }
         }
     }
@@ -161,14 +178,14 @@ struct RecordingLiveView: View {
 
     private var controls: some View {
         HStack(spacing: 20) {
-            circleButton(showsMap ? "chart.bar.fill" : "map.fill", label: showsMap ? "Vue stats" : "Vue carte") {
+            circleButton(showsMap ? "chart.bar.fill" : "map.fill", label: showsMap ? "Afficher les statistiques" : "Afficher la carte") {
                 showsMap.toggle()
             }
             if isPaused {
-                capsuleButton("Reprendre", fill: Theme.accent, identifier: "recordingResumeButton") {
+                capsuleButton("Reprendre", hint: "Reprend l'enregistrement", fill: Theme.accent, identifier: "recordingResumeButton") {
                     Task { await store.resume() }
                 }
-                capsuleButton("Terminer", fill: .black, identifier: "recordingFinishButton") {
+                capsuleButton("Terminer", hint: "Demande confirmation avant de terminer", fill: .black, identifier: "recordingFinishButton") {
                     confirmsFinish = true
                 }
             } else {
@@ -181,10 +198,10 @@ struct RecordingLiveView: View {
                         .frame(width: 84, height: 84)
                         .background(Theme.accent, in: Circle())
                 }
-                .accessibilityLabel("Pause")
+                .accessibilityLabel("Mettre en pause l'enregistrement")
                 .accessibilityIdentifier("recordingPauseButton")
                 // Keeps the Pause button centered.
-                Color.clear.frame(width: 56, height: 56)
+                Color.clear.frame(width: 56, height: 56).accessibilityHidden(true)
             }
         }
         .padding(.vertical, 12)
@@ -203,7 +220,7 @@ struct RecordingLiveView: View {
         .accessibilityIdentifier("recordingViewToggle")
     }
 
-    private func capsuleButton(_ title: String, fill: Color, identifier: String, action: @escaping () -> Void) -> some View {
+    private func capsuleButton(_ title: String, hint: String, fill: Color, identifier: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
                 .font(.headline)
@@ -211,6 +228,7 @@ struct RecordingLiveView: View {
                 .frame(width: 130, height: 60)
                 .background(fill, in: Capsule())
         }
+        .accessibilityHint(hint)
         .accessibilityIdentifier(identifier)
     }
 }

@@ -38,6 +38,7 @@ struct SettingsView: View {
                         LabeledContent("Nom", value: displayName)
                             .foregroundStyle(.primary)
                     }
+                    .accessibilityHint(Text(ProfileMessages.editProfile))
                     .accessibilityIdentifier("settings.name")
                     LabeledContent("Email", value: account.email)
                 }
@@ -136,6 +137,7 @@ struct SettingsView: View {
                         Image(systemName: "chevron.right")
                             .font(.footnote.weight(.semibold))
                             .foregroundStyle(.tertiary)
+                            .accessibilityHidden(true)
                     }
                     .foregroundStyle(.primary)
                 }

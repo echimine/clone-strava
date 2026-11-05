@@ -9,6 +9,8 @@ import SwiftUI
 struct FeedView<TopContent: View>: View {
     @Bindable var store: FeedStore
     var onImportActivity: () -> Void = {}
+    /// "S'abonner" in the header: the shell opens the Paywall.
+    var onSubscribe: () -> Void = {}
     var editActivity: ((ActivityID) -> Void)?
     var deleteActivity: ((ActivityID) -> Void)?
     let destinations: AppDestinations
@@ -23,7 +25,7 @@ struct FeedView<TopContent: View>: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Color(.systemGroupedBackground))
                 .safeAreaInset(edge: .top, spacing: 8) { topContent() }
-                .homeHeader(HomeHeaderActions(onImportActivity: onImportActivity))
+                .homeHeader(HomeHeaderActions(onImportActivity: onImportActivity, onSubscribe: onSubscribe))
                 .task { await store.loadIfNeeded() }
                 .task { await store.observeActivityChanges() }
                 .task { await store.observeLocalActivities() }
@@ -46,6 +48,7 @@ struct FeedView<TopContent: View>: View {
         switch store.phase {
         case .idle, .loading where store.posts.isEmpty && store.localCards.isEmpty:
             ProgressView()
+                .accessibilityLabel("Chargement")
         case .failed(let message) where store.posts.isEmpty && store.localCards.isEmpty:
             ContentUnavailableView {
                 Label(FeedMessages.errorTitle, systemImage: "wifi.exclamationmark")
@@ -102,6 +105,7 @@ struct FeedView<TopContent: View>: View {
                         // buttons keep their own action).
                         .contentShape(.rect(cornerRadius: 20))
                         .onTapGesture { store.open(post.id) }
+                        .accessibilityAddTraits(.isButton)
                         .accessibilityAction(named: Text("Ouvrir l'activité")) { store.open(post.id) }
                         // Long press: "Modifier" / "Supprimer" on my cards, "Signaler" on other
                         // athletes' (ADR-038 §9; the card leaves the feed once reported).

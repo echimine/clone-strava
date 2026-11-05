@@ -115,6 +115,14 @@ private struct WelcomeContent: View {
         .animation(.snappy, value: page)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Page \(page.rawValue + 1) sur \(WelcomeScene.allCases.count)")
+        .accessibilityAdjustableAction { direction in
+            let count = WelcomeScene.allCases.count
+            switch direction {
+            case .increment: withAnimation(.snappy) { page = page.next }
+            case .decrement: withAnimation(.snappy) { page = WelcomeScene(rawValue: (page.rawValue + count - 1) % count) ?? page }
+            @unknown default: break
+            }
+        }
     }
 }
 

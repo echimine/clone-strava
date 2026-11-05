@@ -35,6 +35,16 @@ struct AvatarCropView: View {
             .frame(width: geometry.size.width, height: geometry.size.height)
             .contentShape(.rect)
             .gesture(gesture(from: committed))
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(AvatarMessages.cropPhoto)
+            .accessibilityHint(AvatarMessages.cropZoomHint)
+            .accessibilityAdjustableAction { direction in
+                switch direction {
+                case .increment: crop = committed.adjusted(zoomBy: 1.15, movedBy: .zero)
+                case .decrement: crop = committed.adjusted(zoomBy: 1 / 1.15, movedBy: .zero)
+                @unknown default: break
+                }
+            }
             .onAppear { crop = crop ?? committed }
         }
         .clipped()
@@ -44,6 +54,7 @@ struct AvatarCropView: View {
                 .font(.headline)
                 .foregroundStyle(.white)
                 .padding(.top, Self.margin)
+                .accessibilityAddTraits(.isHeader)
         }
         .overlay(alignment: .bottom) { buttons }
         .preferredColorScheme(.dark)

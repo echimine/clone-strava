@@ -20,6 +20,8 @@ struct ActivityDetailMap: View {
             .frame(maxWidth: .infinity)
             .contentShape(.rect)
             .onTapGesture { showsFullScreen = true }
+            .accessibilityAddTraits(.isButton)
+            .accessibilityHint(ActivityAnalysisMessages.openMap)
             .overlay(alignment: .bottomLeading) {
                 if routeTrimmed {
                     RouteTrimmedLabel()

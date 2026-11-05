@@ -48,6 +48,8 @@ final class AuthStore {
 
     @ObservationIgnored private let service: AuthService
     @ObservationIgnored private let analytics: any AnalyticsClient
+    /// RevenueCat's subscriber, the same user id as PostHog's (ADR-014).
+    @ObservationIgnored private let subscriberIdentity: any SubscriberIdentity
     /// The account screen's clock (the 30 s before "Recevoir un nouveau code").
     @ObservationIgnored private let sleep: @Sendable (Duration) async throws -> Void
     /// Sends the Onboarding answers of the draft (ADR-035 §5); never awaited by the flow.
@@ -59,6 +61,7 @@ final class AuthStore {
     init(
         service: AuthService,
         analytics: any AnalyticsClient = NoAnalyticsClient(),
+        subscriberIdentity: any SubscriberIdentity = NoSubscriberIdentity(),
         sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) },
         submitOnboardingAnswers: @escaping @MainActor () async -> Void = {},
         notificationPermission: any NotificationPermission = SettledNotificationPermission(),
@@ -66,6 +69,7 @@ final class AuthStore {
     ) {
         self.service = service
         self.analytics = analytics
+        self.subscriberIdentity = subscriberIdentity
         self.sleep = sleep
         self.submitOnboardingAnswers = submitOnboardingAnswers
         self.notificationPermission = notificationPermission
@@ -134,6 +138,7 @@ final class AuthStore {
     func restoreSession() async {
         if let user = await service.restoreSession() {
             analytics.identify(userId: user.id)
+            subscriberIdentity.logIn(userId: user.id)
             state = .signedIn(user)
         } else {
             state = .signedOut
@@ -143,6 +148,7 @@ final class AuthStore {
     func signOut() async {
         await service.signOut()
         analytics.reset()
+        subscriberIdentity.logOut()
         state = .signedOut
     }
 
@@ -155,6 +161,7 @@ final class AuthStore {
 
     private func signedIn(_ user: AuthUser, entry: SignInEntry, method: AnalyticsEvent.AuthMethod) {
         analytics.identify(userId: user.id)
+        subscriberIdentity.logIn(userId: user.id)
         isNewAccount = user.isNewAccount(at: now())
         signInMethod = method
         analytics.capture(.signedIn(method: method, isNewAccount: isNewAccount))

@@ -19,14 +19,17 @@ struct PaywallLayoutB: View {
                         .tracking(-0.6)
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.top, 16)
+                        .accessibilityAddTraits(.isHeader)
 
                     HStack {
                         Text("Choisissez votre formule").font(.subheadline.weight(.medium))
+                            .accessibilityAddTraits(.isHeader)
                         Spacer()
                         Button("Comparer") { withAnimation { proxy.scrollTo("table", anchor: .top) } }
                             .font(.subheadline.weight(.medium))
                             .underline()
                             .foregroundStyle(.primary)
+                            .accessibilityHint("Fait défiler jusqu'au tableau Gratuit et Premium")
                     }
                     .padding(.top, 26)
 
@@ -118,7 +121,21 @@ struct PaywallLayoutB: View {
             .contentShape(shape)
         }
         .buttonStyle(.plain)
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(planLabel(offer))
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+    }
+
+    /// "Annuel, 59,99 € par an, soit 5,00 €/mois, moins 50 % sur l'année, 30 jours d'essai gratuit".
+    private func planLabel(_ offer: SubscriptionOffer) -> String {
+        var parts = ["\(offer.title), \(offer.formattedPrice) \(offer.perPeriod)"]
+        if offer.period == .year { parts.append("soit \(offer.monthlyPrice) par mois") }
+        if offer.period == .year, let savings = content.offering.yearlySavingsPercent {
+            parts.append("moins \(savings) % sur l'année")
+        }
+        parts.append(offer.period == .year ? "Tout Premium, au meilleur prix" : "Tout Premium, sans engagement")
+        if let days = offer.trialDays { parts.append("\(days) jours d'essai gratuit") }
+        return parts.joined(separator: ", ")
     }
 
     private func trialTimeline(_ offer: SubscriptionOffer, days: Int) -> some View {
@@ -132,6 +149,7 @@ struct PaywallLayoutB: View {
     private func timelineRow(_ symbol: String, _ text: Text, isLast: Bool) -> some View {
         HStack(spacing: 12) {
             Image(systemName: symbol)
+                .accessibilityHidden(true)
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(Theme.accent)
                 .frame(width: 30, height: 30)
@@ -165,9 +183,13 @@ struct PaywallLayoutB: View {
                         .foregroundStyle(isFree ? .secondary : .primary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     Image(systemName: "checkmark").opacity(isFree ? 1 : 0).frame(width: 62)
-                        .accessibilityHidden(!isFree)
+                        .accessibilityHidden(true)
                     Image(systemName: "checkmark").frame(width: 70)
+                        .accessibilityHidden(true)
                 }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(feature)
+                .accessibilityValue(isFree ? "Inclus en Gratuit et en Premium" : "Premium uniquement")
                 .font(.subheadline)
                 .padding(.vertical, 14)
                 Divider()

@@ -192,7 +192,7 @@ Common rules:
 2. the file: FIT `sport`/`sub_sport`, TCX `Sport`, GPX `trk/type`, mapped to `sport_type.code` by a mapping table in the `activities` module (not in `@repo/track-files`) (unknown values ignored); title from GPX `trk/name` / `metadata/name`;
 3. defaults: sport → failure `unknown_sport` (the app asks the user to pick one and retries with a new import); title → generated from sport and time of day ("Morning ride"), as for recorded activities; visibility → profile default.
 
-**Indoor files without GPS** (treadmill, home trainer): not supported in the MVP, permanent failure `no_gps_data`. Supporting them needs an activity without `activity_track`, to be specified with indoor recording.
+**Indoor files without GPS** (treadmill, home trainer): not supported in the MVP, permanent failure `no_gps_data`. *Amended by [ADR-039](ADR-039-segments-and-records.md)* §4: a FIT pool swim (`sub_sport = lap_swimming`) is accepted without positions: lengths and `poolLength` are read, the lengths go into the stored trace, `activity.pool_length_m` is set, and the official distance is active lengths × pool length. Supporting them needs an activity without `activity_track`, to be specified with indoor recording.
 
 ### 6. Duplicates
 
@@ -285,6 +285,6 @@ As for every mobile event, the payload is minimal and the app reloads through `G
 ## Links
 
 - **Depends on**: [ADR-019](ADR-019-activity-creation-flow.md), [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md)
-- **Amended by**: [ADR-031](ADR-031-live-recording-on-ios.md) (trace v2), [ADR-033](ADR-033-activity-detail-edit-delete.md) (original file deleted with its Activity)
+- **Amended by**: [ADR-031](ADR-031-live-recording-on-ios.md) (trace v2), [ADR-033](ADR-033-activity-detail-edit-delete.md) (original file deleted with its Activity), [ADR-039](ADR-039-segments-and-records.md) (FIT pool swims)
 - **Amends**: [ADR-017](ADR-017-data-model.md) (`activity_import` table, `activity.source`), [ADR-011](ADR-011-backend-worker.md) (`imports` queue, `import-activity` job), [ADR-010](ADR-010-backend-realtime.md) (`activity_import.*` mobile events), [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md) (bridge forwarding table, `activities` owns `activity_import`)
 - **Related**: [ADR-001](ADR-001-global-architecture.md), [ADR-008](ADR-008-mobile-offline-sync.md), [ADR-009](ADR-009-backend-api.md), [ADR-018](ADR-018-docker-vps-deployment.md), [ADR-024](ADR-024-backend-testing-strategy.md)

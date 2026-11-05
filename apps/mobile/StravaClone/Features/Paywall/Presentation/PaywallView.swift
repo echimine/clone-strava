@@ -19,13 +19,23 @@ struct PaywallView: View {
                     .transition(.opacity)
             } else {
                 ProgressView()
+                    .accessibilityLabel("Chargement des offres")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .background(Color(.systemBackground))
+        .overlay(alignment: .topTrailing) {
+            PaywallCloseButton { store.skip() }
+                .padding(.top, 12)
+                .padding(.trailing, 16)
+                .zIndex(1)
+        }
         .animation(.easeOut(duration: 0.3), value: store.offering)
         .sensoryFeedback(.selection, trigger: store.selected)
         .toast($store.message)
+        .onChange(of: store.offering) { _, offering in
+            if offering != nil { AccessibilityNotification.ScreenChanged(nil).post() }
+        }
         .task { await store.load() }
     }
 
@@ -78,11 +88,14 @@ struct PaywallFooter: View {
                 .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 6) {
                 Button("Conditions d'utilisation") { opened = .termsOfUse }
+                    .accessibilityAddTraits(.isLink)
                 Text("·").accessibilityHidden(true)
                 Button("Confidentialité") { opened = .privacyPolicy }
+                    .accessibilityAddTraits(.isLink)
                 Text("·").accessibilityHidden(true)
                 Button("Restaurer les achats") { Task { await content.store.restorePurchases() } }
                     .disabled(content.store.isBusy)
+                    .accessibilityHint("Rétablit un abonnement Premium acheté précédemment")
             }
             .font(.caption2.weight(.semibold))
             .foregroundStyle(.secondary)
@@ -109,8 +122,9 @@ struct PaywallCloseButton: View {
                 .background(Circle().fill(background).shadow(color: .black.opacity(0.08), radius: 6, y: 2))
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Passer")
-        .accessibilityIdentifier("paywall.skip")
+        .accessibilityLabel("Fermer")
+        .accessibilityHint("Continuer sans Premium")
+        .accessibilityIdentifier("paywall.close")
     }
 }
 
