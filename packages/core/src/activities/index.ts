@@ -44,3 +44,4 @@ export type {
   ActivitiesNearPathQuery,
   ActivityMatchingTrace,
 } from "./domain/matching-trace.js";
+export type { ReprocessOutcome } from "./use-cases/reprocess-activity.use-case.js";

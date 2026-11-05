@@ -44,7 +44,7 @@ import { GetVisibleActivityUseCase } from "./use-cases/get-visible-activity.use-
 import { GetActivityDetailUseCase } from "./use-cases/get-activity-detail.use-case.js";
 import { DeleteActivityUseCase } from "./use-cases/delete-activity.use-case.js";
 import { UpdateActivityUseCase } from "./use-cases/update-activity.use-case.js";
-import { ReprocessActivityUseCase } from "./use-cases/reprocess-activity.use-case.js";
+import { ReprocessActivityUseCase, type ReprocessOutcome } from "./use-cases/reprocess-activity.use-case.js";
 import { GetProgressUseCase } from "./use-cases/get-progress.use-case.js";
 import { GetAthleteStatsUseCase } from "./use-cases/get-athlete-stats.use-case.js";
 import {
@@ -188,7 +188,7 @@ export class ActivitiesService {
   }
 
   /** Called by `apps/worker`'s `reprocess-activity` processor after a sport change (ADR-033 §5). */
-  reprocess(job: ReprocessActivityJob): Promise<void> {
+  reprocess(job: ReprocessActivityJob): Promise<ReprocessOutcome> {
     return this.reprocessActivityUseCase.execute(job);
   }
 

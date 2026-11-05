@@ -1,6 +1,6 @@
 import { Module } from "@nestjs/common";
 import { BullModule } from "@nestjs/bullmq";
-import { ACTIVITIES_QUEUE_NAME, IMPORTS_QUEUE_NAME } from "@repo/contracts";
+import { ACTIVITIES_QUEUE_NAME, IMPORTS_QUEUE_NAME, SEGMENTS_QUEUE_NAME } from "@repo/contracts";
 import { SportsModule } from "../sports/index.js";
 import { UsersModule } from "../users/index.js";
 import { SocialModule } from "../social/index.js";
@@ -79,7 +79,12 @@ import { RemoveBestEffortUseCase } from "./use-cases/remove-best-effort.use-case
     SportsModule,
     UsersModule,
     SocialModule,
-    BullModule.registerQueue({ name: ACTIVITIES_QUEUE_NAME }, { name: IMPORTS_QUEUE_NAME }),
+    // ADR-039 §13: also a producer on `segments`, for `replay-segment-medals` after a delete.
+    BullModule.registerQueue(
+      { name: ACTIVITIES_QUEUE_NAME },
+      { name: IMPORTS_QUEUE_NAME },
+      { name: SEGMENTS_QUEUE_NAME },
+    ),
   ],
   providers: [
     ActivityAdminStatsRepository,
