@@ -96,6 +96,7 @@ struct APIActivityDetailRepositoryTests {
                 "thumbUrl": "https://bucket.test/m2/thumb.jpg?X-Amz-Signature=e" }
             ],
           "mediaFirst": true,
+          "medalCounts": { "gold": 1, "silver": 2, "bronze": 0 },
           "updatedAt": "2026-10-03T08:00:00.000Z"
         }
         """.utf8)
@@ -138,6 +139,7 @@ struct APIActivityDetailRepositoryTests {
             series: ActivitySeries(distanceM: [0, 1_000], speedMs: [7.6, 8.1], altitudeM: [450, 454.5], heartRateBpm: nil)
         ))
         #expect(detail.mediaFirst)
+        #expect(detail.post.medalCounts == MedalCounts(gold: 1, silver: 2, bronze: 0))
         #expect(detail.media == [
             ActivityMedia(
                 id: UUID(uuidString: "3f1c2a4e-8b6d-4e2f-9a1b-5c7d8e9f0a11")!,
@@ -177,7 +179,7 @@ struct APIActivityDetailRepositoryTests {
               "stats": null, "map": null, "routeTrimmed": false, "analysis": { "splits": [], "series": null },
               "author": { "id": "0b5a5c1e-1f4e-4c55-9d6e-0d3f8f6e2a11", "displayName": "Camille", "avatarUrl": "https://cdn.test/a.png" },
               "engagement": { "kudosCount": 0, "commentCount": 0, "viewerHasKudoed": false },
-              "viewerIsAuthor": true, "media": [], "mediaFirst": false, "updatedAt": "2026-10-02T13:00:00.000Z"
+              "viewerIsAuthor": true, "media": [], "mediaFirst": false, "medalCounts": { "gold": 0, "silver": 0, "bronze": 0 }, "updatedAt": "2026-10-02T13:00:00.000Z"
             }
             """.utf8))
         }

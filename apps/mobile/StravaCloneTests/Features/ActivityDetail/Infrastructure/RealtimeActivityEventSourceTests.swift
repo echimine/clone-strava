@@ -26,6 +26,16 @@ struct RealtimeActivityEventSourceTests {
         #expect(event == .deleted(ActivityID(UUID(uuidString: "7c9e6679-7425-40de-944b-e07fc1f90ae7")!)))
     }
 
+    /// ADR-039 §14: `activity.segments_matched` brings no new event; it reloads the Activity like
+    /// an update, so the card's « Performances » and the detail's « Résultats » get the Segments.
+    @Test func readsSegmentsMatchedAsAnUpdate() throws {
+        let event = try event(#"""
+            {"v":1,"t":"activity.segments_matched","id":"evt_3","data":{"activityId":"7c9e6679-7425-40de-944b-e07fc1f90ae7","status":"segments_matched","at":"2026-11-05T10:00:00.000Z"}}
+            """#)
+
+        #expect(event == .updated(ActivityID(UUID(uuidString: "7c9e6679-7425-40de-944b-e07fc1f90ae7")!)))
+    }
+
     @Test func ignoresOtherTypesAndUnreadablePayloads() throws {
         #expect(try event(#"{"v":1,"t":"activity.processed","id":"e","data":{"activityId":"7c9e6679-7425-40de-944b-e07fc1f90ae7"}}"#) == nil)
         #expect(try event(#"{"v":1,"t":"activity.updated","id":"e","data":{"activityId":"act_1","changedFields":["title"]}}"#) == nil)

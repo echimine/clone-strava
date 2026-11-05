@@ -40,6 +40,7 @@ struct ActivityDetailPage: View {
             // Subscribed while shown, unsubscribed when the task ends with the screen.
             .task { await ActivityLiveUpdates(events: liveEvents, detail: store).run() }
             .toast($store.kudosNotice)
+            .bestEffortRemoval(store.results)
             .mediaViewer($store.mediaViewer)
             // ADR-037 §1: an expired pre-signed Media or Avatar URL brings fresh ones, from the
             // viewer too (outside `.mediaViewer`, so that it sees the action).
@@ -104,7 +105,7 @@ struct ActivityDetailPage: View {
                     .accessibilityIdentifier("activityDetail.back")
             }
         case .loaded(let detail):
-            ActivityDetailContent(detail: detail, onTapMedia: store.openMedia) {
+            ActivityDetailContent(detail: detail, results: store.results, onTapMedia: store.openMedia) {
                 ActivityKudosSection(store: store, detail: detail)
             }
         }
@@ -112,10 +113,13 @@ struct ActivityDetailPage: View {
 }
 
 /// The loaded Activity, top to bottom (ADR-036 §9): the map, the header, title and
-/// description, the stats grid, the source, the kudos row and action bar, then the splits,
-/// Allure (Vitesse) and Fréquence cardiaque when the analysis has them.
+/// description, the stats grid, the source, the kudos row and action bar, « Résultats »
+/// (spec #252), then the splits, Allure (Vitesse) and Fréquence cardiaque when the analysis has
+/// them.
 struct ActivityDetailContent<Engagement: View>: View {
     let detail: ActivityDetail
+    /// « Résultats », and the ribbons of the medalled Segments on the map.
+    var results: ActivityResultsStore?
     /// A tap on a Media of the header (the viewer); without it, nothing happens.
     var onTapMedia: ((ActivityMedia) -> Void)?
     @ViewBuilder let engagement: () -> Engagement
@@ -146,6 +150,9 @@ struct ActivityDetailContent<Engagement: View>: View {
                     }
                     sourceLine
                     engagement()
+                    if let results {
+                        ActivityResultsSection(store: results, detail: detail)
+                    }
                     analysis(sections)
                 }
                 .padding(.horizontal, Theme.spacing)
@@ -161,7 +168,13 @@ struct ActivityDetailContent<Engagement: View>: View {
         let slides = ActivitySlide.compose(hasMap: sections.showsMap, media: media, mediaFirst: detail.mediaFirst)
         return ActivityCarousel(slides: slides, height: Self.headerHeight, onTapMedia: onTapMedia) {
             if let route = detail.route {
-                ActivityDetailMap(route: route, routeTrimmed: detail.routeTrimmed, post: detail.post, height: Self.headerHeight)
+                ActivityDetailMap(
+                    route: route,
+                    routeTrimmed: detail.routeTrimmed,
+                    post: detail.post,
+                    segmentMedals: SegmentMedalMark.marks(results?.results),
+                    height: Self.headerHeight
+                )
             }
         }
     }

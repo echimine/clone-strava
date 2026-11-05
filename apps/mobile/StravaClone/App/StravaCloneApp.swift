@@ -421,7 +421,11 @@ struct RootView: View {
             engagement: { AnyView(activityEngagement($0)) },
             athleteProfile: { AnyView(athleteProfile($0, path: path)) },
             statistics: { AnyView(athleteStatistics($0)) },
-            follows: { AnyView(followLists($0)) }
+            follows: { AnyView(followLists($0)) },
+            // The Segment sheet is #251's; until it lands, a placeholder.
+            segment: { _ in
+                AnyView(ContentUnavailableView("Segment", systemImage: "point.topleft.down.to.point.bottomright.curvepath"))
+            }
         )
     }
 

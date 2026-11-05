@@ -104,7 +104,8 @@ struct OpenAPIContractTests {
             "recentKudos": [{ "id": "0b5a5c1e-1f4e-4c55-9d6e-0d3f8f6e2a11", "displayName": "Léa Dupont", "avatarUrl": null }],
             "viewerIsAuthor": true,
             "media": [],
-            "mediaFirst": false
+            "mediaFirst": false,
+            "medalCounts": { "gold": 0, "silver": 0, "bronze": 0 }
           }],
           "nextCursor": null
         }
@@ -144,7 +145,8 @@ struct OpenAPIContractTests {
             "recentKudos": [{ "id": "0b5a5c1e-1f4e-4c55-9d6e-0d3f8f6e2a11", "displayName": "Léa Dupont", "avatarUrl": null }],
             "viewerIsAuthor": false,
             "media": [],
-            "mediaFirst": false
+            "mediaFirst": false,
+            "medalCounts": { "gold": 0, "silver": 0, "bronze": 0 }
           }],
           "nextCursor": "abc"
         }
