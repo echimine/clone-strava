@@ -1,5 +1,5 @@
 {
-  "id": "fff55b02-eaea-4ac2-bebb-b167751873cf",
+  "id": "530e1aba-f5e8-4af0-b782-a78cd22ad664",
   "prevId": "627484fe-7add-40f7-b868-b3218aa9e8d6",
   "version": "7",
   "dialect": "postgresql",
@@ -803,6 +803,145 @@
         }
       },
       "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "activities.best_effort": {
+      "name": "best_effort",
+      "schema": "activities",
+      "columns": {
+        "activity_id": {
+          "name": "activity_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "record_set": {
+          "name": "record_set",
+          "type": "record_set",
+          "typeSchema": "activities",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "distance_m": {
+          "name": "distance_m",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "elapsed_time_ms": {
+          "name": "elapsed_time_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "start_distance_m": {
+          "name": "start_distance_m",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "activity_started_at": {
+          "name": "activity_started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "medal": {
+          "name": "medal",
+          "type": "medal",
+          "typeSchema": "activities",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "removed_at": {
+          "name": "removed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "best_effort_user_set_distance_time_idx": {
+          "name": "best_effort_user_set_distance_time_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "record_set",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "distance_m",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "elapsed_time_ms",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "best_effort_activity_id_activity_id_fk": {
+          "name": "best_effort_activity_id_activity_id_fk",
+          "tableFrom": "best_effort",
+          "tableTo": "activity",
+          "schemaTo": "activities",
+          "columnsFrom": [
+            "activity_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "best_effort_user_id_user_id_fk": {
+          "name": "best_effort_user_id_user_id_fk",
+          "tableFrom": "best_effort",
+          "tableTo": "user",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "best_effort_activity_id_distance_m_pk": {
+          "name": "best_effort_activity_id_distance_m_pk",
+          "columns": [
+            "activity_id",
+            "distance_m"
+          ]
+        }
+      },
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
@@ -2112,79 +2251,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "segments.activity_matching": {
-      "name": "activity_matching",
-      "schema": "segments",
-      "columns": {
-        "activity_id": {
-          "name": "activity_id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "version": {
-          "name": "version",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "matched_at": {
-          "name": "matched_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "activity_matching_activity_id_activity_id_fk": {
-          "name": "activity_matching_activity_id_activity_id_fk",
-          "tableFrom": "activity_matching",
-          "tableTo": "activity",
-          "schemaTo": "activities",
-          "columnsFrom": [
-            "activity_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "segments.excluded_source_key": {
-      "name": "excluded_source_key",
-      "schema": "segments",
-      "columns": {
-        "source_key": {
-          "name": "source_key",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "excluded_at": {
-          "name": "excluded_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "segments.segment": {
       "name": "segment",
       "schema": "segments",
@@ -2208,35 +2274,9 @@
           "primaryKey": false,
           "notNull": true
         },
-        "created_by": {
-          "name": "created_by",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "origin": {
-          "name": "origin",
-          "type": "segment_origin",
-          "typeSchema": "segments",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'athlete'"
-        },
-        "source_key": {
-          "name": "source_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "verified_at": {
-          "name": "verified_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
         "path": {
           "name": "path",
-          "type": "geometry(LineStringZ,4326)",
+          "type": "geometry(LineString,4326)",
           "primaryKey": false,
           "notNull": false
         },
@@ -2263,63 +2303,6 @@
           "type": "real",
           "primaryKey": false,
           "notNull": false
-        },
-        "max_grade": {
-          "name": "max_grade",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "elevation_gain_m": {
-          "name": "elevation_gain_m",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "min_altitude_m": {
-          "name": "min_altitude_m",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "max_altitude_m": {
-          "name": "max_altitude_m",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "climb_category": {
-          "name": "climb_category",
-          "type": "climb_category",
-          "typeSchema": "segments",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "map_polyline": {
-          "name": "map_polyline",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "history_matched_at": {
-          "name": "history_matched_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
         }
       },
       "indexes": {
@@ -2352,21 +2335,6 @@
           "concurrently": false,
           "method": "gist",
           "with": {}
-        },
-        "segment_end_point_gist_idx": {
-          "name": "segment_end_point_gist_idx",
-          "columns": [
-            {
-              "expression": "end_point",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "gist",
-          "with": {}
         }
       },
       "foreignKeys": {
@@ -2383,31 +2351,10 @@
           ],
           "onDelete": "no action",
           "onUpdate": "no action"
-        },
-        "segment_created_by_user_id_fk": {
-          "name": "segment_created_by_user_id_fk",
-          "tableFrom": "segment",
-          "tableTo": "user",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "segment_source_key_unique": {
-          "name": "segment_source_key_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "source_key"
-          ]
-        }
-      },
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -2453,118 +2400,25 @@
           "primaryKey": false,
           "notNull": true
         },
-        "start_index": {
-          "name": "start_index",
+        "rank": {
+          "name": "rank",
           "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "end_index": {
-          "name": "end_index",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "min_distance_to_activity_start_m": {
-          "name": "min_distance_to_activity_start_m",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "min_distance_to_activity_end_m": {
-          "name": "min_distance_to_activity_end_m",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "status": {
-          "name": "status",
-          "type": "effort_status",
-          "typeSchema": "segments",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'valid'"
-        },
-        "medal": {
-          "name": "medal",
-          "type": "effort_medal",
-          "typeSchema": "segments",
           "primaryKey": false,
           "notNull": false
         }
       },
       "indexes": {
-        "segment_effort_activity_segment_start_idx": {
-          "name": "segment_effort_activity_segment_start_idx",
-          "columns": [
-            {
-              "expression": "activity_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "segment_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "start_index",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "segment_effort_segment_status_time_idx": {
-          "name": "segment_effort_segment_status_time_idx",
+        "segment_effort_segment_elapsed_time_idx": {
+          "name": "segment_effort_segment_elapsed_time_idx",
           "columns": [
             {
               "expression": "segment_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "status",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
             },
             {
               "expression": "elapsed_time_s",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "segment_effort_user_segment_started_at_idx": {
-          "name": "segment_effort_user_segment_started_at_idx",
-          "columns": [
-            {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "segment_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "started_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2620,74 +2474,6 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "segments.segment_favorite": {
-      "name": "segment_favorite",
-      "schema": "segments",
-      "columns": {
-        "user_id": {
-          "name": "user_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "segment_id": {
-          "name": "segment_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "segment_favorite_user_id_user_id_fk": {
-          "name": "segment_favorite_user_id_user_id_fk",
-          "tableFrom": "segment_favorite",
-          "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "segment_favorite_segment_id_segment_id_fk": {
-          "name": "segment_favorite_segment_id_segment_id_fk",
-          "tableFrom": "segment_favorite",
-          "tableTo": "segment",
-          "schemaTo": "segments",
-          "columnsFrom": [
-            "segment_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "segment_favorite_user_id_segment_id_pk": {
-          "name": "segment_favorite_user_id_segment_id_pk",
-          "columns": [
-            "user_id",
-            "segment_id"
-          ]
-        }
-      },
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
@@ -3467,6 +3253,15 @@
         "failed"
       ]
     },
+    "activities.medal": {
+      "name": "medal",
+      "schema": "activities",
+      "values": [
+        "gold",
+        "silver",
+        "bronze"
+      ]
+    },
     "activities.media_kind": {
       "name": "media_kind",
       "schema": "activities",
@@ -3483,6 +3278,18 @@
         "processing",
         "processed",
         "failed"
+      ]
+    },
+    "activities.record_set": {
+      "name": "record_set",
+      "schema": "activities",
+      "values": [
+        "run",
+        "ride",
+        "walk",
+        "hike",
+        "swim_pool",
+        "swim_open_water"
       ]
     },
     "public.session_auth_method": {
@@ -3548,43 +3355,6 @@
         "comment",
         "activity",
         "athlete"
-      ]
-    },
-    "segments.climb_category": {
-      "name": "climb_category",
-      "schema": "segments",
-      "values": [
-        "hc",
-        "1",
-        "2",
-        "3",
-        "4"
-      ]
-    },
-    "segments.effort_medal": {
-      "name": "effort_medal",
-      "schema": "segments",
-      "values": [
-        "gold",
-        "silver",
-        "bronze"
-      ]
-    },
-    "segments.effort_status": {
-      "name": "effort_status",
-      "schema": "segments",
-      "values": [
-        "valid",
-        "suspicious",
-        "rejected"
-      ]
-    },
-    "segments.segment_origin": {
-      "name": "segment_origin",
-      "schema": "segments",
-      "values": [
-        "athlete",
-        "nervo"
       ]
     },
     "social.follow_status": {
@@ -3694,84 +3464,7 @@
   "sequences": {},
   "roles": {},
   "policies": {},
-  "views": {
-    "activities.leaderboard_activity": {
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "sport_type_code": {
-          "name": "sport_type_code",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "visibility": {
-          "name": "visibility",
-          "type": "visibility",
-          "typeSchema": "activities",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'public'"
-        }
-      },
-      "definition": "select \"id\", \"user_id\", \"sport_type_code\", \"visibility\" from \"activities\".\"activity\" where \"activities\".\"activity\".\"processing_status\" = 'processed'",
-      "name": "leaderboard_activity",
-      "schema": "activities",
-      "isExisting": false,
-      "materialized": false
-    },
-    "users.leaderboard_athlete": {
-      "columns": {
-        "user_id": {
-          "name": "user_id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "gender": {
-          "name": "gender",
-          "type": "gender",
-          "typeSchema": "users",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "birth_date": {
-          "name": "birth_date",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "weight_kg": {
-          "name": "weight_kg",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "privacy_zone_radius_m": {
-          "name": "privacy_zone_radius_m",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 200
-        }
-      },
-      "definition": "select \"user_id\", \"gender\", \"birth_date\", \"weight_kg\", \"privacy_zone_radius_m\" from \"users\".\"user_profile\"",
-      "name": "leaderboard_athlete",
-      "schema": "users",
-      "isExisting": false,
-      "materialized": false
-    }
-  },
+  "views": {},
   "_meta": {
     "columns": {},
     "schemas": {},

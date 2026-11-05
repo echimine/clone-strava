@@ -12,15 +12,21 @@ import { ActivityAnalysisRepository } from "../repositories/activity-analysis.re
 import { ActivityStatsRepository } from "../repositories/activity-stats.repository.js";
 import { ACTIVITY_ANALYSIS_VERSION, EMPTY_ACTIVITY_ANALYSIS } from "../domain/compute-analysis.js";
 import { PermanentProcessingError } from "../domain/processing-error.js";
-import { OfficialValuesService, type OfficialValues } from "../services/official-values.js";
+import {
+  OfficialValuesService,
+  type ComputeOptions,
+  type OfficialValues,
+} from "../services/official-values.js";
 
 type ActivityRow = NonNullable<Awaited<ReturnType<ActivityRepository["findById"]>>>;
 
 /**
  * `reprocess-activity` job logic (ADR-033 §5, ADR-036 §7): recompute a processed Activity's
  * official values from its stored trace, as `process-activity` does, and upsert
- * `activity_stats` / `activity_track` / `activity_analysis` in one transaction, when its sport
- * changed or its analysis is missing or outdated; otherwise a no-op. `processing_status` stays
+ * `activity_stats` / `activity_track` / `activity_analysis` and the Best efforts (replaying the
+ * Medals they touch, ADR-039 §3) in one transaction, when its sport changed or its analysis is
+ * missing or outdated; otherwise a no-op. When only the analysis lags, the start point is not
+ * geocoded again: the stored place name stays (ADR-039 §3). `processing_status` stays
  * `processed`. A failure leaves the old values (a permanent one is thrown as
  * {@link PermanentProcessingError}, never recorded as `failed`); an Activity without a usable
  * trace still gets an empty analysis, so the backfill does not pick it again. After the commit,
@@ -54,7 +60,7 @@ export class ReprocessActivityUseCase {
       return;
     }
 
-    const computed = await this.computeValues(activity);
+    const computed = await this.computeValues(activity, { geocode: sportChanged });
     if ("problem" in computed) {
       if (analysisOutdated) {
         await this.saveEmptyAnalysis(activity.id);
@@ -94,6 +100,7 @@ export class ReprocessActivityUseCase {
   /** The recomputed values, or why there are none: a manual entry or an unusable trace. */
   private async computeValues(
     activity: ActivityRow,
+    options: ComputeOptions,
   ): Promise<{ values: OfficialValues } | { problem: "invalid_trace" | "empty_trace" }> {
     if (activity.source === "manual") {
       return { problem: "empty_trace" };
@@ -102,7 +109,7 @@ export class ReprocessActivityUseCase {
     if ("problem" in loaded) {
       return loaded;
     }
-    const values = await this.officialValues.compute(activity, loaded.trace);
+    const values = await this.officialValues.compute(activity, loaded.trace, options);
     return values ? { values } : { problem: "empty_trace" };
   }
 

@@ -74,6 +74,10 @@ import type {
   StaleActivityRow,
 } from "./domain/admin-failure.js";
 
+import { BestEffortRepository } from "./repositories/best-effort.repository.js";
+import { RemoveBestEffortUseCase } from "./use-cases/remove-best-effort.use-case.js";
+import type { BestEffortRecord } from "./domain/best-effort-record.js";
+
 type AdminPage = { page: number; pageSize: number };
 import type {
   ActivityLabel,
@@ -140,6 +144,8 @@ export class ActivitiesService {
     private readonly listAdminFailuresUseCase: ListAdminFailuresUseCase,
     private readonly recomputeActivityUseCase: RecomputeActivityUseCase,
     private readonly relaunchFailuresUseCase: RelaunchFailuresUseCase,
+    private readonly bestEfforts: BestEffortRepository,
+    private readonly removeBestEffortUseCase: RemoveBestEffortUseCase,
     private readonly activitiesNearPath: ActivitiesNearPathRepository,
     private readonly getMatchingTraceUseCase: GetMatchingTraceUseCase,
   ) {}
@@ -275,6 +281,29 @@ export class ActivitiesService {
   /** The author deletes their activity unless it is `processing` (ADR-031 §13, ADR-033 §6). */
   delete(userId: string, activityId: string): Promise<void> {
     return this.deleteActivityUseCase.execute(userId, activityId);
+  }
+
+  // --- Best efforts and Records (ADR-039 §3) ---
+
+  /**
+   * The Best efforts of an Activity not removed, shortest distance first, with their Medals.
+   * The caller has checked that the viewer may see the Activity.
+   */
+  async getBestEfforts(activityId: string): Promise<BestEffortRecord[]> {
+    const rows = await this.bestEfforts.findStanding(activityId);
+    return rows.map(({ activityId, recordSet, distanceM, elapsedTimeMs, startDistanceM, medal }) => ({
+      activityId,
+      recordSet,
+      distanceM,
+      elapsedTimeMs,
+      startDistanceM,
+      medal,
+    }));
+  }
+
+  /** The author removes a Best effort for good (`404 best_effort_not_found` otherwise). */
+  removeBestEffort(userId: string, activityId: string, distanceM: number): Promise<void> {
+    return this.removeBestEffortUseCase.execute(userId, activityId, distanceM);
   }
 
   // --- Media upload (ADR-037 §4) ---

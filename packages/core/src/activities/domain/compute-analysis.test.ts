@@ -135,7 +135,7 @@ describe("computeAnalysis", () => {
   });
 
   it("has no split and no series with fewer than two points", () => {
-    expect(computeAnalysis(northLine(0, 0))).toEqual({ splits: [], series: null });
-    expect(computeAnalysis([])).toEqual({ splits: [], series: null });
+    expect(computeAnalysis(northLine(0, 0))).toEqual({ splits: [], series: null, bestEfforts: [] });
+    expect(computeAnalysis([])).toEqual({ splits: [], series: null, bestEfforts: [] });
   });
 });
