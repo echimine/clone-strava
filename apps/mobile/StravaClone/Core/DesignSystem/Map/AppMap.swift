@@ -5,11 +5,13 @@ import SwiftUI
 /// app's single GPS source, recenter button. Screens add their own content (trace,
 /// route, markers) through the `@MapContentBuilder` closure. `bottomInset` is the height
 /// of what covers the bottom of the map (a carousel): the camera, the Mapbox ornaments and the
-/// recenter button stay above it.
+/// recenter button stay above it. `onCameraSettled`, if any, is told what the map shows each
+/// time its camera comes to rest.
 struct AppMap<Content: MapContent>: View {
     @Binding var viewport: Viewport
     var showsUserLocation = true
     var bottomInset: CGFloat = 0
+    var onCameraSettled: (@MainActor (MapArea) -> Void)?
     @MapContentBuilder let content: () -> Content
 
     @Environment(\.locationProvider) private var locationProvider
@@ -20,11 +22,13 @@ struct AppMap<Content: MapContent>: View {
         viewport: Binding<Viewport>,
         showsUserLocation: Bool = true,
         bottomInset: CGFloat = 0,
+        onCameraSettled: (@MainActor (MapArea) -> Void)? = nil,
         @MapContentBuilder content: @escaping () -> Content
     ) {
         _viewport = viewport
         self.showsUserLocation = showsUserLocation
         self.bottomInset = bottomInset
+        self.onCameraSettled = onCameraSettled
         self.content = content
     }
 
@@ -36,17 +40,13 @@ struct AppMap<Content: MapContent>: View {
         // Full screen: the map runs under the status bar and the floating tab bar,
         // while the controls stay inside the safe area.
         ZStack(alignment: .bottomTrailing) {
-            Map(viewport: $viewport) {
-                if tracksUser {
-                    Puck2D(bearing: .heading)
-                        .showsAccuracyRing(true)
-                }
-                content()
+            // Only with a listener: a screen's own `MapReader` around `AppMap` (the editor) must
+            // keep reaching this map.
+            if onCameraSettled != nil {
+                MapReader { proxy in map(proxy) }
+            } else {
+                map(nil)
             }
-            .mapStyle(.outdoors)
-            .locationDataModel(bridge.dataModel)
-            .additionalSafeAreaInsets(.bottom, bottomInset)
-            .ignoresSafeArea()
 
             if tracksUser && viewport.followPuck == nil {
                 recenterButton
@@ -61,6 +61,30 @@ struct AppMap<Content: MapContent>: View {
                 permission.requestWhenInUseIfNeeded()
             }
         }
+    }
+
+    private func map(_ proxy: MapProxy?) -> some View {
+        Map(viewport: $viewport) {
+            if tracksUser {
+                Puck2D(bearing: .heading)
+                    .showsAccuracyRing(true)
+            }
+            content()
+        }
+        .mapStyle(.outdoors)
+        .locationDataModel(bridge.dataModel)
+        .onMapIdle { _ in
+            guard let onCameraSettled, let map = proxy?.map else { return }
+            let state = map.cameraState
+            let bounds = map.coordinateBounds(for: CameraOptions(cameraState: state))
+            onCameraSettled(MapArea(
+                southWest: Coordinate(bounds.southwest),
+                northEast: Coordinate(bounds.northeast),
+                zoom: state.zoom
+            ))
+        }
+        .additionalSafeAreaInsets(.bottom, bottomInset)
+        .ignoresSafeArea()
     }
 
     private var recenterButton: some View {

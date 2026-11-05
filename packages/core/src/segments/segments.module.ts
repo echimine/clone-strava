@@ -10,6 +10,8 @@ import { MatchSegmentHistoryUseCase } from "./use-cases/match-segment-history.us
 import { ActivityMatchingRepository } from "./repositories/activity-matching.repository.js";
 import { EffortRecorder } from "./services/effort-recorder.js";
 import { ActivityEffortRepository } from "./repositories/activity-effort.repository.js";
+import { SegmentMapRepository } from "./repositories/segment-map.repository.js";
+import { SegmentFavoriteRepository } from "./repositories/segment-favorite.repository.js";
 import { SegmentsService } from "./segments.service.js";
 import { ExcludedSourceKeyRepository } from "./repositories/excluded-source-key.repository.js";
 import { ImportNervoSegmentsUseCase } from "./use-cases/import-nervo-segments.use-case.js";
@@ -28,6 +30,8 @@ import { ExportOpenSegmentsUseCase } from "./use-cases/export-open-segments.use-
   providers: [
     SegmentRepository,
     SegmentEffortRepository,
+    SegmentMapRepository,
+    SegmentFavoriteRepository,
     ActivityEffortRepository,
     ActivityMatchingRepository,
     EffortRecorder,
