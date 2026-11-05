@@ -121,6 +121,24 @@ struct ActivityDetailContent<Engagement: View>: View {
 
     /// The author's Media still being sent, merged into the header (ADR-037 §5).
     @Environment(\.mediaUploads) private var uploads
+    #if DEBUG
+    /// PROTOTYPE (#239): the Results variants' slots.
+    @Environment(\.protoResults) private var proto
+    #endif
+
+    @ViewBuilder private func slot(_ slot: ProtoResultsSlot) -> some View {
+        #if DEBUG
+        proto?.view(slot)
+        #endif
+    }
+
+    private var hidesOverview: Bool {
+        #if DEBUG
+        proto?.hidesOverview() ?? false
+        #else
+        false
+        #endif
+    }
 
     private let columns = [GridItem(.flexible(), alignment: .leading), GridItem(.flexible(), alignment: .leading)]
 
@@ -129,11 +147,16 @@ struct ActivityDetailContent<Engagement: View>: View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.spacing) {
                 header(sections)
+                slot(.underHeader)
+                if hidesOverview {
+                    slot(.replacement).padding(.horizontal, Theme.spacing)
+                } else {
                 VStack(alignment: .leading, spacing: Theme.spacing) {
                     ActivityCardHeader(post: detail.post)
                     Text(detail.title)
                         .font(.title2.weight(.bold))
                         .accessibilityIdentifier("activityDetail.title")
+                    slot(.underTitle)
                     if let description = detail.description {
                         Text(description)
                             .font(.body)
@@ -142,11 +165,14 @@ struct ActivityDetailContent<Engagement: View>: View {
                     if let stats = detail.stats {
                         statsGrid(ActivityStatItem.items(for: stats, sport: detail.sport))
                     }
+                    slot(.afterStats)
                     sourceLine
                     engagement()
+                    slot(.afterEngagement)
                     analysis(sections)
                 }
                 .padding(.horizontal, Theme.spacing)
+                }
             }
             .padding(.bottom, Theme.spacing)
         }
@@ -158,9 +184,17 @@ struct ActivityDetailContent<Engagement: View>: View {
         let media = uploads?.media(of: detail.id, merging: detail.media) ?? detail.media
         let slides = ActivitySlide.compose(hasMap: sections.showsMap, media: media, mediaFirst: detail.mediaFirst)
         return ActivityCarousel(slides: slides, height: Self.headerHeight, onTapMedia: onTapMedia) {
+            #if DEBUG
+            if let route = detail.route, let map = proto?.map(route) {
+                map
+            } else if let route = detail.route {
+                ActivityDetailMap(route: route, routeTrimmed: detail.routeTrimmed, post: detail.post, height: Self.headerHeight)
+            }
+            #else
             if let route = detail.route {
                 ActivityDetailMap(route: route, routeTrimmed: detail.routeTrimmed, post: detail.post, height: Self.headerHeight)
             }
+            #endif
         }
     }
 
@@ -183,6 +217,7 @@ struct ActivityDetailContent<Engagement: View>: View {
 
     /// Sections 8 to 10, hidden without an analysis that has splits.
     @ViewBuilder private func analysis(_ sections: ActivityDetailSections) -> some View {
+        slot(.beforeSplits)
         if let splits = sections.splits {
             ActivitySplitsSection(table: splits)
         }
@@ -289,7 +324,7 @@ extension ActivityAnalysis {
     }
 }
 
-private struct PreviewActivityKudosRepository: ActivityKudosRepository {
+struct PreviewActivityKudosRepository: ActivityKudosRepository {
     func kudos(activityId: ActivityID, cursor: String?, limit: Int) async throws(ActivityDetailError) -> KudosPage {
         let names = ["Léo Bernard", "Inès Petit", "Hugo Moreau", "Chloé Laurent", "Lucas Simon", "Emma Roux"]
         let givers = names.enumerated().map { index, name in

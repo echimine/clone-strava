@@ -10,7 +10,11 @@ struct StravaCloneApp: App {
 
     var body: some Scene {
         WindowGroup {
-            if Self.showsSegmentMapPrototype {
+            if Self.showsActivityResultsPrototype {
+                ActivityResultsPrototypeView()
+                    .tint(Theme.accent)
+                    .environment(\.mapboxAccessToken, di.configuration.mapboxAccessToken)
+            } else if Self.showsSegmentMapPrototype {
                 SegmentMapPrototypeView()
                     .tint(Theme.accent)
                     .environment(\.mapboxAccessToken, di.configuration.mapboxAccessToken)
@@ -64,6 +68,15 @@ struct StravaCloneApp: App {
                 }
             }
         }
+    }
+
+    /// PROTOTYPE (#239), debug builds only: the Results of an Activity's detail instead of the app.
+    private static var showsActivityResultsPrototype: Bool {
+        #if DEBUG
+        ProcessInfo.processInfo.arguments.contains(ActivityResultsProto.launchArgument)
+        #else
+        false
+        #endif
     }
 
     /// PROTOTYPE (#237), debug builds only: the Segments-on-the-map prototype instead of the app.
