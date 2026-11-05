@@ -125,11 +125,15 @@ export function createAuthInstance(
         clientId: options.googleClientId,
         clientSecret: options.googleClientSecret,
       },
-      apple: {
-        clientId: options.appleClientId,
-        clientSecret: options.appleClientSecret,
-        appBundleIdentifier: options.appleAppBundleIdentifier,
-      },
+      ...(options.appleClientId && options.appleClientSecret
+        ? {
+            apple: {
+              clientId: options.appleClientId,
+              clientSecret: options.appleClientSecret,
+              appBundleIdentifier: options.appleAppBundleIdentifier,
+            },
+          }
+        : {}),
     },
     advanced: {
       // ADR-017: identifiers are `uuid`, not Better Auth's default text id.
