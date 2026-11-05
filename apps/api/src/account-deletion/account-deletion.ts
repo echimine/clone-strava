@@ -11,6 +11,7 @@ import { AuditService } from "@repo/core/audit";
 import { AuthService } from "@repo/core/auth";
 import { ModerationService } from "@repo/core/moderation";
 import { EmailJobs } from "@repo/core/notifications";
+import { SegmentsService } from "@repo/core/segments";
 import { AccountJobs, UsersService } from "@repo/core/users";
 
 /** The athlete deleting their own account, as their session tells it. */
@@ -48,9 +49,10 @@ interface Deleted {
  *    cases stay, `reporter_id` set to null by the foreign key.
  * 2. Sessions revoked and the `user` row deleted (`auth`); the SQL cascade erases account,
  *    profile, Activities and traces, Media, comments and kudos, Follows, Blocks, Efforts,
- *    Itineraries and the local subscription. No denormalized counter exists to recompute: every
- *    count is computed on read. Segments keep no creator yet (`segment.created_by` arrives with
- *    the Segments-in-app map, #219), so nothing to do for them here.
+ *    Itineraries, favourite Segments and the local subscription. No denormalized counter exists
+ *    to recompute: every count is computed on read. Just before, the Segments the athlete created
+ *    that nobody else has an Effort on are deleted (`segments`, ADR-039 §11); the others stay
+ *    with `created_by` set to null by the foreign key, nothing replayed for anyone.
  * 3. The Journal entry « Compte supprimé » (`user.delete`): by `@Audited` for a Sanction, here
  *    without author for the athlete. Ids only, never the e-mail or the name.
  * 4. The e-mail « Votre compte Nervo a été supprimé » (`emails` queue) and the `delete-account`
@@ -68,6 +70,7 @@ export class AccountDeletion {
     private readonly auth: AuthService,
     private readonly users: UsersService,
     private readonly moderation: ModerationService,
+    private readonly segments: SegmentsService,
     private readonly audit: AuditService,
     private readonly emails: EmailJobs,
     private readonly accountJobs: AccountJobs,
@@ -86,6 +89,7 @@ export class AccountDeletion {
     await this.auth.checkAccountDeletionCode(athlete.email, code);
     const firstName = await this.firstNameOf(athlete.userId);
     await this.moderation.eraseNotesOfReporter(athlete.userId);
+    await this.segments.deleteSegmentsOnlyTheirs(athlete.userId);
     await this.auth.removeOwnAccount(athlete.userId);
 
     const entryId = randomUUID();
@@ -118,6 +122,7 @@ export class AccountDeletion {
     const firstName = await this.firstNameOf(sanction.userId);
     if (account.role !== "admin") {
       await this.moderation.eraseNotesOfReporter(sanction.userId);
+      await this.segments.deleteSegmentsOnlyTheirs(sanction.userId);
     }
     // Refuses an Administrator itself (`409`), before deleting anything.
     await this.auth.removeUser(sanction.headers, sanction.userId);

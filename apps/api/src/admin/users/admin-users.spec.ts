@@ -53,6 +53,7 @@ describe("/v1/admin/users (integration)", () => {
     const { ActivitiesModule } = await import("@repo/core/activities");
     const { ModerationModule } = await import("@repo/core/moderation");
     const { EmailJobsModule } = await import("@repo/core/notifications");
+    const { SegmentsModule } = await import("@repo/core/segments");
     const { SocialModule } = await import("@repo/core/social");
     const { SubscriptionsModule } = await import("@repo/core/subscriptions");
     const { AccountJobsModule, UsersModule } = await import("@repo/core/users");
@@ -62,7 +63,16 @@ describe("/v1/admin/users (integration)", () => {
     const { AdminUsersController } = await import("./admin-users.controller.js");
     const { AdminUserAssembler } = await import("./admin-user-assembler.js");
     t = await bootstrapAdminAuthTestApp({
-      imports: [AccountJobsModule, ActivitiesModule, EmailJobsModule, ModerationModule, SocialModule, SubscriptionsModule, UsersModule],
+      imports: [
+        AccountJobsModule,
+        ActivitiesModule,
+        EmailJobsModule,
+        ModerationModule,
+        SegmentsModule,
+        SocialModule,
+        SubscriptionsModule,
+        UsersModule,
+      ],
       controllers: [AdminUsersController],
       providers: [AthleteIdentities, AdminUserAssembler, Notices, AccountDeletion],
       contactEmail: "contact@nervo.test",

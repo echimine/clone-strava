@@ -26,6 +26,8 @@ export const ANALYTICS_EVENTS = {
   ONBOARDING_ANSWERS_RECEIVED: "onboarding_answers_received",
   /** A new Report, emitted by the API after commit; nothing on "Déjà signalé" (ADR-038 §9). */
   REPORT_SUBMITTED: "report_submitted",
+  /** A Segment drawn by an athlete is created, emitted by the API (spec #249, ADR-039 §16). */
+  SEGMENT_CREATED: "segment_created",
 } as const;
 export type AnalyticsEventName = (typeof ANALYTICS_EVENTS)[keyof typeof ANALYTICS_EVENTS];
 
@@ -111,6 +113,12 @@ export const reportSubmittedPropertiesSchema = z.object({
 });
 export type ReportSubmittedProperties = z.infer<typeof reportSubmittedPropertiesSchema>;
 
+/** `segment_created`: the Segment's sport only, never its name or path. */
+export const segmentCreatedPropertiesSchema = z.object({
+  sport: z.enum(["run", "ride", "walk", "hike"]),
+});
+export type SegmentCreatedProperties = z.infer<typeof segmentCreatedPropertiesSchema>;
+
 /** Payload schema for a given catalog event, keyed by its name. */
 export const analyticsEventPropertiesSchemas = {
   [ANALYTICS_EVENTS.ACTIVITY_PROCESSED]: activityProcessedPropertiesSchema,
@@ -125,6 +133,7 @@ export const analyticsEventPropertiesSchemas = {
   [ANALYTICS_EVENTS.USER_SIGNED_UP]: userSignedUpPropertiesSchema,
   [ANALYTICS_EVENTS.ONBOARDING_ANSWERS_RECEIVED]: onboardingAnswersReceivedPropertiesSchema,
   [ANALYTICS_EVENTS.REPORT_SUBMITTED]: reportSubmittedPropertiesSchema,
+  [ANALYTICS_EVENTS.SEGMENT_CREATED]: segmentCreatedPropertiesSchema,
 } as const satisfies Record<AnalyticsEventName, z.ZodType>;
 
 /**
@@ -154,6 +163,8 @@ export const APP_ANALYTICS_EVENTS = {
   ATHLETE_BLOCKED: "athlete_blocked",
   /** "Débloquer" confirmed in Réglages > "Athlètes bloqués", without the athlete's id. */
   ATHLETE_UNBLOCKED: "athlete_unblocked",
+  /** A Segment starred (ADR-039 §16), without its id. */
+  SEGMENT_FAVORITED: "segment_favorited",
 } as const;
 export type AppAnalyticsEventName = (typeof APP_ANALYTICS_EVENTS)[keyof typeof APP_ANALYTICS_EVENTS];
 
@@ -228,6 +239,10 @@ export const athleteUnblockedPropertiesSchema = z.object({
 });
 export type AthleteUnblockedProperties = z.infer<typeof athleteUnblockedPropertiesSchema>;
 
+/** `segment_favorited`: no property. */
+export const segmentFavoritedPropertiesSchema = z.object({});
+export type SegmentFavoritedProperties = z.infer<typeof segmentFavoritedPropertiesSchema>;
+
 /** Payload schema for a given app event, keyed by its name. */
 export const appAnalyticsEventPropertiesSchemas = {
   [APP_ANALYTICS_EVENTS.AVATAR_CHANGED]: avatarChangedPropertiesSchema,
@@ -241,4 +256,5 @@ export const appAnalyticsEventPropertiesSchemas = {
   [APP_ANALYTICS_EVENTS.GALLERY_VIEWED]: galleryViewedPropertiesSchema,
   [APP_ANALYTICS_EVENTS.ATHLETE_BLOCKED]: athleteBlockedPropertiesSchema,
   [APP_ANALYTICS_EVENTS.ATHLETE_UNBLOCKED]: athleteUnblockedPropertiesSchema,
+  [APP_ANALYTICS_EVENTS.SEGMENT_FAVORITED]: segmentFavoritedPropertiesSchema,
 } as const satisfies Record<AppAnalyticsEventName, z.ZodType>;
