@@ -38,6 +38,8 @@ iOS editor
                        6. after commit: domain event → realtime bridge, PostHog event
 ```
 
+*Amended by [ADR-039](ADR-039-segments-and-records.md)* §15: the Map tab has two modes, « Itinéraires | Segments »; the « Créer » button becomes a menu « Un Itinéraire / Un Segment »; the same editor draws a Segment (with its own length and loop rules), and the Segment path is stored under the waiver of §1.
+
 ### 1. Storing the computed path: deliberate deviation from Mapbox's terms
 
 We store **the computed path, its distance and its elevation gain**, along with the Waypoints, the sport and the name, although Product Terms §2.10.1 forbid storing Directions results. Same context as the temporary geocoding endpoint of ADR-029: a non-commercial clone that will never be published.
@@ -219,3 +221,4 @@ After the commit, `itineraries` emits domain events. The realtime bridge forward
 
 - **Amends**: [ADR-005](ADR-005-monorepo.md) (adds `packages/geo`), [ADR-008](ADR-008-mobile-offline-sync.md) (§3 first `sync_operation` operations, Itinerary cache), [ADR-010](ADR-010-backend-realtime.md) (`itinerary.saved`, `itinerary.deleted`), [ADR-017](ADR-017-data-model.md) (`itineraries` schema and tables), [ADR-019](ADR-019-activity-creation-flow.md) (§5 elevation-gain algorithm), [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md) (`itineraries` domain module, `elevation` platform module, `@repo/geo`, bridge table)
 - **Related**: [ADR-002](ADR-002-mobile.md), [ADR-006](ADR-006-mobile-stack.md), [ADR-007](ADR-007-mobile-architecture.md), [ADR-015](ADR-015-posthog.md), [ADR-026](ADR-026-openapi-swift-codegen.md), [ADR-027](ADR-027-user-location-on-maps.md), [ADR-028](ADR-028-activity-import-from-file.md) (`@repo/track-files` model for `@repo/geo`), [ADR-029](ADR-029-activity-feed-and-card.md) (same kind of Mapbox deviation, `map_polyline`)
+- **Amended by**: [ADR-039](ADR-039-segments-and-records.md) (Map tab modes, « Créer » menu, Segment editor)

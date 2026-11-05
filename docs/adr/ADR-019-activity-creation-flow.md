@@ -146,7 +146,7 @@ Activities that stay `pending` (trace never uploaded, app offline for a long tim
 
 - Enqueued **after** `process-activity`, with the identifier `match-segments-{activityId}`. It does not delay the official values.
 - Search for candidate segments of the same sport near the route (GiST index), then check that the route actually follows the segment from end to end (tolerance of a few tens of meters).
-- For each segment covered: compute the time from the raw trace, upsert `segment_effort`, **recompute the segment's leaderboard** (`rank`).
+- For each segment covered: compute the time from the raw trace, upsert `segment_effort`, **recompute the segment's leaderboard** (`rank`). *Amended by [ADR-039](ADR-039-segments-and-records.md)* §6: `match-segments` is idempotent and complete (inserts, keeps, deletes the Activity's Efforts, several per Segment), stores `SEGMENT_MATCHING_VERSION` in `segments.activity_matching`, replays Medals; no rank is stored, it is computed at read time; also enqueued after a sport change, by the Nervo import and by `reconcile-segment-matching`.
 - `private` activities do not appear in public leaderboards.
 - A failure of the segment computation **does not change** the activity's status: it stays `processed`. The job has its own retries (*amended by [ADR-038](ADR-038-backoffice-moderation-and-account-deletion.md) §14*: `DEFAULT_JOB_RETRY`, with the common retention). *Amended by [ADR-038](ADR-038-backoffice-moderation-and-account-deletion.md) §16*: an Effort faster than its sport's maximum is `suspicious` and stays in the leaderboard until an Administrator decides; a `rejected` Effort leaves it, and the decision survives a replay of matching.
 - End of the job: `activity.segments_matched` event (topic `user:{userId}`), so the app reloads the efforts if the screen is open (*emitted as `segments.efforts.matched` and forwarded by the realtime bridge, [ADR-021](ADR-021-bounded-contexts-and-module-boundaries.md)*).
@@ -219,4 +219,5 @@ Additions to the `activity` table:
 - **Amended by**: [ADR-031](ADR-031-live-recording-on-ios.md) (§3 trace v2 with Pauses and regular `URLSession`, §5 metrics across Pauses, §9 `GET` and `DELETE /v1/activities/:id`)
 - **Amended by**: [ADR-033](ADR-033-activity-detail-edit-delete.md) (§7 reconciliation also covers reprocessing, §9 `GET` for visible Activities and `DELETE` of processed Activities)
 - **Amended by**: [ADR-038](ADR-038-backoffice-moderation-and-account-deletion.md) (§6 the reprocess endpoint, §8 `match-segments` retries and Suspicious efforts)
+- **Amended by**: [ADR-039](ADR-039-segments-and-records.md) (§8 `match-segments` idempotent and complete, no stored rank, also after a sport change)
 - **Related**: [ADR-001](ADR-001-global-architecture.md), [ADR-008](ADR-008-mobile-offline-sync.md), [ADR-009](ADR-009-backend-api.md), [ADR-010](ADR-010-backend-realtime.md), [ADR-018](ADR-018-docker-vps-deployment.md)
