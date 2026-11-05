@@ -121,7 +121,7 @@ struct RecordingPreStartView: View {
     }
 
     /// "Aucun" by default; every cached Itinerary, newest first; one without its track on the
-    /// phone is listed but not selectable; none at all offers "Créer un Itinéraire".
+    /// phone is listed but not selectable; "Créer un Itinéraire" is always offered last.
     private var itineraryPicker: some View {
         Menu {
             Button {
@@ -132,9 +132,6 @@ struct RecordingPreStartView: View {
                 } else {
                     Text(RecordingMessages.noItinerary)
                 }
-            }
-            if store.itineraries.isEmpty {
-                Button(RecordingMessages.createItinerary, systemImage: "plus", action: onCreateItinerary)
             }
             ForEach(store.itineraries) { listing in
                 Button {
@@ -149,6 +146,7 @@ struct RecordingPreStartView: View {
                 }
                 .disabled(!listing.hasTrack)
             }
+            Button(RecordingMessages.createItinerary, systemImage: "plus", action: onCreateItinerary)
         } label: {
             Label(store.chosenItinerary?.name ?? RecordingMessages.noItinerary, systemImage: "point.topleft.down.to.point.bottomright.curvepath")
                 .font(.subheadline.weight(.semibold))
