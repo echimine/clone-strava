@@ -19,7 +19,6 @@ export class ActivityEffortRepository {
         segmentName: schema.segment.name,
         elapsedTimeS: effort.elapsedTimeS,
         startedAt: effort.startedAt,
-        rank: effort.rank,
       })
       .from(effort)
       .innerJoin(schema.segment, eq(schema.segment.id, effort.segmentId))

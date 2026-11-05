@@ -84,6 +84,13 @@ import type {
 import type { ActivityDetailRecord } from "./domain/activity-detail.js";
 import type { ActivityMediaRecord, GalleryMediaPage } from "./domain/activity-media.js";
 import type { ActivityRecord } from "./domain/activity-record.js";
+import type {
+  ActivitiesNearPathPage,
+  ActivitiesNearPathQuery,
+  ActivityMatchingTrace,
+} from "./domain/matching-trace.js";
+import { ActivitiesNearPathRepository } from "./repositories/activities-near-path.repository.js";
+import { GetMatchingTraceUseCase } from "./use-cases/get-matching-trace.use-case.js";
 import type { FeedActivityPage } from "./domain/feed-activity.js";
 
 /**
@@ -133,6 +140,8 @@ export class ActivitiesService {
     private readonly listAdminFailuresUseCase: ListAdminFailuresUseCase,
     private readonly recomputeActivityUseCase: RecomputeActivityUseCase,
     private readonly relaunchFailuresUseCase: RelaunchFailuresUseCase,
+    private readonly activitiesNearPath: ActivitiesNearPathRepository,
+    private readonly getMatchingTraceUseCase: GetMatchingTraceUseCase,
   ) {}
 
   /** Backoffice dashboard, "À traiter" (ADR-038 §15): failed Activities and recent failed imports. */
@@ -446,5 +455,24 @@ export class ActivitiesService {
   /** Batch read: the ids among `mediaIds` of Media that still exist (Journal links). */
   getExistingMediaIds(mediaIds: string[]): Promise<Set<string>> {
     return this.adminActivities.findExistingMediaIds(mediaIds);
+  }
+
+  // --- Segment matching (ADR-039 §2, §6) ---
+
+  /**
+   * The cleaned, timestamped trace of a processed Activity, before the privacy zone, with its
+   * Pauses, sport, visibility, author, first and last points; `null` when it is gone or not
+   * processed. Read from the bucket: `segments` never reads it itself.
+   */
+  getMatchingTrace(activityId: string): Promise<ActivityMatchingTrace | null> {
+    return this.getMatchingTraceUseCase.execute(activityId);
+  }
+
+  /**
+   * Processed Activities of a sport whose route passes within `marginM` of both `start` and
+   * `end`, every visibility, by Activity id after `cursor` (retro-matching, ADR-039 §7).
+   */
+  findActivitiesNearPath(query: ActivitiesNearPathQuery): Promise<ActivitiesNearPathPage> {
+    return this.activitiesNearPath.findPage(query);
   }
 }

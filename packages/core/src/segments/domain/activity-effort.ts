@@ -5,5 +5,4 @@ export interface ActivityEffortRecord {
   segmentName: string;
   elapsedTimeS: number;
   startedAt: Date;
-  rank: number | null;
 }

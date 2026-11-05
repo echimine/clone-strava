@@ -134,6 +134,13 @@
       "when": 1793814856316,
       "tag": "0018_subscriptions_promotional",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1793918666626,
+      "tag": "0019_segments_matching",
+      "breakpoints": true
     }
   ]
 }

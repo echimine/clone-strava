@@ -6,12 +6,16 @@ import { SportsModule } from "../sports/index.js";
 import { SegmentRepository } from "./repositories/segment.repository.js";
 import { SegmentEffortRepository } from "./repositories/segment-effort.repository.js";
 import { MatchSegmentsUseCase } from "./use-cases/match-segments.use-case.js";
+import { MatchSegmentHistoryUseCase } from "./use-cases/match-segment-history.use-case.js";
+import { ActivityMatchingRepository } from "./repositories/activity-matching.repository.js";
+import { EffortRecorder } from "./services/effort-recorder.js";
 import { ActivityEffortRepository } from "./repositories/activity-effort.repository.js";
 import { SegmentsService } from "./segments.service.js";
 
 /**
  * `segments` module (ADR-021 §1/§2: layer 3, may depend on `activities`,
- * `sports`). Registers the `segments` queue as a producer (ADR-011,
+ * `sports`, `users`; ADR-039 §2: reads `activities` and `users` only through their services and
+ * their published views). Registers the `segments` queue as a producer (ADR-011,
  * ADR-021 §5); only `apps/worker` registers a processor for it. Exports
  * only its service.
  */
@@ -21,7 +25,10 @@ import { SegmentsService } from "./segments.service.js";
     SegmentRepository,
     SegmentEffortRepository,
     ActivityEffortRepository,
+    ActivityMatchingRepository,
+    EffortRecorder,
     MatchSegmentsUseCase,
+    MatchSegmentHistoryUseCase,
     SegmentsService,
   ],
   exports: [SegmentsService],

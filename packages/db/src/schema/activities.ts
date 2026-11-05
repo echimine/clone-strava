@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import {
   boolean,
   index,
@@ -220,4 +220,21 @@ export const activityImport = activitiesSchema.table(
       .on(table.status)
       .where(sql`${table.status} in ('pending', 'processing')`),
   ],
+);
+
+/**
+ * Published read view (ADR-039 §2, ADR-021 §7 amended): what another module may join of an
+ * Activity, read-only. Processed Activities only: Efforts and Leaderboards never concern the
+ * others. A contract: changing it is a cross-module change.
+ */
+export const leaderboardActivity = activitiesSchema.view("leaderboard_activity").as((qb) =>
+  qb
+    .select({
+      id: activity.id,
+      userId: activity.userId,
+      sportTypeCode: activity.sportTypeCode,
+      visibility: activity.visibility,
+    })
+    .from(activity)
+    .where(eq(activity.processingStatus, "processed")),
 );

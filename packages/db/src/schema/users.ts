@@ -64,3 +64,20 @@ export const userSport = usersSchema.table(
   },
   (table) => [primaryKey({ columns: [table.userId, table.sportCode] })],
 );
+
+/**
+ * Published read view (ADR-039 §2, ADR-021 §7 amended): the athlete attributes a Leaderboard and
+ * the privacy-zone filter of Efforts read, read-only. A contract: changing it is a cross-module
+ * change.
+ */
+export const leaderboardAthlete = usersSchema.view("leaderboard_athlete").as((qb) =>
+  qb
+    .select({
+      userId: userProfile.userId,
+      gender: userProfile.gender,
+      birthDate: userProfile.birthDate,
+      weightKg: userProfile.weightKg,
+      privacyZoneRadiusM: userProfile.privacyZoneRadiusM,
+    })
+    .from(userProfile),
+);

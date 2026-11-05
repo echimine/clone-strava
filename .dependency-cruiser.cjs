@@ -56,7 +56,10 @@ const ALLOWED_DEPENDENCIES = {
   social: ["users"],
   activities: ["sports", "users", "social"],
   engagement: ["activities", "social", "users"],
-  segments: ["activities", "sports"],
+  // ADR-039 §2: also `users`; `activities` and `users` are read through their services and,
+  // in SQL, only through their published views (`activities.leaderboard_activity`,
+  // `users.leaderboard_athlete`), never their tables.
+  segments: ["activities", "sports", "users"],
   // ADR-030 §4: `users` only through the `user_id` foreign key; never
   // `social` nor `activities`.
   itineraries: ["sports", "users"],

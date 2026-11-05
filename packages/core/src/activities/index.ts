@@ -36,3 +36,8 @@ export {
   type WeekTotals,
 } from "./domain/athlete-weeks.js";
 export { streakWeeks } from "./domain/streak.js";
+export type {
+  ActivitiesNearPathPage,
+  ActivitiesNearPathQuery,
+  ActivityMatchingTrace,
+} from "./domain/matching-trace.js";

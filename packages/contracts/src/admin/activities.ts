@@ -76,7 +76,6 @@ export const adminSegmentEffortSchema = z.object({
   segmentName: z.string(),
   elapsedTimeS: z.number().int(),
   startedAt: z.iso.datetime(),
-  rank: z.number().int().nullable(),
 });
 export type AdminSegmentEffort = z.infer<typeof adminSegmentEffortSchema>;
 

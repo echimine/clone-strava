@@ -61,6 +61,8 @@ import { AdminFailureRepository } from "./repositories/admin-failure.repository.
 import { ListAdminFailuresUseCase } from "./use-cases/list-admin-failures.use-case.js";
 import { RecomputeActivityUseCase } from "./use-cases/recompute-activity.use-case.js";
 import { RelaunchFailuresUseCase } from "./use-cases/relaunch-failures.use-case.js";
+import { ActivitiesNearPathRepository } from "./repositories/activities-near-path.repository.js";
+import { GetMatchingTraceUseCase } from "./use-cases/get-matching-trace.use-case.js";
 import { ActivitiesService } from "./activities.service.js";
 
 /**
@@ -136,6 +138,9 @@ import { ActivitiesService } from "./activities.service.js";
     ListAdminFailuresUseCase,
     RecomputeActivityUseCase,
     RelaunchFailuresUseCase,
+    // Segment matching (ADR-039 §2)
+    ActivitiesNearPathRepository,
+    GetMatchingTraceUseCase,
     ActivitiesService,
   ],
   exports: [ActivitiesService],

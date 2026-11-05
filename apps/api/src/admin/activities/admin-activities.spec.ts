@@ -171,8 +171,9 @@ describe("/v1/admin/activities (integration)", () => {
       ]);
       const effortId = randomUUID();
       await t.sql(
-        `insert into segments.segment_effort (id, activity_id, segment_id, user_id, elapsed_time_s, started_at, rank)
-         values ($1, $2, $3, $4, 420, '2026-11-02T08:10:00Z', 3)`,
+        `insert into segments.segment_effort (id, activity_id, segment_id, user_id, elapsed_time_s, started_at,
+           start_index, end_index, min_distance_to_activity_start_m, min_distance_to_activity_end_m)
+         values ($1, $2, $3, $4, 420, '2026-11-02T08:10:00Z', 10, 430, 500, 800)`,
         [effortId, id, segmentId, emile],
       );
 
@@ -200,7 +201,7 @@ describe("/v1/admin/activities (integration)", () => {
         kudosCount: 1,
         kudos: [{ athlete: { id: zoe }, createdAt: "2026-11-02T13:00:00.000Z" }],
         import: { id, format: "gpx", fileName: "sortie.gpx", status: "imported" },
-        efforts: [{ id: effortId, segmentId, segmentName: "Côte du Mont", elapsedTimeS: 420, rank: 3 }],
+        efforts: [{ id: effortId, segmentId, segmentName: "Côte du Mont", elapsedTimeS: 420 }],
       });
       expect(detail.media).toHaveLength(1);
       expect(detail.media[0]).toMatchObject({ id: mediaId, kind: "photo" });
