@@ -10,7 +10,11 @@ struct StravaCloneApp: App {
 
     var body: some Scene {
         WindowGroup {
-            if Self.showsActivityResultsPrototype {
+            if Self.showsProfileRecordsPrototype {
+                ProfileRecordsPrototypeView()
+                    .tint(Theme.accent)
+                    .environment(\.mapboxAccessToken, di.configuration.mapboxAccessToken)
+            } else if Self.showsActivityResultsPrototype {
                 ActivityResultsPrototypeView()
                     .tint(Theme.accent)
                     .environment(\.mapboxAccessToken, di.configuration.mapboxAccessToken)
@@ -68,6 +72,15 @@ struct StravaCloneApp: App {
                 }
             }
         }
+    }
+
+    /// PROTOTYPE (#240), debug builds only: Records and Segments in the profile instead of the app.
+    private static var showsProfileRecordsPrototype: Bool {
+        #if DEBUG
+        ProcessInfo.processInfo.arguments.contains(ProfileRecordsProto.launchArgument)
+        #else
+        false
+        #endif
     }
 
     /// PROTOTYPE (#239), debug builds only: the Results of an Activity's detail instead of the app.

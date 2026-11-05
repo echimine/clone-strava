@@ -19,6 +19,32 @@ struct AthleteProfilePage: View {
     @Environment(\.blockAthlete) private var blockAthlete
     @Environment(\.dismiss) private var dismiss
 
+    #if DEBUG
+    /// PROTOTYPE (#240): Records and Segments in the profile.
+    @Environment(\.protoProfile) private var proto
+    #endif
+
+    @ViewBuilder private func protoSlot(_ slot: ProtoProfileSlot) -> some View {
+        #if DEBUG
+        proto?.view(slot, false)
+        #endif
+    }
+
+    private var protoReplacesMore: Bool {
+        #if DEBUG
+        proto?.replaces(.more, false) ?? false
+        #else
+        false
+        #endif
+    }
+
+    private var tabs: [AthleteProfileStore.Tab] {
+        #if DEBUG
+        if proto?.showsResultsTab() == true { return AthleteProfileStore.Tab.allCases }
+        #endif
+        return AthleteProfileStore.Tab.allCases.filter { $0 != .results }
+    }
+
     init(
         request: AthleteProfileRequest,
         makeStore: @MainActor (String) -> AthleteProfileStore,
@@ -126,7 +152,7 @@ struct AthleteProfilePage: View {
                     tabContent(profile)
                 } header: {
                     ProfileTabBar(
-                        tabs: AthleteProfileStore.Tab.allCases,
+                        tabs: tabs,
                         selection: $store.tab,
                         title: AthletesMessages.tab,
                         systemImage: Self.systemImage
@@ -153,6 +179,10 @@ struct AthleteProfilePage: View {
             .groupedTabContent()
         case .gallery:
             AthleteGalleryTab(store: store.gallery) { openActivity(ActivityDetailRequest(id: $0)) }
+        case .results:
+            protoSlot(.results).groupedTabContent()
+        case .more where protoReplacesMore:
+            protoSlot(.more)
         case .more:
             AthleteMoreTab(yearToDateDistance: store.yearToDateDistance, openStatistics: statisticsAction(profile))
         }
@@ -161,6 +191,7 @@ struct AthleteProfilePage: View {
     private static func systemImage(_ tab: AthleteProfileStore.Tab) -> String {
         switch tab {
         case .activities: "waveform.path.ecg"
+        case .results: "medal"
         case .gallery: GalleryMessages.systemImage
         case .more: "line.3.horizontal"
         }

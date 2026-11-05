@@ -32,6 +32,32 @@ struct ProfileView<Itineraries: View, Search: View>: View {
 
     private var userId: String? { account?.id }
 
+    #if DEBUG
+    /// PROTOTYPE (#240): Records and Segments in the profile.
+    @Environment(\.protoProfile) private var proto
+    #endif
+
+    @ViewBuilder private func protoSlot(_ slot: ProtoProfileSlot) -> some View {
+        #if DEBUG
+        proto?.view(slot, true)
+        #endif
+    }
+
+    private var protoReplacesMore: Bool {
+        #if DEBUG
+        proto?.replaces(.more, true) ?? false
+        #else
+        false
+        #endif
+    }
+
+    private var tabs: [ProfileStore.Tab] {
+        #if DEBUG
+        if proto?.showsResultsTab() == true { return ProfileStore.Tab.allCases }
+        #endif
+        return ProfileStore.Tab.allCases.filter { $0 != .results }
+    }
+
     var body: some View {
         NavigationStack(path: $store.path) {
             content
@@ -76,6 +102,10 @@ struct ProfileView<Itineraries: View, Search: View>: View {
                     }
                 }
                 .registerAppDestinations(destinations)
+                #if DEBUG
+                .navigationDestination(for: ProtoProfileRoute.self) { proto?.destination($0) }
+                .navigationDestination(for: ProtoMapRoute.self) { proto?.mapDestination($0) }
+                #endif
         }
         .toast($store.toast)
         .toast(Binding(get: { store.gallery.notice }, set: { store.gallery.notice = $0 }))
@@ -132,7 +162,7 @@ struct ProfileView<Itineraries: View, Search: View>: View {
                     tabContent(profile)
                 } header: {
                     ProfileTabBar(
-                        tabs: ProfileStore.Tab.allCases,
+                        tabs: tabs,
                         selection: $store.tab,
                         title: ProfileMessages.tab,
                         systemImage: Self.systemImage
@@ -151,8 +181,11 @@ struct ProfileView<Itineraries: View, Search: View>: View {
     @ViewBuilder private func tabContent(_ profile: AthleteProfile) -> some View {
         switch store.tab {
         case .progress:
-            ProfileProgressTab(store: store.progress, practicedSports: profile.practicedSports)
-                .groupedTabContent()
+            VStack(spacing: Theme.spacing) {
+                ProfileProgressTab(store: store.progress, practicedSports: profile.practicedSports)
+                protoSlot(.progressEnd)
+            }
+            .groupedTabContent()
         case .activities:
             ProfileActivitiesTab(
                 store: store.activities,
@@ -163,6 +196,10 @@ struct ProfileView<Itineraries: View, Search: View>: View {
             .groupedTabContent()
         case .gallery:
             AthleteGalleryTab(store: store.gallery, openActivity: store.openActivity)
+        case .results:
+            protoSlot(.results).groupedTabContent()
+        case .more where protoReplacesMore:
+            protoSlot(.more)
         case .more:
             ProfileMoreTab(
                 yearToDateDistance: store.yearToDateDistance,
@@ -177,6 +214,7 @@ struct ProfileView<Itineraries: View, Search: View>: View {
         switch tab {
         case .progress: "chart.bar.doc.horizontal"
         case .activities: "waveform.path.ecg"
+        case .results: "medal"
         case .gallery: GalleryMessages.systemImage
         case .more: "line.3.horizontal"
         }

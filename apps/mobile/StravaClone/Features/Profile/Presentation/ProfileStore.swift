@@ -16,7 +16,8 @@ final class ProfileStore {
     }
 
     enum Tab: Hashable, CaseIterable {
-        case progress, activities, gallery, more
+        // PROTOTYPE (#240): `results` only shows in variant C of the profile prototype.
+        case progress, activities, results, gallery, more
     }
 
     /// Screens of the profile's own stack; Activity details and Kudos and comments screens are
