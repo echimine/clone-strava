@@ -18,6 +18,8 @@
     "mobile:test:ui": "pnpm mobile:generate && xcodebuild test -project apps/mobile/StravaClone.xcodeproj -scheme StravaClone -skipPackagePluginValidation -only-testing:StravaCloneUITests -destination 'platform=iOS Simulator,name=iPhone 17'",
     "mobile:prod": "bash scripts/mobile-prod.sh",
     "brand:generate": "node scripts/generate-brand-assets.mjs",
+    "segments:generate": "turbo run build --filter=@repo/segments-generator --output-logs=errors-only && node packages/segments-generator/dist/cli.js",
+    "segments:import": "turbo run build --filter=api --output-logs=errors-only && pnpm --filter api segments:import",
     "format": "prettier --write \"**/*.{ts,tsx,md}\""
   },
   "devDependencies": {

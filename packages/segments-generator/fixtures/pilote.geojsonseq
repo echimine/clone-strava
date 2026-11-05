@@ -1,0 +1,13 @@
+{"type":"Feature","id":"w1","geometry":{"type":"LineString","coordinates":[[5.9936408,45],[6.0254367,45]]},"properties":{"highway":"secondary","ref":"D 900"}}
+{"type":"Feature","id":"w2","geometry":{"type":"LineString","coordinates":[[6.0254367,45],[6.07631,45]]},"properties":{"highway":"secondary","ref":"D 900"}}
+{"type":"Feature","id":"w3","geometry":{"type":"LineString","coordinates":[[6.07631,45],[6.1081058,45]]},"properties":{"highway":"secondary","ref":"D 900"}}
+{"type":"Feature","id":"w4","geometry":{"type":"LineString","coordinates":[[5.9974563,45.0449661],[6.0254367,45.0449661]]},"properties":{"highway":"path","sac_scale":"mountain_hiking"}}
+{"type":"Feature","id":"w5","geometry":{"type":"LineString","coordinates":[[5.9974563,45.0485634],[6.0254367,45.0485634]]},"properties":{"highway":"path","sac_scale":"alpine_hiking"}}
+{"type":"Feature","id":"w6","geometry":{"type":"LineString","coordinates":[[6,45.0269796],[6.038155,45.0269796]]},"properties":{"highway":"residential","name":"Route plate"}}
+{"type":"Feature","id":"a1","geometry":{"type":"Polygon","coordinates":[[[6,45],[6.0001272,45],[6.0001272,45.0000899],[6,45]]]},"properties":{"highway":"pedestrian","area":"yes"}}
+{"type":"Feature","id":"n7","geometry":{"type":"Point","coordinates":[6.0508733,45]},"properties":{"mountain_pass":"yes","name":"Col du Test","ele":"1280"}}
+{"type":"Feature","id":"n8","geometry":{"type":"Point","coordinates":[6.0254367,45.0449661]},"properties":{"natural":"peak","name":"Pic du Test","name:fr":"Pic du Test"}}
+{"type":"Feature","id":"n9","geometry":{"type":"Point","coordinates":[6.0254367,45.0485634]},"properties":{"natural":"peak","name":"Aiguille du Test"}}
+{"type":"Feature","id":"n10","geometry":{"type":"Point","coordinates":[5.9961845,45.0017986]},"properties":{"place":"village","name":"Valtest"}}
+{"type":"Feature","id":"n11","geometry":{"type":"Point","coordinates":[6.1055621,44.9982014]},"properties":{"place":"village","name":"Autreville"}}
+{"type":"Feature","id":"n12","geometry":{"type":"Point","coordinates":[5.9961845,45.0458654]},"properties":{"place":"hamlet","name":"Hameau du Bas"}}

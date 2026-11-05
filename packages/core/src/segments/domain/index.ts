@@ -1,0 +1,12 @@
+/**
+ * Pure part of `segments`, without Nest nor Drizzle (`@repo/core/segments/domain`): for tools
+ * outside the apps, such as the Nervo generator (ADR-039 §10), which must not load the module.
+ */
+export { climbCategory, type ClimbCategory } from "./climb-category.js";
+export {
+  isSameSegment,
+  matchSegment,
+  resampleSegmentPath,
+  SEGMENT_MATCHING_THRESHOLDS,
+  SEGMENT_MATCHING_VERSION,
+} from "./match-segment.js";

@@ -43,6 +43,10 @@
       "types": "./dist/segments/index.d.ts",
       "default": "./dist/segments/index.js"
     },
+    "./segments/domain": {
+      "types": "./dist/segments/domain/index.d.ts",
+      "default": "./dist/segments/domain/index.js"
+    },
     "./subscriptions": {
       "types": "./dist/subscriptions/index.d.ts",
       "default": "./dist/subscriptions/index.js"

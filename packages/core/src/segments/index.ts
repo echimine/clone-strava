@@ -17,3 +17,4 @@ export {
 export { replaySegmentMedals, type EffortStatus, type Medal, type MedalEffort } from "./domain/segment-medals.js";
 export { MAX_EFFORT_SPEED_KMH } from "./domain/effort-sync.js";
 export { DEFAULT_PRIVACY_ZONE_RADIUS_M, SEGMENT_SPORTS } from "./domain/segment-sports.js";
+export { climbCategory, type ClimbCategory } from "./domain/climb-category.js";
