@@ -62,6 +62,9 @@ import { ListAdminFailuresUseCase } from "./use-cases/list-admin-failures.use-ca
 import { RecomputeActivityUseCase } from "./use-cases/recompute-activity.use-case.js";
 import { RelaunchFailuresUseCase } from "./use-cases/relaunch-failures.use-case.js";
 import { ActivitiesService } from "./activities.service.js";
+import { BestEffortRepository } from "./repositories/best-effort.repository.js";
+import { BestEffortWriter } from "./services/best-effort-writer.js";
+import { RemoveBestEffortUseCase } from "./use-cases/remove-best-effort.use-case.js";
 
 /**
  * `activities` module (ADR-021 §1/§2: layer 2, may depend on `sports`,
@@ -136,6 +139,10 @@ import { ActivitiesService } from "./activities.service.js";
     ListAdminFailuresUseCase,
     RecomputeActivityUseCase,
     RelaunchFailuresUseCase,
+    // Best efforts and their Medals (ADR-039 §3, §8)
+    BestEffortRepository,
+    BestEffortWriter,
+    RemoveBestEffortUseCase,
     ActivitiesService,
   ],
   exports: [ActivitiesService],

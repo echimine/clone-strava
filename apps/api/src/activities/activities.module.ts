@@ -9,6 +9,7 @@ import { IdentitiesModule } from "../identities/identities.module.js";
 import { ActivitiesController } from "./activities.controller.js";
 import { ActivityMediaController } from "./activity-media.controller.js";
 import { ActivityImportsController } from "./activity-imports.controller.js";
+import { BestEffortsController } from "./best-efforts.controller.js";
 import { CommentAssembler } from "./comment-assembler.js";
 import { CommentsController } from "./comments.controller.js";
 import { KudosAssembler } from "./kudos-assembler.js";
@@ -22,6 +23,7 @@ import { KudosController } from "./kudos.controller.js";
     ActivityMediaController,
     KudosController,
     CommentsController,
+    BestEffortsController,
   ],
   // The detail reuses the feed's author and engagement assembly (ADR-033 §2).
   providers: [CommentAssembler, FeedAssembler, KudosAssembler, MediaAssembler],
