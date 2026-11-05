@@ -154,7 +154,7 @@ export const APP_ANALYTICS_EVENTS = {
   ATHLETE_BLOCKED: "athlete_blocked",
   /** "Débloquer" confirmed in Réglages > "Athlètes bloqués", without the athlete's id. */
   ATHLETE_UNBLOCKED: "athlete_unblocked",
-  /** A Segment starred (ADR-039 §16), with no property. */
+  /** A Segment starred (ADR-039 §16), without its id. */
   SEGMENT_FAVORITED: "segment_favorited",
 } as const;
 export type AppAnalyticsEventName = (typeof APP_ANALYTICS_EVENTS)[keyof typeof APP_ANALYTICS_EVENTS];
@@ -230,6 +230,7 @@ export const athleteUnblockedPropertiesSchema = z.object({
 });
 export type AthleteUnblockedProperties = z.infer<typeof athleteUnblockedPropertiesSchema>;
 
+/** `segment_favorited`: no property. */
 export const segmentFavoritedPropertiesSchema = z.object({});
 export type SegmentFavoritedProperties = z.infer<typeof segmentFavoritedPropertiesSchema>;
 

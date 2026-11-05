@@ -96,6 +96,8 @@ enum AnalyticsEvent: Equatable, Sendable {
     case athleteBlocked(source: BlockSource)
     /// "Débloquer" confirmed in Réglages > "Athlètes bloqués", never with the athlete's id.
     case athleteUnblocked
+    /// A Segment starred (ADR-039 §16), from a Map card or its sheet; no property.
+    case segmentFavorited
 
     var name: String {
         switch self {
@@ -134,6 +136,7 @@ enum AnalyticsEvent: Equatable, Sendable {
         case .galleryViewed: "gallery_viewed"
         case .athleteBlocked: "athlete_blocked"
         case .athleteUnblocked: "athlete_unblocked"
+        case .segmentFavorited: "segment_favorited"
         }
     }
 
@@ -158,7 +161,8 @@ enum AnalyticsEvent: Equatable, Sendable {
         case .itineraryOfflineEditBlocked(let action):
             ["action": .string(action.rawValue)]
         case .welcomeViewed, .onboardingStarted, .authGoogleCancelled, .notificationPromptViewed,
-             .notificationPermissionDeferred, .avatarRemoved, .avatarPromptViewed, .avatarPromptDeferred:
+             .notificationPermissionDeferred, .avatarRemoved, .avatarPromptViewed, .avatarPromptDeferred,
+             .segmentFavorited:
             [:]
         case .onboardingStepViewed(let step, let resumed):
             ["step": .string(step.rawValue), "resumed": .bool(resumed)]

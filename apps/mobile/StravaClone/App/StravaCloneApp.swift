@@ -34,6 +34,7 @@ struct StravaCloneApp: App {
                 makeItinerarySaveStore: di.makeItinerarySaveStore,
                 itineraryListStore: di.makeItineraryListStore(),
                 mapItinerariesStore: di.makeMapItinerariesStore(),
+                segmentMapStore: di.makeSegmentMapStore(),
                 makeItineraryDetailStore: { [di] id in di.makeItineraryDetailStore(id: id, source: .profile) },
                 makeItineraryEditFlow: di.makeItineraryEditFlow,
                 itineraryCreation: di.makeItineraryCreationFlow(),
@@ -103,6 +104,8 @@ struct RootView: View {
     let makeItinerarySaveStore: @MainActor () -> ItinerarySaveStore
     @State var itineraryListStore: ItineraryListStore
     @State var mapItinerariesStore: MapItinerariesStore
+    /// The Map tab's Segments mode (ADR-039 §15).
+    @State var segmentMapStore: SegmentMapStore
     /// Details pushed from Profil > Mes Itinéraires.
     let makeItineraryDetailStore: @MainActor (ItineraryID) -> ItineraryDetailStore
     let makeItineraryEditFlow: @MainActor (ItineraryID) -> ItineraryEditFlow
@@ -128,6 +131,8 @@ struct RootView: View {
 
     @Environment(\.scenePhase) private var scenePhase
     @State private var selectedTab = AppTab.feed
+    /// The Map tab's stack (ADR-039 §15): an Itinerary, a Segment's sheet and `AppDestinations`.
+    @State private var mapPath = NavigationPath()
     /// The Paywall opened by "S'abonner" in the home header.
     @State private var isSubscribePaywallPresented = false
     /// A queued Itinerary change the server turned down (ADR-030 §8).
@@ -254,21 +259,14 @@ struct RootView: View {
                     }
                     .tabItem { Label("Accueil", systemImage: "house") }
                     .tag(AppTab.feed)
-                    NavigationStack {
-                        MapScreen(
-                            onCreateItinerary: { itineraryCreation.start(from: .mapTab) },
-                            focusedPath: mapItinerariesStore.focusedPath
-                        ) {
-                            MapItinerariesCarousel(store: mapItinerariesStore)
-                        }
-                        .navigationDestination(for: ItineraryID.self) { [mapItinerariesStore] id in
-                            ItineraryDetailPage(
-                                id: id,
-                                makeDetailStore: mapItinerariesStore.makeDetailStore,
-                                makeEditFlow: mapItinerariesStore.makeEditFlow
-                            )
-                        }
-                    }
+                    MapTab(
+                        path: $mapPath,
+                        itineraries: mapItinerariesStore,
+                        segments: segmentMapStore,
+                        destinations: appDestinations(path: $mapPath),
+                        onCreateItinerary: { itineraryCreation.start(from: .mapTab) }
+                    )
+                    .environment(\.openAthlete, openAthlete(in: $mapPath))
                     .tabItem { Label("Map", systemImage: "map") }
                     .tag(AppTab.map)
                     RecordingView(
@@ -421,7 +419,9 @@ struct RootView: View {
             engagement: { AnyView(activityEngagement($0)) },
             athleteProfile: { AnyView(athleteProfile($0, path: path)) },
             statistics: { AnyView(athleteStatistics($0)) },
-            follows: { AnyView(followLists($0)) }
+            follows: { AnyView(followLists($0)) },
+            // The sheet is #251's (ADR-039 §15): until then, its title only.
+            segment: { _ in AnyView(Text("Segment").navigationTitle("Segment")) }
         )
     }
 
