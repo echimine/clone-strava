@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { SegmentsModule as CoreSegmentsModule } from "@repo/core/segments";
+import { OpenDataController } from "./open-data.controller.js";
 
 /**
  * Segments in `apps/api` (ADR-039 §12): one controller per spec, composed here. Also gives
@@ -7,6 +8,6 @@ import { SegmentsModule as CoreSegmentsModule } from "@repo/core/segments";
  */
 @Module({
   imports: [CoreSegmentsModule],
-  controllers: [],
+  controllers: [OpenDataController],
 })
 export class SegmentsModule {}

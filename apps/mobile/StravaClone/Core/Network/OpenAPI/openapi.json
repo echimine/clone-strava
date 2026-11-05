@@ -1598,6 +1598,37 @@
         ]
       }
     },
+    "/v1/activities/{id}/best-efforts/{distanceM}": {
+      "delete": {
+        "operationId": "BestEffortsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "distanceM",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removed"
+          }
+        },
+        "tags": [
+          "BestEfforts"
+        ]
+      }
+    },
     "/v1/me/progress": {
       "get": {
         "operationId": "AthleteStatsController_progress",
@@ -1907,6 +1938,23 @@
         },
         "tags": [
           "Itineraries"
+        ]
+      }
+    },
+    "/v1/open-data/segments.ndjson.gz": {
+      "get": {
+        "operationId": "OpenDataController_segmentsFile",
+        "parameters": [],
+        "responses": {
+          "302": {
+            "description": "Vers le fichier NDJSON gzippé (en-tête de licence ODbL, puis une Feature GeoJSON par Segment)"
+          },
+          "404": {
+            "description": "`open_data_not_ready` avant le premier export"
+          }
+        },
+        "tags": [
+          "OpenData"
         ]
       }
     },
@@ -7556,14 +7604,6 @@
                   "type": "string",
                   "format": "date-time",
                   "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
-                },
-                "rank": {
-                  "type": [
-                    "integer",
-                    "null"
-                  ],
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991
                 }
               },
               "required": [
@@ -7571,8 +7611,7 @@
                 "segmentId",
                 "segmentName",
                 "elapsedTimeS",
-                "startedAt",
-                "rank"
+                "startedAt"
               ],
               "additionalProperties": false
             }
