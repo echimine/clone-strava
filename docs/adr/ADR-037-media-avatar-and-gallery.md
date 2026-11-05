@@ -52,7 +52,8 @@ Facts the decisions depend on (code at `8ff07de`):
 - **Upload**: the phone produces a **512×512 JPEG** (quality ~0.8, ImageIO, no EXIF or GPS). `POST /v1/me/avatar/upload-url` returns a pre-signed `PUT` to `avatars/{userId}/{avatarId}.jpg` with `Content-Type` and `Content-Length` signed, **1 MB max**. Then **`PUT /v1/me/avatar { avatarId }`** checks the object (`HEAD`) and stores the key. **`DELETE /v1/me/avatar`** removes it. No worker and no variants.
 - **Old object**: on replacement or removal, the API deletes the old object right after the database update. A failure is logged; the `bucket-sweep` of §11 catches the orphan. An already issued URL then answers `404` and `AvatarView` shows the initials.
 - **While sending**: the new photo shows at once with a spinner; on failure the old Avatar comes back with "La photo n'a pas pu être envoyée". **Network required**: no offline queue (ADR-008 does not apply).
-- **"Ajoute une photo de profil"**: a screen after sign-in and before the Paywall, on the Onboarding path only and **only for accounts created by email code** (a Google account already has its photo). Shown once, "Choisir une photo" / "Plus tard", never offered again and not resumed if the app is killed. It cannot be an Onboarding question: those come before the account exists, so nothing could sign the upload.
+*Amended 2026-11-05: the Onboarding is reworked and Strava does not ask for a photo either; the screen is removed. The Paywall now follows the sign-in directly, and the photo is offered later from the profile.*
+- ~~**"Ajoute une photo de profil"**: a screen after sign-in and before the Paywall, on the Onboarding path only and **only for accounts created by email code** (a Google account already has its photo). Shown once, "Choisir une photo" / "Plus tard", never offered again and not resumed if the app is killed. It cannot be an Onboarding question: those come before the account exists, so nothing could sign the upload.~~
 
 ### 3. Media files, all produced on the iPhone ([#159](https://github.com/echimine/clone-strava/issues/159), amends ADR-011)
 
@@ -189,9 +190,8 @@ App events only (ADR-015 naming, `enum AnalyticsEvent`), with no image data, pla
 | `avatar_changed` | `source: camera\|library`, `entry: profile\|edit_profile\|onboarding` | New Avatar stored |
 | `avatar_removed` | — | "Supprimer la photo" |
 | `avatar_upload_failed` | `reason` | Avatar not sent |
-| `avatar_prompt_viewed` / `avatar_prompt_deferred` | — | "Ajoute une photo de profil" shown / "Plus tard" |
 
-The carousel is not tracked; "Réessayer", "Retirer" and the viewer's swipes have no event. ADR-035's first funnel gains `avatar_prompt_viewed` between `signed_in` and `paywall_viewed`.
+The carousel is not tracked; "Réessayer", "Retirer" and the viewer's swipes have no event.
 
 ### 14. Out of scope
 

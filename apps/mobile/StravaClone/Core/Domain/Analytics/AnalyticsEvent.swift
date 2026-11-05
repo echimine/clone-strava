@@ -83,10 +83,6 @@ enum AnalyticsEvent: Equatable, Sendable {
     case avatarRemoved
     /// The Avatar was not sent, or not stored.
     case avatarUploadFailed(reason: AvatarUploadFailure)
-    /// "Ajoute une photo de profil" is shown, before the Paywall.
-    case avatarPromptViewed
-    /// "Plus tard" on that screen.
-    case avatarPromptDeferred
 
     /// The full-screen viewer opened on a Media (ADR-037 §13); its swipes are not tracked.
     case mediaViewerOpened(source: MediaViewerSource, kind: ActivityMedia.Kind, isOwn: Bool)
@@ -128,8 +124,6 @@ enum AnalyticsEvent: Equatable, Sendable {
         case .avatarChanged: "avatar_changed"
         case .avatarRemoved: "avatar_removed"
         case .avatarUploadFailed: "avatar_upload_failed"
-        case .avatarPromptViewed: "avatar_prompt_viewed"
-        case .avatarPromptDeferred: "avatar_prompt_deferred"
         case .mediaViewerOpened: "media_viewer_opened"
         case .galleryViewed: "gallery_viewed"
         case .athleteBlocked: "athlete_blocked"
@@ -158,7 +152,7 @@ enum AnalyticsEvent: Equatable, Sendable {
         case .itineraryOfflineEditBlocked(let action):
             ["action": .string(action.rawValue)]
         case .welcomeViewed, .onboardingStarted, .authGoogleCancelled, .notificationPromptViewed,
-             .notificationPermissionDeferred, .avatarRemoved, .avatarPromptViewed, .avatarPromptDeferred:
+             .notificationPermissionDeferred, .avatarRemoved:
             [:]
         case .onboardingStepViewed(let step, let resumed):
             ["step": .string(step.rawValue), "resumed": .bool(resumed)]

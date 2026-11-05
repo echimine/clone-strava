@@ -31,8 +31,7 @@ struct AuthStoreNotificationPrimerTests {
         signIn.email = "a@b.com"
         await signIn.sendCode()
         signIn.enterCode("123456")
-        _ = await eventually { authStore.state == .avatarPrompt(ada) }
-        authStore.deferAvatarPrompt()
+        _ = await eventually { authStore.state == .paywall(ada) }
         return authStore
     }
 

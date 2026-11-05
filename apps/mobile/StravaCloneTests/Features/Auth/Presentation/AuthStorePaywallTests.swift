@@ -38,9 +38,8 @@ struct AuthStorePaywallTests {
         let ada = user(createdMinutesAgo: 0)
 
         await signInWithACode(authStore, entry: .onboarding(name: "Ada Lovelace"), as: ada)
-        #expect(await eventually { authStore.state == .avatarPrompt(ada) })
+        #expect(await eventually { authStore.state == .paywall(ada) })
 
-        authStore.deferAvatarPrompt()
 
         #expect(authStore.state == .paywall(ada))
     }
@@ -52,8 +51,7 @@ struct AuthStorePaywallTests {
         #expect(await eventually { authStore.state == .onboarding(ada) })
 
         authStore.finishOnboarding()
-        #expect(authStore.state == .avatarPrompt(ada))
-        authStore.deferAvatarPrompt()
+        #expect(authStore.state == .paywall(ada))
 
         #expect(authStore.state == .paywall(ada))
     }
@@ -71,8 +69,7 @@ struct AuthStorePaywallTests {
         let authStore = makeAuthStore()
         let ada = user(createdMinutesAgo: 0)
         await signInWithACode(authStore, entry: .onboarding(name: "Ada Lovelace"), as: ada)
-        #expect(await eventually { authStore.state == .avatarPrompt(ada) })
-        authStore.deferAvatarPrompt()
+        #expect(await eventually { authStore.state == .paywall(ada) })
 
         await authStore.finishPaywall()
 

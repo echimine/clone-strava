@@ -67,7 +67,7 @@ struct AuthStoreOnboardingTests {
 
         await signInWithACode(harness, entry: .onboarding(name: "Ada Lovelace"), as: ada)
 
-        #expect(await eventually { harness.authStore.state == .avatarPrompt(ada) })
+        #expect(await eventually { harness.authStore.state == .paywall(ada) })
         #expect(harness.submissions.value.count == 1)
         #expect(harness.pendingRequest.waiting == 1)
         harness.pendingRequest.wakeAll()
@@ -114,7 +114,7 @@ struct AuthStoreOnboardingTests {
 
         harness.authStore.finishOnboarding()
 
-        #expect(harness.authStore.state == .avatarPrompt(ada))
+        #expect(harness.authStore.state == .paywall(ada))
         #expect(await eventually { harness.submissions.value.count == 1 })
         harness.pendingRequest.wakeAll()
     }
