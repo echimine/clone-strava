@@ -98,7 +98,7 @@ Facts the decisions depend on (code at `bc0532b`):
 - The reconciliation sweep (every 10 min) also selects up to 100 `processed` Activities with **no `activity_analysis` row or a `version` below `ACTIVITY_ANALYSIS_VERSION`**, and enqueues `reprocess-activity` for each with job id **`reprocess-{activityId}-analysis-v{version}`**.
 - `ReprocessActivityUseCase` now runs when the sport changed **or** the analysis is missing or outdated; otherwise it is still a no-op. It recomputes everything through `compute` (stats, track with `route_trimmed`, analysis) in one transaction. It emits `activities.activity.updated ["stats"]` only when the sport changed, so the backfill does not flood the owner's realtime topic.
 - A backfill job that fails for good keeps its job id, so it is not retried until the next version bump. Accepted, as in ADR-033 §5.
-- Raising `ACTIVITY_ANALYSIS_VERSION` later recomputes every Activity, at 100 per sweep.
+- Raising `ACTIVITY_ANALYSIS_VERSION` later recomputes every Activity, at 100 per sweep. *Amended by [ADR-039](ADR-039-segments-and-records.md)* §3: version **2** adds the Best efforts (`activities.best_effort`) and their Medals; that backfill does not redo the reverse geocoding.
 
 ### 8. Kudos and comments screen (amends ADR-034 §1, §6)
 
@@ -149,7 +149,7 @@ Sections 8–10 are hidden when `analysis` is `null` or has no splits. Pace char
 ### 11. Out of scope
 
 - ~~Avatar upload, the Gallery~~ (*amended by [ADR-037](ADR-037-media-avatar-and-gallery.md)*: decided there), Segments, Matériel and Challenges.
-- Records, best efforts, results and medals; Mois sportif; the Premium insert.
+- ~~Records, best efforts, results and medals~~ (*Amended by [ADR-039](ADR-039-segments-and-records.md)*: decided there); Mois sportif; the Premium insert.
 - Search and filters in the Activities lists.
 - Favourites, the "new follower" notification, blocking and reporting, contacts, QR codes and invitations, suggestions.
 - Group Activities ("avec X").
@@ -207,5 +207,5 @@ Sections 8–10 are hidden when `analysis` is `null` or has no splits. Pace char
   - [ADR-034](ADR-034-activity-engagement-and-live-detail.md): §1 and §6, the separate Kudos and comments screen and tappable athletes.
   - [ADR-035](ADR-035-onboarding-sign-in-code-paywall.md): §8 "Confidentialité" moves to a Réglages screen.
   - [ADR-007](ADR-007-mobile-architecture.md): the new `Core` areas of §10.
-- **Amended by**: [ADR-037](ADR-037-media-avatar-and-gallery.md) (§9 the detail header carousel, §10 the Galerie tab, §11 Avatar and Gallery)
+- **Amended by**: [ADR-037](ADR-037-media-avatar-and-gallery.md) (§9 the detail header carousel, §10 the Galerie tab, §11 Avatar and Gallery), [ADR-039](ADR-039-segments-and-records.md) (§7 analysis v2, §11 Records in scope)
 - **Related**: [ADR-030](ADR-030-itineraries-on-ios.md), [ADR-032](ADR-032-brand-and-motion-design.md)

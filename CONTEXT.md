@@ -27,12 +27,36 @@ A stretch of a Recording during which the timer is stopped, either by the athlet
 _Avoid_: Stop, break
 
 **Segment**:
-A shared stretch of road or trail with a leaderboard, created by an athlete in the app and matched against Activities.
+A shared stretch of road or trail with a leaderboard, for a single sport that has a map, matched against every Activity of that sport passing over it, past Activities included, whatever their visibility, once the Segment is created. An athlete creates one in the app by drawing it on the map, or Nervo creates it, from open map data, across the world; the app never tells the two apart. A Segment is always public, and who created it is never shown; its creator may rename it, and may delete it only while nobody else has an Effort on it. When its creator deletes their account, the Segment goes with it if nobody else has an Effort on it, and otherwise stays without a creator. A Segment Nervo created, or whose creator deleted their account, can only be renamed or deleted by an Administrator. Blocks and Bans never hide a Segment, and reporting one does not hide it from its reporter.
 _Avoid_: Section, lap
 
+**Verified segment**:
+A Segment an Administrator has vouched for, marked as such wherever it appears; the Administrator may withdraw it. It is only a mark: it has the same leaderboard and rules as any other Segment, its creator keeps the same rights, and it stays verified when renamed. A Segment Nervo creates is not verified until an Administrator vouches for it. Shown as "Segment vérifié" in the app.
+_Avoid_: Official segment, certified segment, Nervo segment
+
 **Effort**:
-One athlete's pass over a Segment during an Activity, with the time it took; its rank in the Segment's leaderboard follows from that time.
+One athlete's pass over a Segment during an Activity, timed from start to finish with every stop included. An Activity may hold several Efforts on the same Segment. Only the athlete's best Effort can stand in the Segment's Leaderboard.
 _Avoid_: Segment effort, attempt, KOM
+
+**Leaderboard**:
+A Segment's ranking of athletes, one line each, holding their fastest Effort made during a public Activity and outside their privacy zone. Rank is always the current one: equal times share a rank, and the earlier Effort is listed first. Efforts from Activities shared with followers only or kept private, and Efforts that enter the privacy zone, are seen by their athlete alone. A Leaderboard can be narrowed to men or women, combined with one of: a calendar period (today, this week, this month, this year), the athletes one follows (and oneself), an age group or a weight class; ranks are then counted within that narrower list, and in a period each athlete stands with their fastest Effort of that period. An athlete whose sex is non-binary or undisclosed appears only when it is not narrowed by sex; one who has not given their weight appears in no weight class. Age group and weight class use the athlete's current age and weight; their exact values are never shown. Without Premium, an athlete sees only the first ten lines and their own, and cannot narrow it; their own current rank is always theirs to see. Shown as "Classement" in the app.
+_Avoid_: Ranking, standings, KOM list
+
+**Local Legend**:
+The athlete who has passed over a Segment the most times in the last 90 days, counting only the Efforts that could stand in its Leaderboard, and at most one per Activity. Unlike a Leaderboard, speed plays no part. Whoever reached that count first keeps the title on an equal count. It is always the current holder: the title moves as old Efforts drop out of the 90 days, and there is one for everyone, one for men and one for women, following the Leaderboard's choice of sex. It is not a Medal and nothing records who held it before. Shown as "Légende locale" in the app.
+_Avoid_: KOM, QOM, CR, King of the mountain, Queen of the mountain
+
+**Record**:
+An athlete's fastest time over a set distance in a sport: the best of their Best efforts over that distance, across all their Activities of that sport (for example 5 km running, or 400 m swimming). Every sport that measures a distance has Records, each with its own list of distances; swimming has two separate sets, pool and open water, never compared with each other. A Best effort the athlete removes no longer counts. Not to be confused with an athlete's best Effort on a Segment. Records are personal: there is no Leaderboard of Records between athletes. Shown as "Records" in the app.
+_Avoid_: PR, personal best
+
+**Best effort**:
+An Activity's fastest time over one of its sport's Record distances, taken from any point of the Activity, every stop included; an Activity shorter than a distance has no Best effort for it. The athlete may remove one for good, and it then no longer counts toward Records or Medals. It has nothing to do with Segments. Shown as "Meilleur effort" in the app.
+_Avoid_: Effort, split, PR
+
+**Medal**:
+Gold, silver or bronze, earned by an Effort or by a Best effort when it is the athlete's first, second or third fastest at the date of that Activity, counting all their Activities whatever their visibility. The very first time earns gold; an equal time does not beat an earlier one. A Medal stays once earned, and the Medals are worked out again in date order whenever the athlete's history changes, silently, with no record of the Medals they replace. Whoever may see the Activity sees its Medals. Medals are personal and never compare athletes. Shown as "Médaille" in the app.
+_Avoid_: Trophy, PR, achievement, crown
 
 **Suspicious effort**:
 An Effort the server judges too fast for its sport, kept in the leaderboard until an Administrator accepts it or rejects it; a rejected Effort leaves the leaderboard. Shown as "Efforts à vérifier" in the backoffice.
@@ -133,7 +157,7 @@ The sports an athlete says they practice, in the order they picked them. Chosen 
 _Avoid_: Favorite sports, preferred sports, interests
 
 **Premium**:
-Paid access to Nervo's advanced features, bought in the app as a subscription, possibly starting with a free trial, or offered by an Administrator as Promotional Premium. Apple bills it; Nervo never charges, cancels or refunds it. Shown as "Premium" in the app and the backoffice.
+Paid access to Nervo's advanced features (today, the full Leaderboard and its narrowing; Records, Medals, Local Legend and creating Segments stay free), bought in the app as a subscription, possibly starting with a free trial, or offered by an Administrator as Promotional Premium. Apple bills it; Nervo never charges, cancels or refunds it. Shown as "Premium" in the app and the backoffice.
 _Avoid_: Subscription, abonnement (in French, that is a Follow), pro, plus
 
 **Promotional Premium**:
@@ -141,7 +165,7 @@ Premium an Administrator offers an athlete for a fixed length (1, 3, 6 or 12 mon
 _Avoid_: Free Premium, gift, comp, coupon
 
 **Paywall**:
-The screen offering Premium, shown once at the end of the Onboarding, right after the person signs in (whether the account is new or already existed). It can be skipped.
+The screen offering Premium, shown once at the end of the Onboarding, right after the person signs in (whether the account is new or already existed), and again each time an athlete without Premium touches something reserved to it. It can be skipped.
 _Avoid_: Upsell, subscription screen
 
 ### Moderation
@@ -151,7 +175,7 @@ A member of the Nervo team who runs the platform from the backoffice: athletes, 
 _Avoid_: Moderator, staff, superuser
 
 **Report**:
-An athlete's flag that a comment, an Activity (with its Media) or another athlete (name, bio, Avatar) breaks the rules, sent to the Administrators for review. The athlete who reports a comment or an Activity no longer sees it, whatever the Administrators decide. All open Reports on the same item are reviewed together and closed together, either as sanctioned or as dismissed; they also close on their own when the item is deleted. The athlete who reported is never told the outcome, and the author of the item is never told it was reported (only of any Sanction that follows). Shown as "Signaler" in the app.
+An athlete's flag that a comment, an Activity (with its Media), a Segment (name or path) or another athlete (name, bio, Avatar) breaks the rules, sent to the Administrators for review. The athlete who reports a comment or an Activity no longer sees it, whatever the Administrators decide. All open Reports on the same item are reviewed together and closed together, either as sanctioned or as dismissed; they also close on their own when the item is deleted. The athlete who reported is never told the outcome, and the author of the item is never told it was reported (only of any Sanction that follows). Shown as "Signaler" in the app.
 _Avoid_: Flag, complaint, abuse ticket
 
 **Sanction**:
