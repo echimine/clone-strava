@@ -29,6 +29,7 @@ describe("segment leaderboard (integration)", () => {
   }, 60_000);
 
   afterAll(async () => {
+    await seeds?.cleanup();
     await api?.close();
   });
 

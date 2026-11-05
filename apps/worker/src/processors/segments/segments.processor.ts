@@ -2,6 +2,7 @@ import { InjectQueue, Processor, WorkerHost } from "@nestjs/bullmq";
 import { Logger } from "@nestjs/common";
 import type { Job, Queue } from "bullmq";
 import {
+  EXPORT_SEGMENTS_ODBL_JOB_NAME,
   MATCH_SEGMENT_HISTORY_JOB_NAME,
   MATCH_SEGMENTS_JOB_NAME,
   REPLAY_SEGMENT_MEDALS_JOB_NAME,
@@ -49,6 +50,8 @@ export class SegmentsProcessor extends WorkerHost {
         return this.segmentsService.replayMedals(replaySegmentMedalsJobSchema.parse(job.data));
       case RECONCILE_SEGMENT_MATCHING_JOB_NAME:
         return this.reconcile();
+      case EXPORT_SEGMENTS_ODBL_JOB_NAME:
+        return this.exportOpenData();
       default:
         this.logger.warn(`Unknown job name on queue "${SEGMENTS_QUEUE_NAME}": ${job.name}`);
     }
@@ -102,5 +105,11 @@ export class SegmentsProcessor extends WorkerHost {
       })),
     );
     this.logger.log(`Segment matching sweep: ${lagging.length} activity(ies) enqueued`);
+  }
+
+  /** The weekly public ODbL file of every Segment (ADR-039 §10, §13). */
+  private async exportOpenData(): Promise<void> {
+    const { segmentCount } = await this.segmentsService.exportOpenData();
+    this.logger.log(`ODbL export: ${segmentCount} segment(s)`);
   }
 }

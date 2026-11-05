@@ -188,6 +188,7 @@ describe("reports (integration)", () => {
     const missing = await report(reporter, { targetType: "segment", targetId: crypto.randomUUID(), reason: "spam" });
     expect(missing.status).toBe(404);
     expect(await errorCode(missing)).toBe("segment_not_found");
+    await seeds.cleanup();
   });
 
   it("answers 404 for a missing or invisible target", async () => {

@@ -21,6 +21,7 @@ describe("segment sheet (integration)", () => {
   }, 60_000);
 
   afterAll(async () => {
+    await seeds?.cleanup();
     await api?.close();
   });
 
@@ -53,9 +54,9 @@ describe("segment sheet (integration)", () => {
       leaderboard: { limited: true, entries: [], me: null, athleteCount: 0 },
     });
     expect(decodePolyline(body.track.polyline6, 6)).toEqual([
-      { lat: 45.9, lon: 6.12 },
-      { lat: 45.905, lon: 6.12 },
-      { lat: 45.91, lon: 6.12 },
+      { lat: 44.6, lon: 3 },
+      { lat: 44.605, lon: 3 },
+      { lat: 44.61, lon: 3 },
     ]);
     expect(body.track.altitudesM).toEqual([500, 550, 600]);
     expect(JSON.stringify(body)).not.toContain(creator);

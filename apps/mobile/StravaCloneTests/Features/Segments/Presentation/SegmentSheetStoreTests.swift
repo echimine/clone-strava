@@ -7,9 +7,10 @@ import Testing
 @MainActor
 struct SegmentSheetStoreTests {
     private let repository = FakeSegmentRepository()
+    private let analytics = FakeAnalyticsClient()
 
     private func makeStore(onDeleted: @escaping @MainActor () -> Void = {}) -> SegmentSheetStore {
-        SegmentSheetStore(segmentID: "seg-1", repository: repository, onDeleted: onDeleted)
+        SegmentSheetStore(segmentID: "seg-1", repository: repository, analytics: analytics, onDeleted: onDeleted)
     }
 
     @Test func loadsTheSheet() async {
@@ -50,6 +51,7 @@ struct SegmentSheetStoreTests {
         #expect(store.sheet?.isStarred == true)
         #expect(store.sheet?.favoriteCount == 4)
         #expect(repository.calls.last == .setStarred("seg-1", true))
+        #expect(analytics.events == [.segmentFavorited])
 
         repository.starResult = .failure(.network)
         await store.toggleStar()

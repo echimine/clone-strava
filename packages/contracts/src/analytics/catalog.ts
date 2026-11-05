@@ -156,6 +156,8 @@ export const APP_ANALYTICS_EVENTS = {
   ATHLETE_UNBLOCKED: "athlete_unblocked",
   /** A Segment's Leaderboard screen opened, or its filter changed (ADR-039 §16). */
   LEADERBOARD_VIEWED: "leaderboard_viewed",
+  /** A Segment starred (ADR-039 §16), without its id. */
+  SEGMENT_FAVORITED: "segment_favorited",
 } as const;
 export type AppAnalyticsEventName = (typeof APP_ANALYTICS_EVENTS)[keyof typeof APP_ANALYTICS_EVENTS];
 
@@ -235,6 +237,9 @@ export const leaderboardViewedPropertiesSchema = z.object({
   filter: z.enum(["all", "male", "female", "period", "following", "age", "weight"]),
 });
 export type LeaderboardViewedProperties = z.infer<typeof leaderboardViewedPropertiesSchema>;
+/** `segment_favorited`: no property. */
+export const segmentFavoritedPropertiesSchema = z.object({});
+export type SegmentFavoritedProperties = z.infer<typeof segmentFavoritedPropertiesSchema>;
 
 /** Payload schema for a given app event, keyed by its name. */
 export const appAnalyticsEventPropertiesSchemas = {
@@ -250,4 +255,5 @@ export const appAnalyticsEventPropertiesSchemas = {
   [APP_ANALYTICS_EVENTS.ATHLETE_BLOCKED]: athleteBlockedPropertiesSchema,
   [APP_ANALYTICS_EVENTS.ATHLETE_UNBLOCKED]: athleteUnblockedPropertiesSchema,
   [APP_ANALYTICS_EVENTS.LEADERBOARD_VIEWED]: leaderboardViewedPropertiesSchema,
+  [APP_ANALYTICS_EVENTS.SEGMENT_FAVORITED]: segmentFavoritedPropertiesSchema,
 } as const satisfies Record<AppAnalyticsEventName, z.ZodType>;

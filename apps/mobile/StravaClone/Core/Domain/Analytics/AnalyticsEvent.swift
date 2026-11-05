@@ -99,6 +99,8 @@ enum AnalyticsEvent: Equatable, Sendable {
     case athleteUnblocked
     /// A Segment's Leaderboard screen shown, then each change of its filter (ADR-039 §16).
     case leaderboardViewed(filter: LeaderboardViewedFilter)
+    /// A Segment starred (ADR-039 §16), from a Map card or its sheet; no property.
+    case segmentFavorited
 
     var name: String {
         switch self {
@@ -138,6 +140,7 @@ enum AnalyticsEvent: Equatable, Sendable {
         case .athleteBlocked: "athlete_blocked"
         case .athleteUnblocked: "athlete_unblocked"
         case .leaderboardViewed: "leaderboard_viewed"
+        case .segmentFavorited: "segment_favorited"
         }
     }
 
@@ -162,7 +165,8 @@ enum AnalyticsEvent: Equatable, Sendable {
         case .itineraryOfflineEditBlocked(let action):
             ["action": .string(action.rawValue)]
         case .welcomeViewed, .onboardingStarted, .authGoogleCancelled, .notificationPromptViewed,
-             .notificationPermissionDeferred, .avatarRemoved, .avatarPromptViewed, .avatarPromptDeferred:
+             .notificationPermissionDeferred, .avatarRemoved, .avatarPromptViewed, .avatarPromptDeferred,
+             .segmentFavorited:
             [:]
         case .onboardingStepViewed(let step, let resumed):
             ["step": .string(step.rawValue), "resumed": .bool(resumed)]

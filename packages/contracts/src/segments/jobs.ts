@@ -22,6 +22,15 @@ export function matchSegmentsVersionJobId(activityId: string, matchingVersion: n
   return `match-segments-${activityId}-v${matchingVersion}`;
 }
 
+/**
+ * The per-Activity replay after a Nervo import (ADR-039 §7): one job per Activity and import run.
+ * Not the version's id: a finished sweep job of the same version, still kept in Redis for a week,
+ * would make BullMQ drop the replay silently.
+ */
+export function matchSegmentsImportJobId(activityId: string, importId: string): string {
+  return `match-segments-${activityId}-import-${importId}`;
+}
+
 /** `match-segments` job payload (ADR-019 §8). */
 export const matchSegmentsJobSchema = z.object({
   activityId: z.uuid(),

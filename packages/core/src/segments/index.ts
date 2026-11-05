@@ -9,6 +9,8 @@ export type {
 } from "./use-cases/get-segment-leaderboard.use-case.js";
 export type { LeaderboardLine } from "./repositories/leaderboard.repository.js";
 export type { SegmentSheetView, SheetEffort } from "./use-cases/get-segment-sheet.use-case.js";
+export type { NervoImportReport } from "./use-cases/import-nervo-segments.use-case.js";
+export type { MapSegmentRecord, MapSegmentSearch } from "./repositories/segment-map.repository.js";
 // Pure matching, reused to create Segments and by the Nervo generator (ADR-039 §5, §10).
 export {
   isSameSegment,
@@ -25,3 +27,4 @@ export {
 export { replaySegmentMedals, type EffortStatus, type Medal, type MedalEffort } from "./domain/segment-medals.js";
 export { MAX_EFFORT_SPEED_KMH } from "./domain/effort-sync.js";
 export { DEFAULT_PRIVACY_ZONE_RADIUS_M, SEGMENT_SPORTS } from "./domain/segment-sports.js";
+export { climbCategory, type ClimbCategory } from "./domain/climb-category.js";

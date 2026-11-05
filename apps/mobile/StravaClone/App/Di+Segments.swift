@@ -1,12 +1,22 @@
 import Foundation
 
-/// A Segment's sheet and Leaderboard (ADR-039 §15), and the Paywall their locks open in a sheet.
+/// Segments (ADR-039 §15): the Map tab's Segments mode, a Segment's sheet and Leaderboard, and
+/// the Paywall their locks open in a sheet.
 extension Di {
+    /// One for the Map tab, kept across mode switches.
+    func makeSegmentMapStore() -> SegmentMapStore {
+        SegmentMapStore(
+            repository: APISegmentMapRepository(apiClient: apiClient),
+            favorites: APISegmentFavoriteRepository(apiClient: apiClient),
+            analytics: analytics
+        )
+    }
+
     func makeSegmentScreens() -> SegmentScreens {
         let repository = APISegmentRepository(apiClient: apiClient)
         return SegmentScreens(
-            makeSheetStore: { id, onDeleted in
-                SegmentSheetStore(segmentID: id, repository: repository, onDeleted: onDeleted)
+            makeSheetStore: { [analytics] id, onDeleted in
+                SegmentSheetStore(segmentID: id, repository: repository, analytics: analytics, onDeleted: onDeleted)
             },
             makeLeaderboardStore: { [analytics] id in
                 LeaderboardStore(segmentID: id, repository: repository, analytics: analytics)

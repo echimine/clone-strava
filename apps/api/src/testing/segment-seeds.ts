@@ -1,7 +1,10 @@
 import type { AthleteApp } from "./athlete-app.js";
 
-/** Climbs 100 m north of Annecy over ~1.1 km: three points of a LineStringZ. */
-const PATH = "SRID=4326;LINESTRING Z(6.12 45.9 500, 6.12 45.905 550, 6.12 45.91 600)";
+/**
+ * Climbs 100 m over ~1.1 km in the Aubrac, away from the zones the map specs search: three
+ * points of a LineStringZ.
+ */
+const PATH = "SRID=4326;LINESTRING Z(3.0 44.6 500, 3.0 44.605 550, 3.0 44.61 600)";
 
 export interface EffortSeed {
   elapsedTimeS: number;
@@ -31,10 +34,13 @@ export interface SegmentSeeds {
   favorite: (segmentId: string, userId: string) => Promise<void>;
   premium: (userId: string) => Promise<void>;
   profile: (userId: string, values: { gender?: string; birthDate?: string; weightKg?: number; radiusM?: number }) => Promise<void>;
+  /** Deletes the seeded Segments: those without a creator outlive the seeded athletes. */
+  cleanup: () => Promise<void>;
 }
 
 /** SQL seeds for the Segment sheet and Leaderboard specs (ADR-039 §8, §12). */
 export function segmentSeeds(api: AthleteApp): SegmentSeeds {
+  const seeded: string[] = [];
   return {
     segment: async (options = {}) => {
       const [row] = await api.sql<{ id: string }>(
@@ -53,6 +59,7 @@ export function segmentSeeds(api: AthleteApp): SegmentSeeds {
           options.historyMatched === false ? null : new Date(),
         ],
       );
+      seeded.push(row!.id);
       return row!.id;
     },
     effort: async (segmentId, userId, effort) => {
@@ -97,6 +104,9 @@ export function segmentSeeds(api: AthleteApp): SegmentSeeds {
           where user_id = $1`,
         [userId, values.gender ?? null, values.birthDate ?? null, values.weightKg ?? null, values.radiusM ?? null],
       );
+    },
+    cleanup: async () => {
+      await api.sql("delete from segments.segment where id = any($1)", [seeded]);
     },
   };
 }

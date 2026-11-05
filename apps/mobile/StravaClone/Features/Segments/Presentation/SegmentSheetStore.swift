@@ -28,11 +28,18 @@ final class SegmentSheetStore {
 
     @ObservationIgnored let segmentID: String
     @ObservationIgnored private let repository: any SegmentRepository
+    @ObservationIgnored private let analytics: any AnalyticsClient
     @ObservationIgnored private let onDeleted: @MainActor () -> Void
 
-    init(segmentID: String, repository: any SegmentRepository, onDeleted: @escaping @MainActor () -> Void = {}) {
+    init(
+        segmentID: String,
+        repository: any SegmentRepository,
+        analytics: any AnalyticsClient = NoAnalyticsClient(),
+        onDeleted: @escaping @MainActor () -> Void = {}
+    ) {
         self.segmentID = segmentID
         self.repository = repository
+        self.analytics = analytics
         self.onDeleted = onDeleted
     }
 
@@ -63,6 +70,9 @@ final class SegmentSheetStore {
         phase = .loaded(sheet)
         do {
             try await repository.setStarred(id: segmentID, starred)
+            if starred {
+                analytics.capture(.segmentFavorited)
+            }
         } catch {
             if var current = self.sheet {
                 current.isStarred = !starred
