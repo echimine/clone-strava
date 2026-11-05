@@ -5,7 +5,9 @@ import { z } from "zod";
  * by the app for recorded activities and by the worker for imported ones
  * (ADR-028 §4 step 9). Versioned: a reader rejects an unknown
  * `schemaVersion` instead of guessing. v2 adds the Pauses of a Recording
- * (ADR-031 §12); v1 is gone, imported traces have no Pause.
+ * (ADR-031 §12); v1 is gone, imported traces have no Pause. A pool swim
+ * (ADR-039 §4) adds the optional `pool` and `lengths`, which older v2
+ * traces simply lack: no version bump.
  */
 export const TRACE_SCHEMA_VERSION = 2;
 
@@ -32,14 +34,40 @@ export const tracePauseSchema = z.object({
 });
 export type TracePause = z.infer<typeof tracePauseSchema>;
 
+/**
+ * The pool of a pool swim imported from FIT (ADR-039 §4). Its length is always in meters; `yd`
+ * says the pool was set in yards (25 yd = 22.86 m), which has no Record.
+ */
+export const tracePoolSchema = z.object({
+  lengthM: z.number().positive(),
+  unit: z.enum(["m", "yd"]),
+});
+export type TracePool = z.infer<typeof tracePoolSchema>;
+
+/** A length of the pool (FIT `length` message): active (strokes) or a rest. */
+export const traceLengthSchema = z.object({
+  /** UTC epoch milliseconds. */
+  startMs: z.number().int().nonnegative(),
+  elapsedMs: z.number().int().nonnegative(),
+  active: z.boolean(),
+});
+export type TraceLength = z.infer<typeof traceLengthSchema>;
+
 export const traceSchema = z
   .object({
     schemaVersion: z.literal(TRACE_SCHEMA_VERSION),
-    /** One flat list, Pauses or not: the route stays one line (ADR-031 §12). */
+    /** One flat list, Pauses or not: the route stays one line (ADR-031 §12). Empty for a pool swim. */
     points: z.array(tracePointSchema),
     pauses: z.array(tracePauseSchema),
+    /** Pool swim only (ADR-039 §4), with `lengths`; such a trace has no point. */
+    pool: tracePoolSchema.optional(),
+    /** Pool swim only, in time order: the source of its distance and Best efforts. */
+    lengths: z.array(traceLengthSchema).optional(),
   })
   .superRefine((trace, ctx) => {
+    if ((trace.pool === undefined) !== (trace.lengths === undefined)) {
+      ctx.addIssue({ code: "custom", path: ["lengths"], message: "A pool and its lengths go together" });
+    }
     trace.pauses.forEach((pause, index) => {
       const issue = pauseIssue(pause, trace.points);
       if (issue) {

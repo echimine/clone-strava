@@ -3,6 +3,8 @@ import {
   DEFAULT_MAX_POINTS,
   TrackFileError,
   type ParseOptions,
+  type ParsedLength,
+  type ParsedPool,
   type ParsedTrackFile,
   type ParsedTrackPoint,
 } from "./types.js";
@@ -69,6 +71,36 @@ function sportOf(session: { sport?: unknown; subSport?: unknown }): string | und
   return sub && sub !== "generic" ? `${sport}:${sub}` : sport;
 }
 
+interface Length {
+  startTime?: unknown;
+  totalElapsedTime?: unknown;
+  lengthType?: unknown;
+}
+
+/**
+ * The pool of a lap swimming session (ADR-039 §4): `session.pool_length` (meters, scale applied)
+ * and every `length` message with a start and a duration. Undefined for any other session, or
+ * when the file lacks the pool length or any usable length.
+ */
+function poolOf(
+  session: { subSport?: unknown; poolLength?: unknown; poolLengthUnit?: unknown } | undefined,
+  rawLengths: Length[],
+): ParsedPool | undefined {
+  if (session?.subSport !== "lapSwimming") return undefined;
+  const lengthM = n(session.poolLength);
+  if (lengthM === undefined || lengthM <= 0) return undefined;
+  const lengths: ParsedLength[] = [];
+  for (const length of rawLengths) {
+    const startMs = ms(length.startTime);
+    const elapsedS = n(length.totalElapsedTime);
+    if (startMs === undefined || elapsedS === undefined) continue;
+    lengths.push({ startMs, elapsedS, active: length.lengthType === "active" });
+  }
+  if (lengths.length === 0) return undefined;
+  lengths.sort((a, b) => a.startMs - b.startMs);
+  return { lengthM, unit: session.poolLengthUnit === "statute" ? "statute" : "metric", lengths };
+}
+
 /** FIT via Garmin's SDK. Multisport files: first session only (ADR-028 §5). */
 export function parseFit(bytes: Uint8Array, options: ParseOptions = {}): ParsedTrackFile {
   const max = options.maxPoints ?? DEFAULT_MAX_POINTS;
@@ -98,6 +130,8 @@ export function parseFit(bytes: Uint8Array, options: ParseOptions = {}): ParsedT
   const result: ParsedTrackFile = { format: "fit", points, pointsWithoutPosition: withoutPosition };
   const sport = session ? sportOf(session) : undefined;
   if (sport) result.sport = sport;
+  const pool = poolOf(session, (messages.lengthMesgs ?? []) as Length[]);
+  if (pool) result.pool = pool;
   const lastTime = [...points].reverse().find((p) => p.timestampMs !== undefined)?.timestampMs;
   const started = startMs ?? points.find((p) => p.timestampMs !== undefined)?.timestampMs;
   if (started !== undefined) result.startedAtMs = started;

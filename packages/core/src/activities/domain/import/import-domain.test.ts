@@ -80,6 +80,56 @@ describe("toImportTrace", () => {
     expect(toImportTrace(parsed({ points: [] }))).toEqual({ ok: false, code: "empty_track" });
   });
 
+  it("accepts a pool swim without positions: its lengths and pool, no point (ADR-039 §4)", () => {
+    const result = toImportTrace(
+      parsed({
+        format: "fit",
+        sport: "swimming:lapswimming",
+        points: [],
+        pointsWithoutPosition: 3,
+        startedAtMs: 10_000,
+        endedAtMs: 100_000,
+        pool: {
+          lengthM: 22.86,
+          unit: "statute",
+          lengths: [
+            { startMs: 10_000, elapsedS: 30.25, active: true },
+            { startMs: 40_250, elapsedS: 20, active: false },
+            { startMs: 60_250, elapsedS: 39.75, active: true },
+          ],
+        },
+      }),
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      trace: {
+        schemaVersion: 2,
+        points: [],
+        pauses: [],
+        pool: { lengthM: 22.86, unit: "yd" },
+        lengths: [
+          { startMs: 10_000, elapsedMs: 30_250, active: true },
+          { startMs: 40_250, elapsedMs: 20_000, active: false },
+          { startMs: 60_250, elapsedMs: 39_750, active: true },
+        ],
+      },
+      startedAt: new Date(10_000),
+      endedAt: new Date(100_000),
+    });
+  });
+
+  it("refuses a pool swim without an active length", () => {
+    const result = toImportTrace(
+      parsed({
+        points: [],
+        pointsWithoutPosition: 1,
+        pool: { lengthM: 25, unit: "metric", lengths: [{ startMs: 0, elapsedS: 60, active: false }] },
+      }),
+    );
+    expect(result).toEqual({ ok: false, code: "no_gps_data" });
+  });
+
   it("refuses a zero duration", () => {
     const same = { lat: 1, lon: 1, timestampMs: 5 };
     expect(toImportTrace(parsed({ points: [same, same] }))).toEqual({

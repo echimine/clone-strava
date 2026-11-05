@@ -26,6 +26,27 @@ export interface ParsedTrackFile {
   sport?: string;
   startedAtMs?: number;
   endedAtMs?: number;
+  /** FIT pool swim (sub-sport `lap_swimming`) only: the pool and its lengths (ADR-039 §4). */
+  pool?: ParsedPool;
+}
+
+/** A length of the pool as the FIT `length` message gives it; it carries no distance. */
+export interface ParsedLength {
+  /** UTC epoch ms. */
+  startMs: number;
+  /** `totalElapsedTime`, seconds. */
+  elapsedS: number;
+  /** `lengthType`: `active` (strokes) or `idle` (a rest). */
+  active: boolean;
+}
+
+export interface ParsedPool {
+  /** `session.pool_length`, always in meters (25 yards are 22.86). */
+  lengthM: number;
+  /** `session.pool_length_unit`: how the pool was set on the watch. */
+  unit: "metric" | "statute";
+  /** In file order. */
+  lengths: ParsedLength[];
 }
 
 export interface ParseOptions {

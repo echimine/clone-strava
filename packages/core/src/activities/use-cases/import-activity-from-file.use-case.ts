@@ -33,6 +33,7 @@ import { computeMetrics } from "../domain/compute-metrics.js";
 import { defaultActivityTitle } from "../domain/import/default-title.js";
 import { DUPLICATE_OVERLAP_RATIO, overlapRatio } from "../domain/import/overlap.js";
 import { mapFileSportToCode } from "../domain/import/sport-mapping.js";
+import { poolMetrics } from "../domain/pool-swim.js";
 import { toImportTrace } from "../domain/import/to-import-trace.js";
 
 /** What the `apps/worker` processor needs to chain `process-activity` (ADR-021 §2 rule 2). */
@@ -107,19 +108,27 @@ export class ImportActivityFromFileUseCase {
     if (!sport || !sport.isActive) {
       return this.fail(row, "unknown_sport", job, sha256);
     }
+    if (trace.pool && sport.code !== "swim") {
+      // A pool swim only makes a swim (ADR-039 §4): asked as another sport, it is just a file
+      // without positions.
+      return this.fail(row, "no_gps_data", job, sha256);
+    }
     if ((endedAt.getTime() - startedAt.getTime()) / 1000 < sport.minDurationS) {
       return this.fail(row, "invalid_duration", job, sha256);
     }
     // The sport's minimums on what the worker will compute (ADR-031 §11): moving time, and
-    // distance when it comes from GPS (a pool swim file has none).
-    const metrics = computeMetrics(
-      cleanTrace(trace.points, {
-        maxAccuracyM: MAX_TRACE_ACCURACY_M,
-        maxSpeedMs: maxPlausibleSpeedMs(sport.code),
-        pauses: trace.pauses,
-      }),
-      { pauses: trace.pauses },
-    );
+    // distance when it comes from GPS (a pool swim has its lengths instead).
+    const metrics =
+      trace.pool && trace.lengths
+        ? poolMetrics(trace.lengths, trace.pool)
+        : computeMetrics(
+            cleanTrace(trace.points, {
+              maxAccuracyM: MAX_TRACE_ACCURACY_M,
+              maxSpeedMs: maxPlausibleSpeedMs(sport.code),
+              pauses: trace.pauses,
+            }),
+            { pauses: trace.pauses },
+          );
     if (metrics.movingTimeS < sport.minDurationS) {
       return this.fail(row, "invalid_duration", job, sha256);
     }
@@ -151,6 +160,7 @@ export class ImportActivityFromFileUseCase {
             processingStatus: "processing",
             isManual: false,
             source: "imported",
+            poolLengthM: trace.pool?.lengthM ?? null,
           },
           tx,
         );
