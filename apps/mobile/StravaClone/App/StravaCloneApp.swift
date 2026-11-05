@@ -10,6 +10,11 @@ struct StravaCloneApp: App {
 
     var body: some Scene {
         WindowGroup {
+            if Self.showsSegmentPrototype {
+                SegmentCreationPrototypeView()
+                    .tint(Theme.accent)
+                    .environment(\.mapboxAccessToken, di.configuration.mapboxAccessToken)
+            } else {
             RootView(
                 authStore: di.makeAuthStore(),
                 makeOnboardingStore: di.makeOnboardingStore,
@@ -57,7 +62,17 @@ struct StravaCloneApp: App {
                     // Routes the Google sign-in callback back into the SDK (ADR-022).
                     GIDSignIn.sharedInstance.handle(url)
                 }
+            }
         }
+    }
+
+    /// PROTOTYPE (#236), debug builds only: the Segment creation prototype instead of the app.
+    private static var showsSegmentPrototype: Bool {
+        #if DEBUG
+        ProcessInfo.processInfo.arguments.contains(SegmentProto.launchArgument)
+        #else
+        false
+        #endif
     }
 }
 
