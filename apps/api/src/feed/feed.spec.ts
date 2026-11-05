@@ -10,6 +10,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { ViewerFilterModule } from "../viewer-filter/viewer-filter.module.js";
 import { activityMediaPrefix, type FeedResponse, type KudosResponse } from "@repo/contracts";
 import { ActivitiesModule, ActivitiesService } from "@repo/core/activities";
+import { SegmentsModule } from "@repo/core/segments";
 import { AnalyticsModule } from "@repo/core/analytics";
 import { AuthService } from "@repo/core/auth";
 import { EngagementModule } from "@repo/core/engagement";
@@ -110,6 +111,7 @@ describe("/v1/feed and kudos (integration)", () => {
         EventEmitterModule.forRoot({ wildcard: true, delimiter: "." }),
         ViewerFilterModule,
         ActivitiesModule,
+        SegmentsModule,
         EngagementModule,
         UsersModule,
       ],

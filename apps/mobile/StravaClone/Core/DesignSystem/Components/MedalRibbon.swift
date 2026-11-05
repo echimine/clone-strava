@@ -1,15 +1,16 @@
 import SwiftUI
 
-/// A personal Medal (ADR-039 §8): 1st, 2nd or 3rd fastest of the athlete at the date.
-enum Medal: String, Sendable {
+/// A Medal (ADR-039 §8): the athlete's 1st, 2nd or 3rd time at the date of the Activity.
+enum Medal: String, CaseIterable, Hashable, Sendable {
     case gold, silver, bronze
 }
 
-/// The ribbon medal « PR » / « 2 » / « 3 », the same drawing everywhere (ADR-039 §15).
-/// Minimal version from spec #251; spec #252 owns the drawing.
+/// Ribbon medal as on Strava (ADR-039 §15): « PR » on gold, « 2 » on silver, « 3 » on bronze.
+/// The same drawing everywhere: « Résultats », the map of the Activity, the card's
+/// « Performances » and the Segment sheet.
 struct MedalRibbon: View {
-    let medal: Medal
-    let size: CGFloat
+    private let medal: Medal
+    private let size: CGFloat
 
     init(_ medal: Medal, size: CGFloat = 20) {
         self.medal = medal
@@ -17,28 +18,29 @@ struct MedalRibbon: View {
     }
 
     var body: some View {
+        let colors = Self.colors(medal)
         ZStack(alignment: .top) {
-            HStack(spacing: size * 0.08) {
-                Rectangle().fill(ribbon).frame(width: size * 0.22, height: size * 0.5).rotationEffect(.degrees(12))
-                Rectangle().fill(ribbon).frame(width: size * 0.22, height: size * 0.5).rotationEffect(.degrees(-12))
-            }
+            RibbonShape()
+                .fill(colors.dark)
+                .frame(width: size * 0.62, height: size * 0.42)
             Circle()
-                .fill(color.gradient)
-                .overlay(Circle().strokeBorder(.white.opacity(0.6), lineWidth: size * 0.06))
+                .fill(LinearGradient(colors: [colors.light, colors.dark], startPoint: .top, endPoint: .bottom))
+                .overlay(Circle().strokeBorder(.white.opacity(0.5), lineWidth: max(1, size * 0.06)).padding(size * 0.07))
                 .overlay(
-                    Text(label)
-                        .font(.system(size: size * (medal == .gold ? 0.36 : 0.46), weight: .heavy))
+                    Text(Self.mark(medal))
+                        .font(.system(size: size * (medal == .gold ? 0.26 : 0.32), weight: .heavy))
                         .foregroundStyle(.white)
+                        .minimumScaleFactor(0.5)
                 )
-                .frame(width: size * 0.8, height: size * 0.8)
-                .offset(y: size * 0.22)
+                .frame(width: size * 0.74, height: size * 0.74)
+                .padding(.top, size * 0.28)
         }
-        .frame(width: size, height: size * 1.05, alignment: .top)
+        .frame(width: size, height: size * 1.02)
         .accessibilityElement()
-        .accessibilityLabel(accessibilityText)
+        .accessibilityLabel(Self.accessibilityLabel(medal))
     }
 
-    private var label: String {
+    static func mark(_ medal: Medal) -> String {
         switch medal {
         case .gold: "PR"
         case .silver: "2"
@@ -46,21 +48,41 @@ struct MedalRibbon: View {
         }
     }
 
-    private var color: Color {
+    static func accessibilityLabel(_ medal: Medal) -> String {
         switch medal {
-        case .gold: Color(red: 0.93, green: 0.70, blue: 0.13)
-        case .silver: Color(white: 0.62)
-        case .bronze: Color(red: 0.76, green: 0.48, blue: 0.25)
+        case .gold: "Médaille d'or"
+        case .silver: "Médaille d'argent"
+        case .bronze: "Médaille de bronze"
         }
     }
 
-    private var ribbon: Color { Theme.accent.opacity(0.85) }
-
-    private var accessibilityText: String {
+    /// Light at the top, dark at the bottom.
+    private static func colors(_ medal: Medal) -> (light: Color, dark: Color) {
         switch medal {
-        case .gold: "Record personnel"
-        case .silver: "2e meilleur temps"
-        case .bronze: "3e meilleur temps"
+        case .gold: (Color(red: 0.98, green: 0.80, blue: 0.30), Color(red: 0.86, green: 0.62, blue: 0.08))
+        case .silver: (Color(red: 0.70, green: 0.72, blue: 0.75), Color(red: 0.50, green: 0.52, blue: 0.56))
+        case .bronze: (Color(red: 0.80, green: 0.52, blue: 0.33), Color(red: 0.62, green: 0.36, blue: 0.20))
         }
     }
+}
+
+/// The ribbon above the medal: a trapezoid open in a V at the bottom.
+private struct RibbonShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX - rect.width * 0.18, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.midX, y: rect.maxY - rect.height * 0.35))
+        path.addLine(to: CGPoint(x: rect.minX + rect.width * 0.18, y: rect.maxY))
+        path.closeSubpath()
+        return path
+    }
+}
+
+#Preview {
+    HStack(spacing: 16) {
+        ForEach(Medal.allCases, id: \.self) { MedalRibbon($0, size: 40) }
+    }
+    .padding()
 }

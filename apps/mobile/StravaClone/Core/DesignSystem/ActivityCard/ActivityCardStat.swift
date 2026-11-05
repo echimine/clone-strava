@@ -28,6 +28,11 @@ struct ActivityCardStat: Hashable, Sendable {
         ]
     }
 
+    /// The 4th value « Performances » (ADR-039 §15): the Medals, nil without any.
+    static func performances(for post: ActivityPost) -> MedalCounts? {
+        post.medalCounts.total > 0 ? post.medalCounts : nil
+    }
+
     /// The full-screen map's summary (ADR-036 §9): Distance · Allure · Temps, with Vitesse for a
     /// `speed` sport. Unlike the card, never Dénivelé.
     static func mapSummary(for post: ActivityPost) -> [ActivityCardStat] {

@@ -40,6 +40,8 @@ struct ActivityDetail: Hashable, Sendable {
     var media: [ActivityMedia] = []
     /// The first Media comes before the map (ADR-037 §8).
     var mediaFirst = false
+    /// « Performances » (ADR-039 §12), for the feed card this detail refreshes.
+    var medalCounts = MedalCounts.none
 
     /// The feed card of this Activity, as the change stream hands it to the feed (ADR-033 §7).
     /// The card-only `recentKudos` are not known here: the feed keeps its own.
@@ -61,7 +63,8 @@ struct ActivityDetail: Hashable, Sendable {
             recentKudos: [],
             viewerIsAuthor: viewerIsAuthor,
             media: media,
-            mediaFirst: mediaFirst
+            mediaFirst: mediaFirst,
+            medalCounts: medalCounts
         )
     }
 }

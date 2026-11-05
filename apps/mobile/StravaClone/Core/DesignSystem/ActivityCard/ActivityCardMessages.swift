@@ -8,6 +8,13 @@ enum ActivityCardMessages {
     static let elevation = "Dénivelé"
     static let time = "Temps"
     static let routeTrimmed = "Départ et arrivée masqués"
+    /// The count of Medals (ADR-039 §1).
+    static let performances = "Performances"
+
+    /// VoiceOver value of « Performances ».
+    static func medalCount(_ count: Int) -> String {
+        "\(number(count)) \(count == 1 ? "médaille" : "médailles")"
+    }
 
     /// "N ont envoyé des kudos · N commentaires", each part hidden at zero; nil when both are.
     static func socialSummary(kudosCount: Int, commentCount: Int) -> String? {

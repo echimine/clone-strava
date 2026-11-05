@@ -133,7 +133,8 @@ struct APIAthleteRepositoryTests {
             "recentKudos": [],
             "viewerIsAuthor": true,
             "media": [],
-            "mediaFirst": false
+            "mediaFirst": false,
+            "medalCounts": { "gold": 0, "silver": 0, "bronze": 0 }
           }],
           "nextCursor": "next"
         }

@@ -2,7 +2,9 @@ import Foundation
 
 /// `ActivityEventSource` on top of the shared realtime connection (ADR-010): keeps only
 /// `activity.updated` `{ activityId, changedFields }` and `activity.deleted` `{ activityId }`
-/// (ADR-033 §8). The echo of the device's own edit or delete comes too; it is harmless.
+/// (ADR-033 §8), and `activity.segments_matched` read as an update (ADR-039 §14): the card and
+/// the detail reload with the Segments' Medals. The echo of the device's own edit or delete
+/// comes too; it is harmless.
 struct RealtimeActivityEventSource: ActivityEventSource {
     let channel: any RealtimeChannel
 
@@ -32,7 +34,7 @@ struct RealtimeActivityEventSource: ActivityEventSource {
             return nil
         }
         switch event.type {
-        case "activity.updated": return .updated(ActivityID(uuid))
+        case "activity.updated", "activity.segments_matched": return .updated(ActivityID(uuid))
         case "activity.deleted": return .deleted(ActivityID(uuid))
         default: return nil
         }

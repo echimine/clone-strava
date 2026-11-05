@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { ActivitiesModule } from "@repo/core/activities";
+import { SegmentsModule } from "@repo/core/segments";
 import { EngagementModule } from "@repo/core/engagement";
 import { UsersModule } from "@repo/core/users";
 import { AuthModule } from "../auth/auth.module.js";
@@ -10,7 +11,7 @@ import { MediaAssembler } from "../media/media-assembler.js";
 import { FeedController } from "./feed.controller.js";
 
 @Module({
-  imports: [AuthModule, ActivitiesModule, EngagementModule, IdentitiesModule, ViewerFilterModule],
+  imports: [AuthModule, ActivitiesModule, EngagementModule, IdentitiesModule, SegmentsModule, ViewerFilterModule],
   controllers: [FeedController],
   providers: [FeedAssembler, MediaAssembler],
 })

@@ -77,6 +77,8 @@ import type {
 import { BestEffortRepository } from "./repositories/best-effort.repository.js";
 import { RemoveBestEffortUseCase } from "./use-cases/remove-best-effort.use-case.js";
 import type { BestEffortRecord } from "./domain/best-effort-record.js";
+import { ActivityResultsRepository } from "./repositories/activity-results.repository.js";
+import type { ActivityBestEffortResults, MedalCount } from "./domain/activity-results.js";
 
 type AdminPage = { page: number; pageSize: number };
 import type {
@@ -148,6 +150,7 @@ export class ActivitiesService {
     private readonly removeBestEffortUseCase: RemoveBestEffortUseCase,
     private readonly activitiesNearPath: ActivitiesNearPathRepository,
     private readonly getMatchingTraceUseCase: GetMatchingTraceUseCase,
+    private readonly results: ActivityResultsRepository,
   ) {}
 
   /** Backoffice dashboard, "À traiter" (ADR-038 §15): failed Activities and recent failed imports. */
@@ -299,6 +302,24 @@ export class ActivitiesService {
       startDistanceM,
       medal,
     }));
+  }
+
+  /**
+   * « Résultats » of an Activity on the `activities` side (ADR-039 §12): its pool length and its
+   * Best efforts not removed, with first time and current Record. The caller has checked that
+   * the viewer may see the Activity.
+   */
+  async getBestEffortResults(activityId: string): Promise<ActivityBestEffortResults> {
+    const [poolLengthM, bestEfforts] = await Promise.all([
+      this.results.findPoolLengthM(activityId),
+      this.results.findBestEfforts(activityId),
+    ]);
+    return { poolLengthM, bestEfforts };
+  }
+
+  /** The Medals of the Best efforts not removed of a page of Activities (« Performances »). */
+  countBestEffortMedals(activityIds: string[]): Promise<MedalCount[]> {
+    return this.results.countMedals(activityIds);
   }
 
   /** The author removes a Best effort for good (`404 best_effort_not_found` otherwise). */

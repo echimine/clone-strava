@@ -28,6 +28,8 @@ final class ActivityDetailStore {
     var kudosNotice: String?
     /// The full-screen viewer, opened by a tap on a Media of the header (ADR-037 §10).
     var mediaViewer: MediaViewerRequest?
+    /// « Résultats » (spec #252), loaded and reloaded with the detail.
+    let results: ActivityResultsStore?
 
     @ObservationIgnored private let analytics: any AnalyticsClient
     @ObservationIgnored private let loadDetail: LoadActivityDetail
@@ -55,9 +57,11 @@ final class ActivityDetailStore {
         deleter: ActivityDeleter,
         events: (any ActivityEventSource)? = nil,
         mediaUploads: ActivityMediaUploads? = nil,
-        analytics: any AnalyticsClient = NoAnalyticsClient()
+        analytics: any AnalyticsClient = NoAnalyticsClient(),
+        results: ActivityResultsStore? = nil
     ) {
         self.id = id
+        self.results = results
         self.analytics = analytics
         self.deleter = deleter
         self.loadDetail = loadDetail
@@ -68,6 +72,8 @@ final class ActivityDetailStore {
         editor = ActivityEditor(loadDetail: loadDetail, updateActivity: updateActivity, changes: changes, mediaUploads: mediaUploads)
         editor.onChange = { [weak self] detail in self?.phase = .loaded(detail) }
         editor.onUnavailable = { [weak self] in self?.phase = .unavailable }
+        // A removed Best effort changes the card's « Performances » too.
+        results?.onRemoved = { [weak self] in await self?.reloadDetail() }
     }
 
     /// Runs while the detail is shown (`.task`): this Activity's realtime events. The echo of
@@ -96,6 +102,16 @@ final class ActivityDetailStore {
     /// What it learns reaches the feed: the fresh card, or that the Activity is gone.
     func load() async {
         async let recent = recentKudosPage()
+        async let resultsLoaded: Void = loadResults()
+        await reloadDetail()
+        if let givers = await recent {
+            recentKudos = givers
+        }
+        await resultsLoaded
+    }
+
+    /// The Activity alone, published for the feed (ADR-033 §7).
+    private func reloadDetail() async {
         do {
             let detail = try await loadDetail(id)
             phase = .loaded(detail)
@@ -108,9 +124,10 @@ final class ActivityDetailStore {
                 phase = .failed(message: ActivityDetailMessages.message(for: error))
             }
         }
-        if let givers = await recent {
-            recentKudos = givers
-        }
+    }
+
+    private func loadResults() async {
+        await results?.load()
     }
 
     /// A comment gained or lost on the thread (ADR-034 §6): the count reaches the feed card.

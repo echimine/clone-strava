@@ -12,6 +12,8 @@ import { ActivityEffortRepository } from "./repositories/activity-effort.reposit
 import { ActivityMatchingRepository } from "./repositories/activity-matching.repository.js";
 import { EffortRecorder } from "./services/effort-recorder.js";
 import type { ActivityEffortRecord } from "./domain/activity-effort.js";
+import type { ActivitySegmentResults, EffortMedalCount } from "./domain/effort-result.js";
+import { EffortResultsRepository } from "./repositories/effort-results.repository.js";
 import { SEGMENT_MATCHING_VERSION } from "./domain/match-segment.js";
 import { SEGMENT_SPORTS } from "./domain/segment-sports.js";
 import {
@@ -64,6 +66,7 @@ export class SegmentsService {
     private readonly deleteSegmentAsAdministratorUseCase: DeleteSegmentAsAdministratorUseCase,
     private readonly exportOpenSegmentsUseCase: ExportOpenSegmentsUseCase,
     private readonly storage: StorageService,
+    private readonly effortResults: EffortResultsRepository,
     private readonly mapSegments: SegmentMapRepository,
     private readonly favorites: SegmentFavoriteRepository,
   ) {}
@@ -182,5 +185,54 @@ export class SegmentsService {
       return null;
     }
     return this.storage.presignGet(OPEN_DATA_SEGMENTS_KEY, expiresInSeconds);
+  }
+
+  /**
+   * « Résultats » of an Activity on the `segments` side (ADR-039 §12): whether its matching is
+   * still in progress, and its Efforts the viewer may see, in trace order. The caller has checked
+   * that the viewer may see the Activity.
+   */
+  async getActivityResults(
+    activityId: string,
+    viewerId: string,
+    exclusions: ViewerExclusions,
+  ): Promise<ActivitySegmentResults> {
+    const [matchingInProgress, rows] = await Promise.all([
+      this.effortResults.isMatchingInProgress(activityId, SEGMENT_MATCHING_VERSION),
+      this.effortResults.findByActivity(activityId, viewerId),
+    ]);
+    const legends = await this.localLegendsAmong(rows, exclusions);
+    return {
+      matchingInProgress,
+      efforts: rows.map((row) => ({
+        id: row.id,
+        segment: { id: row.segmentId, name: row.segmentName, distanceM: row.segmentDistanceM, verified: row.verified },
+        elapsedTimeS: row.elapsedTimeS,
+        medal: row.medal,
+        isFirstPass: row.isFirstPass,
+        localLegend: legends.has(`${row.segmentId}:${row.userId}`),
+        startPoint: { lat: row.startLat, lon: row.startLon },
+      })),
+    };
+  }
+
+  /**
+   * The Medals of the Efforts of a page of Activities the viewer may see (« Performances »,
+   * ADR-039 §12), per Activity and Medal. A deleted Segment takes its Efforts with it.
+   */
+  countEffortMedals(activityIds: string[], viewerId: string): Promise<EffortMedalCount[]> {
+    return this.effortResults.countMedals(activityIds, viewerId);
+  }
+
+  /**
+   * `segmentId:userId` pairs whose athlete currently holds the Segment's Local Legend (Tous,
+   * ADR-039 §8), after the viewer filter: the laurel crown of « Résultats ».
+   */
+  private async localLegendsAmong(
+    efforts: ReadonlyArray<{ segmentId: string; userId: string }>,
+    exclusions: ViewerExclusions,
+  ): Promise<Set<string>> {
+    const holders = await this.getLocalLegends([...new Set(efforts.map((effort) => effort.segmentId))], exclusions);
+    return new Set([...holders].map(([segmentId, userId]) => `${segmentId}:${userId}`));
   }
 }
