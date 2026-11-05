@@ -38,6 +38,7 @@ struct AthleteSearchPage: View {
             )
         case .searching where store.results.isEmpty:
             ProgressView()
+                .accessibilityLabel("Chargement")
         case .failed(let message):
             ContentUnavailableView(AthletesMessages.errorTitle, systemImage: "wifi.exclamationmark", description: Text(message))
         default:
@@ -53,7 +54,7 @@ struct AthleteSearchPage: View {
                         athlete: item.athlete,
                         name: SearchHighlight.highlighted(item.athlete.displayName, query: store.query)
                     ) {
-                        FollowButton.row(athleteId: item.id, store: store.follows)
+                        FollowButton.row(athleteId: item.id, athleteName: item.athlete.displayName, store: store.follows)
                     }
                 }
                 .listStyle(.plain)

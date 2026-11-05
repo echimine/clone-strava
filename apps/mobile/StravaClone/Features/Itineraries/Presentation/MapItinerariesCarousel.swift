@@ -15,12 +15,18 @@ struct MapItinerariesCarousel: View {
         .task(id: store.list.limit) { await store.list.observe() }
         .task { await store.appeared() }
         .accessibilityIdentifier("mapItineraries.carousel")
+        .onChange(of: store.list.syncMessage) { _, message in
+            if let message {
+                AccessibilityNotification.Announcement(message).post()
+            }
+        }
     }
 
     @ViewBuilder private var content: some View {
         let list = store.list
         if !list.hasLoaded {
             ProgressView()
+                .accessibilityLabel("Chargement des itinéraires")
                 .padding(12)
                 .glassBackground(in: Circle())
                 .frame(maxWidth: .infinity)
@@ -40,7 +46,7 @@ struct MapItinerariesCarousel: View {
                 HStack(spacing: 10) {
                     ForEach(list.itineraries) { itinerary in
                         NavigationLink(value: itinerary.id) {
-                            MapItineraryCard(itinerary: itinerary)
+                            MapItineraryCard(itinerary: itinerary, isFocused: store.focusedID == itinerary.id)
                         }
                         .buttonStyle(.plain)
                         // With more than one card, the next one peeks out on the right.
@@ -84,17 +90,21 @@ struct MapItinerariesCarousel: View {
 /// the map behind draws the path.
 private struct MapItineraryCard: View {
     let itinerary: ItinerarySummary
+    /// The card centred in the carousel, the one framed on the map.
+    var isFocused = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
                 Image(systemName: ActivityFormatters.sportSymbol(itinerary.sport))
                     .foregroundStyle(Theme.accent)
+                    .accessibilityHidden(true)
                 Text(itinerary.name)
                     .font(.headline)
                     .lineLimit(1)
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.right")
+                    .accessibilityHidden(true)
                     .font(.footnote.bold())
                     .foregroundStyle(.tertiary)
             }
@@ -108,7 +118,14 @@ private struct MapItineraryCard: View {
         .background(Color(.systemBackground), in: .rect(cornerRadius: 20))
         .shadow(color: .black.opacity(0.12), radius: 8, y: 2)
         .contentShape(.rect(cornerRadius: 20))
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(itinerary.name)
+        .accessibilityValue([
+            ActivityFormatters.sportLabel(itinerary.sport),
+            "Distance \(ActivityFormatters.distance(itinerary.distance))",
+            "Dénivelé \(ActivityFormatters.elevation(itinerary.elevationGain))",
+        ].joined(separator: ", "))
+        .accessibilityAddTraits(isFocused ? .isSelected : [])
         .accessibilityIdentifier("mapItineraryCard")
     }
 

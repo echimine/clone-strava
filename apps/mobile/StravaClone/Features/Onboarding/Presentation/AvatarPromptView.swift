@@ -45,6 +45,7 @@ struct AvatarPromptView: View {
                     Text("Ajoute une photo de profil")
                         .font(.system(size: 32, weight: .bold))
                         .tracking(-0.4)
+                        .accessibilityAddTraits(.isHeader)
                     Text("Vos amis vous reconnaîtront dans le fil, les kudos et les commentaires.")
                         .font(.body)
                         .foregroundStyle(.secondary)

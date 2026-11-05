@@ -100,6 +100,7 @@ struct ProfileView<Itineraries: View, Search: View>: View {
         switch store.phase {
         case .idle, .loading where store.profile == nil:
             ProgressView()
+                .accessibilityLabel("Chargement")
         case .failed(let message) where store.profile == nil:
             ContentUnavailableView {
                 Label(ProfileMessages.errorTitle, systemImage: "wifi.exclamationmark")

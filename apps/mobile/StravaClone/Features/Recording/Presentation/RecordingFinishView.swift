@@ -57,6 +57,7 @@ struct RecordingFinishView: View {
         }
         .interactiveDismissDisabled()
         .onAppear {
+            AccessibilityNotification.Announcement("Enregistrement terminé").post()
             title = store.defaultTitle
             visibility = store.defaultVisibility
         }
@@ -86,6 +87,7 @@ struct RecordingFinishView: View {
             )
             .font(.title3.weight(.bold))
             .padding(.top, 8)
+            .accessibilityAddTraits(.isHeader)
 
             TextField(store.defaultTitle, text: $title)
                 .font(.headline)
@@ -118,6 +120,9 @@ struct RecordingFinishView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(item.label)
+                    .accessibilityValue(item.spokenValue)
                     .frame(maxWidth: .infinity)
                 }
             }
@@ -168,10 +173,12 @@ struct RecordingFinishView: View {
                 Button("Reprendre") { Task { await store.reopen() } }
                     .frame(maxWidth: .infinity, minHeight: 50)
                     .background(Color(.secondarySystemFill), in: Capsule())
+                    .accessibilityHint("Reprend l'enregistrement")
                     .accessibilityIdentifier("recordingReopenButton")
                 Button("Supprimer", role: .destructive) { confirmsDelete = true }
                     .frame(maxWidth: .infinity, minHeight: 50)
                     .background(Color(.secondarySystemFill), in: Capsule())
+                    .accessibilityHint("Supprime l'enregistrement après confirmation")
                     .accessibilityIdentifier("recordingDeleteButton")
             }
             .font(.headline)

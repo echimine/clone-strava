@@ -9,6 +9,7 @@ struct RecordingAutoPauseToggle: View {
             Label(RecordingMessages.autoPause, systemImage: "pause.circle")
                 .font(.subheadline.weight(.semibold))
         }
+        .accessibilityHint("Met l'enregistrement en pause quand tu t'arrêtes")
         .tint(Theme.accent)
         .accessibilityIdentifier("recordingAutoPauseToggle")
     }
@@ -42,6 +43,7 @@ struct RecordingMoreMenu: View {
                     .glassBackground(in: Circle(), interactive: true)
             }
             .accessibilityLabel("Plus")
+            .accessibilityHint("Options de l'enregistrement")
             .accessibilityIdentifier("recordingMoreMenu")
             .confirmationDialog(RecordingMessages.removeItineraryTitle, isPresented: $confirmsRemoval, titleVisibility: .visible) {
                 Button(RecordingMessages.removeItinerary, role: .destructive) {

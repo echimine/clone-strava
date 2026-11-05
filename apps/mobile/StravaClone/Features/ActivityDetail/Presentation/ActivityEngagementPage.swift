@@ -38,6 +38,7 @@ struct ActivityEngagementPage: View {
         switch store.detail.phase {
         case .loading:
             ProgressView()
+                .accessibilityLabel("Chargement")
         case .failed(let message):
             ContentUnavailableView {
                 Label(ActivityDetailMessages.errorTitle, systemImage: "wifi.exclamationmark")

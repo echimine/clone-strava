@@ -28,6 +28,7 @@ struct OnboardingShowcase: View {
                     .accessibilityAddTraits(.isHeader)
                 Spacer()
                 Button("Passer", action: finish)
+                    .accessibilityHint("Passe la présentation")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.secondary)
                     .accessibilityIdentifier("onboarding.showcase.skip")
@@ -88,6 +89,13 @@ struct OnboardingShowcase: View {
         .animation(.snappy, value: page)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Page \(page + 1) sur \(Self.pages.count)")
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment: if page < Self.pages.count - 1 { withAnimation(.snappy) { page += 1 } }
+            case .decrement: if page > 0 { withAnimation(.snappy) { page -= 1 } }
+            @unknown default: break
+            }
+        }
     }
 
     /// The phone-like card on its orange halo.

@@ -15,6 +15,7 @@ struct KudosListView: View {
         switch store.phase {
         case .loading:
             ProgressView()
+                .accessibilityLabel("Chargement")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .failed(let message):
             ContentUnavailableView {
@@ -45,6 +46,7 @@ struct KudosListView: View {
                 }
                 if store.isLoadingMore {
                     ProgressView()
+                        .accessibilityLabel("Chargement")
                         .frame(maxWidth: .infinity)
                         .listRowSeparator(.hidden)
                 }

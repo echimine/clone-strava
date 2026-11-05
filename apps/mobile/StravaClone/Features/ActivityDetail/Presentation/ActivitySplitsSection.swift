@@ -33,11 +33,21 @@ struct ActivitySplitsSection: View {
                     }
                     .font(.subheadline)
                     .monospacedDigit()
-                    .accessibilityElement(children: .combine)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("\(ActivityAnalysisMessages.kilometre) \(row.kilometer)")
+                    .accessibilityValue(spoken(row))
                 }
             }
         }
         .accessibilityIdentifier("activityDetail.splits")
+    }
+
+    /// "5:00 /km, élévation +4 m, FC 140" for one row.
+    private func spoken(_ row: ActivitySplitsTable.Row) -> String {
+        var parts = [row.speed]
+        if let elevation = row.elevation { parts.append("\(ActivityAnalysisMessages.elevation) \(elevation)") }
+        if table.showsHeartRate, let heartRate = row.heartRate { parts.append("\(ActivityAnalysisMessages.heartRateTitle) \(heartRate)") }
+        return parts.joined(separator: ", ")
     }
 
     private func bar(_ fraction: Double) -> some View {

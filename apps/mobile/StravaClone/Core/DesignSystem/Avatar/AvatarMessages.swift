@@ -19,5 +19,7 @@ enum AvatarMessages {
     static let cameraDeniedMessage = "Autorisez l'appareil photo dans Réglages, ou choisissez une photo dans la photothèque."
     static let openSettings = "Ouvrir Réglages"
     static let sending = "Envoi de la photo"
+    static let cropPhoto = "Photo à recadrer"
+    static let cropZoomHint = "Balayez vers le haut ou vers le bas pour zoomer"
     static let myPhoto = "Ma photo de profil"
 }

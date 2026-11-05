@@ -35,7 +35,7 @@ struct AthleteStatisticsView: View {
         switch store.phase {
         case .idle, .loading where store.stats == nil:
             Section {
-                ProgressView().frame(maxWidth: .infinity)
+                ProgressView().accessibilityLabel("Chargement").frame(maxWidth: .infinity)
             }
         case .failed(let message):
             Section {

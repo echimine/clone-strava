@@ -21,12 +21,30 @@ struct ItineraryEditorView: View {
             AppMap(viewport: $viewport) {
                 mapContent(proxy: proxy)
             }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Carte de l'éditeur d'itinéraire")
+            .accessibilityValue(store.accessibilitySummary)
+            .accessibilityAction(named: "Ajouter un point au centre de la carte") {
+                guard let center = proxy.map?.cameraState.center else { return }
+                store.tap(at: Coordinate(center))
+            }
+            .accessibilityAction(named: "Supprimer le dernier point") {
+                store.removeLastWaypoint()
+            }
         }
         // Identifier on the map only: on the whole screen it would hide the overlays'.
         .accessibilityIdentifier("itineraryEditor")
         .overlay(alignment: .top) { header }
         .safeAreaInset(edge: .bottom) { statsCard }
         .task { await store.retryPendingLegsOnReconnection() }
+        .onChange(of: store.message) { _, message in
+            if let message {
+                AccessibilityNotification.Announcement(message).post()
+            }
+        }
+        .onChange(of: store.markers.count) { _, _ in
+            AccessibilityNotification.Announcement(store.accessibilitySummary).post()
+        }
         .onAppear {
             store.opened()
             frameReopenedItinerary()
@@ -76,10 +94,20 @@ struct ItineraryEditorView: View {
                 .lineWidth(2)
         }
 
-        ForEvery(store.insertionHandles, id: \.id) { handle in
+        ForEvery(Array(store.insertionHandles.enumerated()), id: \.element.id) { index, handle in
             MapViewAnnotation(coordinate: handle.coordinate.locationCoordinate) {
-                InsertionHandleView()
+                InsertionHandleView(legNumber: index + 1)
                     .opacity(store.showsInsertionHandles ? 1 : 0)
+                    .accessibilityHidden(!store.showsInsertionHandles)
+                    .accessibilityAction {
+                        store.insertWaypoint(intoLeg: handle.id, at: handle.coordinate)
+                    }
+                    .accessibilityAction(named: "Suivre les chemins") {
+                        store.setMode(.follow, ofLeg: handle.id)
+                    }
+                    .accessibilityAction(named: "Ligne droite") {
+                        store.setMode(.straight, ofLeg: handle.id)
+                    }
                     .gesture(dragGesture(from: handle.coordinate, proxy: proxy) { start in
                         store.beginInsertion(intoLeg: handle.id, at: handle.coordinate, point: start)
                     })
@@ -94,6 +122,7 @@ struct ItineraryEditorView: View {
             MapViewAnnotation(coordinate: marker.coordinate.locationCoordinate) {
                 WaypointMarkerView(role: marker.role, isSelected: store.selection == .waypoint(marker.id))
                     .onTapGesture { store.tapWaypoint(marker.id) }
+                    .accessibilityAction(named: "Supprimer le point") { store.removeWaypoint(marker.id) }
                     .gesture(dragGesture(from: marker.coordinate, proxy: proxy) { start in
                         store.beginDrag(marker.id, at: start)
                     })
@@ -163,9 +192,9 @@ struct ItineraryEditorView: View {
     private var header: some View {
         VStack(alignment: .trailing, spacing: 8) {
             HStack(spacing: 8) {
-                headerButton("arrow.uturn.backward", label: "Annuler", identifier: "undoItineraryEdit", action: store.undo)
+                headerButton("arrow.uturn.backward", label: "Annuler la dernière modification", identifier: "undoItineraryEdit", action: store.undo)
                     .disabled(!store.canUndo)
-                headerButton("arrow.uturn.forward", label: "Rétablir", identifier: "redoItineraryEdit", action: store.redo)
+                headerButton("arrow.uturn.forward", label: "Rétablir la modification", identifier: "redoItineraryEdit", action: store.redo)
                     .disabled(!store.canRedo)
                 Spacer()
                 headerButton("xmark", label: "Fermer l'éditeur", identifier: "closeItineraryEditor") {
@@ -177,6 +206,7 @@ struct ItineraryEditorView: View {
             if let message = store.message {
                 HStack(alignment: .top, spacing: 12) {
                     Image(systemName: "exclamationmark.triangle")
+                        .accessibilityHidden(true)
                     Text(message)
                         .font(.footnote)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -187,6 +217,7 @@ struct ItineraryEditorView: View {
                     }
                     Button("OK", action: store.dismissMessage)
                         .font(.footnote.bold())
+                        .accessibilityLabel("Fermer le message")
                 }
                 .padding(12)
                 .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
@@ -213,6 +244,7 @@ struct ItineraryEditorView: View {
     ) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
+                .accessibilityHidden(true)
                 .font(.headline)
                 .frame(width: 44, height: 44)
                 .background(.regularMaterial, in: Circle())
@@ -267,6 +299,7 @@ struct ItineraryEditorView: View {
             HStack(spacing: 4) {
                 Label(store.sportLabel, systemImage: store.sportSymbol)
                 Image(systemName: "chevron.up.chevron.down")
+                    .accessibilityHidden(true)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
@@ -290,6 +323,10 @@ struct ItineraryEditorView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(label == "D+" ? "Dénivelé positif" : label)
+        .accessibilityValue(value + (isStale ? ", mise à jour en cours" : ""))
+        .accessibilityIdentifier(identifier)
     }
 
     /// The preview failed: editing goes on, and the gain can be asked again.

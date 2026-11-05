@@ -36,6 +36,7 @@ struct MyItinerariesView: View {
     @ViewBuilder private var content: some View {
         if !store.hasLoaded {
             ProgressView()
+                .accessibilityLabel("Chargement des itinéraires")
         } else if store.isEmpty {
             ScrollView {
                 syncBanner
@@ -80,6 +81,7 @@ struct MyItinerariesView: View {
                 .padding(.horizontal, Theme.spacing)
                 .padding(.top, 8)
                 .accessibilityIdentifier("itinerariesSyncMessage")
+                .onAppear { AccessibilityNotification.Announcement(message).post() }
         }
     }
 }

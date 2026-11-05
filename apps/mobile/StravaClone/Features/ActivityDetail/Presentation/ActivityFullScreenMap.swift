@@ -42,6 +42,9 @@ struct ActivityFullScreenMap: View {
         .mapStyle(.outdoors)
         .gestureOptions(GestureOptions(rotateEnabled: false, pitchEnabled: false))
         .ignoresSafeArea()
+        .accessibilityElement()
+        .accessibilityLabel("Carte de l'activité en plein écran")
+        .accessibilityHint("Zoomer et déplacer la carte avec deux doigts")
         .overlay(alignment: .topLeading) { closeButton }
         .overlay(alignment: .bottom) { bottomBar }
         .accessibilityIdentifier("activityDetail.fullScreenMap")

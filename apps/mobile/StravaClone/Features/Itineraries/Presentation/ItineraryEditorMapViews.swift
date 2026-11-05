@@ -14,7 +14,7 @@ struct WaypointMarkerView: View {
             .animation(.snappy, value: isSelected)
             .accessibilityElement()
             .accessibilityLabel(label)
-            .accessibilityAddTraits(.isButton)
+            .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 
     @ViewBuilder private var marker: some View {
@@ -41,6 +41,9 @@ struct WaypointMarkerView: View {
 
 /// Handle in the middle of a Leg: pulling it inserts a Waypoint.
 struct InsertionHandleView: View {
+    /// 1-based position of the Leg, spoken so the handles can be told apart.
+    var legNumber: Int = 1
+
     var body: some View {
         Circle()
             .fill(.white.opacity(0.9))
@@ -49,6 +52,8 @@ struct InsertionHandleView: View {
             .frame(width: 36, height: 36)
             .contentShape(Circle())
             .accessibilityLabel("Insérer un point de passage")
+            .accessibilityValue("Tronçon \(legNumber)")
+            .accessibilityAddTraits(.isButton)
     }
 }
 
@@ -65,6 +70,7 @@ struct WaypointBubble: View {
         }
         .background(.regularMaterial, in: Capsule())
         .shadow(radius: 2)
+        .accessibilityLabel("Supprimer le point de passage")
         .accessibilityIdentifier("removeWaypoint")
     }
 }
@@ -82,6 +88,8 @@ struct LegModeBubble: View {
         }
         .background(.regularMaterial, in: Capsule())
         .shadow(radius: 2)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Mode du tronçon")
     }
 
     private func option(_ option: LegMode, title: String, symbol: String) -> some View {

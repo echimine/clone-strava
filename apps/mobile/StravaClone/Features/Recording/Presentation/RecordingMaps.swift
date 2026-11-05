@@ -27,6 +27,9 @@ struct RecordingLiveMap: View {
                     .lineJoin(.round)
             }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Carte de l'enregistrement")
+        .accessibilityValue(trace.count >= 2 ? "Tracé en cours" : "En attente de positions GPS")
         .accessibilityIdentifier("recordingMap")
     }
 }

@@ -67,10 +67,15 @@ struct LocalActivityCardView: View {
 
     private var header: some View {
         HStack(spacing: 8) {
-            Image(systemName: ActivityFormatters.sportSymbol(card.activity.sport))
-            Text(ActivityFormatters.sportLabel(card.activity.sport))
-            Text("·")
-            Text(ActivityFormatters.relativeDateTime(card.activity.startedAt))
+            HStack(spacing: 8) {
+                Image(systemName: ActivityFormatters.sportSymbol(card.activity.sport))
+                    .accessibilityHidden(true)
+                Text(ActivityFormatters.sportLabel(card.activity.sport))
+                Text("·")
+                    .accessibilityHidden(true)
+                Text(ActivityFormatters.relativeDateTime(card.activity.startedAt))
+            }
+            .accessibilityElement(children: .combine)
             Spacer(minLength: 0)
             if card.activity.canBeDeleted || card.activity.canBeRetried {
                 actionsMenu
@@ -113,20 +118,20 @@ struct LocalActivityCardView: View {
                     .accessibilityIdentifier("localActivityCard.retry")
             }
         }
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("localActivityCard.status")
     }
 
     @ViewBuilder private var statusIcon: some View {
         switch card.status {
         case .sending, .processing:
-            ProgressView().controlSize(.small)
+            ProgressView().controlSize(.small).accessibilityHidden(true)
         case .waitingForNetwork:
-            Image(systemName: "wifi.slash").foregroundStyle(.secondary)
+            Image(systemName: "wifi.slash").foregroundStyle(.secondary).accessibilityHidden(true)
         case .retryingSoon:
-            Image(systemName: "clock.arrow.circlepath").foregroundStyle(.secondary)
+            Image(systemName: "clock.arrow.circlepath").foregroundStyle(.secondary).accessibilityHidden(true)
         case .failed:
-            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.red)
+            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.red).accessibilityHidden(true)
         }
     }
 

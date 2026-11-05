@@ -46,6 +46,7 @@ struct FeedView<TopContent: View>: View {
         switch store.phase {
         case .idle, .loading where store.posts.isEmpty && store.localCards.isEmpty:
             ProgressView()
+                .accessibilityLabel("Chargement")
         case .failed(let message) where store.posts.isEmpty && store.localCards.isEmpty:
             ContentUnavailableView {
                 Label(FeedMessages.errorTitle, systemImage: "wifi.exclamationmark")
@@ -102,6 +103,7 @@ struct FeedView<TopContent: View>: View {
                         // buttons keep their own action).
                         .contentShape(.rect(cornerRadius: 20))
                         .onTapGesture { store.open(post.id) }
+                        .accessibilityAddTraits(.isButton)
                         .accessibilityAction(named: Text("Ouvrir l'activité")) { store.open(post.id) }
                         // Long press: "Modifier" / "Supprimer" on my cards, "Signaler" on other
                         // athletes' (ADR-038 §9; the card leaves the feed once reported).

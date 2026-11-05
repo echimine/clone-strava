@@ -23,6 +23,9 @@ private struct ToastModifier: ViewModifier {
                         .shadow(radius: 4)
                         .padding(.bottom, 24)
                         .onTapGesture { self.message = nil }
+                        .accessibilityAddTraits(.isButton)
+                        .accessibilityHint("Touchez deux fois pour fermer")
+                        .onAppear { AccessibilityNotification.Announcement(message).post() }
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                         .accessibilityIdentifier("toast")
                         .task(id: message) {

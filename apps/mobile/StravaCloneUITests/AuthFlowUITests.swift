@@ -88,6 +88,14 @@ final class AuthFlowUITests: XCTestCase {
         createMyAccount.tap()
     }
 
+    /// The profile photo step (ADR-037), right after the account is created: "Plus tard" leaves
+    /// it without a photo.
+    private func skipTheAvatarPrompt(in app: XCUIApplication) {
+        let later = app.buttons["avatarPrompt.later"]
+        XCTAssertTrue(later.waitForExistence(timeout: 10))
+        later.tap()
+    }
+
     /// The Paywall (ADR-035 §6), left by "Essayer" or "Non merci": nothing is bought.
     private func leaveThePaywall(in app: XCUIApplication, byStartingTheTrial: Bool) {
         let button = app.buttons[byStartingTheTrial ? "paywall.startTrial" : "paywall.skip"]
@@ -138,6 +146,7 @@ final class AuthFlowUITests: XCTestCase {
         answerTheOnboarding(in: app)
 
         signInWithCode(email: uniqueEmail(), in: app)
+        skipTheAvatarPrompt(in: app)
         leaveThePaywall(in: app, byStartingTheTrial: true)
         enableNotificationsIfAsked(in: app)
 
@@ -154,6 +163,7 @@ final class AuthFlowUITests: XCTestCase {
         openSignIn(in: app)
         signInWithCode(email: uniqueEmail(), in: app)
         answerTheOnboarding(in: app)
+        skipTheAvatarPrompt(in: app)
         leaveThePaywall(in: app, byStartingTheTrial: false)
         enableNotificationsIfAsked(in: app)
         XCTAssertTrue(feedTab.waitForExistence(timeout: 10))

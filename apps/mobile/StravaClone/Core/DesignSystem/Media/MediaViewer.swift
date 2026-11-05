@@ -42,6 +42,7 @@ struct MediaViewer: View {
         }
         .onDisappear { model.disappear() }
         .accessibilityIdentifier("mediaViewer")
+        .accessibilityAction(.escape) { dismiss() }
     }
 
     private var pager: some View {
@@ -77,6 +78,7 @@ struct MediaViewer: View {
         HStack {
             Button { dismiss() } label: {
                 Image(systemName: "xmark")
+                    .accessibilityHidden(true)
                     .font(.title3.weight(.semibold))
                     .frame(width: 44, height: 44)
                     .contentShape(.rect)
@@ -123,6 +125,7 @@ struct MediaViewer: View {
                     Text("·").foregroundStyle(.secondary)
                     Text(MediaViewerMessages.openActivity)
                     Image(systemName: "chevron.right").font(.caption.weight(.bold))
+                        .accessibilityHidden(true)
                 }
                 .font(.subheadline)
                 .foregroundStyle(.white)

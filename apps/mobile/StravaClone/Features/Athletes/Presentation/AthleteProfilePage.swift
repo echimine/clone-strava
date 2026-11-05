@@ -90,6 +90,7 @@ struct AthleteProfilePage: View {
         switch store.phase {
         case .idle, .loading where store.profile == nil:
             ProgressView()
+                .accessibilityLabel("Chargement")
         case .failed(let message) where store.profile == nil:
             ContentUnavailableView {
                 Label(AthletesMessages.errorTitle, systemImage: "wifi.exclamationmark")
@@ -114,6 +115,7 @@ struct AthleteProfilePage: View {
                         FollowButton(
                             status: status,
                             controlSize: .large,
+                            athleteName: profile.athlete.displayName,
                             onFollow: { Task { await store.follow() } },
                             onUnfollow: { Task { await store.unfollow() } }
                         )
