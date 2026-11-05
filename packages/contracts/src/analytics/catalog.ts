@@ -26,6 +26,8 @@ export const ANALYTICS_EVENTS = {
   ONBOARDING_ANSWERS_RECEIVED: "onboarding_answers_received",
   /** A new Report, emitted by the API after commit; nothing on "Déjà signalé" (ADR-038 §9). */
   REPORT_SUBMITTED: "report_submitted",
+  /** A Segment drawn by an athlete is created, emitted by the API (spec #249, ADR-039 §16). */
+  SEGMENT_CREATED: "segment_created",
 } as const;
 export type AnalyticsEventName = (typeof ANALYTICS_EVENTS)[keyof typeof ANALYTICS_EVENTS];
 
@@ -111,6 +113,12 @@ export const reportSubmittedPropertiesSchema = z.object({
 });
 export type ReportSubmittedProperties = z.infer<typeof reportSubmittedPropertiesSchema>;
 
+/** `segment_created`: the Segment's sport only, never its name or path. */
+export const segmentCreatedPropertiesSchema = z.object({
+  sport: z.enum(["run", "ride", "walk", "hike"]),
+});
+export type SegmentCreatedProperties = z.infer<typeof segmentCreatedPropertiesSchema>;
+
 /** Payload schema for a given catalog event, keyed by its name. */
 export const analyticsEventPropertiesSchemas = {
   [ANALYTICS_EVENTS.ACTIVITY_PROCESSED]: activityProcessedPropertiesSchema,
@@ -125,6 +133,7 @@ export const analyticsEventPropertiesSchemas = {
   [ANALYTICS_EVENTS.USER_SIGNED_UP]: userSignedUpPropertiesSchema,
   [ANALYTICS_EVENTS.ONBOARDING_ANSWERS_RECEIVED]: onboardingAnswersReceivedPropertiesSchema,
   [ANALYTICS_EVENTS.REPORT_SUBMITTED]: reportSubmittedPropertiesSchema,
+  [ANALYTICS_EVENTS.SEGMENT_CREATED]: segmentCreatedPropertiesSchema,
 } as const satisfies Record<AnalyticsEventName, z.ZodType>;
 
 /**

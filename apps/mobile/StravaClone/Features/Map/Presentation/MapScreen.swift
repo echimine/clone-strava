@@ -17,6 +17,7 @@ enum MapMode: String, CaseIterable, Hashable {
 struct MapScreen<Top: View, Bottom: View>: View {
     @Binding var mode: MapMode
     var onCreateItinerary: () -> Void = {}
+    var onCreateSegment: () -> Void = {}
     /// Path drawn in orange and framed on the map (the card centred in the carousel), if any.
     var focusedPath: [Coordinate]?
     /// Paths drawn in dark grey under the focused one.
@@ -105,8 +106,18 @@ struct MapScreen<Top: View, Bottom: View>: View {
         .accessibilityIdentifier("mapModePicker")
     }
 
+    /// « Créer » is a menu (ADR-039 §15, amends ADR-030): « Un Itinéraire » or « Un Segment ».
     private var createItineraryButton: some View {
-        Button(action: onCreateItinerary) {
+        Menu {
+            Button(action: onCreateItinerary) {
+                Label("Un Itinéraire", systemImage: "map")
+            }
+            .accessibilityIdentifier("createMenu.itinerary")
+            Button(action: onCreateSegment) {
+                Label("Un Segment", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
+            }
+            .accessibilityIdentifier("createMenu.segment")
+        } label: {
             Label("Créer", systemImage: "plus")
                 .font(.subheadline.bold())
                 .padding(.horizontal, 16)
@@ -116,7 +127,8 @@ struct MapScreen<Top: View, Bottom: View>: View {
         }
         .buttonStyle(.plain)
         .foregroundStyle(Theme.accent)
-        .accessibilityLabel("Créer un Itinéraire")
+        .accessibilityLabel("Créer")
+        .accessibilityHint("Un Itinéraire ou un Segment")
         .accessibilityIdentifier("createItineraryButton")
     }
 

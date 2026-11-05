@@ -15,6 +15,8 @@ export const apiErrorSchema = z.object({
   code: z.string(),
   message: z.string(),
   details: z.array(apiErrorDetailSchema).optional(),
+  /** The resource a `409` conflicts with, e.g. the existing Segment of `duplicate` (ADR-039 §12). */
+  existing: z.object({ id: z.string(), name: z.string() }).optional(),
 });
 export type ApiError = z.infer<typeof apiErrorSchema>;
 

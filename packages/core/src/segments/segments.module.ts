@@ -14,6 +14,9 @@ import { EffortResultsRepository } from "./repositories/effort-results.repositor
 import { SegmentMapRepository } from "./repositories/segment-map.repository.js";
 import { SegmentFavoriteRepository } from "./repositories/segment-favorite.repository.js";
 import { SegmentsService } from "./segments.service.js";
+import { SegmentCreationRepository } from "./repositories/segment-creation.repository.js";
+import { ManageOwnSegmentUseCase } from "./use-cases/manage-own-segment.use-case.js";
+import { SegmentFavoritesUseCase } from "./use-cases/segment-favorites.use-case.js";
 import { ExcludedSourceKeyRepository } from "./repositories/excluded-source-key.repository.js";
 import { ImportNervoSegmentsUseCase } from "./use-cases/import-nervo-segments.use-case.js";
 import { DeleteSegmentAsAdministratorUseCase } from "./use-cases/delete-segment-as-administrator.use-case.js";
@@ -39,6 +42,9 @@ import { ExportOpenSegmentsUseCase } from "./use-cases/export-open-segments.use-
     EffortRecorder,
     MatchSegmentsUseCase,
     MatchSegmentHistoryUseCase,
+    SegmentCreationRepository,
+    ManageOwnSegmentUseCase,
+    SegmentFavoritesUseCase,
     ExcludedSourceKeyRepository,
     ImportNervoSegmentsUseCase,
     DeleteSegmentAsAdministratorUseCase,

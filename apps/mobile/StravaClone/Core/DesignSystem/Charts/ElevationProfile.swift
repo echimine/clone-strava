@@ -1,7 +1,8 @@
 import Foundation
 
-/// Altitude against the distance covered, drawn in an Itinerary's detail (ADR-030 §3) from
-/// the stored track: no network call, so it shows offline.
+/// Altitude against the distance covered, drawn from a stored track: an Itinerary's detail
+/// (ADR-030 §3), a Segment's preview and sheet (ADR-039 §15). No network call, so it shows
+/// offline.
 struct ElevationProfile: Equatable, Sendable {
     struct Point: Equatable, Sendable {
         /// Covered from the start, along the track.
@@ -18,14 +19,16 @@ struct ElevationProfile: Equatable, Sendable {
     }
 }
 
-extension ItineraryTrack {
+extension ElevationProfile {
     /// One point per altitude (a point of the track without one is left out), thinned to at
     /// most `maxPoints` for drawing: the ends are kept, and each stretch keeps its lowest and
     /// highest point so that no summit or valley disappears.
-    func elevationProfile(maxPoints: Int = 400) -> ElevationProfile {
-        let coordinates = polyline.decode()
+    init(coordinates: [Coordinate], altitudes: [Double], maxPoints: Int = 400) {
         let count = min(coordinates.count, altitudes.count)
-        guard count > 0 else { return ElevationProfile(points: []) }
+        guard count > 0 else {
+            self.init(points: [])
+            return
+        }
 
         var points: [ElevationProfile.Point] = []
         points.reserveCapacity(count)
@@ -36,7 +39,7 @@ extension ItineraryTrack {
             }
             points.append(ElevationProfile.Point(distance: covered, altitude: altitudes[index]))
         }
-        return ElevationProfile(points: Self.thin(points, to: max(maxPoints, 4)))
+        self.init(points: Self.thin(points, to: max(maxPoints, 4)))
     }
 
     private static func thin(_ points: [ElevationProfile.Point], to maxPoints: Int) -> [ElevationProfile.Point] {

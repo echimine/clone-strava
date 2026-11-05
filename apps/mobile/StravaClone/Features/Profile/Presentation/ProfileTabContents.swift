@@ -64,6 +64,7 @@ struct ProfileMoreTab: View {
     let itineraryCount: Int?
     let openStatistics: @MainActor () -> Void
     let openItineraries: @MainActor () -> Void
+    let openSegments: @MainActor () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
@@ -85,6 +86,15 @@ struct ProfileMoreTab: View {
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("profile.itineraries")
+            Button(action: openSegments) {
+                ProfileMenuRow(
+                    title: ProfileMessages.segments,
+                    subtitle: nil,
+                    systemImage: "flag.pattern.checkered"
+                )
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("profile.segments")
         }
         .padding(.vertical, 8)
     }

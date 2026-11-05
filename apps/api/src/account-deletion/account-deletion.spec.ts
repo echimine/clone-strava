@@ -61,6 +61,30 @@ describe("account deletion (integration)", () => {
     return report!.id;
   }
 
+  /** A Segment drawn by `creatorId`, with an Effort of each athlete of `effortsBy`. */
+  async function seedSegment(creatorId: string, effortsBy: string[]): Promise<string> {
+    const [segment] = await t.sql<{ id: string }>(
+      "insert into segments.segment (name, sport_type_code, created_by) values ('Montée', 'run', $1) returning id",
+      [creatorId],
+    );
+    for (const userId of effortsBy) {
+      const [activity] = await t.sql<{ id: string }>(
+        `insert into activities.activity (id, user_id, sport_type_code, title, started_at, ended_at, visibility, processing_status)
+         values ($1, $2, 'run', 'Sortie', now(), now() + interval '1 hour', 'public', 'processed') returning id`,
+        [randomUUID(), userId],
+      );
+      await t.sql(
+        `insert into segments.segment_effort (activity_id, segment_id, user_id, elapsed_time_s, started_at, start_index,
+           end_index, min_distance_to_activity_start_m, min_distance_to_activity_end_m)
+         values ($1, $2, $3, 300, now(), 0, 10, 1000, 1000)`,
+        [activity!.id, segment!.id, userId],
+      );
+    }
+    return segment!.id;
+  }
+  const segmentCreator = async (id: string) =>
+    (await t.sql<{ created_by: string | null }>("select created_by from segments.segment where id = $1", [id]))[0];
+
   beforeAll(async () => {
     await useExclusiveTestDatabase("account_deletion");
     const { bootstrapAdminAuthTestApp } = await import("../testing/admin-auth-test-app.js");
@@ -68,6 +92,7 @@ describe("account deletion (integration)", () => {
     const { ModerationModule } = await import("@repo/core/moderation");
     const { EmailJobsModule } = await import("@repo/core/notifications");
     const { SocialModule } = await import("@repo/core/social");
+    const { SegmentsModule } = await import("@repo/core/segments");
     const { SubscriptionsModule } = await import("@repo/core/subscriptions");
     const { AccountJobsModule, UsersModule } = await import("@repo/core/users");
     const { AthleteIdentities } = await import("../identities/athlete-identities.js");
@@ -82,6 +107,7 @@ describe("account deletion (integration)", () => {
         ActivitiesModule,
         EmailJobsModule,
         ModerationModule,
+        SegmentsModule,
         SocialModule,
         SubscriptionsModule,
         UsersModule,
@@ -156,6 +182,27 @@ describe("account deletion (integration)", () => {
       expect(await preview(paying)).toEqual({ appStoreBilled: true });
     });
 
+    it("deletes the athlete's Segments nobody else has an Effort on; the others stay without creator", async () => {
+      const athlete = await t.createAthlete("createur");
+      const other = await t.createAthlete("passant");
+      const onlyTheirs = await seedSegment(athlete.userId, [athlete.userId]);
+      const untouched = await seedSegment(athlete.userId, []);
+      const shared = await seedSegment(athlete.userId, [athlete.userId, other.userId]);
+      const notTheirs = await seedSegment(other.userId, [athlete.userId]);
+
+      expect((await requestCode(athlete)).status).toBe(204);
+      expect((await confirm(athlete, "000000")).status).toBe(204);
+
+      expect(await segmentCreator(onlyTheirs)).toBeUndefined();
+      expect(await segmentCreator(untouched)).toBeUndefined();
+      expect(await segmentCreator(shared)).toEqual({ created_by: null });
+      expect(await segmentCreator(notTheirs)).toEqual({ created_by: other.userId });
+      // The athlete's own Efforts go by cascade; the others' stay.
+      expect(await t.sql("select user_id from segments.segment_effort where segment_id = $1", [shared])).toEqual([
+        { user_id: other.userId },
+      ]);
+    });
+
     it("a wrong code is a 400 and deletes nothing", async () => {
       const athlete = await t.createAthlete("hesitante");
       await requestCode(athlete);
@@ -218,15 +265,28 @@ describe("account deletion (integration)", () => {
       expect((await t.call(`/admin/users/${athlete.userId}`, admin.cookie)).status).toBe(404);
     });
 
+    it("a Sanction deletes the Segments only the athlete has Efforts on, keeps the others", async () => {
+      const athlete = await t.createAthlete("createur-sanctionne");
+      const other = await t.createAthlete("passant-sanction");
+      const onlyTheirs = await seedSegment(athlete.userId, [athlete.userId]);
+      const shared = await seedSegment(athlete.userId, [other.userId]);
+
+      expect((await remove(athlete.userId, { reason: "Spam de Segments" })).status).toBe(204);
+      expect(await segmentCreator(onlyTheirs)).toBeUndefined();
+      expect(await segmentCreator(shared)).toEqual({ created_by: null });
+    });
+
     it("refuses an Administrator (409 user_is_admin, notes kept), a missing reason (400) and an unknown account (404)", async () => {
       const otherAdmin = await t.createAdmin("admin-cible");
       const reportId = await seedReport(otherAdmin.userId, randomUUID());
+      const adminSegment = await seedSegment(otherAdmin.userId, []);
       const conflict = await remove(otherAdmin.userId, { reason: "Test" });
       expect(conflict.status).toBe(409);
       expect(await errorCode(conflict)).toBe("user_is_admin");
       expect(await t.sql("select note from moderation.report where id = $1", [reportId])).toEqual([
         { note: "Il m'a écrit à Lyon" },
       ]);
+      expect(await segmentCreator(adminSegment)).toEqual({ created_by: otherAdmin.userId });
 
       const athlete = await t.createAthlete("sans-motif");
       const noReason = await remove(athlete.userId, {});

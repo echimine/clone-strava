@@ -10,6 +10,7 @@ struct MapTab: View {
     let segments: SegmentMapStore
     let destinations: AppDestinations
     let onCreateItinerary: () -> Void
+    var onCreateSegment: () -> Void = {}
 
     @State private var mode = MapMode.itineraries
     /// The last camera at rest, so the Segments mode opens on the zone shown.
@@ -20,6 +21,7 @@ struct MapTab: View {
             MapScreen(
                 mode: $mode,
                 onCreateItinerary: onCreateItinerary,
+                onCreateSegment: onCreateSegment,
                 focusedPath: mode == .segments ? segments.focusedPath : itineraries.focusedPath,
                 paths: segmentPaths,
                 onPathTapped: { id in withAnimation(.snappy) { segments.focusedID = id } },

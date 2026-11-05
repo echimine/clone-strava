@@ -1,29 +1,29 @@
 import { describe, expect, it } from "vitest";
 import { climbCategory } from "./climb-category.js";
 
-describe("climbCategory (ADR-039 §5: length in meters × average grade in %)", () => {
-  it("has no category under a score of 8,000", () => {
-    expect(climbCategory(500, 7)).toBeNull(); // 3,500
-    expect(climbCategory(1_999, 4)).toBeNull(); // 7,996
+describe("climbCategory (score = length in m × average grade in %)", () => {
+  it("gives no category under a score of 8,000", () => {
+    expect(climbCategory(1_000, 7.9)).toBeNull();
+    expect(climbCategory(5_000, 0)).toBeNull();
   });
 
-  it("is a 4 from 8,000", () => {
-    expect(climbCategory(2_000, 4)).toBe("4");
-    expect(climbCategory(2_000, 5)).toBe("4"); // 10,000
+  it("gives no category to a descent, however long", () => {
+    expect(climbCategory(20_000, -6)).toBeNull();
   });
 
-  it("climbs through 3, 2, 1 at 16,000, 32,000, 64,000", () => {
-    expect(climbCategory(4_000, 4)).toBe("3");
-    expect(climbCategory(5_000, 6.4)).toBe("2");
-    expect(climbCategory(8_000, 8)).toBe("1");
+  it("climbs from 4 to HC at the public Strava and Garmin thresholds", () => {
+    expect(climbCategory(1_000, 8)).toBe("4"); // 8,000
+    expect(climbCategory(2_000, 7.9)).toBe("4"); // 15,800
+    expect(climbCategory(2_000, 8)).toBe("3"); // 16,000
+    expect(climbCategory(4_000, 7.9)).toBe("3"); // 31,600
+    expect(climbCategory(4_000, 8)).toBe("2"); // 32,000
+    expect(climbCategory(8_000, 7.9)).toBe("2"); // 63,200
+    expect(climbCategory(8_000, 8)).toBe("1"); // 64,000
+    expect(climbCategory(10_000, 7.9)).toBe("1"); // 79,000
+    expect(climbCategory(10_000, 8)).toBe("hc"); // 80,000
   });
 
-  it("is HC from 80,000, like a great Alpine pass", () => {
-    expect(climbCategory(18_000, 7)).toBe("hc"); // 126,000
-    expect(climbCategory(10_000, 8)).toBe("hc");
-  });
-
-  it("has no category for a descent", () => {
-    expect(climbCategory(10_000, -8)).toBeNull();
+  it("puts the Alpe d'Huez (13.8 km at 8.1 %) hors catégorie", () => {
+    expect(climbCategory(13_800, 8.1)).toBe("hc");
   });
 });

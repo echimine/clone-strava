@@ -74,7 +74,17 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         Array.isArray((httpResponse as { details?: unknown }).details)
           ? ((httpResponse as { details: ApiErrorDetail[] }).details)
           : undefined;
-      return { status, body: { error: details ? { code, message, details } : { code, message } } };
+      // The resource a conflict is about (e.g. `409 duplicate` and the existing Segment).
+      const existing =
+        typeof httpResponse === "object" && httpResponse !== null
+          ? existingOf((httpResponse as { existing?: unknown }).existing)
+          : undefined;
+      return {
+        status,
+        body: {
+          error: { code, message, ...(details ? { details } : {}), ...(existing ? { existing } : {}) },
+        },
+      };
     }
 
     return {
@@ -82,6 +92,14 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       body: { error: { code: "internal_error", message: "Internal server error" } },
     };
   }
+}
+
+function existingOf(value: unknown): { id: string; name: string } | undefined {
+  if (typeof value !== "object" || value === null) {
+    return undefined;
+  }
+  const { id, name } = value as { id?: unknown; name?: unknown };
+  return typeof id === "string" && typeof name === "string" ? { id, name } : undefined;
 }
 
 /** `retryAfterS` passed by a handler to a `429` (e.g. the import rate limit, ADR-028 §9). */

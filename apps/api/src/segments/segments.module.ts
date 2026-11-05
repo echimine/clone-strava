@@ -1,5 +1,5 @@
 import { Module } from "@nestjs/common";
-import { SegmentsModule as CoreSegmentsModule } from "@repo/core/segments";
+import { SegmentCreationModule, SegmentsModule as CoreSegmentsModule } from "@repo/core/segments";
 import { AuthModule } from "../auth/auth.module.js";
 import { ViewerFilterModule } from "../viewer-filter/viewer-filter.module.js";
 import { OpenDataController } from "./open-data.controller.js";
@@ -11,7 +11,7 @@ import { SegmentMapController } from "./segment-map.controller.js";
  * open data). Also gives `SegmentsService` to the `segments:import` script.
  */
 @Module({
-  imports: [AuthModule, CoreSegmentsModule, ViewerFilterModule],
+  imports: [AuthModule, CoreSegmentsModule, SegmentCreationModule, ViewerFilterModule],
   controllers: [SegmentCreationController, SegmentMapController, OpenDataController],
 })
 export class SegmentsModule {}

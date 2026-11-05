@@ -38,6 +38,8 @@ struct StravaCloneApp: App {
                 makeItineraryDetailStore: { [di] id in di.makeItineraryDetailStore(id: id, source: .profile) },
                 makeItineraryEditFlow: di.makeItineraryEditFlow,
                 itineraryCreation: di.makeItineraryCreationFlow(),
+                segmentCreation: di.makeSegmentCreationFlow(),
+                segmentScreens: SegmentScreens(di: di),
                 itinerarySynchronizer: di.itinerarySynchronizer,
                 connectivityChanges: di.connectivityChanges,
                 syncCoordinator: di.syncCoordinator,
@@ -111,6 +113,9 @@ struct RootView: View {
     let makeItineraryDetailStore: @MainActor (ItineraryID) -> ItineraryDetailStore
     let makeItineraryEditFlow: @MainActor (ItineraryID) -> ItineraryEditFlow
     @State var itineraryCreation: ItineraryCreationFlow
+    /// Creating a Segment (ADR-039 §15), from the Map's « Créer » menu and Plus › « Segments ».
+    @State var segmentCreation: SegmentCreationFlow
+    let segmentScreens: SegmentScreens
     let itinerarySynchronizer: ItinerarySynchronizer
     let connectivityChanges: @MainActor () -> AsyncStream<Bool>
     /// Sends the queued operations and follows the Activities in `processing` (ADR-031 §14).
@@ -133,7 +138,7 @@ struct RootView: View {
     @State var isSplashPresented = true
 
     @Environment(\.scenePhase) private var scenePhase
-    @State private var selectedTab = AppTab.feed
+    @State var selectedTab = AppTab.feed
     /// The Map tab's stack (ADR-039 §15): an Itinerary, a Segment's sheet and `AppDestinations`.
     @State private var mapPath = NavigationPath()
     /// The Paywall opened by "S'abonner" in the home header.
@@ -267,7 +272,8 @@ struct RootView: View {
                         itineraries: mapItinerariesStore,
                         segments: segmentMapStore,
                         destinations: appDestinations(path: $mapPath),
-                        onCreateItinerary: { itineraryCreation.start(from: .mapTab) }
+                        onCreateItinerary: { itineraryCreation.start(from: .mapTab) },
+                        onCreateSegment: { segmentCreation.start(from: .mapTab) }
                     )
                     .environment(\.openAthlete, openAthlete(in: $mapPath))
                     .tabItem { Label("Map", systemImage: "map") }
@@ -304,6 +310,7 @@ struct RootView: View {
                                 onCreate: { itineraryCreation.start(from: .profile) }
                             )
                         },
+                        segments: { segmentScreens.starred(segmentCreation) },
                         search: { AthleteSearchPage(makeStore: makeAthleteSearchStore) }
                     )
                     .environment(\.openAthlete, openAthlete(in: $profileStore.path))
@@ -324,6 +331,7 @@ struct RootView: View {
                     )
                 }
                 .toast($itineraryCreation.toast)
+                .segmentCreation(segmentCreation, screens: segmentScreens, destinations: appDestinations(path: $profileStore.path), onShowMySegments: showMySegments)
                 .toast($itineraryChangeToast)
                 .task {
                     for await refusal in itinerarySynchronizer.changeRefusals() {
@@ -487,18 +495,4 @@ struct RootView: View {
         Task { await feedStore.showTop() }
         Task { await syncCoordinator.activitySaved() }
     }
-
-    /// Debug builds only: the splash and celebration preview, reached from the Profile tab.
-    static var animationsPreview: AnyView? {
-        #if DEBUG
-        AnyView(AnimationsPreviewView())
-        #else
-        nil
-        #endif
-    }
-}
-
-/// Tabs of the signed-in app; Save brings the athlete back to the feed (ADR-031 §11).
-enum AppTab: Hashable {
-    case feed, map, record, profile
 }

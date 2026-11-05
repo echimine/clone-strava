@@ -1971,43 +1971,30 @@
         ]
       }
     },
-    "/v1/segments/{id}/favorite": {
-      "put": {
-        "operationId": "SegmentCreationController_favorite",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
+    "/v1/segments/preview": {
+      "post": {
+        "operationId": "SegmentCreationController_preview",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreviewSegmentRequestDto"
+              }
             }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Starred"
           }
         },
-        "tags": [
-          "SegmentCreation"
-        ]
-      },
-      "delete": {
-        "operationId": "SegmentCreationController_unfavorite",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
-          "204": {
-            "description": "Unstarred"
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SegmentPreviewDto_Output"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -2016,6 +2003,35 @@
       }
     },
     "/v1/segments": {
+      "post": {
+        "operationId": "SegmentCreationController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSegmentRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedSegmentDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "SegmentCreation"
+        ]
+      },
       "get": {
         "operationId": "SegmentMapController_list",
         "parameters": [
@@ -2068,6 +2084,154 @@
         },
         "tags": [
           "SegmentMap"
+        ]
+      }
+    },
+    "/v1/segments/{id}": {
+      "patch": {
+        "operationId": "SegmentCreationController_rename",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameSegmentRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SegmentRefDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "SegmentCreation"
+        ]
+      },
+      "delete": {
+        "operationId": "SegmentCreationController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          }
+        },
+        "tags": [
+          "SegmentCreation"
+        ]
+      }
+    },
+    "/v1/segments/{id}/favorite": {
+      "put": {
+        "operationId": "SegmentCreationController_favorite",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Starred"
+          }
+        },
+        "tags": [
+          "SegmentCreation"
+        ]
+      },
+      "delete": {
+        "operationId": "SegmentCreationController_unfavorite",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Unstarred"
+          }
+        },
+        "tags": [
+          "SegmentCreation"
+        ]
+      }
+    },
+    "/v1/me/segment-favorites": {
+      "get": {
+        "operationId": "SegmentCreationController_listFavorites",
+        "parameters": [
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minLength": 1,
+              "maxLength": 200,
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListSegmentFavoritesResponseDto_Output"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "SegmentCreation"
         ]
       }
     },
@@ -7060,6 +7224,422 @@
         "required": [
           "name"
         ]
+      },
+      "PreviewSegmentRequestDto": {
+        "type": "object",
+        "properties": {
+          "sport": {
+            "type": "string",
+            "enum": [
+              "run",
+              "ride",
+              "walk",
+              "hike"
+            ]
+          },
+          "points": {
+            "minItems": 2,
+            "maxItems": 10000,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "lat": {
+                  "type": "number",
+                  "minimum": -90,
+                  "maximum": 90
+                },
+                "lon": {
+                  "type": "number",
+                  "minimum": -180,
+                  "maximum": 180
+                }
+              },
+              "required": [
+                "lat",
+                "lon"
+              ]
+            }
+          }
+        },
+        "required": [
+          "sport",
+          "points"
+        ]
+      },
+      "SegmentPreviewDto_Output": {
+        "type": "object",
+        "properties": {
+          "distanceM": {
+            "type": "number",
+            "minimum": 0
+          },
+          "elevationGainM": {
+            "type": "number",
+            "minimum": 0
+          },
+          "avgGradePct": {
+            "type": "number"
+          },
+          "maxGradePct": {
+            "type": "number"
+          },
+          "minAltitudeM": {
+            "type": "number"
+          },
+          "maxAltitudeM": {
+            "type": "number"
+          },
+          "climbCategory": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "1",
+              "2",
+              "3",
+              "4",
+              "hc",
+              null
+            ]
+          },
+          "track": {
+            "type": "object",
+            "properties": {
+              "polyline6": {
+                "type": "string",
+                "minLength": 1
+              },
+              "altitudesM": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                }
+              }
+            },
+            "required": [
+              "polyline6",
+              "altitudesM"
+            ],
+            "additionalProperties": false
+          },
+          "violations": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "too_short",
+                "too_long",
+                "loop"
+              ]
+            }
+          },
+          "duplicate": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name"
+            ],
+            "additionalProperties": false
+          },
+          "quotaLeft": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "distanceM",
+          "elevationGainM",
+          "avgGradePct",
+          "maxGradePct",
+          "minAltitudeM",
+          "maxAltitudeM",
+          "climbCategory",
+          "track",
+          "violations",
+          "duplicate",
+          "quotaLeft"
+        ],
+        "additionalProperties": false
+      },
+      "CreateSegmentRequestDto": {
+        "type": "object",
+        "properties": {
+          "sport": {
+            "type": "string",
+            "enum": [
+              "run",
+              "ride",
+              "walk",
+              "hike"
+            ]
+          },
+          "points": {
+            "minItems": 2,
+            "maxItems": 10000,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "lat": {
+                  "type": "number",
+                  "minimum": -90,
+                  "maximum": 90
+                },
+                "lon": {
+                  "type": "number",
+                  "minimum": -180,
+                  "maximum": 180
+                }
+              },
+              "required": [
+                "lat",
+                "lon"
+              ]
+            }
+          },
+          "name": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 60
+          }
+        },
+        "required": [
+          "sport",
+          "points",
+          "name"
+        ]
+      },
+      "CreatedSegmentDto_Output": {
+        "type": "object",
+        "properties": {
+          "distanceM": {
+            "type": "number",
+            "minimum": 0
+          },
+          "elevationGainM": {
+            "type": "number",
+            "minimum": 0
+          },
+          "avgGradePct": {
+            "type": "number"
+          },
+          "maxGradePct": {
+            "type": "number"
+          },
+          "minAltitudeM": {
+            "type": "number"
+          },
+          "maxAltitudeM": {
+            "type": "number"
+          },
+          "climbCategory": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "1",
+              "2",
+              "3",
+              "4",
+              "hc",
+              null
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "sport": {
+            "type": "string",
+            "enum": [
+              "run",
+              "ride",
+              "walk",
+              "hike"
+            ]
+          },
+          "verified": {
+            "type": "boolean"
+          },
+          "track": {
+            "type": "object",
+            "properties": {
+              "polyline6": {
+                "type": "string",
+                "minLength": 1
+              },
+              "altitudesM": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                }
+              }
+            },
+            "required": [
+              "polyline6",
+              "altitudesM"
+            ],
+            "additionalProperties": false
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          }
+        },
+        "required": [
+          "distanceM",
+          "elevationGainM",
+          "avgGradePct",
+          "maxGradePct",
+          "minAltitudeM",
+          "maxAltitudeM",
+          "climbCategory",
+          "id",
+          "name",
+          "sport",
+          "verified",
+          "track",
+          "createdAt"
+        ],
+        "additionalProperties": false
+      },
+      "RenameSegmentRequestDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 60
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "SegmentRefDto_Output": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "ListSegmentFavoritesResponseDto_Output": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "sport": {
+                  "type": "string",
+                  "enum": [
+                    "run",
+                    "ride",
+                    "walk",
+                    "hike"
+                  ]
+                },
+                "name": {
+                  "type": "string"
+                },
+                "verified": {
+                  "type": "boolean"
+                },
+                "distanceM": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "avgGradePct": {
+                  "type": "number"
+                },
+                "climbCategory": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "enum": [
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "hc",
+                    null
+                  ]
+                },
+                "myBestTimeS": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "id",
+                "sport",
+                "name",
+                "verified",
+                "distanceM",
+                "avgGradePct",
+                "climbCategory",
+                "myBestTimeS"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "additionalProperties": false
       },
       "ListMapSegmentsResponseDto_Output": {
         "type": "object",

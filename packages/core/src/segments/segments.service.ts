@@ -1,11 +1,12 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import {
   OPEN_DATA_SEGMENTS_KEY,
+  type ListSegmentFavoritesQuery,
+  type ListSegmentFavoritesResponse,
   type MatchSegmentHistoryJob,
   type MatchSegmentsJob,
   type ReplaySegmentMedalsJob,
 } from "@repo/contracts";
-import { SegmentFavoriteRepository } from "./repositories/segment-favorite.repository.js";
 import { MatchSegmentsUseCase } from "./use-cases/match-segments.use-case.js";
 import { MatchSegmentHistoryUseCase } from "./use-cases/match-segment-history.use-case.js";
 import { ActivityEffortRepository } from "./repositories/activity-effort.repository.js";
@@ -16,6 +17,9 @@ import type { ActivitySegmentResults, EffortMedalCount } from "./domain/effort-r
 import { EffortResultsRepository } from "./repositories/effort-results.repository.js";
 import { SEGMENT_MATCHING_VERSION } from "./domain/match-segment.js";
 import { SEGMENT_SPORTS } from "./domain/segment-sports.js";
+import { SegmentCreationRepository } from "./repositories/segment-creation.repository.js";
+import { ManageOwnSegmentUseCase } from "./use-cases/manage-own-segment.use-case.js";
+import { SegmentFavoritesUseCase } from "./use-cases/segment-favorites.use-case.js";
 import {
   ImportNervoSegmentsUseCase,
   type NervoImportReport,
@@ -29,10 +33,6 @@ import {
   type MapSegmentRecord,
   type MapSegmentSearch,
 } from "./repositories/segment-map.repository.js";
-
-function segmentNotFound(): NotFoundException {
-  return new NotFoundException({ code: "segment_not_found", message: "Segment not found" });
-}
 
 /** ADR-039 §13: Activities the sweep enqueues at most per run. */
 export const RECONCILE_SEGMENT_MATCHING_BATCH = 100;
@@ -49,28 +49,16 @@ export class SegmentsService {
     private readonly activityEfforts: ActivityEffortRepository,
     private readonly matchings: ActivityMatchingRepository,
     private readonly recorder: EffortRecorder,
+    private readonly ownSegments: ManageOwnSegmentUseCase,
+    private readonly favoriteSegments: SegmentFavoritesUseCase,
+    private readonly creations: SegmentCreationRepository,
     private readonly importNervoSegmentsUseCase: ImportNervoSegmentsUseCase,
     private readonly deleteSegmentAsAdministratorUseCase: DeleteSegmentAsAdministratorUseCase,
     private readonly exportOpenSegmentsUseCase: ExportOpenSegmentsUseCase,
     private readonly storage: StorageService,
     private readonly effortResults: EffortResultsRepository,
     private readonly mapSegments: SegmentMapRepository,
-    private readonly favorites: SegmentFavoriteRepository,
   ) {}
-
-  /** Stars a Segment (ADR-039 §5), idempotent; `404 segment_not_found`. */
-  async favorite(userId: string, segmentId: string): Promise<void> {
-    if (!(await this.favorites.add(userId, segmentId))) {
-      throw segmentNotFound();
-    }
-  }
-
-  /** Unstars a Segment, idempotent; `404 segment_not_found`. */
-  async unfavorite(userId: string, segmentId: string): Promise<void> {
-    if (!(await this.favorites.remove(userId, segmentId))) {
-      throw segmentNotFound();
-    }
-  }
 
   /**
    * The Segments of a zone of the Map tab (ADR-039 §12), the most athletes first. `apps/api`
@@ -113,6 +101,40 @@ export class SegmentsService {
   /** An Activity's efforts on Segments, read-only in the backoffice (ADR-038 §11). */
   getActivityEfforts(activityId: string): Promise<ActivityEffortRecord[]> {
     return this.activityEfforts.findByActivityId(activityId);
+  }
+
+  /** `PATCH /v1/segments/:id` (ADR-039 §5): the creator only, no recomputation. */
+  rename(userId: string, segmentId: string, name: string): Promise<{ id: string; name: string }> {
+    return this.ownSegments.rename(userId, segmentId, name);
+  }
+
+  /** `DELETE /v1/segments/:id` (ADR-039 §5, §11): the creator only, `409 has_other_efforts`. */
+  deleteOwn(userId: string, segmentId: string): Promise<void> {
+    return this.ownSegments.delete(userId, segmentId);
+  }
+
+  /** `PUT /v1/segments/:id/favorite`: idempotent, `404` for an unknown Segment. */
+  favorite(userId: string, segmentId: string): Promise<void> {
+    return this.favoriteSegments.favorite(userId, segmentId);
+  }
+
+  /** `DELETE /v1/segments/:id/favorite`: idempotent, `404` for an unknown Segment. */
+  unfavorite(userId: string, segmentId: string): Promise<void> {
+    return this.favoriteSegments.unfavorite(userId, segmentId);
+  }
+
+  /** `GET /v1/me/segment-favorites`: Plus › « Segments ». */
+  listFavorites(userId: string, query: ListSegmentFavoritesQuery): Promise<ListSegmentFavoritesResponse> {
+    return this.favoriteSegments.list(userId, query);
+  }
+
+  /**
+   * Account deletion (ADR-039 §11, amends ADR-038 §13), just before the cascade: deletes the
+   * Segments the athlete created that nobody else has an Effort on (a running retro-matching does
+   * not count); the others stay, with `created_by` set to null by the foreign key.
+   */
+  deleteSegmentsOnlyTheirs(userId: string): Promise<number> {
+    return this.creations.deleteOnlyTheirs(userId);
   }
 
   /**
