@@ -1,9 +1,22 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, eq, inArray, isNotNull, sql } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNotNull, sql } from "drizzle-orm";
 import { schema, type Database } from "@repo/db";
 import type { LonLat } from "@repo/geo";
 import { DATABASE, type DbExecutor } from "../../infrastructure/index.js";
 import type { ClimbCategory } from "../domain/climb-category.js";
+
+/** A Segment as the ODbL file offers it (ADR-039 §10). */
+export interface OpenDataSegmentRow {
+  id: string;
+  name: string;
+  sport: string;
+  coordinates: Array<[number, number, number]>;
+  distanceM: number | null;
+  elevationGainM: number | null;
+  avgGrade: number | null;
+  maxGrade: number | null;
+  climbCategory: ClimbCategory | null;
+}
 
 /** A line of the Nervo generator, ready to insert (ADR-039 §10). */
 export interface NervoSegmentToInsert {
@@ -139,6 +152,33 @@ export class SegmentRepository {
       .where(eq(schema.segment.id, id))
       .returning({ origin: schema.segment.origin, sourceKey: schema.segment.sourceKey });
     return row;
+  }
+
+  /**
+   * One page of every Segment with a path, by id after `afterId`, for the ODbL file (ADR-039
+   * §10): no creator, no provenance.
+   */
+  async pageForOpenData(afterId: string | null, limit: number): Promise<OpenDataSegmentRow[]> {
+    const rows = await this.db
+      .select({
+        id: schema.segment.id,
+        name: schema.segment.name,
+        sport: schema.segment.sportTypeCode,
+        path: pathGeoJson,
+        distanceM: schema.segment.distanceM,
+        elevationGainM: schema.segment.elevationGainM,
+        avgGrade: schema.segment.avgGrade,
+        maxGrade: schema.segment.maxGrade,
+        climbCategory: schema.segment.climbCategory,
+      })
+      .from(schema.segment)
+      .where(and(isNotNull(schema.segment.path), afterId === null ? undefined : gt(schema.segment.id, afterId)))
+      .orderBy(asc(schema.segment.id))
+      .limit(limit);
+    return rows.map(({ path, ...row }) => ({
+      ...row,
+      coordinates: (JSON.parse(path) as { coordinates: Array<[number, number, number]> }).coordinates,
+    }));
   }
 
   /** ADR-039 §7: the last retro-matching page is done. */

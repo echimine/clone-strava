@@ -14,6 +14,7 @@ import { SegmentsService } from "./segments.service.js";
 import { ExcludedSourceKeyRepository } from "./repositories/excluded-source-key.repository.js";
 import { ImportNervoSegmentsUseCase } from "./use-cases/import-nervo-segments.use-case.js";
 import { DeleteSegmentAsAdministratorUseCase } from "./use-cases/delete-segment-as-administrator.use-case.js";
+import { ExportOpenSegmentsUseCase } from "./use-cases/export-open-segments.use-case.js";
 
 /**
  * `segments` module (ADR-021 §1/§2: layer 3, may depend on `activities`,
@@ -35,6 +36,7 @@ import { DeleteSegmentAsAdministratorUseCase } from "./use-cases/delete-segment-
     ExcludedSourceKeyRepository,
     ImportNervoSegmentsUseCase,
     DeleteSegmentAsAdministratorUseCase,
+    ExportOpenSegmentsUseCase,
     SegmentsService,
   ],
   exports: [SegmentsService],

@@ -16,7 +16,6 @@ export const openDataSegmentsHeaderSchema = z.object({
   licenseUrl: z.string(),
   attribution: z.array(z.string()),
   generatedAt: z.iso.datetime(),
-  segmentCount: z.number().int().nonnegative(),
 });
 export type OpenDataSegmentsHeader = z.infer<typeof openDataSegmentsHeaderSchema>;
 

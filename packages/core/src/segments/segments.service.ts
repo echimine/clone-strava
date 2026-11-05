@@ -1,5 +1,10 @@
 import { Injectable } from "@nestjs/common";
-import type { MatchSegmentHistoryJob, MatchSegmentsJob, ReplaySegmentMedalsJob } from "@repo/contracts";
+import {
+  OPEN_DATA_SEGMENTS_KEY,
+  type MatchSegmentHistoryJob,
+  type MatchSegmentsJob,
+  type ReplaySegmentMedalsJob,
+} from "@repo/contracts";
 import { MatchSegmentsUseCase } from "./use-cases/match-segments.use-case.js";
 import { MatchSegmentHistoryUseCase } from "./use-cases/match-segment-history.use-case.js";
 import { ActivityEffortRepository } from "./repositories/activity-effort.repository.js";
@@ -13,6 +18,8 @@ import {
   type NervoImportReport,
 } from "./use-cases/import-nervo-segments.use-case.js";
 import { DeleteSegmentAsAdministratorUseCase } from "./use-cases/delete-segment-as-administrator.use-case.js";
+import { ExportOpenSegmentsUseCase } from "./use-cases/export-open-segments.use-case.js";
+import { StorageService, type PresignedUrl } from "../storage/index.js";
 
 /** ADR-039 §13: Activities the sweep enqueues at most per run. */
 export const RECONCILE_SEGMENT_MATCHING_BATCH = 100;
@@ -31,6 +38,8 @@ export class SegmentsService {
     private readonly recorder: EffortRecorder,
     private readonly importNervoSegmentsUseCase: ImportNervoSegmentsUseCase,
     private readonly deleteSegmentAsAdministratorUseCase: DeleteSegmentAsAdministratorUseCase,
+    private readonly exportOpenSegmentsUseCase: ExportOpenSegmentsUseCase,
+    private readonly storage: StorageService,
   ) {}
 
   /** Called by `apps/worker`'s `match-segments` processor (ADR-011 §1, ADR-039 §6). */
@@ -81,5 +90,21 @@ export class SegmentsService {
    */
   deleteSegmentAsAdministrator(segmentId: string): Promise<{ deleted: boolean; excludedSourceKey: string | null }> {
     return this.deleteSegmentAsAdministratorUseCase.execute(segmentId);
+  }
+
+  /** `export-segments-odbl` (ADR-039 §10, §13): rewrites the public ODbL file of every Segment. */
+  exportOpenData(): Promise<{ segmentCount: number }> {
+    return this.exportOpenSegmentsUseCase.execute();
+  }
+
+  /**
+   * A pre-signed URL of the ODbL file for `GET /v1/open-data/segments.ndjson.gz` (ADR-039 §12),
+   * `null` before the first export.
+   */
+  async openDataUrl(expiresInSeconds: number): Promise<PresignedUrl | null> {
+    if (!(await this.storage.headObject(OPEN_DATA_SEGMENTS_KEY))) {
+      return null;
+    }
+    return this.storage.presignGet(OPEN_DATA_SEGMENTS_KEY, expiresInSeconds);
   }
 }
