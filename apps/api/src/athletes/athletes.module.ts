@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { ActivitiesModule } from "@repo/core/activities";
+import { SegmentsModule } from "@repo/core/segments";
 import { EngagementModule } from "@repo/core/engagement";
 import { ItinerariesModule } from "@repo/core/itineraries";
 import { SocialModule } from "@repo/core/social";
@@ -22,7 +23,7 @@ import { MeProfileController } from "./me-profile.controller.js";
  * the feed.
  */
 @Module({
-  imports: [AuthModule, ActivitiesModule, EngagementModule, ItinerariesModule, SocialModule, SportsModule, UsersModule, IdentitiesModule, ViewerFilterModule],
+  imports: [AuthModule, ActivitiesModule, EngagementModule, ItinerariesModule, SegmentsModule, SocialModule, SportsModule, UsersModule, IdentitiesModule, ViewerFilterModule],
   controllers: [AthletesController, AthleteGalleryController, MeProfileController],
   // Profile Activities are feed items (ADR-036 §3).
   providers: [AthleteProfileAssembler, FeedAssembler, MediaAssembler, SportsActiveCatalog],

@@ -16,6 +16,7 @@ import {
   type UpdateProfileResponse,
 } from "@repo/contracts";
 import { ActivitiesModule } from "@repo/core/activities";
+import { SegmentsModule } from "@repo/core/segments";
 import { AnalyticsModule } from "@repo/core/analytics";
 import { AuthService } from "@repo/core/auth";
 import { ElevationModule } from "@repo/core/elevation";
@@ -135,6 +136,7 @@ describe("Athlete profile (integration)", () => {
         GeocodingModule.forRoot({}),
         ElevationModule.forRoot({}),
         ActivitiesModule,
+        SegmentsModule,
         EngagementModule,
         ItinerariesModule,
         SocialModule,

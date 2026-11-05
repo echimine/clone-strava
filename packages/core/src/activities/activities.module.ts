@@ -66,6 +66,7 @@ import { GetMatchingTraceUseCase } from "./use-cases/get-matching-trace.use-case
 import { ActivitiesService } from "./activities.service.js";
 import { BestEffortRepository } from "./repositories/best-effort.repository.js";
 import { BestEffortWriter } from "./services/best-effort-writer.js";
+import { ActivityResultsRepository } from "./repositories/activity-results.repository.js";
 import { RemoveBestEffortUseCase } from "./use-cases/remove-best-effort.use-case.js";
 
 /**
@@ -149,6 +150,7 @@ import { RemoveBestEffortUseCase } from "./use-cases/remove-best-effort.use-case
     // Best efforts and their Medals (ADR-039 §3, §8)
     BestEffortRepository,
     BestEffortWriter,
+    ActivityResultsRepository,
     RemoveBestEffortUseCase,
     // Segment matching (ADR-039 §2)
     ActivitiesNearPathRepository,

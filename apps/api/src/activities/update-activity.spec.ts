@@ -15,6 +15,7 @@ import {
   type ActivityUpdatedEvent,
 } from "@repo/contracts";
 import { ActivitiesModule } from "@repo/core/activities";
+import { SegmentsModule } from "@repo/core/segments";
 import { AnalyticsModule } from "@repo/core/analytics";
 import { AuthService } from "@repo/core/auth";
 import { EngagementModule } from "@repo/core/engagement";
@@ -124,6 +125,7 @@ describe("PATCH /v1/activities/:id (integration)", () => {
         EventEmitterModule.forRoot({ wildcard: true, delimiter: "." }),
         ViewerFilterModule,
         ActivitiesModule,
+        SegmentsModule,
         EngagementModule,
         UsersModule,
       ],
