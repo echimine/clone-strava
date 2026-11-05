@@ -18,6 +18,8 @@ We want to verify through measurement whether a change is better than what exist
 | **Monetization**: price, duration, free trial, recommended offer, paywall variant | **RevenueCat Experiments** (one offering per group, display variants via metadata, ADR-014) | Conversion, revenue, subscriber retention |
 | **Product**: onboarding, screens, flows, copy, features | **PostHog Experiments** (multivariate flag, ADR-015) | PostHog events (activation, retention, usage) |
 
+*Amended 2026-11-05*: the Paywall A/B test is a RevenueCat Experiment between offerings that share the same Test Store products and differ only by their `layout` metadata (ADR-014). Results are sandbox data (Test Store), so they validate the mechanism rather than measure real revenue.
+
 **Rule**: everything related to the paywall and prices goes **only** through RevenueCat. PostHog never drives the paywall, to prevent two experiments from overlapping on the same screen.
 
 ### Experiment lifecycle
