@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// "Voici ce qui vous attend" (ADR-035 §1): four pages to swipe, each with an animated mock of
-/// the app (recording, itineraries, feed, segments), and "Passer" at the top right.
+/// "Voici ce qui vous attend" (ADR-035 §1): four full-bleed pages to swipe, each with a large,
+/// animated mock of an app screen (recording, itineraries, feed, segments) on a dark gradient,
+/// the title in white at the bottom over a fade, and "Passer" at the top right.
 struct OnboardingShowcase: View {
     let firstName: String
     /// The first sport picked: the one being recorded on the first page.
@@ -20,100 +21,125 @@ struct OnboardingShowcase: View {
     private var isLastPage: Bool { page == Self.pages.count - 1 }
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Text(firstName.isEmpty ? "Voici ce qui vous attend" : "\(firstName), voici ce qui vous attend")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .accessibilityAddTraits(.isHeader)
-                Spacer()
-                Button("Passer", action: finish)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .accessibilityIdentifier("onboarding.showcase.skip")
-            }
-            .padding(.horizontal, Theme.spacing)
-            .padding(.vertical, 10)
-
+        ZStack {
+            background
             TabView(selection: $page) {
                 ForEach(Self.pages.indices, id: \.self) { index in
-                    VStack(spacing: 0) {
-                        stage(index)
-                            .frame(maxHeight: .infinity)
-                        VStack(spacing: 10) {
-                            Text(Self.pages[index].title)
-                                .font(.system(size: 28, weight: .bold))
-                                .tracking(-0.4)
-                            Text(Self.pages[index].text)
-                                .font(.callout)
-                                .foregroundStyle(.secondary)
-                        }
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.horizontal, 28)
-                        .padding(.top, 24)
-                        .padding(.bottom, 8)
-                    }
-                    .tag(index)
+                    pageContent(index)
+                        .tag(index)
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
+            .ignoresSafeArea(edges: .bottom)
 
-            pageIndicator
-                .padding(.vertical, 14)
-
-            Button(isLastPage ? "C'est parti" : "Suivant") {
-                if isLastPage {
-                    finish()
-                } else {
-                    withAnimation(.snappy) { page += 1 }
+            VStack(spacing: 0) {
+                header
+                Spacer()
+                pageIndicator
+                    .padding(.bottom, 16)
+                Button(isLastPage ? "C'est parti" : "Suivant") {
+                    if isLastPage {
+                        finish()
+                    } else {
+                        withAnimation(.snappy) { page += 1 }
+                    }
                 }
+                .buttonStyle(PrimaryButtonStyle())
+                .accessibilityIdentifier("onboarding.showcase.next")
+                .padding(.horizontal, Theme.spacing)
+                .padding(.bottom, 10)
             }
-            .buttonStyle(PrimaryButtonStyle())
-            .accessibilityIdentifier("onboarding.showcase.next")
-            .padding(.horizontal, Theme.spacing)
-            .padding(.bottom, 10)
         }
+        .preferredColorScheme(.dark)
         .sensoryFeedback(.selection, trigger: page)
+    }
+
+    /// A dark vertical gradient with an orange glow that follows the page.
+    private var background: some View {
+        ZStack {
+            LinearGradient(
+                colors: [Color(red: 0.08, green: 0.09, blue: 0.12), Color(red: 0.03, green: 0.03, blue: 0.04)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            RadialGradient(
+                colors: [Theme.accent.opacity(0.45), Theme.accent.opacity(0)],
+                center: UnitPoint(x: 0.5, y: 0.3),
+                startRadius: 10,
+                endRadius: 380
+            )
+        }
+        .ignoresSafeArea()
+    }
+
+    private var header: some View {
+        HStack {
+            Text(firstName.isEmpty ? "Voici ce qui vous attend" : "\(firstName), voici ce qui vous attend")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.7))
+                .accessibilityAddTraits(.isHeader)
+            Spacer()
+            Button("Passer", action: finish)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.7))
+                .accessibilityIdentifier("onboarding.showcase.skip")
+        }
+        .padding(.horizontal, Theme.spacing)
+        .padding(.vertical, 10)
+    }
+
+    /// One page: the big mock up top, the title and text at the bottom over a fade to black.
+    private func pageContent(_ index: Int) -> some View {
+        VStack(spacing: 0) {
+            Spacer(minLength: 56)
+            mock(index)
+                .frame(width: 290, height: 380)
+                .background(RoundedRectangle(cornerRadius: 32, style: .continuous).fill(Color.white))
+                .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
+                // The mock is drawn for the light scheme, whatever the page around it.
+                .environment(\.colorScheme, .light)
+                .overlay(RoundedRectangle(cornerRadius: 32, style: .continuous).strokeBorder(.white.opacity(0.18), lineWidth: 1))
+                .shadow(color: .black.opacity(0.5), radius: 30, y: 16)
+                .accessibilityHidden(true)
+            Spacer(minLength: 24)
+            VStack(spacing: 12) {
+                Text(Self.pages[index].title)
+                    .font(.system(size: 34, weight: .bold))
+                    .tracking(-0.5)
+                    .foregroundStyle(.white)
+                Text(Self.pages[index].text)
+                    .font(.title3)
+                    .foregroundStyle(.white.opacity(0.85))
+            }
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 28)
+            // Room for the dots and the button that float over the pages.
+            .padding(.bottom, 130)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    @ViewBuilder private func mock(_ index: Int) -> some View {
+        switch index {
+        case 0: ShowcaseRecordMock(sport: sport)
+        case 1: ShowcaseItineraryMock()
+        case 2: ShowcaseFeedMock(sport: sport)
+        default: ShowcaseLeaderboardMock()
+        }
     }
 
     private var pageIndicator: some View {
         HStack(spacing: 6) {
             ForEach(Self.pages.indices, id: \.self) { index in
                 Capsule()
-                    .fill(index == page ? Theme.accent : Color(.systemGray4))
+                    .fill(index == page ? Theme.accent : Color.white.opacity(0.3))
                     .frame(width: index == page ? 22 : 7, height: 7)
             }
         }
         .animation(.snappy, value: page)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Page \(page + 1) sur \(Self.pages.count)")
-    }
-
-    /// The phone-like card on its orange halo.
-    private func stage(_ index: Int) -> some View {
-        ZStack {
-            RadialGradient(
-                colors: [Theme.accent.opacity(0.28), Theme.accent.opacity(0)],
-                center: .center,
-                startRadius: 10,
-                endRadius: 230
-            )
-            Group {
-                switch index {
-                case 0: ShowcaseRecordMock(sport: sport)
-                case 1: ShowcaseItineraryMock()
-                case 2: ShowcaseFeedMock(sport: sport)
-                default: ShowcaseLeaderboardMock()
-                }
-            }
-            .frame(width: 260, height: 330)
-            .background(RoundedRectangle(cornerRadius: 28, style: .continuous).fill(Color(.systemBackground)))
-            .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous).strokeBorder(Color(.separator).opacity(0.5)))
-            .shadow(color: .black.opacity(0.15), radius: 24, y: 12)
-            .accessibilityHidden(true)
-        }
     }
 }
 

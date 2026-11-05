@@ -45,6 +45,7 @@ struct OnboardingChoiceRow: View {
         }
         .buttonStyle(OnboardingPressStyle())
         .animation(.snappy(duration: 0.25), value: isSelected)
+        .sensoryFeedback(.selection, trigger: isSelected)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
@@ -81,6 +82,7 @@ struct OnboardingSportTile: View {
         }
         .buttonStyle(OnboardingPressStyle())
         .animation(.snappy(duration: 0.25), value: isSelected)
+        .sensoryFeedback(.selection, trigger: isSelected)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(ActivityFormatters.sportLabel(sport))
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)

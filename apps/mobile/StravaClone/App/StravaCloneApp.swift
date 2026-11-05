@@ -181,14 +181,6 @@ struct RootView: View {
                     store: makeOnboardingStore { [authStore] in authStore.finishOnboarding() },
                     accountScreen: createAccountScreen
                 )
-            case .avatarPrompt(let user):
-                // ADR-037 §2: an account the email code has just created, once, then the Paywall.
-                AvatarPromptView(
-                    name: user.name,
-                    editor: makeAvatarEditor(),
-                    chosen: authStore.finishAvatarPrompt,
-                    later: authStore.deferAvatarPrompt
-                )
             case .paywall(let user):
                 // ADR-035 §6: once, then the notification priming screen or home.
                 PaywallView(

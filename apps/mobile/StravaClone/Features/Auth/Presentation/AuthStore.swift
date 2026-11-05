@@ -27,9 +27,6 @@ final class AuthStore {
         /// Signed in by "Se connecter" on an account it has just created: the Onboarding, from
         /// its first question, before the home screen.
         case onboarding(AuthUser)
-        /// After the sign-in that ends the Onboarding, for an account the email code has just
-        /// created (ADR-037 §2): "Ajoute une photo de profil", once, then the Paywall.
-        case avatarPrompt(AuthUser)
         /// Right after the sign-in that ends the Onboarding (ADR-035 §6): the Paywall, once.
         case paywall(AuthUser)
         /// After that Paywall, while iOS has not asked for the notification permission yet
@@ -98,19 +95,6 @@ final class AuthStore {
     func finishOnboarding() {
         guard case .onboarding(let user) = state else { return }
         startSubmittingOnboardingAnswers()
-        showAvatarPromptOrPaywall(user)
-    }
-
-    /// The photo chosen on "Ajoute une photo de profil" is stored: the Paywall.
-    func finishAvatarPrompt() {
-        guard case .avatarPrompt(let user) = state else { return }
-        state = .paywall(user)
-    }
-
-    /// "Plus tard" on "Ajoute une photo de profil": the Paywall. Nothing asks again.
-    func deferAvatarPrompt() {
-        guard case .avatarPrompt(let user) = state else { return }
-        analytics.capture(.avatarPromptDeferred)
         state = .paywall(user)
     }
 
@@ -177,23 +161,12 @@ final class AuthStore {
         switch entry {
         case .onboarding:
             startSubmittingOnboardingAnswers()
-            showAvatarPromptOrPaywall(user)
+            state = .paywall(user)
         case .signIn where isNewAccount:
             state = .onboarding(user)
         case .signIn:
             state = .signedIn(user)
         }
-    }
-
-    /// The end of the Onboarding path: the photo screen for an account the email code has just
-    /// created, else the Paywall.
-    private func showAvatarPromptOrPaywall(_ user: AuthUser) {
-        guard isNewAccount, signInMethod == .email else {
-            state = .paywall(user)
-            return
-        }
-        state = .avatarPrompt(user)
-        analytics.capture(.avatarPromptViewed)
     }
 
     private func startSubmittingOnboardingAnswers() {
