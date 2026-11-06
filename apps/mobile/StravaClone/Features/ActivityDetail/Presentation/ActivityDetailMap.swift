@@ -9,12 +9,14 @@ struct ActivityDetailMap: View {
     let routeTrimmed: Bool
     /// The card of the Activity, for the full-screen summary.
     let post: ActivityPost
+    /// The medalled Segments' ribbons, at their starts (spec #252).
+    var segmentMedals: [SegmentMedalMark] = []
     var height: CGFloat = 330
 
     @State private var showsFullScreen = false
 
     var body: some View {
-        ActivityRouteMap(route: route)
+        ActivityRouteMap(route: route, segmentMedals: segmentMedals)
             .allowsHitTesting(false)
             .frame(height: height)
             .frame(maxWidth: .infinity)
@@ -46,7 +48,7 @@ struct ActivityDetailMap: View {
                 .accessibilityIdentifier("activityDetail.openMap")
             }
             .fullScreenCover(isPresented: $showsFullScreen) {
-                ActivityFullScreenMap(route: route, routeTrimmed: routeTrimmed, post: post)
+                ActivityFullScreenMap(route: route, routeTrimmed: routeTrimmed, post: post, segmentMedals: segmentMedals)
             }
     }
 }

@@ -17,10 +17,14 @@ struct ProfileView<Itineraries: View, Search: View>: View {
     var animationsPreview: AnyView?
     /// Réglages > "Athlètes bloqués" (ADR-038 §8), from the app shell.
     var blockedAthletes: AnyView?
+    /// Réglages > « Sources des données » (ADR-039 §10), from the app shell.
+    var dataSources: AnyView?
     /// Réglages > « Supprimer mon compte » (ADR-038 §13), a new screen each time it is pushed.
     var accountDeletion: (() -> AnyView)?
     let destinations: AppDestinations
     @ViewBuilder var itineraries: () -> Itineraries
+    /// Plus › « Segments » (ADR-039 §15), from the app shell: a new screen each time it is pushed.
+    var segments: (() -> AnyView)?
     /// The magnifier: the athlete search (ADR-036 §2).
     @ViewBuilder var search: () -> Search
 
@@ -67,10 +71,13 @@ struct ProfileView<Itineraries: View, Search: View>: View {
                             beforeSignOut: beforeSignOut,
                             animationsPreview: animationsPreview,
                             blockedAthletes: blockedAthletes,
+                            dataSources: dataSources,
                             accountDeletion: accountDeletion?()
                         )
                     case .itineraries:
                         itineraries()
+                    case .segments:
+                        segments?()
                     case .search:
                         search()
                     }
@@ -169,7 +176,8 @@ struct ProfileView<Itineraries: View, Search: View>: View {
                 yearToDateDistance: store.yearToDateDistance,
                 itineraryCount: profile.itineraryCount,
                 openStatistics: store.openStatistics,
-                openItineraries: store.openItineraries
+                openItineraries: store.openItineraries,
+                openSegments: store.openSegments
             )
         }
     }

@@ -49,4 +49,6 @@ struct ActivityPost: Identifiable, Hashable, Sendable {
     /// The first Media comes before the map in the carousel (ADR-037 §8); no effect without a
     /// map or Media.
     var mediaFirst = false
+    /// « Performances » (ADR-039 §12): the Medals the viewer may see.
+    var medalCounts = MedalCounts.none
 }

@@ -11,6 +11,9 @@ import SwiftUI
 struct ItineraryEditorView: View {
     @State var store: ItineraryEditorStore
     let onClose: () -> Void
+    /// Off when the editor draws a Segment (ADR-039 §15): its own card shows the live figures,
+    /// and the sport is fixed.
+    var showsStatsCard = true
 
     @State private var viewport: Viewport = .followUser
     /// Screen point where the current drag started, in the map's coordinates.
@@ -35,7 +38,9 @@ struct ItineraryEditorView: View {
         // Identifier on the map only: on the whole screen it would hide the overlays'.
         .accessibilityIdentifier("itineraryEditor")
         .overlay(alignment: .top) { header }
-        .safeAreaInset(edge: .bottom) { statsCard }
+        .safeAreaInset(edge: .bottom) {
+            if showsStatsCard { statsCard }
+        }
         .task { await store.retryPendingLegsOnReconnection() }
         .onChange(of: store.message) { _, message in
             if let message {

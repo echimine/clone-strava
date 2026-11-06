@@ -10,6 +10,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ViewerFilterModule } from "../viewer-filter/viewer-filter.module.js";
 import { activityDetailSchema, type ActivityDetail } from "@repo/contracts";
 import { ActivitiesModule } from "@repo/core/activities";
+import { SegmentsModule } from "@repo/core/segments";
 import { AnalyticsModule } from "@repo/core/analytics";
 import { AuthService } from "@repo/core/auth";
 import { EngagementModule } from "@repo/core/engagement";
@@ -132,6 +133,7 @@ describe("GET /v1/activities/:id (integration)", () => {
         EventEmitterModule.forRoot({ wildcard: true, delimiter: "." }),
         ViewerFilterModule,
         ActivitiesModule,
+        SegmentsModule,
         EngagementModule,
         UsersModule,
       ],
@@ -257,6 +259,7 @@ describe("GET /v1/activities/:id (integration)", () => {
       viewerIsAuthor: false,
       media: expect.any(Array),
       mediaFirst: true,
+      medalCounts: { gold: 0, silver: 0, bronze: 0 },
       updatedAt: updatedAt.toISOString(),
     });
   });

@@ -156,7 +156,6 @@ export function ActivityExtrasSection({ activity }: { activity: AdminActivityDet
                   <span>{effort.segmentName}</span>{" "}
                   <span className="text-muted-foreground">
                     · {formatDuration(effort.elapsedTimeS)}
-                    {effort.rank === null ? "" : ` · rang ${effort.rank}`}
                   </span>
                 </li>
               ))}

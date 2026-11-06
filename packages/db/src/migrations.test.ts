@@ -133,6 +133,38 @@ describe("migrations (integration)", () => {
       await pool.query(`delete from "user" where id = any($1::uuid[])`, [[follower, followee]]);
     }
   });
+
+  it("publishes the Leaderboard read views, processed Activities only (ADR-039 §2)", async () => {
+    const userId = await insertUser();
+    const processed = randomUUID();
+    const pending = randomUUID();
+    try {
+      await insertActivity(pool, processed, userId);
+      await insertActivity(pool, pending, userId);
+      await pool.query(`update activities.activity set processing_status = 'processed' where id = $1`, [processed]);
+      await pool.query(
+        `insert into users.user_profile (user_id, gender, weight_kg) values ($1, 'female', 58)`,
+        [userId],
+      );
+
+      const { rows: activities } = await pool.query(
+        `select * from activities.leaderboard_activity where user_id = $1`,
+        [userId],
+      );
+      expect(activities).toEqual([
+        { id: processed, user_id: userId, sport_type_code: "run", visibility: "public" },
+      ]);
+      const { rows: athletes } = await pool.query(
+        `select * from users.leaderboard_athlete where user_id = $1`,
+        [userId],
+      );
+      expect(athletes).toEqual([
+        { user_id: userId, gender: "female", birth_date: null, weight_kg: 58, privacy_zone_radius_m: 200 },
+      ]);
+    } finally {
+      await pool.query(`delete from "user" where id = $1`, [userId]);
+    }
+  });
 });
 
 describe("ADR-037 migration on an existing database (integration)", () => {

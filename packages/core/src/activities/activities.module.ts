@@ -1,6 +1,6 @@
 import { Module } from "@nestjs/common";
 import { BullModule } from "@nestjs/bullmq";
-import { ACTIVITIES_QUEUE_NAME, IMPORTS_QUEUE_NAME } from "@repo/contracts";
+import { ACTIVITIES_QUEUE_NAME, IMPORTS_QUEUE_NAME, SEGMENTS_QUEUE_NAME } from "@repo/contracts";
 import { SportsModule } from "../sports/index.js";
 import { UsersModule } from "../users/index.js";
 import { SocialModule } from "../social/index.js";
@@ -61,7 +61,13 @@ import { AdminFailureRepository } from "./repositories/admin-failure.repository.
 import { ListAdminFailuresUseCase } from "./use-cases/list-admin-failures.use-case.js";
 import { RecomputeActivityUseCase } from "./use-cases/recompute-activity.use-case.js";
 import { RelaunchFailuresUseCase } from "./use-cases/relaunch-failures.use-case.js";
+import { ActivitiesNearPathRepository } from "./repositories/activities-near-path.repository.js";
+import { GetMatchingTraceUseCase } from "./use-cases/get-matching-trace.use-case.js";
 import { ActivitiesService } from "./activities.service.js";
+import { BestEffortRepository } from "./repositories/best-effort.repository.js";
+import { BestEffortWriter } from "./services/best-effort-writer.js";
+import { ActivityResultsRepository } from "./repositories/activity-results.repository.js";
+import { RemoveBestEffortUseCase } from "./use-cases/remove-best-effort.use-case.js";
 
 /**
  * `activities` module (ADR-021 §1/§2: layer 2, may depend on `sports`,
@@ -74,7 +80,12 @@ import { ActivitiesService } from "./activities.service.js";
     SportsModule,
     UsersModule,
     SocialModule,
-    BullModule.registerQueue({ name: ACTIVITIES_QUEUE_NAME }, { name: IMPORTS_QUEUE_NAME }),
+    // ADR-039 §13: also a producer on `segments`, for `replay-segment-medals` after a delete.
+    BullModule.registerQueue(
+      { name: ACTIVITIES_QUEUE_NAME },
+      { name: IMPORTS_QUEUE_NAME },
+      { name: SEGMENTS_QUEUE_NAME },
+    ),
   ],
   providers: [
     ActivityAdminStatsRepository,
@@ -136,6 +147,14 @@ import { ActivitiesService } from "./activities.service.js";
     ListAdminFailuresUseCase,
     RecomputeActivityUseCase,
     RelaunchFailuresUseCase,
+    // Best efforts and their Medals (ADR-039 §3, §8)
+    BestEffortRepository,
+    BestEffortWriter,
+    ActivityResultsRepository,
+    RemoveBestEffortUseCase,
+    // Segment matching (ADR-039 §2)
+    ActivitiesNearPathRepository,
+    GetMatchingTraceUseCase,
     ActivitiesService,
   ],
   exports: [ActivitiesService],

@@ -13,6 +13,7 @@ enum ModerationMessages {
         case .comment: "Signaler le commentaire"
         case .activity: "Signaler l'activité"
         case .athlete: "Signaler l'athlète"
+        case .segment: "Signaler ce Segment"
         }
     }
 

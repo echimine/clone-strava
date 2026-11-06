@@ -214,11 +214,11 @@ export class ActivityRepository {
   /**
    * Hard delete (ADR-017, ADR-031 §13, ADR-033 §6) of an activity the worker is not writing
    * (`pending`, `failed` or `processed`), in one statement so a concurrent `complete` cannot
-   * slip in between; `false` otherwise. Stats, track, kudos, comments and segment efforts
-   * cascade; `activity_import.activity_id` is set to null.
+   * slip in between; `false` otherwise. Stats, track, Best efforts, kudos, comments and segment
+   * efforts cascade; `activity_import.activity_id` is set to null.
    */
-  async deleteUnlessProcessing(id: string): Promise<boolean> {
-    const deleted = await this.db
+  async deleteUnlessProcessing(id: string, executor: DbExecutor = this.db): Promise<boolean> {
+    const deleted = await executor
       .delete(schema.activity)
       .where(and(eq(schema.activity.id, id), ne(schema.activity.processingStatus, "processing")))
       .returning({ id: schema.activity.id });

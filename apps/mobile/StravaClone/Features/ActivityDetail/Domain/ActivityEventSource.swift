@@ -2,7 +2,8 @@ import Foundation
 
 /// A realtime event about an Activity (ADR-033 §8).
 enum ActivityEvent: Hashable, Sendable {
-    /// `activity.updated`: new metadata, or new official values after a sport change (§5).
+    /// `activity.updated`: new metadata, or new official values after a sport change (§5);
+    /// also `activity.segments_matched`, whose Segment Medals reload the same way (ADR-039 §14).
     case updated(ActivityID)
     /// `activity.deleted` (#94): the card goes, an open detail becomes unavailable.
     case deleted(ActivityID)

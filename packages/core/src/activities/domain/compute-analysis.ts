@@ -2,12 +2,13 @@ import type { ActivityAnalysis, ActivitySeries, ActivitySplit, TracePause } from
 import { haversineDistanceM } from "@repo/geo";
 import type { TracePoint } from "./compute-metrics.js";
 import { straddlesPause } from "./pauses.js";
+import { computeBestEfforts, type BestEffort, type RecordSet } from "./best-efforts.js";
 
 /**
  * Written into `activity_analysis.version` (ADR-036 §6-7). Raising it makes the reconciliation
  * sweep recompute every Activity's analysis, 100 per sweep.
  */
-export const ACTIVITY_ANALYSIS_VERSION = 1;
+export const ACTIVITY_ANALYSIS_VERSION = 2;
 
 /** A cleaned trace point, with the heart rate the series need. */
 export interface AnalysisPoint extends TracePoint {
@@ -19,6 +20,13 @@ export interface ComputeAnalysisOptions {
   pauses?: TracePause[];
   /** Below this speed a leg does not count as moving time (same default as `computeMetrics`). */
   movingSpeedThresholdMs?: number;
+  /** The Record family of the Activity's sport (ADR-039 §3); none, no Best effort. */
+  recordSet?: RecordSet | null;
+}
+
+/** The Activity analysis plus the Best efforts of the trace (ADR-039 §3), stored apart. */
+export interface ComputedAnalysis extends ActivityAnalysis {
+  bestEfforts: BestEffort[];
 }
 
 const SPLIT_M = 1000;
@@ -52,24 +60,29 @@ interface Profile {
 
 /**
  * The Activity analysis (ADR-036 §6) of a cleaned trace, before the privacy zone: splits of
- * 1,000 m and series of at most 300 samples. Distances and moving times are counted like
+ * 1,000 m, series of at most 300 samples, and the Best efforts over the Record distances of
+ * `recordSet` (ADR-039 §3). Distances and moving times are counted like
  * `computeMetrics` (legs straddling a Pause count nowhere, slow legs are not moving time), so
  * the splits add up to the official values. Carries no coordinates. Pure (ADR-021 §6).
  */
 export function computeAnalysis(
   points: AnalysisPoint[],
-  { pauses = [], movingSpeedThresholdMs = 0.5 }: ComputeAnalysisOptions = {},
-): ActivityAnalysis {
+  { pauses = [], movingSpeedThresholdMs = 0.5, recordSet = null }: ComputeAnalysisOptions = {},
+): ComputedAnalysis {
+  const empty: ComputedAnalysis = { ...EMPTY_ACTIVITY_ANALYSIS, bestEfforts: [] };
   if (points.length < 2) {
-    return EMPTY_ACTIVITY_ANALYSIS;
+    return empty;
   }
 
   const alongM = [0];
+  const pausedLeg = [false];
   const legs: Leg[] = [];
   for (let i = 1; i < points.length; i++) {
     const prev = points[i - 1]!;
     const curr = points[i]!;
-    if (straddlesPause(prev, curr, pauses)) {
+    const paused = straddlesPause(prev, curr, pauses);
+    pausedLeg.push(paused);
+    if (paused) {
       alongM.push(alongM[i - 1]!);
       continue;
     }
@@ -87,7 +100,7 @@ export function computeAnalysis(
   }
   const totalM = alongM[alongM.length - 1]!;
   if (totalM <= 0) {
-    return EMPTY_ACTIVITY_ANALYSIS;
+    return empty;
   }
 
   const altitude = profile(alongM, points.map((point) => point.elevationM));
@@ -98,6 +111,14 @@ export function computeAnalysis(
   return {
     splits: computeSplits(legs, totalM, altitude, heartRate),
     series: computeSeries(legs, totalM, altitude, heartRate),
+    bestEfforts: recordSet
+      ? computeBestEfforts(
+          points.map((point) => point.timestampMs),
+          alongM,
+          pausedLeg,
+          recordSet,
+        )
+      : [],
   };
 }
 

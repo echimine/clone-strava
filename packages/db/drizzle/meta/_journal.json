@@ -134,6 +134,41 @@
       "when": 1793814856316,
       "tag": "0018_subscriptions_promotional",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1793918467914,
+      "tag": "0019_best_effort",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1793919213223,
+      "tag": "0020_activity_pool_length",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1793919385117,
+      "tag": "0021_segments_matching",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1793920214543,
+      "tag": "0022_report_segment_target",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1793943345833,
+      "tag": "0023_segment_creation",
+      "breakpoints": true
     }
   ]
 }

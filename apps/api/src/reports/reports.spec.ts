@@ -7,9 +7,11 @@ import type {
   FeedResponse,
   GalleryResponse,
   ListCommentsResponse,
+  SegmentSheet,
 } from "@repo/contracts";
 import { REPORT_LIMIT_PER_DAY } from "@repo/contracts";
 import { bootstrapAthleteApp, type AthleteApp } from "../testing/athlete-app.js";
+import { segmentSeeds } from "../testing/segment-seeds.js";
 
 /**
  * `POST /v1/reports` (ADR-038 §9, §10) over the real `AppModule`: cases and Reports, the copy of
@@ -161,6 +163,32 @@ describe("reports (integration)", () => {
       avatarKey: "avatars/x/y.jpg",
     });
     expect((await get<AthleteProfileResponse>(`/athletes/${author}`)).athlete.id).toBe(author);
+  });
+
+  it("reports a Segment: copies its name, the case points at its creator (none for a Segment without one), and it stays visible", async () => {
+    const seeds = segmentSeeds(api);
+    const created = await seeds.segment({ name: "Montée injurieuse", createdBy: author });
+    const orphan = await seeds.segment({ name: "Col sans créateur", createdBy: null });
+
+    for (const segment of [created, orphan]) {
+      const response = await report(reporter, { targetType: "segment", targetId: segment, reason: "spam" });
+      expect(response.status).toBe(201);
+    }
+
+    const [createdCase] = await casesOf(created);
+    expect(createdCase).toMatchObject({ target_type: "segment", target_user_id: author, status: "open" });
+    expect((await reportsOf(createdCase!.id))[0]!.snapshot).toEqual({ name: "Montée injurieuse" });
+    const [orphanCase] = await casesOf(orphan);
+    expect(orphanCase).toMatchObject({ target_type: "segment", target_user_id: null });
+    expect((await get<SegmentSheet>(`/segments/${created}`)).name).toBe("Montée injurieuse");
+
+    const own = await report(author, { targetType: "segment", targetId: created, reason: "spam" });
+    expect(own.status).toBe(422);
+    expect(await errorCode(own)).toBe("cannot_report_own_content");
+    const missing = await report(reporter, { targetType: "segment", targetId: crypto.randomUUID(), reason: "spam" });
+    expect(missing.status).toBe(404);
+    expect(await errorCode(missing)).toBe("segment_not_found");
+    await seeds.cleanup();
   });
 
   it("answers 404 for a missing or invisible target", async () => {

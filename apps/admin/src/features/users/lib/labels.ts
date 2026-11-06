@@ -58,6 +58,7 @@ export const reportTargetLabels: Record<ReportTargetType, string> = {
   comment: "Commentaire",
   activity: "Activité",
   athlete: "Profil",
+  segment: "Segment",
 };
 
 export const caseStatusLabels: Record<ReportCaseStatus, string> = {

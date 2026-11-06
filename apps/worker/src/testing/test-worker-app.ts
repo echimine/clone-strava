@@ -22,6 +22,7 @@ import type { AccountsProcessorOptions } from "../processors/accounts/accounts.c
 import { ActivitiesProcessorModule } from "../processors/activities/activities.module.js";
 import { AvatarsProcessorModule } from "../processors/avatars/avatars.module.js";
 import { BucketSweepProcessorModule } from "../processors/bucket-sweep/bucket-sweep.module.js";
+import { SegmentsProcessorModule } from "../processors/segments/segments.module.js";
 import { SubscriptionsProcessorModule } from "../processors/subscriptions/subscriptions.module.js";
 
 /** Local-dev/test infrastructure (`docker-compose.dev.yml`, ADR-024 §3). */
@@ -133,7 +134,7 @@ export interface TestWorkerApp {
 }
 
 /**
- * Boots the activities, bucket-sweep, avatars, subscriptions and accounts processors (ADR-024 §4
+ * Boots the activities, segments, bucket-sweep, avatars, subscriptions and accounts processors (ADR-024 §4
  * `test-worker-app.ts`) on the real dev Postgres and Redis, with a random BullMQ prefix so the
  * queues never mix with a dev worker running on the same Redis. `revenueCat` configures
  * RevenueCat's API v2 with a simulated `fetch` (`sync-subscription`, `delete-account`); without it
@@ -162,6 +163,7 @@ export async function bootstrapTestWorkerApp(
       EventEmitterModule.forRoot({ wildcard: true, delimiter: "." }),
       RealtimeBridgeModule,
       ActivitiesProcessorModule,
+      SegmentsProcessorModule,
       BucketSweepProcessorModule,
       AvatarsProcessorModule,
       SubscriptionsProcessorModule,

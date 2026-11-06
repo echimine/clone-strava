@@ -23,8 +23,22 @@ struct PaywallStoreAnalyticsTests {
 
         await makeStore(isNewAccount: false).load()
 
-        #expect(analytics.events == [.paywallViewed(layout: variant, isNewAccount: false)])
-        #expect(analytics.events.first?.properties == ["layout": .string(variant.rawValue), "isNewAccount": false])
+        #expect(analytics.events == [.paywallViewed(layout: variant, isNewAccount: false, entry: .onboarding)])
+        #expect(
+            analytics.events.first?.properties
+                == ["layout": .string(variant.rawValue), "isNewAccount": false, "entry": "onboarding"]
+        )
+    }
+
+    /// ADR-039 §9: each lock of a Segment's Leaderboard opens the Paywall in a sheet, named by `entry`.
+    @Test(arguments: [AnalyticsEvent.PaywallEntry.segmentLeaderboard, .leaderboardFilter])
+    func aPaywallOpenedFromALockIsViewedWithItsEntry(entry: AnalyticsEvent.PaywallEntry) async {
+        service.offering = .sample(layout: .a)
+
+        await PaywallStore(service: service, analytics: analytics, entry: entry) {}.load()
+
+        #expect(analytics.events == [.paywallViewed(layout: .a, isNewAccount: false, entry: entry)])
+        #expect(analytics.events.first?.properties["entry"] == .string(entry.rawValue))
     }
 
     @Test func offersThatCannotBeLoadedSkipThePaywallWithoutViewingIt() async {

@@ -23,17 +23,21 @@ final class PaywallStore {
     @ObservationIgnored private let analytics: any AnalyticsClient
     /// The sign-in before it created the account.
     @ObservationIgnored private let isNewAccount: Bool
+    /// Where it opened: the Onboarding, or a lock of a Segment's Leaderboard (ADR-039 §9).
+    @ObservationIgnored private let entry: AnalyticsEvent.PaywallEntry
     @ObservationIgnored private let finish: @MainActor () -> Void
 
     init(
         service: any SubscriptionService,
         analytics: any AnalyticsClient = NoAnalyticsClient(),
         isNewAccount: Bool = false,
+        entry: AnalyticsEvent.PaywallEntry = .onboarding,
         finish: @escaping @MainActor () -> Void
     ) {
         self.service = service
         self.analytics = analytics
         self.isNewAccount = isNewAccount
+        self.entry = entry
         self.finish = finish
     }
 
@@ -45,7 +49,7 @@ final class PaywallStore {
             let offering = try await service.paywallOffering()
             self.offering = offering
             selected = offering.recommended
-            analytics.capture(.paywallViewed(layout: .init(offering.layout), isNewAccount: isNewAccount))
+            analytics.capture(.paywallViewed(layout: .init(offering.layout), isNewAccount: isNewAccount, entry: entry))
         } catch {
             analytics.capture(.paywallSkipped(reason: .offersUnavailable))
             finish()

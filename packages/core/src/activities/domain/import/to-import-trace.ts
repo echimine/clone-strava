@@ -1,5 +1,5 @@
 import { TRACE_SCHEMA_VERSION, type ActivityImportErrorCode, type Trace } from "@repo/contracts";
-import type { ParsedTrackFile } from "@repo/track-files";
+import type { ParsedPool, ParsedTrackFile } from "@repo/track-files";
 
 /** Result of turning a parsed file into an activity trace (ADR-028 §4 steps 5-6). */
 export type ImportTraceResult =
@@ -13,6 +13,9 @@ export type ImportTraceResult =
  * sport is checked by the caller once the sport is known.
  */
 export function toImportTrace(parsed: ParsedTrackFile): ImportTraceResult {
+  if (parsed.pool) {
+    return toPoolTrace(parsed, parsed.pool);
+  }
   if (parsed.points.length === 0) {
     return { ok: false, code: parsed.pointsWithoutPosition > 0 ? "no_gps_data" : "empty_track" };
   }
@@ -47,6 +50,40 @@ export function toImportTrace(parsed: ParsedTrackFile): ImportTraceResult {
   return {
     ok: true,
     trace: { schemaVersion: TRACE_SCHEMA_VERSION, points, pauses: [] },
+    startedAt: new Date(startedAtMs),
+    endedAt: new Date(endedAtMs),
+  };
+}
+
+/**
+ * A pool swim (ADR-039 §4): accepted without positions, the trace keeps its lengths and pool
+ * instead of points. Without an active length it is just another file without positions.
+ */
+function toPoolTrace(parsed: ParsedTrackFile, pool: ParsedPool): ImportTraceResult {
+  const lengths = pool.lengths.map((length) => ({
+    startMs: Math.round(length.startMs),
+    elapsedMs: Math.round(length.elapsedS * 1000),
+    active: length.active,
+  }));
+  if (!lengths.some((length) => length.active)) {
+    return { ok: false, code: "no_gps_data" };
+  }
+  const first = lengths[0]!;
+  const last = lengths[lengths.length - 1]!;
+  const startedAtMs = Math.min(parsed.startedAtMs ?? Infinity, first.startMs);
+  const endedAtMs = Math.max(parsed.endedAtMs ?? -Infinity, last.startMs + last.elapsedMs);
+  if (!(endedAtMs > startedAtMs)) {
+    return { ok: false, code: "invalid_duration" };
+  }
+  return {
+    ok: true,
+    trace: {
+      schemaVersion: TRACE_SCHEMA_VERSION,
+      points: [],
+      pauses: [],
+      pool: { lengthM: pool.lengthM, unit: pool.unit === "statute" ? "yd" : "m" },
+      lengths,
+    },
     startedAt: new Date(startedAtMs),
     endedAt: new Date(endedAtMs),
   };

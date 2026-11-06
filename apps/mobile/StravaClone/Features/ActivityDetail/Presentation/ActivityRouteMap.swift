@@ -6,6 +6,8 @@ import SwiftUI
 /// panning and zooming happen on the full-screen map (ADR-036 §9).
 struct ActivityRouteMap: View {
     let route: EncodedPolyline
+    /// The medalled Segments' ribbons (spec #252).
+    var segmentMedals: [SegmentMedalMark] = []
 
     @State private var isMapLoaded = false
 
@@ -40,6 +42,7 @@ struct ActivityRouteMap: View {
                 .lineWidth(4)
                 .lineJoin(.round)
             RouteEndpointsContent(coordinates: line)
+            SegmentMedalMarksContent(marks: segmentMedals)
         }
         .mapStyle(.outdoors)
         // Pan and zoom; no rotation or pitch, the trace stays north up.

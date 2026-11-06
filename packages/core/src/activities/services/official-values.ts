@@ -6,6 +6,8 @@ import {
   traceSchema,
   type ActivityAnalysis,
   type Trace,
+  type TraceLength,
+  type TracePool,
 } from "@repo/contracts";
 import type { schema } from "@repo/db";
 import { simplifyTrack } from "@repo/geo";
@@ -18,11 +20,18 @@ import { ActivityStatsRepository } from "../repositories/activity-stats.reposito
 import { ActivityTrackRepository } from "../repositories/activity-track.repository.js";
 import { applyPrivacyZone } from "../domain/apply-privacy-zone.js";
 import { cleanTrace, MAX_TRACE_ACCURACY_M, maxPlausibleSpeedMs } from "../domain/clean-trace.js";
-import { ACTIVITY_ANALYSIS_VERSION, computeAnalysis } from "../domain/compute-analysis.js";
+import { recordSetOf } from "../domain/best-efforts.js";
+import {
+  ACTIVITY_ANALYSIS_VERSION,
+  EMPTY_ACTIVITY_ANALYSIS,
+  computeAnalysis,
+} from "../domain/compute-analysis.js";
 import { computeMetrics } from "../domain/compute-metrics.js";
 import { feedPolyline } from "../domain/feed-polyline.js";
+import { poolBestEfforts, poolMetrics } from "../domain/pool-swim.js";
 import { computeHeartRate } from "../domain/heart-rate.js";
 import { toLineStringEwkt, toPointEwkt } from "../domain/ewkt.js";
+import { BestEffortWriter, type ComputedBestEfforts } from "./best-effort-writer.js";
 
 /** Douglas-Peucker tolerance of the stored route (ADR-019 §5 step 5). */
 const ROUTE_TOLERANCE_M = 5;
@@ -32,6 +41,18 @@ export interface ActivityToCompute {
   id: string;
   userId: string;
   sportTypeCode: string;
+  /** Copied onto the Best efforts: their Medals are replayed in this order (ADR-039 §8). */
+  startedAt: Date;
+  /** With `startedAt`, the elapsed time of a pool swim, which has no point (ADR-039 §4). */
+  endedAt: Date;
+}
+
+export interface ComputeOptions {
+  /**
+   * Reverse geocode the start point (default). `false` when only the analysis lags: the stored
+   * place name is kept, Mapbox is not called again (ADR-039 §3).
+   */
+  geocode?: boolean;
 }
 
 /** Why a stored trace cannot be used: permanent, retrying will not help (ADR-019 §6). */
@@ -42,16 +63,20 @@ export type LoadedTrace = { trace: Trace } | { problem: TraceProblem };
 /** The rows `process-activity` and `reprocess-activity` write, computed for one sport. */
 export interface OfficialValues {
   stats: typeof schema.activityStats.$inferInsert;
-  track: typeof schema.activityTrack.$inferInsert;
+  /** None for a pool swim: no route, no map, no Segment (ADR-039 §4). */
+  track: typeof schema.activityTrack.$inferInsert | null;
   /** Splits and series (ADR-036 §6), from the cleaned trace before the privacy zone. */
   analysis: ActivityAnalysis;
+  /** Best efforts over the sport's Record distances (ADR-039 §3), same trace as the analysis. */
+  bestEfforts: ComputedBestEfforts;
 }
 
 /**
  * The steps shared by `process-activity` and `reprocess-activity` (ADR-019 §5, ADR-033 §5):
  * read the stored trace, clean it with the sport's plausible speed, compute the metrics,
  * apply the privacy zone, build the route, polyline and place name, and write
- * `activity_stats` / `activity_track` / `activity_analysis` (ADR-036 §6).
+ * `activity_stats` / `activity_track` / `activity_analysis` (ADR-036 §6) and the Best efforts
+ * with their Medals (ADR-039 §3).
  */
 @Injectable()
 export class OfficialValuesService {
@@ -62,6 +87,7 @@ export class OfficialValuesService {
     private readonly users: UsersService,
     private readonly storage: StorageService,
     private readonly geocoding: GeocodingService,
+    private readonly bestEfforts: BestEffortWriter,
   ) {}
 
   /** Downloads and validates the stored trace. Storage errors are thrown (technical, retried). */
@@ -92,7 +118,7 @@ export class OfficialValuesService {
     if (!parsed.success) {
       return { problem: "invalid_trace" };
     }
-    if (parsed.data.points.length === 0) {
+    if (parsed.data.points.length === 0 && !parsed.data.lengths?.some((length) => length.active)) {
       return { problem: "empty_trace" };
     }
     return { trace: parsed.data };
@@ -101,9 +127,16 @@ export class OfficialValuesService {
   /**
    * The official values of `trace` for the activity's current sport, or `undefined` when fewer
    * than two points survive the cleanup. Geocoding is best effort and runs here, outside any
-   * transaction.
+   * transaction; without it (`geocode: false`) `locationName` is left out and the stored one stays.
    */
-  async compute(activity: ActivityToCompute, trace: Trace): Promise<OfficialValues | undefined> {
+  async compute(
+    activity: ActivityToCompute,
+    trace: Trace,
+    { geocode = true }: ComputeOptions = {},
+  ): Promise<OfficialValues | undefined> {
+    if (trace.pool && trace.lengths) {
+      return this.computePoolSwim(activity, trace.pool, trace.lengths);
+    }
     const points = cleanTrace(trace.points, {
       maxAccuracyM: MAX_TRACE_ACCURACY_M,
       maxSpeedMs: maxPlausibleSpeedMs(activity.sportTypeCode),
@@ -116,13 +149,19 @@ export class OfficialValuesService {
     const metrics = computeMetrics(points, { pauses: trace.pauses });
     const heartRate = computeHeartRate(points);
     // ADR-036 §6: no coordinates in it, so the untrimmed points reveal nothing the zone hides.
-    const analysis = computeAnalysis(points, { pauses: trace.pauses });
+    // ADR-039 §3: the Best efforts too, on elapsed time, Pauses included.
+    const recordSet = recordSetOf(activity.sportTypeCode);
+    const { bestEfforts, ...analysis } = computeAnalysis(points, { pauses: trace.pauses, recordSet });
     const { privacyZoneRadiusM } = await this.users.getActivityDefaults(activity.userId);
     const zoned = applyPrivacyZone(points, { radiusM: privacyZoneRadiusM });
     const shown = simplifyTrack(zoned, ROUTE_TOLERANCE_M);
     // ADR-029: feed card data, from the privacy-zoned route only.
     const mapPolyline = feedPolyline(shown);
-    const locationName = shown.length >= 2 ? await this.geocoding.reverse(shown[0]!) : null;
+    const locationName = !geocode
+      ? undefined
+      : shown.length >= 2
+        ? await this.geocoding.reverse(shown[0]!)
+        : null;
 
     return {
       stats: {
@@ -150,14 +189,66 @@ export class OfficialValuesService {
         locationName,
       },
       analysis,
+      bestEfforts: {
+        activityId: activity.id,
+        userId: activity.userId,
+        activityStartedAt: activity.startedAt,
+        recordSet,
+        efforts: bestEfforts,
+      },
     };
   }
 
-  /** Upserts `activity_stats`, `activity_track` and `activity_analysis`, inside the caller's transaction. */
+  /**
+   * A pool swim (ADR-039 §4): distance and times from its lengths, no route, an empty analysis
+   * (no split, no series), and the `swim_pool` Best efforts while its sport is `swim`.
+   */
+  private computePoolSwim(
+    activity: ActivityToCompute,
+    pool: TracePool,
+    lengths: TraceLength[],
+  ): OfficialValues | undefined {
+    if (!lengths.some((length) => length.active)) {
+      return undefined;
+    }
+    const metrics = poolMetrics(lengths, pool);
+    const swimming = activity.sportTypeCode === "swim";
+    return {
+      stats: {
+        activityId: activity.id,
+        distanceM: metrics.distanceM,
+        movingTimeS: Math.round(metrics.movingTimeS),
+        elapsedTimeS: Math.round((activity.endedAt.getTime() - activity.startedAt.getTime()) / 1000),
+        elevationGainM: null,
+        avgSpeedMs: metrics.avgSpeedMs,
+        maxSpeedMs: metrics.maxSpeedMs,
+        avgHeartRate: null,
+        maxHeartRate: null,
+        computedForSportTypeCode: activity.sportTypeCode,
+      },
+      track: null,
+      analysis: EMPTY_ACTIVITY_ANALYSIS,
+      bestEfforts: {
+        activityId: activity.id,
+        userId: activity.userId,
+        activityStartedAt: activity.startedAt,
+        recordSet: swimming ? "swim_pool" : null,
+        efforts: swimming ? poolBestEfforts(lengths, pool) : [],
+      },
+    };
+  }
+
+  /**
+   * Upserts `activity_stats`, `activity_track`, `activity_analysis` and the Best efforts, then
+   * replays the athlete's Medals they touch, inside the caller's transaction.
+   */
   async save(values: OfficialValues, tx: DbExecutor): Promise<void> {
     await this.activityStats.upsert(values.stats, tx);
-    await this.activityTracks.upsert(values.track, tx);
+    if (values.track) {
+      await this.activityTracks.upsert(values.track, tx);
+    }
     await this.saveAnalysis(values.stats.activityId, values.analysis, tx);
+    await this.bestEfforts.save(values.bestEfforts, tx);
   }
 
   /**

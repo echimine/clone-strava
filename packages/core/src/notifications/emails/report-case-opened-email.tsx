@@ -11,6 +11,7 @@ const TARGETS: Record<ReportTargetType, string> = {
   comment: "un commentaire",
   activity: "une Activité",
   athlete: "un athlète",
+  segment: "un Segment",
 };
 
 /** The app's reason labels (ADR-038 §9). */

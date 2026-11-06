@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-/** `moderation.report_target_type` (ADR-038 §9, §18): what a Report is about. */
-export const reportTargetTypeSchema = z.enum(["comment", "activity", "athlete"]);
+/** `moderation.report_target_type` (ADR-038 §9, §18, amended by ADR-039 §11): what a Report is about. */
+export const reportTargetTypeSchema = z.enum(["comment", "activity", "athlete", "segment"]);
 export type ReportTargetType = z.infer<typeof reportTargetTypeSchema>;
 
 /**
@@ -61,14 +61,24 @@ export const athleteReportSnapshotSchema = z.object({
   /** The Avatar's object key, never signed here. */
   avatarKey: z.string().nullable(),
 });
+/** ADR-039 §11: a Segment's name (its path is never edited, so not copied). */
+export const segmentReportSnapshotSchema = z.object({
+  name: z.string(),
+});
 export type CommentReportSnapshot = z.infer<typeof commentReportSnapshotSchema>;
 export type ActivityReportSnapshot = z.infer<typeof activityReportSnapshotSchema>;
 export type AthleteReportSnapshot = z.infer<typeof athleteReportSnapshotSchema>;
+export type SegmentReportSnapshot = z.infer<typeof segmentReportSnapshotSchema>;
 
 /** The snapshot schema for each target type. */
 export const reportSnapshotSchemas = {
   comment: commentReportSnapshotSchema,
   activity: activityReportSnapshotSchema,
   athlete: athleteReportSnapshotSchema,
+  segment: segmentReportSnapshotSchema,
 } as const satisfies Record<ReportTargetType, z.ZodType>;
-export type ReportSnapshot = CommentReportSnapshot | ActivityReportSnapshot | AthleteReportSnapshot;
+export type ReportSnapshot =
+  | CommentReportSnapshot
+  | ActivityReportSnapshot
+  | AthleteReportSnapshot
+  | SegmentReportSnapshot;

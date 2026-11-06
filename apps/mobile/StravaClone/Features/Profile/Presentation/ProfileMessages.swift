@@ -12,6 +12,7 @@ enum ProfileMessages {
     static let statistics = "Statistiques"
     static let itineraries = "Itinéraires"
     static let myItineraries = "Mes Itinéraires"
+    static let segments = "Segments"
     static let firstName = "Prénom"
     static let lastName = "Nom"
     static let save = "Enregistrer"

@@ -3,12 +3,16 @@ import type { ReportSnapshot, ReportTargetType } from "@repo/contracts";
 import { ActivitiesService } from "@repo/core/activities";
 import { EngagementService } from "@repo/core/engagement";
 import { isAthleteHidden, type ViewerExclusions } from "@repo/core/infrastructure";
+import { SegmentsService } from "@repo/core/segments";
 import { UsersService } from "@repo/core/users";
 import { AthleteIdentities } from "../identities/athlete-identities.js";
 
-/** What a Report needs from its target: its author and a copy of its texts (ADR-038 §9). */
+/**
+ * What a Report needs from its target: its author and a copy of its texts (ADR-038 §9). No
+ * author only for a Segment without a creator (ADR-039 §11).
+ */
 export interface ReportTarget {
-  authorId: string;
+  authorId: string | null;
   snapshot: ReportSnapshot;
 }
 
@@ -25,6 +29,7 @@ export class ReportTargetReader {
     private readonly engagement: EngagementService,
     private readonly users: UsersService,
     private readonly identities: AthleteIdentities,
+    private readonly segments: SegmentsService,
   ) {}
 
   async read(
@@ -89,6 +94,14 @@ export class ReportTargetReader {
             avatarKey: summary?.avatarKey ?? null,
           },
         };
+      }
+      case "segment": {
+        // Always public; reporting it does not hide it (ADR-039 §11), so no viewer filter here.
+        const segment = await this.segments.getReportTarget(targetId);
+        if (!segment) {
+          throw new NotFoundException({ code: "segment_not_found", message: "Segment not found" });
+        }
+        return { authorId: segment.createdBy, snapshot: { name: segment.name } };
       }
     }
   }

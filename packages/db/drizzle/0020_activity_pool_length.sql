@@ -1,0 +1,1 @@
+ALTER TABLE "activities"."activity" ADD COLUMN "pool_length_m" real;

@@ -17,7 +17,10 @@ import { ActivitiesProcessorModule } from "./processors/activities/activities.mo
 import { AvatarsProcessorModule } from "./processors/avatars/avatars.module.js";
 import { BucketSweepProcessorModule } from "./processors/bucket-sweep/bucket-sweep.module.js";
 import { EmailsProcessorModule } from "./processors/emails/emails.module.js";
-import { SegmentsProcessorModule } from "./processors/segments/segments.module.js";
+import {
+  SegmentMatchingSchedulerModule,
+  SegmentsProcessorModule,
+} from "./processors/segments/segments.module.js";
 import { SubscriptionsProcessorModule } from "./processors/subscriptions/subscriptions.module.js";
 
 // `forRoot(...)` dynamic modules below are synchronous (no DI injection of
@@ -69,6 +72,7 @@ const config = loadConfig();
     HeartbeatModule,
     ActivitiesProcessorModule,
     SegmentsProcessorModule,
+    SegmentMatchingSchedulerModule,
     SubscriptionsProcessorModule,
     BucketSweepProcessorModule,
     AvatarsProcessorModule,

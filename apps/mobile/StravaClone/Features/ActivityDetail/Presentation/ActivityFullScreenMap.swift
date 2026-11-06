@@ -8,16 +8,19 @@ struct ActivityFullScreenMap: View {
     let route: EncodedPolyline
     let routeTrimmed: Bool
     let post: ActivityPost
+    /// The medalled Segments' ribbons (spec #252).
+    let segmentMedals: [SegmentMedalMark]
 
     @State private var viewport: Viewport
     @Environment(\.dismiss) private var dismiss
 
     private let line: [CLLocationCoordinate2D]
 
-    init(route: EncodedPolyline, routeTrimmed: Bool, post: ActivityPost) {
+    init(route: EncodedPolyline, routeTrimmed: Bool, post: ActivityPost, segmentMedals: [SegmentMedalMark] = []) {
         self.route = route
         self.routeTrimmed = routeTrimmed
         self.post = post
+        self.segmentMedals = segmentMedals
         let line = route.decode().map(\.locationCoordinate)
         self.line = line
         _viewport = State(initialValue: Self.overview(line))
@@ -38,6 +41,7 @@ struct ActivityFullScreenMap: View {
                 .lineWidth(4)
                 .lineJoin(.round)
             RouteEndpointsContent(coordinates: line)
+            SegmentMedalMarksContent(marks: segmentMedals)
         }
         .mapStyle(.outdoors)
         .gestureOptions(GestureOptions(rotateEnabled: false, pitchEnabled: false))

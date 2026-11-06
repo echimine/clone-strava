@@ -51,6 +51,13 @@ export const REPORT_TARGET_KINDS: { [K in ReportTargetType]: ReportTargetKind<K>
       copy.name !== current.name || copy.bio !== current.bio || copy.avatarKey !== current.avatarKey,
     previewText: (copy) => copy.name,
   },
+  // ADR-039 §11: the queue leaves Segment cases out until #219; only the copy is typed here.
+  segment: {
+    auditTarget: "segment",
+    toAdminCopy: (copy) => ({ kind: "segment", name: copy.name }),
+    changed: (copy, current) => copy.name !== current.name,
+    previewText: (copy) => copy.name,
+  },
 };
 
 /** A snapshot typed by its target type. */

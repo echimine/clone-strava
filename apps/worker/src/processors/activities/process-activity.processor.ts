@@ -11,8 +11,8 @@ import {
   processActivityJobSchema,
   reprocessActivityJobSchema,
 } from "@repo/contracts";
-import { ActivitiesService, PermanentProcessingError } from "@repo/core/activities";
-import { DEFAULT_JOB_RETRY } from "@repo/core/infrastructure";
+import { ActivitiesService, PermanentProcessingError, type ReprocessOutcome } from "@repo/core/activities";
+import { DEFAULT_JOB_RETRY, enqueueUnique } from "@repo/core/infrastructure";
 
 /**
  * Job name for the recurring reconciliation sweep (ADR-019 §7).
@@ -89,18 +89,29 @@ export class ProcessActivityProcessor extends WorkerHost {
 
   /**
    * Silent reprocessing after a sport change (ADR-033 §5): the Activity stays `processed`. A
-   * permanent failure (unusable trace) is not retried; the old values stay either way.
+   * permanent failure (unusable trace) is not retried; the old values stay either way. Once new
+   * values are saved for a new sport, `match-segments` runs again (ADR-039 §6), replacing a
+   * finished job of the same id.
    */
   private async reprocessActivity(job: Job): Promise<void> {
     const data = reprocessActivityJobSchema.parse(job.data);
     this.logger.log({ activityId: data.activityId, requestId: data.requestId }, "Reprocessing activity");
+    let outcome: ReprocessOutcome;
     try {
-      await this.activitiesService.reprocess(data);
+      outcome = await this.activitiesService.reprocess(data);
     } catch (error) {
       if (error instanceof PermanentProcessingError) {
         throw new UnrecoverableError(error.message);
       }
       throw error;
+    }
+    if (outcome.savedForNewSport) {
+      await enqueueUnique(
+        this.segmentsQueue,
+        MATCH_SEGMENTS_JOB_NAME,
+        { activityId: data.activityId, userId: data.userId, requestId: data.requestId },
+        matchSegmentsJobId(data.activityId),
+      );
     }
   }
 

@@ -24,6 +24,8 @@ final class ProfileStore {
     enum Destination: Hashable {
         case settings
         case itineraries
+        /// Plus › « Segments »: my favourite Segments (ADR-039 §15).
+        case segments
         /// The magnifier: the athlete search (ADR-036 §2).
         case search
     }
@@ -177,6 +179,10 @@ final class ProfileStore {
 
     func openItineraries() {
         path.append(Destination.itineraries)
+    }
+
+    func openSegments() {
+        path.append(Destination.segments)
     }
 
     func openSearch() {

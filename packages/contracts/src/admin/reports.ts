@@ -107,6 +107,8 @@ export const adminReportCopySchema = z.discriminatedUnion("kind", [
     mediaCount: z.number().int().nonnegative(),
   }),
   z.object({ kind: z.literal("athlete"), name: z.string(), bio: z.string().nullable(), hadAvatar: z.boolean() }),
+  // ADR-039 §11: the queue shows Segment cases with #219; the copy is only its name.
+  z.object({ kind: z.literal("segment"), name: z.string() }),
 ]);
 export type AdminReportCopy = z.infer<typeof adminReportCopySchema>;
 

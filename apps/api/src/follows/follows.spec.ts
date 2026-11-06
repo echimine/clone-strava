@@ -10,6 +10,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ViewerFilterModule } from "../viewer-filter/viewer-filter.module.js";
 import type { FeedResponse, FollowListResponse, FollowRequestListResponse, FollowResponse } from "@repo/contracts";
 import { ActivitiesModule } from "@repo/core/activities";
+import { SegmentsModule } from "@repo/core/segments";
 import { AnalyticsModule } from "@repo/core/analytics";
 import { AuthService } from "@repo/core/auth";
 import { EngagementModule } from "@repo/core/engagement";
@@ -92,6 +93,7 @@ describe("follows (integration)", () => {
         EventEmitterModule.forRoot({ wildcard: true, delimiter: "." }),
         ViewerFilterModule,
         ActivitiesModule,
+        SegmentsModule,
         EngagementModule,
         SocialModule,
         UsersModule,

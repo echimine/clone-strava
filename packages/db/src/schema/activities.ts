@@ -1,10 +1,12 @@
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import {
   boolean,
+  doublePrecision,
   index,
   integer,
   jsonb,
   pgSchema,
+  primaryKey,
   real,
   smallint,
   text,
@@ -54,6 +56,19 @@ export const importStatusEnum = activitiesSchema.enum("import_status", [
 /** ADR-037 §12: what a Media is. */
 export const mediaKindEnum = activitiesSchema.enum("media_kind", ["photo", "video"]);
 
+/** ADR-039 §3: families of Record distances; the two swims are never compared. */
+export const recordSetEnum = activitiesSchema.enum("record_set", [
+  "run",
+  "ride",
+  "walk",
+  "hike",
+  "swim_pool",
+  "swim_open_water",
+]);
+
+/** ADR-039 §8: the athlete's 1st, 2nd, 3rd time at the date of the Activity. */
+export const medalEnum = activitiesSchema.enum("medal", ["gold", "silver", "bronze"]);
+
 export const activity = activitiesSchema.table(
   "activity",
   {
@@ -82,6 +97,9 @@ export const activity = activitiesSchema.table(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
     // ADR-037 §8: the first Media comes before the map (no effect without a map).
     mediaFirst: boolean("media_first").notNull().default(false),
+    // ADR-039 §4: the pool length of a pool swim imported from FIT, in meters (25 yd = 22.86);
+    // null when the Activity is not a pool swim.
+    poolLengthM: real("pool_length_m"),
   },
   (table) => [
     // ADR-017 "Main indexes": a user's activities, feed.
@@ -220,4 +238,58 @@ export const activityImport = activitiesSchema.table(
       .on(table.status)
       .where(sql`${table.status} in ('pending', 'processing')`),
   ],
+);
+
+/**
+ * ADR-039 §3, §17: the Best effort of an Activity over one Record distance, upserted by the
+ * processing transaction. The Record is the minimum over the athlete's rows not removed;
+ * `medal` is replayed in date order whenever their history changes (§8). `removed_at` is set
+ * by the athlete, for good: a recomputation never clears it.
+ */
+export const bestEffort = activitiesSchema.table(
+  "best_effort",
+  {
+    activityId: uuid("activity_id")
+      .notNull()
+      .references(() => activity.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    recordSet: recordSetEnum("record_set").notNull(),
+    // Meters; the half marathon is 21,097.5.
+    distanceM: doublePrecision("distance_m").notNull(),
+    elapsedTimeMs: integer("elapsed_time_ms").notNull(),
+    startDistanceM: real("start_distance_m").notNull(),
+    // Copied from the Activity: the Medals are replayed in this order.
+    activityStartedAt: timestamp("activity_started_at", { withTimezone: true }).notNull(),
+    medal: medalEnum("medal"),
+    removedAt: timestamp("removed_at", { withTimezone: true }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.activityId, table.distanceM] }),
+    // The athlete's Record and Medals on one distance.
+    index("best_effort_user_set_distance_time_idx").on(
+      table.userId,
+      table.recordSet,
+      table.distanceM,
+      table.elapsedTimeMs,
+    ),
+  ],
+);
+
+/**
+ * Published read view (ADR-039 §2, ADR-021 §7 amended): what another module may join of an
+ * Activity, read-only. Processed Activities only: Efforts and Leaderboards never concern the
+ * others. A contract: changing it is a cross-module change.
+ */
+export const leaderboardActivity = activitiesSchema.view("leaderboard_activity").as((qb) =>
+  qb
+    .select({
+      id: activity.id,
+      userId: activity.userId,
+      sportTypeCode: activity.sportTypeCode,
+      visibility: activity.visibility,
+    })
+    .from(activity)
+    .where(eq(activity.processingStatus, "processed")),
 );

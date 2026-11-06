@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import type { InstantRange } from "../infrastructure/index.js";
+import type { InstantRange, ViewerExclusions } from "../infrastructure/index.js";
 import type { ActivityFailureCounts, ActivityGrowthCounts } from "./domain/activity-admin-stats.js";
 import { ActivityAdminStatsRepository } from "./repositories/activity-admin-stats.repository.js";
 import type {
@@ -19,7 +19,6 @@ import type {
   ReprocessActivityJob,
   UploadUrlResponse,
 } from "@repo/contracts";
-import type { ViewerExclusions } from "../infrastructure/index.js";
 import { CreateActivityUseCase, type CreateActivityResult } from "./use-cases/create-activity.use-case.js";
 import { RequestUploadUrlUseCase } from "./use-cases/request-upload-url.use-case.js";
 import { CompleteActivityUseCase } from "./use-cases/complete-activity.use-case.js";
@@ -44,7 +43,7 @@ import { GetVisibleActivityUseCase } from "./use-cases/get-visible-activity.use-
 import { GetActivityDetailUseCase } from "./use-cases/get-activity-detail.use-case.js";
 import { DeleteActivityUseCase } from "./use-cases/delete-activity.use-case.js";
 import { UpdateActivityUseCase } from "./use-cases/update-activity.use-case.js";
-import { ReprocessActivityUseCase } from "./use-cases/reprocess-activity.use-case.js";
+import { ReprocessActivityUseCase, type ReprocessOutcome } from "./use-cases/reprocess-activity.use-case.js";
 import { GetProgressUseCase } from "./use-cases/get-progress.use-case.js";
 import { GetAthleteStatsUseCase } from "./use-cases/get-athlete-stats.use-case.js";
 import {
@@ -67,29 +66,25 @@ import { AdminActivityRepository } from "./repositories/admin-activity.repositor
 import { ListAdminFailuresUseCase } from "./use-cases/list-admin-failures.use-case.js";
 import { RecomputeActivityUseCase } from "./use-cases/recompute-activity.use-case.js";
 import { RelaunchFailuresUseCase } from "./use-cases/relaunch-failures.use-case.js";
-import type {
-  FailedActivityRow,
-  FailedImportRow,
-  FailurePage,
-  StaleActivityRow,
-} from "./domain/admin-failure.js";
-
-type AdminPage = { page: number; pageSize: number };
-import type {
-  ActivityLabel,
-  AdminActivityFilter,
-  AdminActivityRecord,
-  AdminActivityRow,
-} from "./domain/admin-activity.js";
+import type { FailedActivityRow, FailedImportRow, FailurePage, StaleActivityRow } from "./domain/admin-failure.js";
+import { RemoveBestEffortUseCase } from "./use-cases/remove-best-effort.use-case.js";
+import { ActivityResultsRepository } from "./repositories/activity-results.repository.js";
+import type { ActivityBestEffortResults, MedalCount } from "./domain/activity-results.js";
+import type { ActivityLabel, AdminActivityFilter, AdminActivityRecord, AdminActivityRow } from "./domain/admin-activity.js";
 import type { ActivityDetailRecord } from "./domain/activity-detail.js";
 import type { ActivityMediaRecord, GalleryMediaPage } from "./domain/activity-media.js";
 import type { ActivityRecord } from "./domain/activity-record.js";
+import type { ActivitiesNearPathPage, ActivitiesNearPathQuery, ActivityMatchingTrace } from "./domain/matching-trace.js";
+import { ActivitiesNearPathRepository } from "./repositories/activities-near-path.repository.js";
+import { GetMatchingTraceUseCase } from "./use-cases/get-matching-trace.use-case.js";
+import { ActivityTrackRepository } from "./repositories/activity-track.repository.js";
 import type { FeedActivityPage } from "./domain/feed-activity.js";
 
+type AdminPage = { page: number; pageSize: number };
+
 /**
- * Public facade of the `activities` module (ADR-021 §1: layer 2, may
- * depend on `sports`, `users`, `social`). The largest module (upload,
- * processing, feed).
+ * Public facade of the `activities` module (ADR-021 §1: layer 2, may depend on `sports`, `users`,
+ * `social`). The largest module (upload, processing, feed).
  */
 @Injectable()
 export class ActivitiesService {
@@ -133,6 +128,11 @@ export class ActivitiesService {
     private readonly listAdminFailuresUseCase: ListAdminFailuresUseCase,
     private readonly recomputeActivityUseCase: RecomputeActivityUseCase,
     private readonly relaunchFailuresUseCase: RelaunchFailuresUseCase,
+    private readonly removeBestEffortUseCase: RemoveBestEffortUseCase,
+    private readonly activitiesNearPath: ActivitiesNearPathRepository,
+    private readonly getMatchingTraceUseCase: GetMatchingTraceUseCase,
+    private readonly tracks: ActivityTrackRepository,
+    private readonly results: ActivityResultsRepository,
   ) {}
 
   /** Backoffice dashboard, "À traiter" (ADR-038 §15): failed Activities and recent failed imports. */
@@ -173,7 +173,7 @@ export class ActivitiesService {
   }
 
   /** Called by `apps/worker`'s `reprocess-activity` processor after a sport change (ADR-033 §5). */
-  reprocess(job: ReprocessActivityJob): Promise<void> {
+  reprocess(job: ReprocessActivityJob): Promise<ReprocessOutcome> {
     return this.reprocessActivityUseCase.execute(job);
   }
 
@@ -266,6 +266,31 @@ export class ActivitiesService {
   /** The author deletes their activity unless it is `processing` (ADR-031 §13, ADR-033 §6). */
   delete(userId: string, activityId: string): Promise<void> {
     return this.deleteActivityUseCase.execute(userId, activityId);
+  }
+
+  // --- Best efforts and Records (ADR-039 §3) ---
+
+  /**
+   * « Résultats » of an Activity on the `activities` side (ADR-039 §12): its pool length and its
+   * Best efforts not removed, with first time and current Record. The caller has checked that
+   * the viewer may see the Activity.
+   */
+  async getBestEffortResults(activityId: string): Promise<ActivityBestEffortResults> {
+    const [poolLengthM, bestEfforts] = await Promise.all([
+      this.results.findPoolLengthM(activityId),
+      this.results.findBestEfforts(activityId),
+    ]);
+    return { poolLengthM, bestEfforts };
+  }
+
+  /** The Medals of the Best efforts not removed of a page of Activities (« Performances »). */
+  countBestEffortMedals(activityIds: string[]): Promise<MedalCount[]> {
+    return this.results.countMedals(activityIds);
+  }
+
+  /** The author removes a Best effort for good (`404 best_effort_not_found` otherwise). */
+  removeBestEffort(userId: string, activityId: string, distanceM: number): Promise<void> {
+    return this.removeBestEffortUseCase.execute(userId, activityId, distanceM);
   }
 
   // --- Media upload (ADR-037 §4) ---
@@ -446,5 +471,29 @@ export class ActivitiesService {
   /** Batch read: the ids among `mediaIds` of Media that still exist (Journal links). */
   getExistingMediaIds(mediaIds: string[]): Promise<Set<string>> {
     return this.adminActivities.findExistingMediaIds(mediaIds);
+  }
+
+  // --- Segment matching (ADR-039 §2, §6) ---
+
+  /**
+   * The cleaned, timestamped trace of a processed Activity, before the privacy zone, with its
+   * Pauses, sport, visibility, author, first and last points; `null` when it is gone or not
+   * processed. Read from the bucket: `segments` never reads it itself.
+   */
+  getMatchingTrace(activityId: string): Promise<ActivityMatchingTrace | null> {
+    return this.getMatchingTraceUseCase.execute(activityId);
+  }
+
+  /** Whether the Activity has a stored trace: none for a manual Activity nor a pool swim. */
+  hasTrack(activityId: string): Promise<boolean> {
+    return this.tracks.exists(activityId);
+  }
+
+  /**
+   * Processed Activities of a sport whose route passes within `marginM` of both `start` and
+   * `end`, every visibility, by Activity id after `cursor` (retro-matching, ADR-039 §7).
+   */
+  findActivitiesNearPath(query: ActivitiesNearPathQuery): Promise<ActivitiesNearPathPage> {
+    return this.activitiesNearPath.findPage(query);
   }
 }

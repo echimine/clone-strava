@@ -1,0 +1,3 @@
+ALTER TYPE "moderation"."report_target_type" ADD VALUE 'segment';--> statement-breakpoint
+ALTER TABLE "moderation"."report_case" ALTER COLUMN "target_user_id" DROP NOT NULL;--> statement-breakpoint
+ALTER TABLE "moderation"."report_case" ADD CONSTRAINT "report_case_target_user_check" CHECK ("moderation"."report_case"."target_user_id" is not null or "moderation"."report_case"."target_type"::text = 'segment');

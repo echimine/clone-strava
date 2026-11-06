@@ -21,6 +21,7 @@ export const reportTargetLabels: Record<ReportTargetType, string> = {
   comment: "Commentaire",
   activity: "Activité",
   athlete: "Profil",
+  segment: "Segment",
 };
 
 /** A case's outcome (ADR-038 §10). */

@@ -83,14 +83,14 @@ final class ModerationStore {
     }
 
     /// "Envoyer". A comment or an Activity is hidden at once, also on "Déjà signalé"; an athlete
-    /// is never hidden by the Report itself.
+    /// or a Segment is never hidden by the Report itself.
     func send() async {
         guard let target = sheet?.target, let reason, canSend else { return }
         sheetPhase = .sending
         do {
             let outcome = try await reportContent(target, reason: reason, note: note)
             sheetPhase = .done(outcome)
-            if target.kind != .athlete {
+            if target.kind == .comment || target.kind == .activity {
                 hide(target)
             }
         } catch {
@@ -108,9 +108,9 @@ final class ModerationStore {
 
     /// "Bloquer aussi <prénom>" in the sheet's confirmation.
     func blockReportedAuthor() {
-        guard let target = sheet?.target else { return }
+        guard let author = sheet?.target.author else { return }
         let hidden = onHidden
-        requestBlock(target.author, source: .reportConfirmation) {
+        requestBlock(author, source: .reportConfirmation) {
             hidden?(.author)
         }
     }

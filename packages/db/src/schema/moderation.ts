@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { index, jsonb, pgSchema, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { check, index, jsonb, pgSchema, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { user } from "./auth.js";
 
 /**
@@ -12,7 +12,12 @@ import { user } from "./auth.js";
 export const moderationSchema = pgSchema("moderation");
 
 /** What a Report is about. */
-export const reportTargetTypeEnum = moderationSchema.enum("report_target_type", ["comment", "activity", "athlete"]);
+export const reportTargetTypeEnum = moderationSchema.enum("report_target_type", [
+  "comment",
+  "activity",
+  "athlete",
+  "segment",
+]);
 
 /** "Spam ou publicité", "Harcèlement ou propos haineux", "Contenu sexuel ou violent", "Usurpation d'identité", "Autre". */
 export const reportReasonEnum = moderationSchema.enum("report_reason", [
@@ -37,8 +42,11 @@ export const reportCase = moderationSchema.table(
     id: uuid("id").defaultRandom().primaryKey(),
     targetType: reportTargetTypeEnum("target_type").notNull(),
     targetId: uuid("target_id").notNull(),
-    /** The target's author (the athlete themself for an `athlete` target). No foreign key: see above. */
-    targetUserId: uuid("target_user_id").notNull(),
+    /**
+     * The target's author (the athlete themself for an `athlete` target). No foreign key: see
+     * above. Null only for a `segment` with no creator (ADR-039 §11: Nervo, or creator deleted).
+     */
+    targetUserId: uuid("target_user_id"),
     status: reportCaseStatusEnum("status").notNull().default("open"),
     openedAt: timestamp("opened_at", { withTimezone: true }).notNull().defaultNow(),
     closedAt: timestamp("closed_at", { withTimezone: true }),
@@ -55,6 +63,11 @@ export const reportCase = moderationSchema.table(
     index("report_case_status_opened_at_idx").on(table.status, table.openedAt),
     // ADR-038 §10: Reports received by an athlete (user sheet).
     index("report_case_target_user_idx").on(table.targetUserId),
+    // ADR-039 §11: only a Segment may have no target athlete (`::text`: the enum value is new).
+    check(
+      "report_case_target_user_check",
+      sql`${table.targetUserId} is not null or ${table.targetType}::text = 'segment'`,
+    ),
   ],
 );
 

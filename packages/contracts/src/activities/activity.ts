@@ -8,6 +8,7 @@ import {
 import { sportTypeCodeSchema } from "../sports/sport-type.js";
 import { feedActivityMapSchema, feedAuthorSchema, feedEngagementSchema } from "./feed.js";
 import { ACTIVITY_MEDIA_MAX, mediaSchema } from "./media.js";
+import { medalCountsSchema } from "./results.js";
 
 /** Provisional values computed by the app (ADR-019 §1): compared, never trusted, by the worker. */
 export const provisionalActivityValuesSchema = z.object({
@@ -195,6 +196,8 @@ export const activityDetailSchema = z.object({
   media: z.array(mediaSchema).max(ACTIVITY_MEDIA_MAX),
   /** The first Media comes before the map (ADR-037 §8). */
   mediaFirst: z.boolean(),
+  /** « Performances » (ADR-039 §12): the Activity's Medals the viewer may see. */
+  medalCounts: medalCountsSchema,
   updatedAt: z.iso.datetime(),
 });
 export type ActivityDetail = z.infer<typeof activityDetailSchema>;
