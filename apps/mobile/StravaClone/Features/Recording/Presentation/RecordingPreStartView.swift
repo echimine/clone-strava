@@ -20,9 +20,9 @@ struct RecordingPreStartView: View {
         AppMap(viewport: $viewport, bottomInset: 190) {
             ItineraryTrackLine(track: itineraryTrack)
         }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Carte de ta position")
-            .accessibilityValue(itineraryTrack.count >= 2 ? "Itinéraire choisi affiché" : "")
+            // Not a VoiceOver element: a full-screen one behind the panel made its buttons
+            // (Sport, Itinéraire, Démarrer) hard to activate.
+            .accessibilityHidden(true)
             .overlay(alignment: .top) {
                 HStack {
                     RecordingGPSStatus()

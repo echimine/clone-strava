@@ -27,9 +27,9 @@ struct RecordingLiveMap: View {
                     .lineJoin(.round)
             }
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Carte de l'enregistrement")
-        .accessibilityValue(trace.count >= 2 ? "Tracé en cours" : "En attente de positions GPS")
+        // Not a VoiceOver element: the stats and buttons on top say everything (see the pre-start
+        // map); a full-screen one behind them got in the way of their activation.
+        .accessibilityHidden(true)
         .accessibilityIdentifier("recordingMap")
     }
 }
