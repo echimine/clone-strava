@@ -2,8 +2,9 @@ import { Injectable, Optional, ServiceUnavailableException } from "@nestjs/commo
 import { encodePolyline, encodeWithinBudget, trackDistanceM, type LonLat } from "@repo/geo";
 import type { SegmentTrack } from "@repo/contracts";
 import { ElevationService, ElevationUnavailableError } from "../../elevation/index.js";
+import { resampleSegmentPath } from "../domain/match-segment.js";
 import {
-  resampleSegmentTrack,
+  SEGMENT_TRACK_STEP_M,
   segmentFigures,
   segmentRuleViolations,
   type SegmentFigures,
@@ -38,7 +39,7 @@ export class SegmentMeasurementService {
   constructor(@Optional() private readonly elevation?: ElevationService) {}
 
   async measure(sport: string, points: LonLat[]): Promise<SegmentMeasurement> {
-    const resampled = resampleSegmentTrack(points);
+    const resampled = resampleSegmentPath(points, SEGMENT_TRACK_STEP_M);
     const elevations = await this.elevationsOf(resampled);
     const track = resampled.map((point, i) => ({ ...point, altitudeM: Math.round(elevations[i]!.altitudeM * 10) / 10 }));
     return {

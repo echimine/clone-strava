@@ -10,7 +10,7 @@ export type {
 export type { LeaderboardLine } from "./repositories/leaderboard.repository.js";
 export type { SegmentSheetView, SheetEffort } from "./use-cases/get-segment-sheet.use-case.js";
 export type { NervoImportReport } from "./use-cases/import-nervo-segments.use-case.js";
-export type { ActivitySegmentResults, EffortMedalCount, EffortResult } from "./domain/effort-result.js";
+export type { ActivitySegmentResults, EffortResult } from "./domain/effort-result.js";
 export type { MapSegmentRecord, MapSegmentSearch } from "./repositories/segment-map.repository.js";
 // Pure matching, reused to create Segments and by the Nervo generator (ADR-039 §5, §10).
 export {
@@ -37,7 +37,7 @@ export {
   SEGMENT_MIN_LENGTH_M,
   segmentFigures,
   segmentRuleViolations,
-  resampleSegmentTrack,
+  SEGMENT_TRACK_STEP_M,
   type SegmentFigures,
   type SegmentRuleViolation,
 } from "./domain/segment-geometry.js";

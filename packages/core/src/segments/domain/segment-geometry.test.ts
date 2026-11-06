@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { LonLat } from "@repo/geo";
-import { resampleSegmentTrack, segmentFigures, segmentRuleViolations } from "./segment-geometry.js";
+import { resampleSegmentPath } from "./match-segment.js";
+import { SEGMENT_TRACK_STEP_M, segmentFigures, segmentRuleViolations } from "./segment-geometry.js";
 
 /** Meters per degree of latitude on the haversine sphere (R = 6,371,000 m). */
 const M_PER_DEG_LAT = (6_371_000 * Math.PI) / 180;
@@ -16,7 +17,7 @@ function at(northM: number, eastM = 0): LonLat {
 
 /** A straight line north, `lengthM` long, with altitudes from `altitudeAt(meters from start)`. */
 function northTrack(lengthM: number, altitudeAt: (m: number) => number) {
-  return resampleSegmentTrack([at(0), at(lengthM)]).map((point) => ({
+  return resampleSegmentPath([at(0), at(lengthM)], SEGMENT_TRACK_STEP_M).map((point) => ({
     ...point,
     altitudeM: altitudeAt((point.lat - START.lat) * M_PER_DEG_LAT),
   }));
@@ -85,9 +86,9 @@ describe("segmentFigures (ADR-039 §5)", () => {
   });
 });
 
-describe("resampleSegmentTrack", () => {
+describe("resampleSegmentPath every SEGMENT_TRACK_STEP_M", () => {
   it("keeps the drawn ends, one point every 20 m", () => {
-    const track = resampleSegmentTrack([at(0), at(100)]);
+    const track = resampleSegmentPath([at(0), at(100)], SEGMENT_TRACK_STEP_M);
     expect(track).toHaveLength(6);
     expect(track[0]).toEqual(at(0));
     expect(track.at(-1)).toEqual(at(100));

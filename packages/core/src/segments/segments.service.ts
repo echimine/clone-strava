@@ -17,7 +17,7 @@ import { ActivityEffortRepository } from "./repositories/activity-effort.reposit
 import { ActivityMatchingRepository } from "./repositories/activity-matching.repository.js";
 import { EffortRecorder } from "./services/effort-recorder.js";
 import type { ActivityEffortRecord } from "./domain/activity-effort.js";
-import type { ActivitySegmentResults, EffortMedalCount } from "./domain/effort-result.js";
+import type { ActivitySegmentResults } from "./domain/effort-result.js";
 import { EffortResultsRepository } from "./repositories/effort-results.repository.js";
 import { SEGMENT_MATCHING_VERSION } from "./domain/match-segment.js";
 import { SEGMENT_SPORTS } from "./domain/segment-sports.js";
@@ -41,7 +41,7 @@ import {
 import { DeleteSegmentAsAdministratorUseCase } from "./use-cases/delete-segment-as-administrator.use-case.js";
 import { ExportOpenSegmentsUseCase } from "./use-cases/export-open-segments.use-case.js";
 import { StorageService, type PresignedUrl } from "../storage/index.js";
-import { ActivitiesService } from "../activities/index.js";
+import { ActivitiesService, type MedalCount } from "../activities/index.js";
 import type { ViewerExclusions } from "../infrastructure/index.js";
 import {
   SegmentMapRepository,
@@ -265,7 +265,7 @@ export class SegmentsService {
    * The Medals of the Efforts of a page of Activities the viewer may see (« Performances »,
    * ADR-039 §12), per Activity and Medal. A deleted Segment takes its Efforts with it.
    */
-  countEffortMedals(activityIds: string[], viewerId: string): Promise<EffortMedalCount[]> {
+  countEffortMedals(activityIds: string[], viewerId: string): Promise<MedalCount[]> {
     return this.effortResults.countMedals(activityIds, viewerId);
   }
 

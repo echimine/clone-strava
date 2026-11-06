@@ -76,8 +76,9 @@ export const SEGMENT_MATCHING_VERSION = 1;
 const HEADING_SPAN_M = 20;
 
 /**
- * The Segment's path resampled every `stepM` meters (ADR-039 §6), as `matchSegment` compares
- * it; also for the both-ways duplicate test of a new Segment.
+ * A Segment's path resampled every `stepM` meters, ends kept: by default as `matchSegment`
+ * compares it (ADR-039 §6) and for the both-ways duplicate test; every `SEGMENT_TRACK_STEP_M`
+ * for the stored path of a new Segment (§5).
  */
 export function resampleSegmentPath(path: LonLat[], stepM = SEGMENT_MATCHING_THRESHOLDS.resampleStepM): LonLat[] {
   return resampleAlongTrack(path, stepM).map(({ lat, lon }) => ({ lat, lon }));

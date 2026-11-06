@@ -27,7 +27,7 @@ export { PermanentProcessingError } from "./domain/processing-error.js";
 export { ACTIVITY_ANALYSIS_VERSION } from "./domain/compute-analysis.js";
 export type { ActivityBestEffortResults, BestEffortResult, MedalCount } from "./domain/activity-results.js";
 export { RECORD_DISTANCES_M, RECORD_SETS, type RecordSet } from "./domain/best-efforts.js";
-export { MEDALS, type Medal } from "./domain/medals.js";
+export { MEDALS, replayMedals, type Medal, type MedalCandidate } from "./domain/medals.js";
 export { activityNotFound } from "./services/activity-not-found.js";
 export {
   ATHLETE_TIME_ZONE,

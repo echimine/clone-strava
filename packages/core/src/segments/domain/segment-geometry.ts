@@ -1,4 +1,4 @@
-import { elevationGainM, haversineDistanceM, resampleAlongTrack, trackDistanceM, type LonLat } from "@repo/geo";
+import { elevationGainM, haversineDistanceM, trackDistanceM, type LonLat } from "@repo/geo";
 import { climbCategory, type ClimbCategory } from "./climb-category.js";
 
 /** ADR-039 §5: shortest Segment on foot (run, walk, hike) and by bike. */
@@ -10,8 +10,12 @@ export const SEGMENT_MIN_ENDS_APART_M = 100;
 /** ADR-039 §5: Segments an athlete may create per rolling 24 h. */
 export const SEGMENT_CREATIONS_PER_DAY = 10;
 
-/** Step of the stored path (`LineStringZ`), as for an Itinerary's track (ADR-030 §3). */
-const RESAMPLE_STEP_M = 20;
+/**
+ * Step of the stored path (`LineStringZ`), as for an Itinerary's track (ADR-030 §3): the drawn
+ * path is resampled with `resampleSegmentPath(path, SEGMENT_TRACK_STEP_M)`, ends kept, and these
+ * are the points the `ElevationService` is asked about.
+ */
+export const SEGMENT_TRACK_STEP_M = 20;
 /** Elevation gain hysteresis, as for an Itinerary (ADR-030 §3). */
 const HYSTERESIS_M = 2;
 /** The maximum grade is the steepest stretch of at least this length (DEM noise aside). */
@@ -35,11 +39,6 @@ export function segmentRuleViolations(sport: string, path: LonLat[]): SegmentRul
     violations.push("loop");
   }
   return violations;
-}
-
-/** The drawn path every 20 m, ends kept: the points the `ElevationService` is asked about. */
-export function resampleSegmentTrack(path: LonLat[]): LonLat[] {
-  return resampleAlongTrack(path, RESAMPLE_STEP_M).map(({ lat, lon }) => ({ lat, lon }));
 }
 
 /** What the server computes once at creation (ADR-039 §5); grades in percent. */

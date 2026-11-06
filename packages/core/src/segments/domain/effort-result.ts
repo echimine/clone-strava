@@ -20,10 +20,3 @@ export interface ActivitySegmentResults {
   /** In trace order, rejected ones and, for anyone but the author, the privacy zone left out. */
   efforts: EffortResult[];
 }
-
-/** How many times one Medal appears among an Activity's Efforts. */
-export interface EffortMedalCount {
-  activityId: string;
-  medal: Medal;
-  count: number;
-}

@@ -2,7 +2,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import { and, asc, eq, inArray, ne, or, sql, type SQL } from "drizzle-orm";
 import { schema, type Database } from "@repo/db";
 import { DATABASE } from "../../infrastructure/index.js";
-import type { EffortMedalCount } from "../domain/effort-result.js";
+import type { MedalCount } from "../../activities/index.js";
 import type { Medal } from "../domain/segment-medals.js";
 import { outsidePrivacyZone } from "./standing-effort.js";
 
@@ -69,7 +69,7 @@ export class EffortResultsRepository {
   }
 
   /** The Medals of the Efforts of these Activities the viewer may see, per Activity and Medal. */
-  countMedals(activityIds: string[], viewerId: string): Promise<EffortMedalCount[]> {
+  countMedals(activityIds: string[], viewerId: string): Promise<MedalCount[]> {
     if (activityIds.length === 0) {
       return Promise.resolve([]);
     }

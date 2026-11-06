@@ -5,13 +5,15 @@ import {
   type ActivityDetailRecord,
   type ActivityRecord,
   type FeedActivity,
-  type MedalCount,
 } from "@repo/core/activities";
 import { EngagementService } from "@repo/core/engagement";
 import { NO_EXCLUSIONS, type ViewerExclusions } from "@repo/core/infrastructure";
 import { SegmentsService } from "@repo/core/segments";
 import { AthleteIdentities } from "../identities/athlete-identities.js";
 import { MediaAssembler } from "../media/media-assembler.js";
+
+/** « Performances » of an Activity without any Medal. */
+const NO_MEDALS: Readonly<MedalCounts> = { gold: 0, silver: 0, bronze: 0 };
 
 /** Kudos avatars on a card (ADR-036 §5). */
 const RECENT_KUDOS_ON_CARD = 3;
@@ -100,12 +102,12 @@ export class FeedAssembler {
       this.segments.countEffortMedals(activityIds, viewerId),
     ]);
     const totals = new Map<string, MedalCounts>();
-    for (const { activityId, medal, count } of [...bestEfforts, ...efforts] as MedalCount[]) {
-      const counts = totals.get(activityId) ?? { gold: 0, silver: 0, bronze: 0 };
+    for (const { activityId, medal, count } of [...bestEfforts, ...efforts]) {
+      const counts = totals.get(activityId) ?? { ...NO_MEDALS };
       counts[medal] += count;
       totals.set(activityId, counts);
     }
-    return (activityId: string): MedalCounts => totals.get(activityId) ?? { gold: 0, silver: 0, bronze: 0 };
+    return (activityId: string): MedalCounts => totals.get(activityId) ?? NO_MEDALS;
   }
 
   /**
