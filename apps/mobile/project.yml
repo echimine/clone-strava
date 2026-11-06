@@ -63,6 +63,12 @@ packages:
   OpenAPIURLSession:
     url: https://github.com/apple/swift-openapi-urlsession
     from: 1.1.0
+  # Live SDK (echimine/live-sdk, public): LiveSDK (core) + LiveSDKUI (SwiftUI screens). It pulls
+  # livekit/client-sdk-swift itself. Released as semver tags `X.Y.Z` (GitHub Release + JitPack).
+  # To hack on the SDK from a local checkout, replace url/from with `path: ../../../live-sdk`.
+  LiveSDK:
+    url: https://github.com/echimine/live-sdk.git
+    from: 0.1.0
 
 targets:
   StravaClone:
@@ -99,14 +105,17 @@ targets:
         UIApplicationSupportsIndirectInputEvents: true
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         # `fetch` + the permitted identifier: the BGAppRefreshTask that empties the sync queue (ADR-031 §14).
-        UIBackgroundModes: [location, fetch]
+        # `audio` + `voip`: a Live (LiveSDK) keeps streaming with the screen locked.
+        UIBackgroundModes: [location, fetch, audio, voip]
         BGTaskSchedulerPermittedIdentifiers: [fr.echimine.stravaclone.sync-queue]
         NSLocationWhenInUseUsageDescription: "Nervo utilise votre position pour l'afficher sur la carte et enregistrer le tracé de vos activités, y compris écran verrouillé."
         # Temporary full accuracy asked at Start when only the approximate location is allowed (ADR-031 §2).
         NSLocationTemporaryUsageDescriptionDictionary:
           Recording: "La position précise est nécessaire pour mesurer la distance de votre activité."
         # "Prendre une photo" for the profile photo (ADR-037 §2); the photo library goes through PhotosPicker, without permission.
-        NSCameraUsageDescription: "Nervo utilise l'appareil photo pour prendre votre photo de profil."
+        # Also the camera and microphone of a Live (LiveSDK, LivePermissionTexts).
+        NSCameraUsageDescription: "Nervo utilise l'appareil photo pour votre photo de profil et pour vous filmer pendant un Live ou quand vous montez à l'écran. Rien n'est enregistré."
+        NSMicrophoneUsageDescription: "Le micro sert à vous faire entendre pendant votre Live ou quand vous montez à l'écran. Rien n'est enregistré."
         # Core Motion for the automatic Pause of a run, asked when the switch is turned on (ADR-031 §4).
         NSMotionUsageDescription: "Nervo détecte quand vous vous arrêtez de courir pour mettre l'enregistrement en pause automatiquement."
         # Live Activity of the Recording on the lock screen and in the Dynamic Island (ADR-031 §9).
@@ -124,6 +133,8 @@ targets:
         MapboxItinerariesToken: $(MAPBOX_ITINERARIES_TOKEN)
         RevenueCatAPIKey: $(REVENUECAT_API_KEY)
         PostHogAPIKey: $(POSTHOG_API_KEY)
+        # The Live SDK's server, shared by every member app.
+        LiveServerURL: $(LIVE_SERVER_URL)
         # Google Sign-In (ADR-022): GIDClientID is read by GIDSignIn at launch;
         # CFBundleURLTypes lets iOS route the OAuth callback back into the app.
         GIDClientID: $(GOOGLE_IOS_CLIENT_ID)
@@ -169,6 +180,10 @@ targets:
       - package: GoogleSignIn
       - package: OpenAPIRuntime
       - package: OpenAPIURLSession
+      - package: LiveSDK
+        product: LiveSDK
+      - package: LiveSDK
+        product: LiveSDKUI
     buildToolPlugins:
       - plugin: OpenAPIGenerator
         package: OpenAPIGenerator

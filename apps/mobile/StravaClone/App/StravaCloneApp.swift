@@ -48,6 +48,7 @@ struct StravaCloneApp: App {
                 moderationStore: di.makeModerationStore(),
                 makeBlockedAthletesStore: di.makeBlockedAthletesStore,
                 makeAccountDeletionStore: di.makeAccountDeletionStore,
+                configureLive: di.configureLive,
                 dataSources: DataSource.all(apiBaseURL: di.configuration.apiBaseURL),
                 isSplashPresented: !ProcessInfo.processInfo.arguments.contains(SplashView.disablingArgument)
             )
@@ -135,6 +136,8 @@ struct RootView: View {
         @escaping @MainActor () async -> String?,
         @escaping @MainActor () async -> Void
     ) -> AccountDeletionStore
+    /// The Live SDK, configured each time the home header's Live button opens the Lives.
+    let configureLive: @MainActor () async -> Void
     /// Réglages > « Sources des données » (ADR-039 §10).
     var dataSources: [DataSource] = []
     /// The animated splash (ADR-032 §4), over the app from the cold launch until it is revealed.
@@ -147,6 +150,8 @@ struct RootView: View {
     @State private var mapPath = NavigationPath()
     /// The Paywall opened by "S'abonner" in the home header.
     @State var isSubscribePaywallPresented = false
+    /// The Lives opened by the home header's Live button.
+    @State private var isLivePresented = false
     /// A queued Itinerary change the server turned down (ADR-030 §8).
     @State private var itineraryChangeToast: String?
 
@@ -231,6 +236,7 @@ struct RootView: View {
                         onImportActivity: importStore.startImport,
                         onSubscribe: { isSubscribePaywallPresented = true },
                         isPremium: premiumStore.isPremium,
+                        onLive: { isLivePresented = true },
                         editActivity: { [feedActivityEditor] id in Task { await feedActivityEditor.edit(id: id) } },
                         deleteActivity: { [activityDeleter] id in Task { await activityDeleter.delete(id) } },
                         destinations: appDestinations(path: $feedStore.path)
@@ -259,6 +265,9 @@ struct RootView: View {
                             onConfirm: { options in Task { await importStore.confirm(options) } },
                             onCancel: importStore.cancelConfirmation
                         )
+                    }
+                    .fullScreenCover(isPresented: $isLivePresented) {
+                        LiveHubView(configure: configureLive) { isLivePresented = false }
                     }
                     .tabItem { Label("Accueil", systemImage: "house") }
                     .tag(AppTab.feed)

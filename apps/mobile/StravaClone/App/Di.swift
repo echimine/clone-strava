@@ -9,6 +9,8 @@ struct AppConfiguration: Sendable {
     let mapboxItinerariesToken: String
     let revenueCatAPIKey: String
     let postHogAPIKey: String
+    /// The Live SDK's server, shared by every member app (Debug and Release alike).
+    let liveServerURL: URL
 
     init(bundle: Bundle = .main) {
         func value(_ key: String) -> String {
@@ -23,6 +25,7 @@ struct AppConfiguration: Sendable {
         mapboxItinerariesToken = value("MapboxItinerariesToken")
         revenueCatAPIKey = value("RevenueCatAPIKey")
         postHogAPIKey = value("PostHogAPIKey")
+        liveServerURL = url("LiveServerURL", fallback: "https://live.echimine.fr")
     }
 }
 

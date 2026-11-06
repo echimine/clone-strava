@@ -8,6 +8,8 @@ MAPBOX_ACCESS_TOKEN =
 MAPBOX_ITINERARIES_TOKEN =
 REVENUECAT_API_KEY =
 POSTHOG_API_KEY =
+// The Live SDK's server (public, shared by every member app); our API signs the Participant tokens.
+LIVE_SERVER_URL = https:/$()/live.echimine.fr
 
 // Google Sign-In iOS client (ADR-022). Not a secret: the iOS OAuth client is public by design.
 // From Google Cloud Console > Google Auth Platform > Clients > the "iOS" client's CLIENT_ID / REVERSED_CLIENT_ID.

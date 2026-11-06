@@ -49,6 +49,11 @@ export const apiEnvSchema = z.object({
   ...postHogEnvShape,
   REVENUECAT_WEBHOOK_SECRET: z.string().min(1),
   ...revenueCatEnvShape,
+  // Live SDK (live.echimine.fr): Nervo's member app id and its HS256 secret, given by the Live
+  // server, sign the Participant token. Optional: without the secret, `POST
+  // /v1/live/participant-token` answers `503 live_not_configured`.
+  LIVE_APP_ID: z.string().min(1).default("strava"),
+  LIVE_TOKEN_SECRET: optionalSetting,
   RESEND_API_KEY: z.string().min(1),
   RESEND_WEBHOOK_SECRET: z.string().min(1),
   GOOGLE_CLIENT_ID: z.string().min(1),

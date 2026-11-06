@@ -26,6 +26,7 @@ import { ConfigModule } from "./config/config.module.js";
 import { loadConfig } from "./config/env.js";
 import { HealthModule } from "./health/health.module.js";
 import { ItinerariesModule } from "./itineraries/itineraries.module.js";
+import { LiveModule } from "./live/live.module.js";
 import { SegmentsModule } from "./segments/segments.module.js";
 import { AppLoggingModule } from "./logging/logging.module.js";
 import { MeModule } from "./me/me.module.js";
@@ -93,6 +94,7 @@ const config = loadConfig();
     ItinerariesModule,
     SegmentsModule,
     RealtimeTokenModule,
+    LiveModule,
     WebhooksModule,
     AdminModule,
     // Last: `GET /v1/athletes/:id` (UUID only) must come after every fixed `athletes/...` route,

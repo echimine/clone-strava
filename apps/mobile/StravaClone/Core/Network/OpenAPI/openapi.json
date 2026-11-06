@@ -2419,6 +2419,30 @@
         ]
       }
     },
+    "/v1/live/participant-token": {
+      "post": {
+        "operationId": "LiveParticipantTokenController_issue",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LiveParticipantTokenResponseDto_Output"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "`live_not_configured`: no `LIVE_TOKEN_SECRET`"
+          }
+        },
+        "tags": [
+          "LiveParticipantToken"
+        ]
+      }
+    },
     "/v1/webhooks/revenuecat": {
       "post": {
         "operationId": "RevenueCatWebhookController_handle",
@@ -8662,6 +8686,18 @@
         "required": [
           "grant",
           "expiresInS"
+        ],
+        "additionalProperties": false
+      },
+      "LiveParticipantTokenResponseDto_Output": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
         ],
         "additionalProperties": false
       },

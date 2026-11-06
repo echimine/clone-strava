@@ -1,13 +1,14 @@
 import SwiftUI
 
 /// Actions of the home header. Each button only reports the tap; the screens behind
-/// them (import, search, subscription, messages, notifications) are wired separately.
+/// them (import, search, subscription, Live, notifications) are wired separately.
 struct HomeHeaderActions {
     /// "+" → "Importer une activité".
     var onImportActivity: () -> Void = {}
     var onSearch: () -> Void = {}
     var onSubscribe: () -> Void = {}
-    var onMessages: () -> Void = {}
+    /// The Lives (Live SDK): the list of Lives in progress, and "Lancer un Live".
+    var onLive: () -> Void = {}
     var onNotifications: () -> Void = {}
     /// Premium (ADR-014): the Nervo logo in place of "S'abonner".
     var isPremium = false
@@ -15,7 +16,7 @@ struct HomeHeaderActions {
 
 extension View {
     /// Home header in the navigation bar: "+" and search on the left, "S'abonner" (the Nervo
-    /// logo once Premium) in the middle, messages and notifications on the right. Native toolbar items, so they get
+    /// logo once Premium) in the middle, Live and notifications on the right. Native toolbar items, so they get
     /// Liquid Glass on iOS 26; standard bar buttons on earlier versions (iOS 17 minimum, ADR-007).
     func homeHeader(_ actions: HomeHeaderActions) -> some View {
         modifier(HomeHeaderModifier(actions: actions))
@@ -67,7 +68,7 @@ private struct HomeHeaderModifier: ViewModifier {
         }
         .sharedBackgroundVisibility(.hidden)
 
-        ToolbarItem(placement: .topBarTrailing) { messagesButton }
+        ToolbarItem(placement: .topBarTrailing) { liveButton }
         ToolbarSpacer(.fixed, placement: .topBarTrailing)
         ToolbarItem(placement: .topBarTrailing) { notificationsButton }
     }
@@ -86,7 +87,7 @@ private struct HomeHeaderModifier: ViewModifier {
             }
         }
         ToolbarItemGroup(placement: .topBarTrailing) {
-            messagesButton
+            liveButton
             notificationsButton
         }
     }
@@ -119,11 +120,11 @@ private struct HomeHeaderModifier: ViewModifier {
         .accessibilityIdentifier("homeHeader.subscribe")
     }
 
-    private var messagesButton: some View {
-        Button(action: actions.onMessages) {
-            Label("Messages", systemImage: "bubble.left.and.bubble.right")
+    private var liveButton: some View {
+        Button(action: actions.onLive) {
+            Label("Live", systemImage: "dot.radiowaves.left.and.right")
         }
-        .accessibilityIdentifier("homeHeader.messages")
+        .accessibilityIdentifier("homeHeader.live")
     }
 
     private var notificationsButton: some View {

@@ -13,6 +13,8 @@ struct FeedView<TopContent: View>: View {
     var onSubscribe: () -> Void = {}
     /// Premium: the Nervo logo in place of "S'abonner".
     var isPremium = false
+    /// The Live button of the header: the shell opens the Lives.
+    var onLive: () -> Void = {}
     var editActivity: ((ActivityID) -> Void)?
     var deleteActivity: ((ActivityID) -> Void)?
     let destinations: AppDestinations
@@ -31,6 +33,7 @@ struct FeedView<TopContent: View>: View {
                     onImportActivity: onImportActivity,
                     onSearch: store.openSearch,
                     onSubscribe: onSubscribe,
+                    onLive: onLive,
                     isPremium: isPremium
                 ))
                 .task { await store.loadIfNeeded() }
