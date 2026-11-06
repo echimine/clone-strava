@@ -1,7 +1,7 @@
 import Foundation
 
-/// `APIClient` adapter of `StarredSegmentsRepository`: `GET /v1/me/segment-favorites`.
-struct APIStarredSegmentsRepository: StarredSegmentsRepository {
+/// `APIClient` adapter of `FavoriteSegmentsRepository`: `GET /v1/me/segment-favorites`.
+struct APIFavoriteSegmentsRepository: FavoriteSegmentsRepository {
     private struct Item: Decodable {
         let id: String
         let sport: String
@@ -21,23 +21,18 @@ struct APIStarredSegmentsRepository: StarredSegmentsRepository {
     let apiClient: APIClient
     var pageSize = 20
 
-    func page(after cursor: String?) async throws(StarredSegmentsError) -> StarredSegmentsPage {
+    func page(after cursor: String?) async throws(SegmentError) -> FavoriteSegmentsPage {
         var query = [URLQueryItem(name: "limit", value: String(pageSize))]
         if let cursor {
             query.append(URLQueryItem(name: "cursor", value: cursor))
         }
-        let response: Response
-        do {
-            response = try await apiClient.get("/v1/me/segment-favorites", query: query)
-        } catch .offline {
-            throw .offline
-        } catch {
-            throw .unavailable
+        let response: Response = try await SegmentAPIError.call { () async throws(APIError) in
+            try await apiClient.get("/v1/me/segment-favorites", query: query)
         }
-        return StarredSegmentsPage(
+        return FavoriteSegmentsPage(
             items: response.items.compactMap { item in
                 guard let sport = SegmentSport(rawValue: item.sport) else { return nil }
-                return StarredSegment(
+                return FavoriteSegment(
                     id: item.id,
                     sport: sport,
                     name: item.name,

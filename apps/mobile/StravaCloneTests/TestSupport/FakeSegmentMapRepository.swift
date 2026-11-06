@@ -2,52 +2,33 @@ import Foundation
 @testable import StravaClone
 
 /// Hand-written `SegmentMapRepository`: answers `segments` (filtered like the API by sport and
-/// `isStarred`), or `error`; records each search.
+/// `isFavorite`), or `error`; records each search.
 final class FakeSegmentMapRepository: SegmentMapRepository, @unchecked Sendable {
     struct Search: Equatable {
         let area: MapArea
         let filter: SegmentMapFilter
     }
 
-    private let state = Locked<(segments: [MapSegment], error: SegmentMapError?, searches: [Search])>(([], nil, []))
+    private let state = Locked<(segments: [MapSegment], error: SegmentError?, searches: [Search])>(([], nil, []))
 
     var segments: [MapSegment] {
         get { state.value.segments }
         set { state.value.segments = newValue }
     }
 
-    var error: SegmentMapError? {
+    var error: SegmentError? {
         get { state.value.error }
         set { state.value.error = newValue }
     }
 
     var searches: [Search] { state.value.searches }
 
-    func segments(in area: MapArea, filter: SegmentMapFilter) async throws(SegmentMapError) -> [MapSegment] {
+    func segments(in area: MapArea, filter: SegmentMapFilter) async throws(SegmentError) -> [MapSegment] {
         state.value.searches.append(Search(area: area, filter: filter))
         if let error = state.value.error { throw error }
         return state.value.segments.filter { segment in
-            (filter.sport == nil || segment.sport == filter.sport) && (!filter.favoritesOnly || segment.isStarred)
+            (filter.sport == nil || segment.sport == filter.sport) && (!filter.favoritesOnly || segment.isFavorite)
         }
-    }
-}
-
-/// Hand-written `SegmentFavoriteRepository`: records each call, fails while `fails`.
-final class FakeSegmentFavoriteRepository: SegmentFavoriteRepository, @unchecked Sendable {
-    struct Failure: Error {}
-
-    private let state = Locked<(calls: [String], fails: Bool)>(([], false))
-
-    var calls: [String] { state.value.calls }
-
-    var fails: Bool {
-        get { state.value.fails }
-        set { state.value.fails = newValue }
-    }
-
-    func setFavorite(_ segmentID: String, _ isFavorite: Bool) async throws {
-        state.value.calls.append("\(isFavorite ? "star" : "unstar") \(segmentID)")
-        if state.value.fails { throw Failure() }
     }
 }
 
@@ -56,7 +37,7 @@ extension MapSegment {
         _ id: String,
         sport: SegmentSport = .ride,
         name: String = "Montée du Semnoz",
-        isStarred: Bool = false,
+        isFavorite: Bool = false,
         start: Coordinate = Coordinate(latitude: 45.90, longitude: 6.13),
         myBestTime: Duration? = nil,
         leaderTime: Duration? = .seconds(754)
@@ -66,7 +47,7 @@ extension MapSegment {
             sport: sport,
             name: name,
             isVerified: false,
-            isStarred: isStarred,
+            isFavorite: isFavorite,
             distance: Distance(meters: 6_800),
             averageGradePct: 7.4,
             climbCategory: .cat2,

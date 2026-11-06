@@ -10,7 +10,7 @@ struct LeaderboardStoreTests {
     private let analytics = FakeAnalyticsClient()
 
     private func makeStore() -> LeaderboardStore {
-        LeaderboardStore(segmentID: "seg-1", repository: repository, analytics: analytics)
+        LeaderboardStore(segmentID: "seg-1", loadLeaderboard: LoadLeaderboard(repository: repository), analytics: analytics)
     }
 
     @Test func opensOnTousAndIsViewed() async {

@@ -10,7 +10,15 @@ struct SegmentSheetStoreTests {
     private let analytics = FakeAnalyticsClient()
 
     private func makeStore(onDeleted: @escaping @MainActor () -> Void = {}) -> SegmentSheetStore {
-        SegmentSheetStore(segmentID: "seg-1", repository: repository, analytics: analytics, onDeleted: onDeleted)
+        SegmentSheetStore(
+            segmentID: "seg-1",
+            loadSheet: LoadSegmentSheet(repository: repository),
+            setFavorite: SetSegmentFavorite(repository: repository),
+            rename: RenameSegment(repository: repository),
+            delete: DeleteSegment(repository: repository),
+            analytics: analytics,
+            onDeleted: onDeleted
+        )
     }
 
     @Test func loadsTheSheet() async {
@@ -47,15 +55,15 @@ struct SegmentSheetStoreTests {
         let store = makeStore()
         await store.load()
 
-        await store.toggleStar()
-        #expect(store.sheet?.isStarred == true)
+        await store.toggleFavorite()
+        #expect(store.sheet?.isFavorite == true)
         #expect(store.sheet?.favoriteCount == 4)
-        #expect(repository.calls.last == .setStarred("seg-1", true))
+        #expect(repository.calls.last == .setFavorite("seg-1", true))
         #expect(analytics.events == [.segmentFavorited])
 
-        repository.starResult = .failure(.network)
-        await store.toggleStar()
-        #expect(store.sheet?.isStarred == true)
+        repository.favoriteResult = .failure(.network)
+        await store.toggleFavorite()
+        #expect(store.sheet?.isFavorite == true)
         #expect(store.sheet?.favoriteCount == 4)
         #expect(store.toast != nil)
     }

@@ -88,7 +88,7 @@ struct SegmentSheet: Equatable, Sendable {
     let averageGrade: Double?
     let climbCategory: ClimbCategory?
     let track: SegmentTrack
-    var isStarred: Bool
+    var isFavorite: Bool
     var favoriteCount: Int
     let isMine: Bool
     /// The creator may delete it while nobody else has an Effort on it.

@@ -19,16 +19,16 @@ final class SegmentCreateStore {
     /// Set once created: « On cherche tes passages… ».
     private(set) var created: SegmentRef?
 
-    @ObservationIgnored private let repository: any SegmentCreationRepository
+    @ObservationIgnored private let createSegment: CreateSegment
     @ObservationIgnored private let isOnline: @MainActor () -> Bool
 
     init(
         candidate: SegmentCandidate,
-        repository: any SegmentCreationRepository,
+        create: CreateSegment,
         isOnline: @escaping @MainActor () -> Bool
     ) {
         self.candidate = candidate
-        self.repository = repository
+        createSegment = create
         self.isOnline = isOnline
         duplicate = candidate.preview.duplicate
         isQuotaReached = candidate.preview.quotaLeft == 0
@@ -70,8 +70,8 @@ final class SegmentCreateStore {
         isCreating = true
         failure = nil
         defer { isCreating = false }
-        do throws(SegmentCreationError) {
-            created = try await repository.create(sport: sport, name: trimmedName, points: candidate.points)
+        do throws(SegmentError) {
+            created = try await createSegment(sport: sport, name: trimmedName, points: candidate.points)
         } catch {
             switch error {
             case .duplicate(let existing): duplicate = existing
@@ -79,7 +79,7 @@ final class SegmentCreateStore {
             case .offline: failure = SegmentMessages.connectionRequired
             case .rejected(let violations):
                 failure = violations.first.map { SegmentMessages.violation($0, sport: sport) } ?? SegmentMessages.createFailed
-            case .unavailable: failure = SegmentMessages.createFailed
+            default: failure = SegmentMessages.createFailed
             }
         }
     }

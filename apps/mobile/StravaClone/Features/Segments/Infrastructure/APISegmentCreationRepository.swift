@@ -43,25 +43,11 @@ struct APISegmentCreationRepository: SegmentCreationRepository {
         let quotaLeft: Int
     }
 
-    private struct ErrorEnvelope: Decodable {
-        struct Body: Decodable {
-            let code: String
-            let existing: Ref?
-            let details: [Detail]?
-        }
-
-        struct Detail: Decodable {
-            let message: String
-        }
-
-        let error: Body
-    }
-
     let apiClient: APIClient
 
-    func preview(sport: SegmentSport, points: [Coordinate]) async throws(SegmentCreationError) -> SegmentPreview {
+    func preview(sport: SegmentSport, points: [Coordinate]) async throws(SegmentError) -> SegmentPreview {
         let body = PreviewBody(sport: sport.rawValue, points: points.map(Self.point))
-        let answer: PreviewAnswer = try await call { () async throws(APIError) in
+        let answer: PreviewAnswer = try await SegmentAPIError.call { () async throws(APIError) in
             try await apiClient.send(method: "POST", path: "/v1/segments/preview", body: body)
         }
         let track = EncodedPolyline(value: answer.track.polyline6, precision: 6).decode()
@@ -83,9 +69,9 @@ struct APISegmentCreationRepository: SegmentCreationRepository {
         )
     }
 
-    func create(sport: SegmentSport, name: String, points: [Coordinate]) async throws(SegmentCreationError) -> SegmentRef {
+    func create(sport: SegmentSport, name: String, points: [Coordinate]) async throws(SegmentError) -> SegmentRef {
         let body = CreateBody(sport: sport.rawValue, name: name, points: points.map(Self.point))
-        let answer: Ref = try await call { () async throws(APIError) in
+        let answer: Ref = try await SegmentAPIError.call { () async throws(APIError) in
             try await apiClient.send(method: "POST", path: "/v1/segments", body: body)
         }
         return SegmentRef(id: answer.id, name: answer.name)
@@ -93,35 +79,5 @@ struct APISegmentCreationRepository: SegmentCreationRepository {
 
     private static func point(_ coordinate: Coordinate) -> Point {
         Point(lat: coordinate.latitude, lon: coordinate.longitude)
-    }
-
-    private func call<T>(_ operation: () async throws(APIError) -> T) async throws(SegmentCreationError) -> T {
-        do {
-            return try await operation()
-        } catch {
-            switch error {
-            case .offline:
-                throw .offline
-            case .http(let status, let body):
-                let envelope = body.flatMap { try? JSONDecoder().decode(ErrorEnvelope.self, from: $0) }?.error
-                switch (status, envelope?.code) {
-                case (409, "duplicate"):
-                    if let existing = envelope?.existing {
-                        throw .duplicate(SegmentRef(id: existing.id, name: existing.name))
-                    }
-                    throw .unavailable
-                case (429, "quota"):
-                    throw .quota
-                case (422, _):
-                    // Every broken rule is in `details`; an invalid name has none of them.
-                    let codes = envelope?.details.map { $0.map(\.message) } ?? [envelope?.code].compactMap { $0 }
-                    throw .rejected(codes.compactMap(SegmentRuleViolation.init(rawValue:)))
-                default:
-                    throw .unavailable
-                }
-            case .unauthorized, .decoding, .transport:
-                throw .unavailable
-            }
-        }
     }
 }

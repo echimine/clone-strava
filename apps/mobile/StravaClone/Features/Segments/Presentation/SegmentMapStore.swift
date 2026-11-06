@@ -29,15 +29,15 @@ final class SegmentMapStore {
     /// The card centred in the carousel, or the path last tapped.
     var focusedID: String?
 
-    @ObservationIgnored private let repository: any SegmentMapRepository
-    @ObservationIgnored private let favorites: any SegmentFavoriteRepository
+    @ObservationIgnored private let searchSegments: SearchMapSegments
+    @ObservationIgnored private let setFavorite: SetSegmentFavorite
     @ObservationIgnored private let analytics: any AnalyticsClient
     /// Answers of an older search are dropped.
     @ObservationIgnored private var generation = 0
 
-    init(repository: any SegmentMapRepository, favorites: any SegmentFavoriteRepository, analytics: any AnalyticsClient) {
-        self.repository = repository
-        self.favorites = favorites
+    init(searchSegments: SearchMapSegments, setFavorite: SetSegmentFavorite, analytics: any AnalyticsClient) {
+        self.searchSegments = searchSegments
+        self.setFavorite = setFavorite
         self.analytics = analytics
     }
 
@@ -100,20 +100,20 @@ final class SegmentMapStore {
     }
 
     /// The card's star, in one tap: shown at once, taken back if the server refuses.
-    func toggleStar(_ id: String) async {
+    func toggleFavorite(_ id: String) async {
         guard let index = segments.firstIndex(where: { $0.id == id }) else { return }
-        let starred = !segments[index].isStarred
-        segments[index].isStarred = starred
+        let isFavorite = !segments[index].isFavorite
+        segments[index].isFavorite = isFavorite
         do {
-            try await favorites.setFavorite(id, starred)
-            if starred {
+            try await setFavorite(id, isFavorite)
+            if isFavorite {
                 analytics.capture(.segmentFavorited)
             }
         } catch {
             if let index = segments.firstIndex(where: { $0.id == id }) {
-                segments[index].isStarred = !starred
+                segments[index].isFavorite = !isFavorite
             }
-            message = SegmentMapMessages.starFailed
+            message = SegmentMapMessages.favoriteFailed
         }
     }
 
@@ -131,7 +131,7 @@ final class SegmentMapStore {
             if current == generation { isLoading = false }
         }
         do {
-            let found = try await repository.segments(in: area, filter: filter)
+            let found = try await searchSegments(in: area, filter: filter)
             guard current == generation else { return }
             let center = area.center
             segments = found.sorted { lhs, rhs in
@@ -150,7 +150,7 @@ final class SegmentMapStore {
             failure = switch error {
             case .zoneTooLarge: nil
             case .offline: SegmentMapMessages.connectionRequired
-            case .failed: SegmentMapMessages.searchFailed
+            default: SegmentMapMessages.searchFailed
             }
         }
     }

@@ -18,7 +18,7 @@ final class SegmentDrawingStore {
     /// Set by « Continuer »: the preview screen opens on it.
     var next: SegmentCandidate?
 
-    @ObservationIgnored private let repository: any SegmentCreationRepository
+    @ObservationIgnored private let preview: PreviewSegment
     @ObservationIgnored private let isOnline: @MainActor () -> Bool
     @ObservationIgnored private let debounce: Duration
     /// The path `measured` and the task in flight are about.
@@ -27,12 +27,12 @@ final class SegmentDrawingStore {
 
     init(
         sport: SegmentSport,
-        repository: any SegmentCreationRepository,
+        preview: PreviewSegment,
         isOnline: @escaping @MainActor () -> Bool,
         debounce: Duration = .milliseconds(400)
     ) {
         self.sport = sport
-        self.repository = repository
+        self.preview = preview
         self.isOnline = isOnline
         self.debounce = debounce
     }
@@ -132,14 +132,14 @@ final class SegmentDrawingStore {
         cancel()
         target = path
         isMeasuring = true
-        task = Task { [repository, sport] in
+        task = Task { [preview, sport] in
             if delay > .zero {
                 try? await Task.sleep(for: delay)
             }
             guard !Task.isCancelled else { return }
-            let outcome: Result<SegmentPreview, SegmentCreationError>
-            do throws(SegmentCreationError) {
-                outcome = .success(try await repository.preview(sport: sport, points: path))
+            let outcome: Result<SegmentPreview, SegmentError>
+            do throws(SegmentError) {
+                outcome = .success(try await preview(sport: sport, points: path))
             } catch {
                 outcome = .failure(error)
             }

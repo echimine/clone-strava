@@ -79,7 +79,7 @@ struct APISegmentRepositoryTests {
 
         #expect(sheet.name == "Col du test")
         #expect(sheet.climbCategory == .hc)
-        #expect(sheet.isStarred && sheet.favoriteCount == 337 && sheet.isMatchingHistory)
+        #expect(sheet.isFavorite && sheet.favoriteCount == 337 && sheet.isMatchingHistory)
         #expect(sheet.myEfforts.first?.medal == .gold)
         #expect(sheet.myEfforts.first?.isPublicActivity == false)
         #expect(sheet.myRank == 2)

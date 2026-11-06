@@ -36,7 +36,7 @@ extension Di {
         let connectivityMonitor = connectivityMonitor
         return SegmentDrawingStore(
             sport: sport,
-            repository: APISegmentCreationRepository(apiClient: apiClient),
+            preview: PreviewSegment(repository: APISegmentCreationRepository(apiClient: apiClient)),
             isOnline: { connectivityMonitor.status.isConnected }
         )
     }
@@ -45,22 +45,50 @@ extension Di {
         let connectivityMonitor = connectivityMonitor
         return SegmentCreateStore(
             candidate: candidate,
-            repository: APISegmentCreationRepository(apiClient: apiClient),
+            create: CreateSegment(repository: APISegmentCreationRepository(apiClient: apiClient)),
             isOnline: { connectivityMonitor.status.isConnected }
         )
     }
 
     /// A new one each time Plus pushes the list.
-    func makeStarredSegmentsStore() -> StarredSegmentsStore {
-        StarredSegmentsStore(repository: APIStarredSegmentsRepository(apiClient: apiClient))
+    func makeFavoriteSegmentsStore() -> FavoriteSegmentsStore {
+        FavoriteSegmentsStore(loadPage: LoadFavoriteSegments(repository: APIFavoriteSegmentsRepository(apiClient: apiClient)))
     }
 
     /// One for the Map tab, kept across mode switches.
     func makeSegmentMapStore() -> SegmentMapStore {
         SegmentMapStore(
-            repository: APISegmentMapRepository(apiClient: apiClient),
-            favorites: APISegmentFavoriteRepository(apiClient: apiClient),
+            searchSegments: SearchMapSegments(repository: APISegmentMapRepository(apiClient: apiClient)),
+            setFavorite: SetSegmentFavorite(repository: APISegmentRepository(apiClient: apiClient)),
             analytics: analytics
         )
+    }
+
+    /// A Segment's sheet, pushed in any stack; `onDeleted` pops it.
+    func makeSegmentSheetStore(id: String, onDeleted: @escaping @MainActor () -> Void) -> SegmentSheetStore {
+        let repository = APISegmentRepository(apiClient: apiClient)
+        return SegmentSheetStore(
+            segmentID: id,
+            loadSheet: LoadSegmentSheet(repository: repository),
+            setFavorite: SetSegmentFavorite(repository: repository),
+            rename: RenameSegment(repository: repository),
+            delete: DeleteSegment(repository: repository),
+            analytics: analytics,
+            onDeleted: onDeleted
+        )
+    }
+
+    func makeLeaderboardStore(id: String) -> LeaderboardStore {
+        LeaderboardStore(
+            segmentID: id,
+            loadLeaderboard: LoadLeaderboard(repository: APISegmentRepository(apiClient: apiClient)),
+            analytics: analytics
+        )
+    }
+
+    /// The Paywall a lock opens in a sheet. No notification primer on this path: `finish` only
+    /// closes the sheet (ADR-039 §9).
+    func makeSegmentPaywallStore(entry: AnalyticsEvent.PaywallEntry, finish: @escaping @MainActor () -> Void) -> PaywallStore {
+        PaywallStore(service: subscriptionService, analytics: analytics, entry: entry, finish: finish)
     }
 }

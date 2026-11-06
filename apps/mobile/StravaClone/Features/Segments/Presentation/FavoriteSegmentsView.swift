@@ -1,12 +1,12 @@
 import SwiftUI
 
-/// Plus › « Segments » (ADR-039 §15): my starred Segments, with « + » to create one; a row
+/// Plus › « Segments » (ADR-039 §15): my favourite Segments, with « + » to create one; a row
 /// pushes the Segment's sheet (`SegmentRequest`, registered by the profile's stack).
-struct StarredSegmentsView: View {
-    @State private var store: StarredSegmentsStore
+struct FavoriteSegmentsView: View {
+    @State private var store: FavoriteSegmentsStore
     let onCreate: () -> Void
 
-    init(makeStore: @MainActor () -> StarredSegmentsStore, onCreate: @escaping () -> Void) {
+    init(makeStore: @MainActor () -> FavoriteSegmentsStore, onCreate: @escaping () -> Void) {
         _store = State(initialValue: makeStore())
         self.onCreate = onCreate
     }
@@ -62,7 +62,7 @@ struct StarredSegmentsView: View {
         List {
             ForEach(store.items) { segment in
                 NavigationLink(value: SegmentRequest(segmentID: segment.id)) {
-                    StarredSegmentRowView(row: StarredSegmentRow(segment: segment))
+                    FavoriteSegmentRowView(row: FavoriteSegmentRow(segment: segment))
                 }
                 .accessibilityIdentifier("starredSegment.\(segment.id)")
                 .onAppear {
@@ -80,8 +80,8 @@ struct StarredSegmentsView: View {
     }
 }
 
-private struct StarredSegmentRowView: View {
-    let row: StarredSegmentRow
+private struct FavoriteSegmentRowView: View {
+    let row: FavoriteSegmentRow
 
     var body: some View {
         HStack(spacing: 12) {

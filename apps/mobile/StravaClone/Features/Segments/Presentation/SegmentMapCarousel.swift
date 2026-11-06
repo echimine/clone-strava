@@ -50,7 +50,7 @@ struct SegmentMapCarousel: View {
                         segment: segment,
                         isFocused: store.focusedID == segment.id,
                         open: { open(segment.id) },
-                        toggleStar: { Task { await store.toggleStar(segment.id) } }
+                        toggleFavorite: { Task { await store.toggleFavorite(segment.id) } }
                     )
                     .containerRelativeFrame(.horizontal) { width, _ in
                         width - 2 * Theme.spacing - (store.segments.count > 1 ? 24 : 0)
@@ -85,7 +85,7 @@ private struct SegmentMapCard: View {
     let segment: MapSegment
     let isFocused: Bool
     let open: () -> Void
-    let toggleStar: () -> Void
+    let toggleFavorite: () -> Void
 
     var body: some View {
         Button(action: open) {
@@ -134,17 +134,17 @@ private struct SegmentMapCard: View {
         .accessibilityValue(accessibilityValue)
         .accessibilityAddTraits(.isButton)
         .accessibilityAddTraits(isFocused ? .isSelected : [])
-        .accessibilityAction(named: segment.isStarred ? "Retirer des favoris" : "Ajouter aux favoris", toggleStar)
+        .accessibilityAction(named: segment.isFavorite ? "Retirer des favoris" : "Ajouter aux favoris", toggleFavorite)
         .accessibilityIdentifier("segmentMapCard")
         .overlay(alignment: .topTrailing) {
-            Button(action: toggleStar) {
-                Image(systemName: segment.isStarred ? "star.fill" : "star")
-                    .foregroundStyle(segment.isStarred ? .yellow : .secondary)
+            Button(action: toggleFavorite) {
+                Image(systemName: segment.isFavorite ? "star.fill" : "star")
+                    .foregroundStyle(segment.isFavorite ? .yellow : .secondary)
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .sensoryFeedback(.selection, trigger: segment.isStarred)
+            .sensoryFeedback(.selection, trigger: segment.isFavorite)
             .padding(.top, 6)
             .padding(.trailing, 6)
             .accessibilityHidden(true)
@@ -156,7 +156,7 @@ private struct SegmentMapCard: View {
         [
             ActivityFormatters.sportLabel(segment.sport.sportType),
             segment.isVerified ? SegmentMapMessages.verified : nil,
-            segment.isStarred ? "Favori" : nil,
+            segment.isFavorite ? "Favori" : nil,
             SegmentMapMessages.figures(segment),
             SegmentMapMessages.athletes(segment.athleteCount),
             SegmentMapMessages.bestTime(segment),

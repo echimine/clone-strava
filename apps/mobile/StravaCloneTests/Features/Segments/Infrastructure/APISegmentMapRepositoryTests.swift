@@ -71,7 +71,7 @@ struct APISegmentMapRepositoryTests {
             sport: .ride,
             name: "Col de Leschaux",
             isVerified: true,
-            isStarred: false,
+            isFavorite: false,
             distance: Distance(meters: 6_800),
             averageGradePct: 7.4,
             climbCategory: .cat2,
@@ -87,12 +87,12 @@ struct APISegmentMapRepositoryTests {
         SegmentMapURLProtocolStub.handler.value = { _ in
             (400, Data(#"{"error":{"code":"zone_too_large","message":"Zoom in"}}"#.utf8))
         }
-        await #expect(throws: SegmentMapError.zoneTooLarge) {
+        await #expect(throws: SegmentError.zoneTooLarge) {
             try await repository.segments(in: area, filter: SegmentMapFilter())
         }
 
         SegmentMapURLProtocolStub.handler.value = { _ in (500, Data()) }
-        await #expect(throws: SegmentMapError.failed) {
+        await #expect(throws: SegmentError.server) {
             try await repository.segments(in: area, filter: SegmentMapFilter())
         }
     }

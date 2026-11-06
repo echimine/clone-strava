@@ -12,7 +12,7 @@ struct SegmentScreens {
     let makeCanvas: @MainActor (SegmentSport, @escaping () -> Void) -> SegmentDrawingCanvas
     let makeDrawingStore: @MainActor (SegmentSport) -> SegmentDrawingStore
     let makeCreateStore: @MainActor (SegmentCandidate) -> SegmentCreateStore
-    let makeStarredStore: @MainActor () -> StarredSegmentsStore
+    let makeFavoritesStore: @MainActor () -> FavoriteSegmentsStore
     let makeSheetStore: @MainActor (String, @escaping @MainActor () -> Void) -> SegmentSheetStore
     let makeLeaderboardStore: @MainActor (String) -> LeaderboardStore
     let makePaywallStore: @MainActor (AnalyticsEvent.PaywallEntry, @escaping @MainActor () -> Void) -> PaywallStore
@@ -22,24 +22,16 @@ struct SegmentScreens {
         makeCanvas = { [di] sport, onClose in di.makeSegmentDrawingCanvas(sport: sport, onClose: onClose) }
         makeDrawingStore = { [di] sport in di.makeSegmentDrawingStore(sport: sport) }
         makeCreateStore = { [di] candidate in di.makeSegmentCreateStore(candidate: candidate) }
-        makeStarredStore = di.makeStarredSegmentsStore
-        let repository = APISegmentRepository(apiClient: di.apiClient)
-        makeSheetStore = { [analytics = di.analytics] id, onDeleted in
-            SegmentSheetStore(segmentID: id, repository: repository, analytics: analytics, onDeleted: onDeleted)
-        }
-        makeLeaderboardStore = { [analytics = di.analytics] id in
-            LeaderboardStore(segmentID: id, repository: repository, analytics: analytics)
-        }
-        makePaywallStore = { [subscriptionService = di.subscriptionService, analytics = di.analytics] entry, finish in
-            // No notification primer on this path: `finish` only closes the sheet (ADR-039 §9).
-            PaywallStore(service: subscriptionService, analytics: analytics, entry: entry, finish: finish)
-        }
+        makeFavoritesStore = di.makeFavoriteSegmentsStore
+        makeSheetStore = { [di] id, onDeleted in di.makeSegmentSheetStore(id: id, onDeleted: onDeleted) }
+        makeLeaderboardStore = { [di] id in di.makeLeaderboardStore(id: id) }
+        makePaywallStore = { [di] entry, finish in di.makeSegmentPaywallStore(entry: entry, finish: finish) }
     }
 
     /// Plus › « Segments », with its « + ».
     @MainActor
-    func starred(_ flow: SegmentCreationFlow) -> AnyView {
-        AnyView(StarredSegmentsView(makeStore: makeStarredStore, onCreate: { flow.start(from: .mySegments) }))
+    func favorites(_ flow: SegmentCreationFlow) -> AnyView {
+        AnyView(FavoriteSegmentsView(makeStore: makeFavoritesStore, onCreate: { flow.start(from: .mySegments) }))
     }
 }
 

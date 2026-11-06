@@ -20,13 +20,13 @@ final class LeaderboardStore {
     var toast: String?
 
     @ObservationIgnored private let segmentID: String
-    @ObservationIgnored private let repository: any SegmentRepository
+    @ObservationIgnored private let loadLeaderboard: LoadLeaderboard
     @ObservationIgnored private let analytics: any AnalyticsClient
     @ObservationIgnored private var isLoadingMore = false
 
-    init(segmentID: String, repository: any SegmentRepository, analytics: any AnalyticsClient = NoAnalyticsClient()) {
+    init(segmentID: String, loadLeaderboard: LoadLeaderboard, analytics: any AnalyticsClient = NoAnalyticsClient()) {
         self.segmentID = segmentID
-        self.repository = repository
+        self.loadLeaderboard = loadLeaderboard
         self.analytics = analytics
     }
 
@@ -82,7 +82,7 @@ final class LeaderboardStore {
         isLoadingMore = true
         defer { isLoadingMore = false }
         do {
-            let page = try await repository.leaderboard(id: segmentID, selection: selection, cursor: cursor)
+            let page = try await loadLeaderboard(segmentID, selection: selection, cursor: cursor)
             guard leaderboard?.nextCursor == cursor else { return }
             leaderboard?.entries += page.entries
             leaderboard?.nextCursor = page.nextCursor
@@ -102,13 +102,13 @@ final class LeaderboardStore {
         isLoading = true
         defer { isLoading = false }
         do {
-            let loaded = try await repository.leaderboard(id: segmentID, selection: next, cursor: nil)
+            let loaded = try await loadLeaderboard(segmentID, selection: next)
             selection = next
             leaderboard = loaded
             return true
         } catch .premiumRequired {
             // Premium ended meanwhile: back to Tous, and the Paywall.
-            if let tous = try? await repository.leaderboard(id: segmentID, selection: LeaderboardSelection(), cursor: nil) {
+            if let tous = try? await loadLeaderboard(segmentID, selection: LeaderboardSelection()) {
                 leaderboard = tous
             }
             selection = LeaderboardSelection()
