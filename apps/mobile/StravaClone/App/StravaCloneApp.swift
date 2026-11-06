@@ -39,6 +39,7 @@ struct StravaCloneApp: App {
                 makeItineraryEditFlow: di.makeItineraryEditFlow,
                 itineraryCreation: di.makeItineraryCreationFlow(),
                 segmentCreation: di.makeSegmentCreationFlow(),
+                premiumStore: di.premiumStore,
                 segmentScreens: SegmentScreens(di: di),
                 itinerarySynchronizer: di.itinerarySynchronizer,
                 connectivityChanges: di.connectivityChanges,
@@ -115,6 +116,8 @@ struct RootView: View {
     @State var itineraryCreation: ItineraryCreationFlow
     /// Creating a Segment (ADR-039 §15), from the Map's « Créer » menu and Plus › « Segments ».
     @State var segmentCreation: SegmentCreationFlow
+    /// The `premium` entitlement: the header's logo, the Paywall before a creation (ADR-014).
+    @State var premiumStore: PremiumStore
     /// Creating a Segment, Plus › « Segments », a Segment's sheet and Leaderboard (ADR-039 §15).
     let segmentScreens: SegmentScreens
     let itinerarySynchronizer: ItinerarySynchronizer
@@ -143,7 +146,7 @@ struct RootView: View {
     /// The Map tab's stack (ADR-039 §15): an Itinerary, a Segment's sheet and `AppDestinations`.
     @State private var mapPath = NavigationPath()
     /// The Paywall opened by "S'abonner" in the home header.
-    @State private var isSubscribePaywallPresented = false
+    @State var isSubscribePaywallPresented = false
     /// A queued Itinerary change the server turned down (ADR-030 §8).
     @State private var itineraryChangeToast: String?
 
@@ -227,6 +230,7 @@ struct RootView: View {
                         store: feedStore,
                         onImportActivity: importStore.startImport,
                         onSubscribe: { isSubscribePaywallPresented = true },
+                        isPremium: premiumStore.isPremium,
                         editActivity: { [feedActivityEditor] id in Task { await feedActivityEditor.edit(id: id) } },
                         deleteActivity: { [activityDeleter] id in Task { await activityDeleter.delete(id) } },
                         destinations: appDestinations(path: $feedStore.path)
@@ -255,16 +259,6 @@ struct RootView: View {
                             onConfirm: { options in Task { await importStore.confirm(options) } },
                             onCancel: importStore.cancelConfirmation
                         )
-                    }
-                    // "S'abonner" in the home header: the same Paywall as after the Onboarding,
-                    // in full screen, as often as tapped; any way out closes it.
-                    .fullScreenCover(isPresented: $isSubscribePaywallPresented) {
-                        if case .signedIn(let user) = authStore.state {
-                            PaywallView(
-                                store: makePaywallStore(false) { isSubscribePaywallPresented = false },
-                                firstName: user.firstName
-                            )
-                        }
                     }
                     .tabItem { Label("Accueil", systemImage: "house") }
                     .tag(AppTab.feed)
@@ -339,6 +333,7 @@ struct RootView: View {
                         itineraryChangeToast = ItineraryMessages.refused(refusal)
                     }
                 }
+                .premium(in: self)
             }
         }
         // The full screen even while the root is a bare `ProgressView`, so the splash covers it.
@@ -433,7 +428,8 @@ struct RootView: View {
             athleteProfile: { AnyView(athleteProfile($0, path: path)) },
             statistics: { AnyView(athleteStatistics($0)) },
             follows: { AnyView(followLists($0)) },
-            segment: { AnyView(segmentSheet($0, path: path)) }
+            segment: { AnyView(segmentSheet($0, path: path)) },
+            search: { _ in AnyView(AthleteSearchPage(makeStore: makeAthleteSearchStore)) }
         )
     }
 

@@ -31,6 +31,7 @@ import {
 } from "@repo/contracts";
 import { SegmentsService } from "@repo/core/segments";
 import { CurrentUser } from "../auth/current-user.decorator.js";
+import { PremiumGuard } from "../auth/premium.guard.js";
 import { SessionGuard, type AuthenticatedUser } from "../auth/session.guard.js";
 
 class PreviewSegmentRequestDto extends createZodDto(previewSegmentRequestSchema) {}
@@ -69,8 +70,10 @@ export class SegmentCreationController {
    * Creates the Segment (everything recomputed), stars it for its creator and starts its
    * retro-matching. `409 duplicate` (with `existing`), `429 quota` (with
    * `Retry-After`), `422` `too_short`, `too_long`, `loop` or an invalid name, `503` (retryable).
+   * Premium only (ADR-039 §9, amended 2026-11-06): `403 premium_required` otherwise.
    */
   @Post("segments")
+  @UseGuards(PremiumGuard)
   @ZodResponse({ status: 201, type: CreatedSegmentDto, description: "Created" })
   create(@Body() body: CreateSegmentRequestDto, @CurrentUser() user: AuthenticatedUser): Promise<CreatedSegment> {
     return this.segments.createSegment(user.userId, body);

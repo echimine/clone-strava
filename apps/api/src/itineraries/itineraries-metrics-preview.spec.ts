@@ -8,6 +8,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { ItineraryMetrics } from "@repo/contracts";
 import { AnalyticsModule } from "@repo/core/analytics";
 import { AuthService } from "@repo/core/auth";
+import { SubscriptionsService } from "@repo/core/subscriptions";
 import { ElevationModule } from "@repo/core/elevation";
 import { CoreInfrastructureModule, DATABASE, type Database } from "@repo/core/infrastructure";
 import { ItinerariesModule } from "@repo/core/itineraries";
@@ -47,6 +48,9 @@ const hillBody = {
   waypoints: [A, B, C],
   legs: [{ mode: "follow", polyline6: encodePolyline([A, { lat: 45.905, lon: 6.12 }, B], 6) }, { mode: "straight" }],
 };
+
+/** Athletes without Premium (`PremiumGuard`, ADR-014 §5). */
+const freeAthletes = new Set<string>();
 
 /**
  * `POST /v1/itineraries/metrics-preview` over real HTTP (ADR-024 §2
@@ -117,6 +121,8 @@ describe("POST /v1/itineraries/metrics-preview (integration)", () => {
       controllers: [ItinerariesController],
       providers: [
         SessionGuard,
+        // PremiumGuard: everyone is Premium but the athletes of `freeAthletes`.
+        { provide: SubscriptionsService, useValue: { isPremium: async (userId: string) => !freeAthletes.has(userId) } },
         {
           provide: AuthService,
           useValue: {

@@ -10,7 +10,7 @@ import RevenueCat
 ///
 /// The Paywall's offering is RevenueCat's current offering **for this user**: an Experiment
 /// (ADR-016) serves each group its own offering, whose `layout` metadata picks the variant.
-final class RevenueCatSubscriptionService: SubscriptionService, SubscriberIdentity, @unchecked Sendable {
+final class RevenueCatSubscriptionService: SubscriptionService, SubscriberIdentity, PremiumStatus, @unchecked Sendable {
     /// The entitlement Premium features check (ADR-014).
     static let premiumEntitlement = "premium"
 
@@ -71,6 +71,23 @@ final class RevenueCatSubscriptionService: SubscriptionService, SubscriberIdenti
                 await previous?.value
                 await change(purchases)
             }
+        }
+    }
+
+    // MARK: PremiumStatus
+
+    /// The SDK's `customerInfoStream`: the cached customer at once, then each change (a
+    /// purchase, an expiry, a `logIn` to another subscriber).
+    func premiumUpdates() -> AsyncStream<Bool> {
+        let purchases = purchases
+        return AsyncStream { continuation in
+            let task = Task {
+                for await customerInfo in purchases.customerInfoStream {
+                    continuation.yield(Self.isPremium(customerInfo))
+                }
+                continuation.finish()
+            }
+            continuation.onTermination = { _ in task.cancel() }
         }
     }
 

@@ -45,7 +45,7 @@ The app is not authoritative for the API: the API must know by itself whether a 
 2. The API checks the secret, records the event (deduplicated by its ID) and **enqueues a job** (`sync-subscription`), then responds `200` immediately.
 3. The worker fetches the **full subscriber state via the RevenueCat REST API** (rather than relying on webhook ordering) and updates the user's premium status in the database. *Amended by [ADR-038](ADR-038-backoffice-moderation-and-account-deletion.md) §12*: **API v2** (`GET …/customers/{id}`; v1's read creates the customer), one secret v2 key `REVENUECAT_API_KEY`; the backoffice grants and revokes Promotional Premium through `actions/grant_entitlement` / `revoke_granted_entitlement`, and the webhook then triggers this sync.
 4. The worker also sends the event to PostHog (`subscription_started`, `subscription_renewed`, `subscription_cancelled`…) to link revenue and usage (ADR-015).
-5. Premium-only endpoints check this status in the database.
+5. Premium-only endpoints check this status in the database. *Amended 2026-11-06*: `PremiumGuard` (`apps/api`, after `SessionGuard`) answers `403 premium_required` on `POST /v1/itineraries` and `POST /v1/segments`; the app reads the `premium` entitlement from `customerInfoStream` (`PremiumStatus`, `PremiumStore`) to show the Nervo logo instead of « S'abonner » in the home header and the Paywall before those creations.
 
 The table that stores the subscription status does not exist in the slide 09 model: it will be added in the data model ADR.
 

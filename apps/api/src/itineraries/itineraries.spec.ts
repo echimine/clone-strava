@@ -8,6 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Itinerary, ListItinerariesResponse } from "@repo/contracts";
 import { AnalyticsModule } from "@repo/core/analytics";
 import { AuthService } from "@repo/core/auth";
+import { SubscriptionsService } from "@repo/core/subscriptions";
 import { ElevationModule } from "@repo/core/elevation";
 import { CoreInfrastructureModule, DATABASE, type Database } from "@repo/core/infrastructure";
 import { ItinerariesModule } from "@repo/core/itineraries";
@@ -31,6 +32,9 @@ const C = { lat: 45.92, lon: 6.12 };
 const followAB = encodePolyline([A, { lat: 45.905, lon: 6.12 }, B], 6);
 /** A → B follows a three-point path; B → C is a straight Leg. */
 const geometry = { waypoints: [A, B, C], legs: [{ mode: "follow", polyline6: followAB }, { mode: "straight" }] };
+
+/** Athletes without Premium (`PremiumGuard`, ADR-014 §5). */
+const freeAthletes = new Set<string>();
 
 /**
  * The lifecycle of `/v1/itineraries` (create, read, list, `PUT`, `PATCH`,
@@ -105,6 +109,8 @@ describe("/v1/itineraries lifecycle (integration)", () => {
       controllers: [ItinerariesController],
       providers: [
         SessionGuard,
+        // PremiumGuard: everyone is Premium but the athletes of `freeAthletes`.
+        { provide: SubscriptionsService, useValue: { isPremium: async (userId: string) => !freeAthletes.has(userId) } },
         {
           provide: AuthService,
           useValue: {
@@ -189,6 +195,16 @@ describe("/v1/itineraries lifecycle (integration)", () => {
     const response = await create(body, other);
     expect(response.status).toBe(409);
     expect(((await response.json()) as { error: { code: string } }).error.code).toBe("id_conflict");
+  });
+
+  it("answers 403 premium_required to a creation without Premium, storing nothing", async () => {
+    const free = randomUUID();
+    freeAthletes.add(free);
+    const body = newItinerary();
+    const response = await create(body, free);
+    expect(response.status).toBe(403);
+    expect(((await response.json()) as { error: { code: string } }).error.code).toBe("premium_required");
+    expect(await sql("select 1 from itineraries.itinerary where id = $1", [body.id])).toHaveLength(0);
   });
 
   it("answers 404, not 403, for another athlete's Itinerary, as for an unknown id", async () => {

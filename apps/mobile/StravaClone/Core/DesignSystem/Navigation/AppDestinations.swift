@@ -6,6 +6,9 @@ struct SegmentRequest: Hashable {
     let segmentID: String
 }
 
+/// Opening of the athlete search (ADR-036 §2): pushed from the home's magnifier.
+struct AthleteSearchRequest: Hashable {}
+
 /// The screens every tab's `NavigationStack` can push (ADR-036 §10): the Activity detail, the
 /// Kudos and comments screen, another athlete's profile, Statistiques, the followers and
 /// following lists, and a Segment's sheet. Built by the app shell, once per stack, since
@@ -18,6 +21,7 @@ struct AppDestinations {
     let statistics: @MainActor (AthleteStatisticsRequest) -> AnyView
     let follows: @MainActor (AthleteFollowsRequest) -> AnyView
     let segment: @MainActor (SegmentRequest) -> AnyView
+    let search: @MainActor (AthleteSearchRequest) -> AnyView
 
     /// Previews: every destination is empty.
     static let none = AppDestinations(
@@ -26,7 +30,8 @@ struct AppDestinations {
         athleteProfile: { _ in AnyView(EmptyView()) },
         statistics: { _ in AnyView(EmptyView()) },
         follows: { _ in AnyView(EmptyView()) },
-        segment: { _ in AnyView(EmptyView()) }
+        segment: { _ in AnyView(EmptyView()) },
+        search: { _ in AnyView(EmptyView()) }
     )
 }
 
@@ -39,5 +44,6 @@ extension View {
             .navigationDestination(for: AthleteStatisticsRequest.self) { destinations.statistics($0) }
             .navigationDestination(for: AthleteFollowsRequest.self) { destinations.follows($0) }
             .navigationDestination(for: SegmentRequest.self) { destinations.segment($0) }
+            .navigationDestination(for: AthleteSearchRequest.self) { destinations.search($0) }
     }
 }

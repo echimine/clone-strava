@@ -71,30 +71,43 @@ final class ItineraryListStore {
 }
 
 /// "Créer" from the Map tab or Mes Itinéraires: the editor needs the network (ADR-030 §8),
-/// so offline the button stays active and shows "Connexion requise".
+/// so offline the button stays active and shows "Connexion requise". Premium only (ADR-030 §6,
+/// amended 2026-11-06): without it, the Paywall instead of the editor.
 @Observable
 @MainActor
 final class ItineraryCreationFlow {
     var isPresented = false
+    /// "Créer" without Premium: the Paywall.
+    var isPaywallPresented = false
     var toast: String?
     /// Where the editor being presented was opened from.
     private(set) var source = AnalyticsEvent.EditorSource.mapTab
 
     @ObservationIgnored private let isOnline: @MainActor () -> Bool
+    @ObservationIgnored private let isPremium: @MainActor () -> Bool
     @ObservationIgnored private let analytics: any AnalyticsClient
 
-    init(isOnline: @escaping @MainActor () -> Bool, analytics: any AnalyticsClient = NoAnalyticsClient()) {
+    init(
+        isOnline: @escaping @MainActor () -> Bool,
+        isPremium: @escaping @MainActor () -> Bool = { true },
+        analytics: any AnalyticsClient = NoAnalyticsClient()
+    ) {
         self.isOnline = isOnline
+        self.isPremium = isPremium
         self.analytics = analytics
     }
 
     func start(from source: AnalyticsEvent.EditorSource) {
-        if isOnline() {
-            self.source = source
-            isPresented = true
-        } else {
+        guard isOnline() else {
             toast = ItineraryMessages.connectionRequired
             analytics.capture(.itineraryOfflineEditBlocked(action: .create))
+            return
         }
+        guard isPremium() else {
+            isPaywallPresented = true
+            return
+        }
+        self.source = source
+        isPresented = true
     }
 }

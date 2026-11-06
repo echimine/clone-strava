@@ -157,7 +157,7 @@ The sports an athlete says they practice, in the order they picked them. Chosen 
 _Avoid_: Favorite sports, preferred sports, interests
 
 **Premium**:
-Paid access to Nervo's advanced features (today, the full Leaderboard and its narrowing; Records, Medals, Local Legend and creating Segments stay free), bought in the app as a subscription, possibly starting with a free trial, or offered by an Administrator as Promotional Premium. Apple bills it; Nervo never charges, cancels or refunds it. Shown as "Premium" in the app and the backoffice.
+Paid access to Nervo's advanced features (today, the full Leaderboard and its narrowing, and creating Itineraries and Segments; Records, Medals and Local Legend stay free), bought in the app as a subscription, possibly starting with a free trial, or offered by an Administrator as Promotional Premium. Apple bills it; Nervo never charges, cancels or refunds it. Shown as "Premium" in the app and the backoffice.
 _Avoid_: Subscription, abonnement (in French, that is a Follow), pro, plus
 
 **Promotional Premium**:

@@ -136,4 +136,24 @@ struct ItineraryCreationFlowTests {
         #expect(flow.toast == "Connexion requise")
         #expect(analytics.events == [.itineraryOfflineEditBlocked(action: .create)])
     }
+
+    /// Without Premium, "Créer" opens the Paywall, not the editor (ADR-030 §6, amended).
+    @Test func creatingWithoutPremiumOpensThePaywall() {
+        let flow = ItineraryCreationFlow(isOnline: { true }, isPremium: { false })
+
+        flow.start(from: .mapTab)
+
+        #expect(flow.isPaywallPresented)
+        #expect(!flow.isPresented)
+    }
+
+    /// Offline, "Connexion requise" comes first, Premium or not.
+    @Test func creatingOfflineWithoutPremiumSaysConnectionRequired() {
+        let flow = ItineraryCreationFlow(isOnline: { false }, isPremium: { false })
+
+        flow.start(from: .profile)
+
+        #expect(flow.toast == "Connexion requise")
+        #expect(!flow.isPaywallPresented)
+    }
 }

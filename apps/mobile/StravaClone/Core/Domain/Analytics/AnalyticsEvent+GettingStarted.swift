@@ -40,6 +40,10 @@ extension AnalyticsEvent {
         case segmentLeaderboard = "segment_leaderboard"
         /// A locked chip of the Leaderboard screen.
         case leaderboardFilter = "leaderboard_filter"
+        /// « Créer un Itinéraire » without Premium.
+        case itineraryCreation = "itinerary_creation"
+        /// « Créer un Segment » without Premium.
+        case segmentCreation = "segment_creation"
     }
 
     /// `leaderboard_viewed`'s filter: the sex chip alone, or the other filter (mirrored in

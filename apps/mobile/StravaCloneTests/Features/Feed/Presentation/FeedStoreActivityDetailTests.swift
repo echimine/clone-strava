@@ -74,6 +74,13 @@ struct FeedStoreActivityDetailTests {
         #expect(store.path == NavigationPath([ActivityEngagementRequest.kudos(post.id)]))
     }
 
+    /// The home's magnifier pushes the athlete search.
+    @Test func theMagnifierOpensTheAthleteSearch() {
+        let store = makeStore(FakeFeedRepository())
+        store.openSearch()
+        #expect(store.path == NavigationPath([AthleteSearchRequest()]))
+    }
+
     @Test func theCardsFollowWhatTheDetailPublishes() async {
         let repository = FakeFeedRepository()
         let edited = ActivityPost.fixture()

@@ -7,7 +7,10 @@ import SwiftUI
 extension Di {
     func makeSegmentCreationFlow() -> SegmentCreationFlow {
         let connectivityMonitor = connectivityMonitor
-        return SegmentCreationFlow(isOnline: { connectivityMonitor.status.isConnected })
+        return SegmentCreationFlow(
+            isOnline: { connectivityMonitor.status.isConnected },
+            isPremium: { [premiumStore] in premiumStore.isPremium }
+        )
     }
 
     /// The Itinerary editor for the sport, without its stats card nor its journey events: the

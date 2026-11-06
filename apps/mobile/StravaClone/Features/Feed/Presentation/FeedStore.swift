@@ -118,6 +118,11 @@ final class FeedStore {
         path.append(ActivityEngagementRequest.comments(id))
     }
 
+    /// The home's magnifier: the athlete search (ADR-036 §2).
+    func openSearch() {
+        path.append(AthleteSearchRequest())
+    }
+
     /// The 👍 of my own card: the Kudos and comments screen on its kudos.
     func openKudos(_ id: ActivityID) {
         guard posts.contains(where: { $0.id == id }) else { return }

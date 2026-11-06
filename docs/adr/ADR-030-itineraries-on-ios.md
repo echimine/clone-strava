@@ -9,7 +9,7 @@
 
 Athletes want to plan an **Itinerary** (`CONTEXT.md`: a path planned by hand before going out, for one sport, private to its creator, shown as "Itinéraire") on the iOS app: a start, a finish and intermediate **Waypoints** that can be dragged, with distance and elevation gain shown while editing. The path between two consecutive Waypoints is a **Leg** ("tronçon"), which either follows roads and trails or runs in a straight line.
 
-Scope fixed when the effort was framed: iOS only, private Itineraries, **creation online only** (routing is an online service), free for now. Out of scope: guidance during a recording, GPX export, sharing, public Itineraries, creation from an Activity, the backoffice, a premium paywall, offline tile packs.
+Scope fixed when the effort was framed: iOS only, private Itineraries, **creation online only** (routing is an online service), free for now. *Amended 2026-11-06: creating an Itinerary is Premium (`POST /v1/itineraries` answers `403 premium_required` without it, ADR-014 §5; « Créer » opens the Paywall in the app). Editing, renaming, deleting, viewing and following one's existing Itineraries stay free.* Out of scope: guidance during a recording, GPX export, sharing, public Itineraries, creation from an Activity, the backoffice, a premium paywall, offline tile packs.
 
 The decisions were worked out one ticket at a time on the map [Créer et enregistrer des Itinéraires sur iOS](https://github.com/echimine/clone-strava/issues/5). The facts they depend on:
 

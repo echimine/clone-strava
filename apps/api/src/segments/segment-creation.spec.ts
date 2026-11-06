@@ -19,6 +19,7 @@ import {
 } from "@repo/contracts";
 import { AnalyticsModule, AnalyticsService } from "@repo/core/analytics";
 import { AuthService } from "@repo/core/auth";
+import { SubscriptionsService } from "@repo/core/subscriptions";
 import { ElevationModule } from "@repo/core/elevation";
 import { GeocodingModule } from "@repo/core/geocoding";
 import { StorageModule } from "@repo/core/storage";
@@ -61,6 +62,9 @@ function northPath(lon: number, toM: number, fromM = 0): LonLat[] {
   points.push(at(lon, toM));
   return points;
 }
+
+/** Athletes without Premium (`PremiumGuard`, ADR-014 §5). */
+const freeAthletes = new Set<string>();
 
 /**
  * Creating a Segment in the app over real HTTP (spec #249, ADR-039 §5, §11, §12): real Nest,
@@ -154,6 +158,8 @@ describe("Segment creation (integration)", () => {
       controllers: [SegmentCreationController],
       providers: [
         SessionGuard,
+        // PremiumGuard: everyone is Premium but the athletes of `freeAthletes`.
+        { provide: SubscriptionsService, useValue: { isPremium: async (userId: string) => !freeAthletes.has(userId) } },
         {
           provide: AuthService,
           useValue: {
@@ -250,6 +256,17 @@ describe("Segment creation (integration)", () => {
   });
 
   describe("POST /v1/segments", () => {
+    it("answers 403 premium_required without Premium, creating nothing; the preview stays open", async () => {
+      const athlete = await newAthlete();
+      freeAthletes.add(athlete);
+      const points = northPath(lane(), 1_000);
+      expect((await preview(athlete, { sport: "run", points })).status).toBe(200);
+      const response = await create(athlete, { sport: "run", name: "Montée du Semnoz", points });
+      expect(response.status).toBe(403);
+      expect((await errorOf(response)).code).toBe("premium_required");
+      expect(await sql("select 1 from segments.segment where created_by = $1", [athlete])).toHaveLength(0);
+    });
+
     it("creates the Segment (201), stars it for its creator and starts the retro-matching", async () => {
       const athlete = await newAthlete();
       const lon = lane();

@@ -9,11 +9,13 @@ struct HomeHeaderActions {
     var onSubscribe: () -> Void = {}
     var onMessages: () -> Void = {}
     var onNotifications: () -> Void = {}
+    /// Premium (ADR-014): the Nervo logo in place of "S'abonner".
+    var isPremium = false
 }
 
 extension View {
-    /// Home header in the navigation bar: "+" and search on the left, "S'abonner" in the
-    /// middle, messages and notifications on the right. Native toolbar items, so they get
+    /// Home header in the navigation bar: "+" and search on the left, "S'abonner" (the Nervo
+    /// logo once Premium) in the middle, messages and notifications on the right. Native toolbar items, so they get
     /// Liquid Glass on iOS 26; standard bar buttons on earlier versions (iOS 17 minimum, ADR-007).
     func homeHeader(_ actions: HomeHeaderActions) -> some View {
         modifier(HomeHeaderModifier(actions: actions))
@@ -53,11 +55,15 @@ private struct HomeHeaderModifier: ViewModifier {
         ToolbarItem(placement: .topBarLeading) { searchButton }
 
         ToolbarItem(placement: .principal) {
-            subscribeButton
-                .buttonStyle(.plain)
-                .padding(.horizontal, 16)
-                .frame(height: 44)
-                .glassEffect(.regular.interactive(), in: .capsule)
+            if actions.isPremium {
+                NervoHeaderLogo()
+            } else {
+                subscribeButton
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 16)
+                    .frame(height: 44)
+                    .glassEffect(.regular.interactive(), in: .capsule)
+            }
         }
         .sharedBackgroundVisibility(.hidden)
 
@@ -73,7 +79,11 @@ private struct HomeHeaderModifier: ViewModifier {
             searchButton
         }
         ToolbarItem(placement: .principal) {
-            subscribeButton.buttonStyle(.bordered)
+            if actions.isPremium {
+                NervoHeaderLogo()
+            } else {
+                subscribeButton.buttonStyle(.bordered)
+            }
         }
         ToolbarItemGroup(placement: .topBarTrailing) {
             messagesButton
@@ -121,5 +131,19 @@ private struct HomeHeaderModifier: ViewModifier {
             Label("Notifications", systemImage: "bell")
         }
         .accessibilityIdentifier("homeHeader.notifications")
+    }
+}
+
+/// The header's middle once Premium: the N on its orange tile, like the Welcome's logo; not a
+/// button.
+private struct NervoHeaderLogo: View {
+    var body: some View {
+        NervoMark()
+            .stroke(.white, style: NervoMark.strokeStyle(forSide: 22))
+            .frame(width: 22, height: 22)
+            .padding(8)
+            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Theme.accent))
+            .accessibilityLabel("Nervo Premium")
+            .accessibilityIdentifier("homeHeader.premiumLogo")
     }
 }

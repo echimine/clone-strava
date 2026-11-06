@@ -11,6 +11,8 @@ struct FeedView<TopContent: View>: View {
     var onImportActivity: () -> Void = {}
     /// "S'abonner" in the header: the shell opens the Paywall.
     var onSubscribe: () -> Void = {}
+    /// Premium: the Nervo logo in place of "S'abonner".
+    var isPremium = false
     var editActivity: ((ActivityID) -> Void)?
     var deleteActivity: ((ActivityID) -> Void)?
     let destinations: AppDestinations
@@ -25,7 +27,12 @@ struct FeedView<TopContent: View>: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Color(.systemGroupedBackground))
                 .safeAreaInset(edge: .top, spacing: 8) { topContent() }
-                .homeHeader(HomeHeaderActions(onImportActivity: onImportActivity, onSubscribe: onSubscribe))
+                .homeHeader(HomeHeaderActions(
+                    onImportActivity: onImportActivity,
+                    onSearch: store.openSearch,
+                    onSubscribe: onSubscribe,
+                    isPremium: isPremium
+                ))
                 .task { await store.loadIfNeeded() }
                 .task { await store.observeActivityChanges() }
                 .task { await store.observeLocalActivities() }

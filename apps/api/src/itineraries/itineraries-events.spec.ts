@@ -9,6 +9,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi, type MockIns
 import { ITINERARY_DELETED_EVENT, ITINERARY_SAVED_EVENT, type Itinerary } from "@repo/contracts";
 import { AnalyticsModule, AnalyticsService } from "@repo/core/analytics";
 import { AuthService } from "@repo/core/auth";
+import { SubscriptionsService } from "@repo/core/subscriptions";
 import { ElevationModule } from "@repo/core/elevation";
 import { CoreInfrastructureModule, DATABASE, type Database } from "@repo/core/infrastructure";
 import { ItinerariesModule } from "@repo/core/itineraries";
@@ -38,6 +39,9 @@ const C = { lat: 45.92, lon: 6.12 };
 const followAB = encodePolyline([A, { lat: 45.905, lon: 6.12 }, B], 6);
 /** ~2.2 km, 100 m of gain, one of its two Legs straight. */
 const geometry = { waypoints: [A, B, C], legs: [{ mode: "follow", polyline6: followAB }, { mode: "straight" }] };
+
+/** Athletes without Premium (`PremiumGuard`, ADR-014 §5). */
+const freeAthletes = new Set<string>();
 
 /**
  * Lifecycle events of the Itineraries (ADR-030 §9, §10) over real HTTP,
@@ -123,6 +127,8 @@ describe("/v1/itineraries lifecycle events (integration)", () => {
       controllers: [ItinerariesController],
       providers: [
         SessionGuard,
+        // PremiumGuard: everyone is Premium but the athletes of `freeAthletes`.
+        { provide: SubscriptionsService, useValue: { isPremium: async (userId: string) => !freeAthletes.has(userId) } },
         {
           provide: AuthService,
           useValue: {

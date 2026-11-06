@@ -86,3 +86,21 @@ struct NoSubscriberIdentity: SubscriberIdentity {
     func logIn(userId: String) {}
     func logOut() {}
 }
+
+/// Is the athlete Premium (ADR-014): the app reads the `premium` entitlement for what it shows
+/// (the header's logo instead of « S'abonner », the Paywall before a creation); the API checks
+/// its own copy before acting (`403 premium_required`).
+protocol PremiumStatus: Sendable {
+    /// The current status, then again after each change (purchase, restore, expiry, sign-in).
+    func premiumUpdates() -> AsyncStream<Bool>
+}
+
+/// Never Premium: the unwired adapter, previews and tests.
+struct NoPremiumStatus: PremiumStatus {
+    func premiumUpdates() -> AsyncStream<Bool> {
+        AsyncStream { continuation in
+            continuation.yield(false)
+            continuation.finish()
+        }
+    }
+}

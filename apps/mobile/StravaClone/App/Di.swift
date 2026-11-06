@@ -59,6 +59,8 @@ final class Di {
     let subscriptionService: any SubscriptionService
     /// Tells RevenueCat who buys, at each sign-in and sign-out (ADR-014).
     let subscriberIdentity: any SubscriberIdentity
+    /// The `premium` entitlement, for the header and the Paywall before a creation (ADR-014).
+    let premiumStore: PremiumStore
     /// `defaultVisibility` of `GET /v1/me`, for the finish screen (ADR-031 §11, §13).
     let defaultVisibility: DefaultVisibilityCache
     /// What the Activity detail changes, applied by the feed (ADR-033 §7).
@@ -103,9 +105,11 @@ final class Di {
         if let revenueCat = RevenueCatSubscriptionService.make(apiKey: configuration.revenueCatAPIKey) {
             subscriptionService = revenueCat
             subscriberIdentity = revenueCat
+            premiumStore = PremiumStore(status: revenueCat)
         } else {
             subscriptionService = UnwiredSubscriptionService()
             subscriberIdentity = NoSubscriberIdentity()
+            premiumStore = PremiumStore(status: NoPremiumStatus())
         }
         analytics = PostHogAnalyticsClient.make(projectToken: configuration.postHogAPIKey) ?? NoAnalyticsClient()
         // TODO(ADR-022): Apple Sign-In — blocked on a paid Apple Developer Program membership.
@@ -460,7 +464,11 @@ final class Di {
 
     func makeItineraryCreationFlow() -> ItineraryCreationFlow {
         let connectivityMonitor = connectivityMonitor
-        return ItineraryCreationFlow(isOnline: { connectivityMonitor.status.isConnected }, analytics: analytics)
+        return ItineraryCreationFlow(
+            isOnline: { connectivityMonitor.status.isConnected },
+            isPremium: { [premiumStore] in premiumStore.isPremium },
+            analytics: analytics
+        )
     }
 
     /// `true` while a network route exists, current state first (`ConnectivityMonitor`).
