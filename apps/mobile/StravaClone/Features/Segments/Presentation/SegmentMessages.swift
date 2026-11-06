@@ -95,12 +95,8 @@ enum SegmentMessages {
         (3...60).contains(name.trimmingCharacters(in: .whitespacesAndNewlines).count)
     }
 
-    static func category(_ category: SegmentClimbCategory?) -> String {
-        switch category {
-        case nil: "—"
-        case .hc: "HC"
-        case .some(let category): "Cat. \(category.rawValue)"
-        }
+    static func category(_ category: ClimbCategory?) -> String {
+        category?.label ?? "—"
     }
 
     static func grade(_ percent: Double?) -> String {

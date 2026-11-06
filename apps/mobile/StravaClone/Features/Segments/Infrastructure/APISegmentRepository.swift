@@ -113,7 +113,7 @@ private extension Components.Schemas.SegmentSheetDto_Output {
             distance: Distance(meters: distanceM),
             elevationGain: elevationGainM,
             averageGrade: avgGrade,
-            climbCategory: climbCategory.flatMap { SegmentClimbCategory(rawValue: $0.rawValue) },
+            climbCategory: climbCategory.flatMap { ClimbCategory(rawValue: $0.rawValue) },
             track: SegmentTrack(polyline: EncodedPolyline(value: track.polyline6, precision: 6), altitudes: track.altitudesM),
             isStarred: starred,
             favoriteCount: favoriteCount,

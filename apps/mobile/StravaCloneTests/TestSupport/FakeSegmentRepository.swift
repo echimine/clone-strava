@@ -112,7 +112,7 @@ extension SegmentSheet {
             distance: Distance(meters: 1_200),
             elevationGain: 100,
             averageGrade: 8.3,
-            climbCategory: .four,
+            climbCategory: .cat4,
             track: SegmentTrack(polyline: EncodedPolyline(value: "", precision: 6), altitudes: []),
             isStarred: isStarred,
             favoriteCount: favoriteCount,
