@@ -6,12 +6,16 @@ enum AppTab: Hashable {
 }
 
 /// The Segment screens the shell builds (ADR-039 §15): the creation, drawn with the Itinerary
-/// editor, and Plus › « Segments ».
+/// editor, Plus › « Segments », and a Segment's sheet and Leaderboard pushed in any stack, with
+/// the Paywall their locks open (ADR-007 rule 5).
 struct SegmentScreens {
     let makeCanvas: @MainActor (SegmentSport, @escaping () -> Void) -> SegmentDrawingCanvas
     let makeDrawingStore: @MainActor (SegmentSport) -> SegmentDrawingStore
     let makeCreateStore: @MainActor (SegmentCandidate) -> SegmentCreateStore
     let makeStarredStore: @MainActor () -> StarredSegmentsStore
+    let makeSheetStore: @MainActor (String, @escaping @MainActor () -> Void) -> SegmentSheetStore
+    let makeLeaderboardStore: @MainActor (String) -> LeaderboardStore
+    let makePaywallStore: @MainActor (AnalyticsEvent.PaywallEntry, @escaping @MainActor () -> Void) -> PaywallStore
 
     @MainActor
     init(di: Di) {
@@ -19,6 +23,17 @@ struct SegmentScreens {
         makeDrawingStore = { [di] sport in di.makeSegmentDrawingStore(sport: sport) }
         makeCreateStore = { [di] candidate in di.makeSegmentCreateStore(candidate: candidate) }
         makeStarredStore = di.makeStarredSegmentsStore
+        let repository = APISegmentRepository(apiClient: di.apiClient)
+        makeSheetStore = { [analytics = di.analytics] id, onDeleted in
+            SegmentSheetStore(segmentID: id, repository: repository, analytics: analytics, onDeleted: onDeleted)
+        }
+        makeLeaderboardStore = { [analytics = di.analytics] id in
+            LeaderboardStore(segmentID: id, repository: repository, analytics: analytics)
+        }
+        makePaywallStore = { [subscriptionService = di.subscriptionService, analytics = di.analytics] entry, finish in
+            // No notification primer on this path: `finish` only closes the sheet (ADR-039 §9).
+            PaywallStore(service: subscriptionService, analytics: analytics, entry: entry, finish: finish)
+        }
     }
 
     /// Plus › « Segments », with its « + ».

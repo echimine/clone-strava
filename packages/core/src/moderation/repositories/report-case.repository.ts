@@ -47,7 +47,7 @@ export class ReportCaseRepository {
    * index settles a race). `opened` tells which.
    */
   async openOrGet(
-    values: { targetType: ReportTargetType; targetId: string; targetUserId: string },
+    values: { targetType: ReportTargetType; targetId: string; targetUserId: string | null },
     executor: DbExecutor,
   ): Promise<{ id: string; opened: boolean }> {
     const [inserted] = await executor
@@ -133,7 +133,7 @@ export class ReportCaseRepository {
     const [row] = await this.db
       .select({ count: count(), oldestOpenedAt: min(t.openedAt) })
       .from(t)
-      .where(and(eq(t.status, "open"), notByUsers(t.targetUserId, excludedUserIds)));
+      .where(and(eq(t.status, "open"), ne(t.targetType, "segment"), notByUsers(t.targetUserId, excludedUserIds)));
     return { count: row?.count ?? 0, oldestOpenedAt: row?.oldestOpenedAt ?? null };
   }
 
@@ -165,6 +165,8 @@ export class ReportCaseRepository {
     const { start, end } = parisDayRange(filter);
     return [
       filter.state === "open" ? eq(t.status, "open") : ne(t.status, "open"),
+      // Segment cases wait for the backoffice screens of #219 (ADR-039 §11).
+      ne(t.targetType, "segment"),
       filter.targetType ? eq(t.targetType, filter.targetType) : undefined,
       filter.reason
         ? sql`exists (select 1 from moderation.report r where r.case_id = ${caseId} and r.reason = ${filter.reason})`
@@ -177,7 +179,7 @@ export class ReportCaseRepository {
 
 /**
  * Cases whose target disappeared: a comment or an Activity; the comments of a deleted Activity
- * (found through the Reports' copies, ADR-038 §9); everything of a deleted account.
+ * (found through the Reports' copies, ADR-038 §9); everything of a deleted account but its Segments.
  */
 export type GoneTargetScope =
   | { kind: "target"; targetType: ReportTargetType; targetId: string }
@@ -192,6 +194,7 @@ function scopeCondition(scope: GoneTargetScope): SQL {
       return sql`${t.targetType} = 'comment' and exists (select 1 from moderation.report r
         where r.case_id = ${caseId} and r.snapshot->>'activityId' = ${scope.activityId})`;
     case "author":
-      return eq(t.targetUserId, scope.userId);
+      // A Segment outlives its creator's account when others have Efforts on it (ADR-039 §11).
+      return and(eq(t.targetUserId, scope.userId), ne(t.targetType, "segment"))!;
   }
 }

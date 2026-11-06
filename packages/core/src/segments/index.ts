@@ -2,6 +2,14 @@ export { SegmentsModule } from "./segments.module.js";
 export { SegmentCreationModule, SegmentCreationService } from "./segment-creation.module.js";
 export { SegmentsService, RECONCILE_SEGMENT_MATCHING_BATCH } from "./segments.service.js";
 export type { ActivityEffortRecord } from "./domain/activity-effort.js";
+export type {
+  LeaderboardReader,
+  LeaderboardRequest,
+  LeaderboardView,
+  LocalLegendView,
+} from "./use-cases/get-segment-leaderboard.use-case.js";
+export type { LeaderboardLine } from "./repositories/leaderboard.repository.js";
+export type { SegmentSheetView, SheetEffort } from "./use-cases/get-segment-sheet.use-case.js";
 export type { NervoImportReport } from "./use-cases/import-nervo-segments.use-case.js";
 export type { ActivitySegmentResults, EffortMedalCount, EffortResult } from "./domain/effort-result.js";
 export type { MapSegmentRecord, MapSegmentSearch } from "./repositories/segment-map.repository.js";

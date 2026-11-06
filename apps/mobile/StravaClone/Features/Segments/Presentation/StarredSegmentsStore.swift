@@ -56,7 +56,7 @@ final class StarredSegmentsStore {
     private static func message(_ error: StarredSegmentsError) -> String {
         switch error {
         case .offline: SegmentMessages.connectionRequired
-        case .unavailable: SegmentMessages.loadFailed
+        case .unavailable: SegmentMessages.mySegmentsLoadFailed
         }
     }
 }

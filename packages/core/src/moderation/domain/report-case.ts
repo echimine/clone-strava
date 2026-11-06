@@ -5,8 +5,8 @@ export interface ReportCaseRecord {
   id: string;
   targetType: ReportTargetType;
   targetId: string;
-  /** The target's author (the athlete themself for an athlete). */
-  targetUserId: string;
+  /** The target's author (the athlete themself for an athlete); null for a Segment with no creator (ADR-039 §11). */
+  targetUserId: string | null;
   status: ReportCaseStatus;
   openedAt: Date;
   closedAt: Date | null;

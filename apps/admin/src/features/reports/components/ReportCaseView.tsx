@@ -136,6 +136,8 @@ function CopyText({ copy }: { copy: AdminReportCopy }) {
           <p className="text-muted-foreground">{copy.hadAvatar ? "Avec une photo" : "Sans photo"}</p>
         </div>
       );
+    case "segment":
+      return <p className="font-medium">{copy.name}</p>;
   }
 }
 

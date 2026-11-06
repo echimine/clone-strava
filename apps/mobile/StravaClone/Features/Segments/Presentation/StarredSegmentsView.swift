@@ -36,7 +36,7 @@ struct StarredSegmentsView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .failed(let message) where store.items.isEmpty:
             ContentUnavailableView {
-                Label(SegmentMessages.loadFailed, systemImage: "wifi.exclamationmark")
+                Label(SegmentMessages.mySegmentsLoadFailed, systemImage: "wifi.exclamationmark")
             } description: {
                 Text(message)
             } actions: {

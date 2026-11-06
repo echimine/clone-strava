@@ -1,4 +1,3 @@
-import MapboxMaps
 import SwiftUI
 
 /// The preview of a drawn Segment (ADR-039 §15): mini-map, full figures, profile, the name with
@@ -223,40 +222,5 @@ struct SegmentCreatedView: View {
     private var summary: String {
         ([ActivityFormatters.distance(figures.distance), SegmentMessages.grade(figures.averageGrade)]
             + (figures.climbCategory.map { [$0.label] } ?? [])).joined(separator: " · ")
-    }
-}
-
-/// The resampled path on an Outdoors map, framed on it, with its start and finish markers;
-/// gestures off, the map sits in a scrolling page.
-struct SegmentTrackMap: View {
-    let track: [Coordinate]
-
-    var body: some View {
-        let line = track.map(\.locationCoordinate)
-        Map(initialViewport: .overview(
-            geometry: LineString(line),
-            geometryPadding: EdgeInsets(top: 32, leading: 32, bottom: 32, trailing: 32)
-        )) {
-            PolylineAnnotation(lineCoordinates: line)
-                .lineColor(UIColor(Theme.accent))
-                .lineWidth(4)
-                .lineJoin(.round)
-            RouteEndpointsContent(coordinates: line)
-        }
-        .mapStyle(.outdoors)
-        .gestureOptions(GestureOptions(
-            panEnabled: false,
-            pinchEnabled: false,
-            rotateEnabled: false,
-            simultaneousRotateAndPinchZoomEnabled: false,
-            pinchZoomEnabled: false,
-            pinchPanEnabled: false,
-            pitchEnabled: false,
-            doubleTapToZoomInEnabled: false,
-            doubleTouchToZoomOutEnabled: false,
-            quickZoomEnabled: false
-        ))
-        .accessibilityElement()
-        .accessibilityLabel("Carte du Segment")
     }
 }

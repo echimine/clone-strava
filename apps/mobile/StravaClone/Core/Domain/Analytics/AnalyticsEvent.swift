@@ -58,7 +58,8 @@ enum AnalyticsEvent: Equatable, Sendable {
     case emailCodeFailed(reason: CodeFailure)
     /// A session exists. `isNewAccount` also when "Se connecter" created the account.
     case signedIn(method: AuthMethod, isNewAccount: Bool)
-    case paywallViewed(layout: PaywallVariant, isNewAccount: Bool)
+    /// `entry`: the Onboarding, or a lock of a Segment's Leaderboard (ADR-039 §9).
+    case paywallViewed(layout: PaywallVariant, isNewAccount: Bool, entry: PaywallEntry)
     /// Left without being shown: its offers could not be loaded.
     case paywallSkipped(reason: PaywallSkipReason)
     /// "Démarrer l'essai".
@@ -96,6 +97,8 @@ enum AnalyticsEvent: Equatable, Sendable {
     case athleteBlocked(source: BlockSource)
     /// "Débloquer" confirmed in Réglages > "Athlètes bloqués", never with the athlete's id.
     case athleteUnblocked
+    /// A Segment's Leaderboard screen shown, then each change of its filter (ADR-039 §16).
+    case leaderboardViewed(filter: LeaderboardViewedFilter)
     /// « Retirer ce temps de mes meilleurs efforts » went through (ADR-039 §16): the distance in
     /// meters (21 097,5 for the half marathon).
     case bestEffortRemoved(distanceM: Double)
@@ -139,6 +142,7 @@ enum AnalyticsEvent: Equatable, Sendable {
         case .galleryViewed: "gallery_viewed"
         case .athleteBlocked: "athlete_blocked"
         case .athleteUnblocked: "athlete_unblocked"
+        case .leaderboardViewed: "leaderboard_viewed"
         case .bestEffortRemoved: "best_effort_removed"
         case .segmentFavorited: "segment_favorited"
         }
@@ -187,8 +191,8 @@ enum AnalyticsEvent: Equatable, Sendable {
             ["reason": .string(reason.rawValue)]
         case .signedIn(let method, let isNewAccount):
             ["method": .string(method.rawValue), "isNewAccount": .bool(isNewAccount)]
-        case .paywallViewed(let layout, let isNewAccount):
-            ["layout": .string(layout.rawValue), "isNewAccount": .bool(isNewAccount)]
+        case .paywallViewed(let layout, let isNewAccount, let entry):
+            ["layout": .string(layout.rawValue), "isNewAccount": .bool(isNewAccount), "entry": .string(entry.rawValue)]
         case .paywallSkipped(let reason):
             ["reason": .string(reason.rawValue)]
         case .paywallTrialTapped(let layout, let period):
@@ -221,6 +225,8 @@ enum AnalyticsEvent: Equatable, Sendable {
             ["source": .string(source.rawValue)]
         case .athleteUnblocked:
             ["source": .string("settings")]
+        case .leaderboardViewed(let filter):
+            ["filter": .string(filter.rawValue)]
         case .bestEffortRemoved(let distanceM):
             ["distance": .double(distanceM)]
         }

@@ -30,6 +30,7 @@ import { SegmentsModule } from "./segments/segments.module.js";
 import { AppLoggingModule } from "./logging/logging.module.js";
 import { MeModule } from "./me/me.module.js";
 import { RealtimeTokenModule } from "./realtime-token/realtime-token.module.js";
+import { SegmentsModule } from "./segments/segments.module.js";
 import { WebhooksModule } from "./webhooks/webhooks.module.js";
 
 // `forRoot(...)` dynamic modules below are synchronous (no DI injection of

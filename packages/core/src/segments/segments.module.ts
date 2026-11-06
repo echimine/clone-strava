@@ -17,6 +17,10 @@ import { SegmentsService } from "./segments.service.js";
 import { SegmentCreationRepository } from "./repositories/segment-creation.repository.js";
 import { ManageOwnSegmentUseCase } from "./use-cases/manage-own-segment.use-case.js";
 import { SegmentFavoritesUseCase } from "./use-cases/segment-favorites.use-case.js";
+import { LeaderboardRepository } from "./repositories/leaderboard.repository.js";
+import { SegmentSheetRepository } from "./repositories/segment-sheet.repository.js";
+import { GetSegmentLeaderboardUseCase } from "./use-cases/get-segment-leaderboard.use-case.js";
+import { GetSegmentSheetUseCase } from "./use-cases/get-segment-sheet.use-case.js";
 import { ExcludedSourceKeyRepository } from "./repositories/excluded-source-key.repository.js";
 import { ImportNervoSegmentsUseCase } from "./use-cases/import-nervo-segments.use-case.js";
 import { DeleteSegmentAsAdministratorUseCase } from "./use-cases/delete-segment-as-administrator.use-case.js";
@@ -45,6 +49,10 @@ import { ExportOpenSegmentsUseCase } from "./use-cases/export-open-segments.use-
     SegmentCreationRepository,
     ManageOwnSegmentUseCase,
     SegmentFavoritesUseCase,
+    LeaderboardRepository,
+    SegmentSheetRepository,
+    GetSegmentLeaderboardUseCase,
+    GetSegmentSheetUseCase,
     ExcludedSourceKeyRepository,
     ImportNervoSegmentsUseCase,
     DeleteSegmentAsAdministratorUseCase,

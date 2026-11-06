@@ -115,6 +115,7 @@ struct RootView: View {
     @State var itineraryCreation: ItineraryCreationFlow
     /// Creating a Segment (ADR-039 §15), from the Map's « Créer » menu and Plus › « Segments ».
     @State var segmentCreation: SegmentCreationFlow
+    /// Creating a Segment, Plus › « Segments », a Segment's sheet and Leaderboard (ADR-039 §15).
     let segmentScreens: SegmentScreens
     let itinerarySynchronizer: ItinerarySynchronizer
     let connectivityChanges: @MainActor () -> AsyncStream<Bool>
@@ -432,8 +433,7 @@ struct RootView: View {
             athleteProfile: { AnyView(athleteProfile($0, path: path)) },
             statistics: { AnyView(athleteStatistics($0)) },
             follows: { AnyView(followLists($0)) },
-            // The sheet is #251's (ADR-039 §15): until then, its title only.
-            segment: { _ in AnyView(Text("Segment").navigationTitle("Segment")) }
+            segment: { AnyView(segmentSheet($0, path: path)) }
         )
     }
 

@@ -137,7 +137,8 @@ describe("GET /v1/activities/:id/results (integration)", () => {
         elapsedTimeS: 170,
         medal: "gold",
         isFirstPass: false,
-        localLegend: false,
+        // Léa is the only athlete here over 90 days: she holds the Local Legend.
+        localLegend: true,
         startPoint: { lat: 48.85, lon: 2.35 },
       },
       {
@@ -146,10 +147,30 @@ describe("GET /v1/activities/:id/results (integration)", () => {
         elapsedTimeS: 300,
         medal: "gold",
         isFirstPass: true,
-        localLegend: false,
+        localLegend: true,
         startPoint: { lat: 48.85, lon: 2.35 },
       },
     ]);
+  }, 30_000);
+
+  it("crowns an Effort whose athlete holds the Segment's Local Legend now, after the viewer filter", async () => {
+    const rival = await api.seedAthlete("Rival");
+    const activity = await api.seedActivity(author);
+    const held = await segment("Tenue par Léa");
+    const taken = await segment("Prise par Rival");
+    await effort(activity, held, { startIndex: 0 });
+    await effort(activity, taken, { startIndex: 20 });
+    for (const index of [0, 1]) {
+      await effort(await api.seedActivity(rival), taken, { startIndex: index });
+    }
+    await matched(activity);
+
+    const crowns = async (viewer: string) =>
+      Object.fromEntries((await results(activity, viewer)).body.efforts.map((e) => [e.segment.name, e.localLegend]));
+
+    expect(await crowns(stranger)).toEqual({ "Tenue par Léa": true, "Prise par Rival": false });
+    await api.sql("insert into social.athlete_block (blocker_id, blocked_id) values ($1, $2)", [author, rival]);
+    expect(await crowns(author)).toEqual({ "Tenue par Léa": true, "Prise par Rival": true });
   }, 30_000);
 
   it("leaves out the Efforts in the privacy zone for everyone but the author", async () => {

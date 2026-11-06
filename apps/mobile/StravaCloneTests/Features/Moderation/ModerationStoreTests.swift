@@ -27,6 +27,24 @@ struct ModerationStoreTests {
         #expect(store.reasons == [.spam, .harassment, .sexualOrViolent, .impersonation, .other])
     }
 
+    /// ADR-039 §11: a Segment has no athlete shown, and reporting it never hides it.
+    @Test func reportingASegmentNeverHidesItNorOffersToBlock() async {
+        let repository = FakeModerationRepository()
+        let store = makeStore(repository)
+        var hidden: [ReportHiding] = []
+        store.report(.segment("s1")) { hidden.append($0) }
+        #expect(store.reasons == [.spam, .harassment, .sexualOrViolent, .other])
+        #expect(ModerationMessages.reportTitle(.segment) == "Signaler ce Segment")
+        store.reason = .spam
+
+        await store.send()
+
+        #expect(repository.calls == [.report(.segment("s1"), .spam, note: nil)])
+        #expect(store.sheetPhase == .done(.reported))
+        #expect(hidden.isEmpty)
+        #expect(store.sheet?.target.author == nil)
+    }
+
     @Test func needsAReasonAndANoteWithAutre() {
         let store = makeStore(FakeModerationRepository())
         store.report(.comment("c1", by: lea))

@@ -39,7 +39,7 @@ export class ActivityResultsController {
     const activity = await this.activitiesService.getDetail(user.userId, activityId, filter);
     const [{ poolLengthM, bestEfforts }, { matchingInProgress, efforts }] = await Promise.all([
       this.activitiesService.getBestEffortResults(activity.id),
-      this.segmentsService.getActivityResults(activity.id, user.userId),
+      this.segmentsService.getActivityResults(activity.id, user.userId, filter),
     ]);
     const removable = activity.userId === user.userId;
     return {

@@ -21,6 +21,15 @@ import { SegmentCreationRepository } from "./repositories/segment-creation.repos
 import { ManageOwnSegmentUseCase } from "./use-cases/manage-own-segment.use-case.js";
 import { SegmentFavoritesUseCase } from "./use-cases/segment-favorites.use-case.js";
 import {
+  GetSegmentLeaderboardUseCase,
+  type LeaderboardReader,
+  type LeaderboardRequest,
+  type LeaderboardView,
+} from "./use-cases/get-segment-leaderboard.use-case.js";
+import { GetSegmentSheetUseCase, type SegmentSheetView } from "./use-cases/get-segment-sheet.use-case.js";
+import { SegmentSheetRepository } from "./repositories/segment-sheet.repository.js";
+import { LeaderboardRepository } from "./repositories/leaderboard.repository.js";
+import {
   ImportNervoSegmentsUseCase,
   type NervoImportReport,
 } from "./use-cases/import-nervo-segments.use-case.js";
@@ -52,6 +61,10 @@ export class SegmentsService {
     private readonly ownSegments: ManageOwnSegmentUseCase,
     private readonly favoriteSegments: SegmentFavoritesUseCase,
     private readonly creations: SegmentCreationRepository,
+    private readonly getLeaderboardUseCase: GetSegmentLeaderboardUseCase,
+    private readonly getSheetUseCase: GetSegmentSheetUseCase,
+    private readonly sheets: SegmentSheetRepository,
+    private readonly leaderboards: LeaderboardRepository,
     private readonly importNervoSegmentsUseCase: ImportNervoSegmentsUseCase,
     private readonly deleteSegmentAsAdministratorUseCase: DeleteSegmentAsAdministratorUseCase,
     private readonly exportOpenSegmentsUseCase: ExportOpenSegmentsUseCase,
@@ -59,6 +72,33 @@ export class SegmentsService {
     private readonly effortResults: EffortResultsRepository,
     private readonly mapSegments: SegmentMapRepository,
   ) {}
+
+  /**
+   * The current Local Legend (Tous) of each Segment that has one, after the viewer filter
+   * (ADR-039 §8): the laurel crown on an Effort whose athlete holds the title. Nothing stored.
+   */
+  async getLocalLegends(segmentIds: readonly string[], exclusions: ViewerExclusions): Promise<Map<string, string>> {
+    const legends = await this.leaderboards.findLocalLegends(segmentIds, "all", exclusions.hiddenAthleteIds);
+    return new Map([...legends].map(([segmentId, legend]) => [segmentId, legend.userId]));
+  }
+
+  /** A Report's target (ADR-039 §11): `undefined` once deleted. The creator is never shown. */
+  getReportTarget(segmentId: string): Promise<{ name: string; createdBy: string | null } | undefined> {
+    return this.sheets.findReportTarget(segmentId);
+  }
+
+  /** `GET /v1/segments/:id` (ADR-039 §12): free; `404 segment_not_found` once deleted. */
+  getSheet(segmentId: string, reader: LeaderboardReader): Promise<SegmentSheetView> {
+    return this.getSheetUseCase.execute(segmentId, reader);
+  }
+
+  /**
+   * `GET /v1/segments/:id/leaderboard` (ADR-039 §8, §9): `404 segment_not_found`,
+   * `403 premium_required`, `422` for an unknown filter or cursor.
+   */
+  getLeaderboard(segmentId: string, request: LeaderboardRequest, reader: LeaderboardReader): Promise<LeaderboardView> {
+    return this.getLeaderboardUseCase.execute(segmentId, request, reader);
+  }
 
   /**
    * The Segments of a zone of the Map tab (ADR-039 §12), the most athletes first. `apps/api`
@@ -174,12 +214,16 @@ export class SegmentsService {
    * still in progress, and its Efforts the viewer may see, in trace order. The caller has checked
    * that the viewer may see the Activity.
    */
-  async getActivityResults(activityId: string, viewerId: string): Promise<ActivitySegmentResults> {
+  async getActivityResults(
+    activityId: string,
+    viewerId: string,
+    exclusions: ViewerExclusions,
+  ): Promise<ActivitySegmentResults> {
     const [matchingInProgress, rows] = await Promise.all([
       this.effortResults.isMatchingInProgress(activityId, SEGMENT_MATCHING_VERSION),
       this.effortResults.findByActivity(activityId, viewerId),
     ]);
-    const legends = await this.localLegendsAmong(rows);
+    const legends = await this.localLegendsAmong(rows, exclusions);
     return {
       matchingInProgress,
       efforts: rows.map((row) => ({
@@ -204,10 +248,13 @@ export class SegmentsService {
 
   /**
    * `segmentId:userId` pairs whose athlete currently holds the Segment's Local Legend (Tous,
-   * ADR-039 §8). Extension point: the Local Legend is computed by the Segment sheet (#251); until
-   * it is available here, nobody wears the crown in « Résultats ».
+   * ADR-039 §8), after the viewer filter: the laurel crown of « Résultats ».
    */
-  private async localLegendsAmong(_efforts: ReadonlyArray<{ segmentId: string; userId: string }>): Promise<Set<string>> {
-    return new Set();
+  private async localLegendsAmong(
+    efforts: ReadonlyArray<{ segmentId: string; userId: string }>,
+    exclusions: ViewerExclusions,
+  ): Promise<Set<string>> {
+    const holders = await this.getLocalLegends([...new Set(efforts.map((effort) => effort.segmentId))], exclusions);
+    return new Set([...holders].map(([segmentId, userId]) => `${segmentId}:${userId}`));
   }
 }

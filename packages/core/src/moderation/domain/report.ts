@@ -5,8 +5,8 @@ export interface NewReport {
   reporterId: string;
   targetType: ReportTargetType;
   targetId: string;
-  /** The target's author (the athlete themself for an `athlete` target). */
-  targetUserId: string;
+  /** The target's author (the athlete themself for an `athlete` target); null for a Segment with no creator (ADR-039 §11). */
+  targetUserId: string | null;
   reason: ReportReason;
   note?: string | null;
   /** Copy of the target's texts (ADR-038 §9), shaped by `targetType`. */

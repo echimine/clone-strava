@@ -1,9 +1,9 @@
 import SwiftUI
 
-/// Segments (ADR-039 §15): the Map tab's Segments mode, creating a Segment and Plus ›
-/// « Segments ». The Segment is drawn with the
-/// Itinerary editor: built here, the composition root, since features never build each other's
-/// screens (ADR-007 rule 5).
+/// Segments (ADR-039 §15): the Map tab's Segments mode, creating a Segment, Plus › « Segments »,
+/// a Segment's sheet and Leaderboard, and the Paywall their locks open in a sheet. The Segment is
+/// drawn with the Itinerary editor: built here, the composition root, since features never build
+/// each other's screens (ADR-007 rule 5).
 extension Di {
     func makeSegmentCreationFlow() -> SegmentCreationFlow {
         let connectivityMonitor = connectivityMonitor

@@ -114,11 +114,13 @@ struct ReportSheet: View {
                         .multilineTextAlignment(.center)
                 }
             }
-            Button(ModerationMessages.blockToo(target.author.firstName), role: .destructive) {
-                store.blockReportedAuthor()
+            if let author = target.author {
+                Button(ModerationMessages.blockToo(author.firstName), role: .destructive) {
+                    store.blockReportedAuthor()
+                }
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("reportSheet.blockToo")
             }
-            .buttonStyle(.bordered)
-            .accessibilityIdentifier("reportSheet.blockToo")
         }
         .padding(Theme.spacing * 2)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
