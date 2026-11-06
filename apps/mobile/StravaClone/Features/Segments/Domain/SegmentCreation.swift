@@ -67,8 +67,8 @@ enum SegmentCreationError: Error, Equatable, Sendable {
     case unavailable
     /// `409 duplicate`.
     case duplicate(SegmentRef)
-    /// `429 quota_reached`: 10 Segments over the rolling 24 h.
-    case quotaReached
+    /// `429 quota`: 10 Segments over the rolling 24 h.
+    case quota
     /// `422`: a rule the server checked again, or the name.
     case rejected([SegmentRuleViolation])
 }

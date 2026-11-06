@@ -106,9 +106,14 @@ struct APISegmentCreationRepositoryTests {
         await #expect(throws: SegmentCreationError.duplicate(SegmentRef(id: "seg-2", name: "Le Semnoz"))) {
             try await duplicate.create(sport: .run, name: "Mon Semnoz", points: points)
         }
-        let quota = makeRepository(answering: 429, #"{ "error": { "code": "quota_reached", "message": "x" } }"#)
-        await #expect(throws: SegmentCreationError.quotaReached) {
+        let quota = makeRepository(answering: 429, #"{ "error": { "code": "quota", "message": "x" } }"#)
+        await #expect(throws: SegmentCreationError.quota) {
             try await quota.create(sport: .run, name: "Mon Semnoz", points: points)
+        }
+        // The global throttler's 429 is not the 10-a-day quota: worth retrying.
+        let throttled = makeRepository(answering: 429, #"{ "error": { "code": "too_many_requests", "message": "x" } }"#)
+        await #expect(throws: SegmentCreationError.unavailable) {
+            try await throttled.create(sport: .run, name: "Mon Semnoz", points: points)
         }
         let rejected = makeRepository(answering: 422, #"{ "error": { "code": "too_short", "message": "x", "details": [{ "field": "points", "message": "too_short" }, { "field": "points", "message": "loop" }] } }"#)
         await #expect(throws: SegmentCreationError.rejected([.tooShort, .loop])) {

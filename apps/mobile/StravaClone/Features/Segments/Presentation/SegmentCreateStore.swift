@@ -75,7 +75,7 @@ final class SegmentCreateStore {
         } catch {
             switch error {
             case .duplicate(let existing): duplicate = existing
-            case .quotaReached: isQuotaReached = true
+            case .quota: isQuotaReached = true
             case .offline: failure = SegmentMessages.connectionRequired
             case .rejected(let violations):
                 failure = violations.first.map { SegmentMessages.violation($0, sport: sport) } ?? SegmentMessages.createFailed

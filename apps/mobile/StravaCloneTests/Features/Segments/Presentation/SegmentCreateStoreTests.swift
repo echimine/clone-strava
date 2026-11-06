@@ -81,7 +81,7 @@ struct SegmentCreateStoreTests {
         #expect(!fromPreview.canCreate)
 
         let repository = FakeSegmentCreationRepository()
-        await repository.answerCreation(with: .failure(.quotaReached))
+        await repository.answerCreation(with: .failure(.quota))
         let fromServer = makeStore(repository: repository)
         fromServer.name = "Col du Semnoz"
         await fromServer.create()

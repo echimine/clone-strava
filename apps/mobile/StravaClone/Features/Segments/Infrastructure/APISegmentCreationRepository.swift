@@ -110,8 +110,8 @@ struct APISegmentCreationRepository: SegmentCreationRepository {
                         throw .duplicate(SegmentRef(id: existing.id, name: existing.name))
                     }
                     throw .unavailable
-                case (429, _):
-                    throw .quotaReached
+                case (429, "quota"):
+                    throw .quota
                 case (422, _):
                     // Every broken rule is in `details`; an invalid name has none of them.
                     let codes = envelope?.details.map { $0.map(\.message) } ?? [envelope?.code].compactMap { $0 }
