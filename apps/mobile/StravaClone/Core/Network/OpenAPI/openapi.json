@@ -8149,7 +8149,10 @@
                 "additionalProperties": false
               },
               "myEffortCount": {
-                "type": "integer",
+                "type": [
+                  "integer",
+                  "null"
+                ],
                 "minimum": 0,
                 "maximum": 9007199254740991
               }
@@ -8347,7 +8350,10 @@
                     "additionalProperties": false
                   },
                   "myEffortCount": {
-                    "type": "integer",
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
                     "minimum": 0,
                     "maximum": 9007199254740991
                   }
@@ -8592,7 +8598,10 @@
                 "additionalProperties": false
               },
               "myEffortCount": {
-                "type": "integer",
+                "type": [
+                  "integer",
+                  "null"
+                ],
                 "minimum": 0,
                 "maximum": 9007199254740991
               }

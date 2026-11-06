@@ -40,7 +40,8 @@ struct LeaderboardEntry: Identifiable, Equatable, Sendable {
     var id: String { effortID }
 }
 
-/// The Local Legend for the sex chip, and my own count over the same 90 days (ADR-039 §8).
+/// The Local Legend for the sex chip, and my own count over the same 90 days in that sex
+/// (ADR-039 §8): nil when I am not of that sex.
 struct LocalLegend: Equatable, Sendable {
     struct Holder: Equatable, Sendable {
         let athlete: ActivityAuthor
@@ -48,11 +49,12 @@ struct LocalLegend: Equatable, Sendable {
     }
 
     let holder: Holder?
-    let myEffortCount: Int
+    let myEffortCount: Int?
 
-    /// « Encore k pour devenir Légende locale »: nil when nobody holds it, or when I do.
+    /// « Encore k pour devenir Légende locale »: nil when nobody holds it, when I do, or when I am
+    /// not of its sex.
     func effortsToTakeIt(viewerID: String) -> Int? {
-        guard let holder, holder.athlete.id != viewerID else { return nil }
+        guard let holder, let myEffortCount, holder.athlete.id != viewerID else { return nil }
         return holder.effortCount - myEffortCount + 1
     }
 }

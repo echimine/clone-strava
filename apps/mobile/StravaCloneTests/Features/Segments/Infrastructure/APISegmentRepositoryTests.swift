@@ -107,6 +107,19 @@ struct APISegmentRepositoryTests {
         ])
     }
 
+    @Test func showsNoEffortsToTakeTheLegendOutsideMySex() async throws {
+        respond(200, leaderboard.replacingOccurrences(of: #""myEffortCount": 4"#, with: #""myEffortCount": null"#))
+
+        let board = try await makeRepository().leaderboard(
+            id: segmentId,
+            selection: LeaderboardSelection(gender: .female),
+            cursor: nil
+        )
+
+        #expect(board.localLegend.myEffortCount == nil)
+        #expect(board.localLegend.effortsToTakeIt(viewerID: "someone-else") == nil)
+    }
+
     @Test func tellsPremiumRequiredAndADeletedSegmentApart() async {
         let repository = makeRepository()
 

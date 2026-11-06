@@ -30,8 +30,8 @@ struct LocalLegendCard: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                if showsMine, let missing = legend.effortsToTakeIt(viewerID: viewerID ?? "") {
-                    Text(SegmentMessages.toTakeTheLegend(mine: legend.myEffortCount, missing: missing))
+                if showsMine, let mine = legend.myEffortCount, let missing = legend.effortsToTakeIt(viewerID: viewerID ?? "") {
+                    Text(SegmentMessages.toTakeTheLegend(mine: mine, missing: missing))
                         .font(.footnote)
                 }
             }
