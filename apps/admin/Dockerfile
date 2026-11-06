@@ -25,6 +25,10 @@ COPY --from=pruner /app/out/full/ .
 # NEXT_PUBLIC_* utilisée côté client doit être fournie ICI, au build, pas seulement au runtime.
 ARG NEXT_PUBLIC_MAPBOX_TOKEN
 ENV NEXT_PUBLIC_MAPBOX_TOKEN=${NEXT_PUBLIC_MAPBOX_TOKEN}
+# The /api/* rewrites (next.config.ts) are written into routes-manifest.json at build time:
+# API_INTERNAL_URL set only in the compose is ignored, and the default localhost:3001 refuses.
+ARG API_INTERNAL_URL=http://api:3001
+ENV API_INTERNAL_URL=${API_INTERNAL_URL}
 RUN pnpm turbo run build --filter=admin
 
 # ---- runner (sortie Next standalone — chemins monorepo) ----
