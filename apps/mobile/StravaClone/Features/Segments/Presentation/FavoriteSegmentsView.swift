@@ -64,7 +64,7 @@ struct FavoriteSegmentsView: View {
                 NavigationLink(value: SegmentRequest(segmentID: segment.id)) {
                     FavoriteSegmentRowView(row: FavoriteSegmentRow(segment: segment))
                 }
-                .accessibilityIdentifier("starredSegment.\(segment.id)")
+                .accessibilityIdentifier("favoriteSegment.\(segment.id)")
                 .onAppear {
                     if segment.id == store.items.last?.id {
                         Task { await store.loadMore() }

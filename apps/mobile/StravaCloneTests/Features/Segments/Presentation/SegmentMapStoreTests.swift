@@ -105,7 +105,7 @@ struct SegmentMapStoreTests {
         #expect(store.emptyMessage == "Aucun Segment favori dans cette zone.")
     }
 
-    @Test func aCardStarredInOneTapIsSentAndCountedThenUnstarred() async {
+    @Test func aCardAddedToFavoritesInOneTapIsSentAndCountedThenRemoved() async {
         let analytics = FakeAnalyticsClient()
         let (store, repository, favorites) = make(analytics: analytics)
         repository.segments = [.fixture("a")]
