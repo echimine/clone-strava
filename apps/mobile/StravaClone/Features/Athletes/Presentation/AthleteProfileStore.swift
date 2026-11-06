@@ -30,6 +30,8 @@ final class AthleteProfileStore {
     @ObservationIgnored private let loadProfile: LoadAthleteProfile
     @ObservationIgnored private let loadYearToDateDistance: LoadAthleteYearToDateDistance
     @ObservationIgnored private var generation = 0
+    /// When the header last came from the server: a return to the screen refreshes it once stale.
+    @ObservationIgnored private var lastLoadedAt: Date?
 
     init(
         athleteId: String,
@@ -56,6 +58,14 @@ final class AthleteProfileStore {
         await refresh()
     }
 
+    /// Back on the screen or in the foreground: refreshes silently (the content stays shown) when
+    /// the last load is older than `staleAfter`, so the counters follow what happened elsewhere
+    /// without a pull-to-refresh.
+    func refreshIfStale(staleAfter: TimeInterval = 30) async {
+        guard phase == .loaded, let lastLoadedAt, Date().timeIntervalSince(lastLoadedAt) > staleAfter else { return }
+        await refresh()
+    }
+
     /// Pull-to-refresh and "Réessayer": the header, Plus's figure, the Activities and, once
     /// opened, the Gallery again.
     func refresh() async {
@@ -73,6 +83,7 @@ final class AthleteProfileStore {
             profile = loaded
             follows.track(athleteId, status: loaded.viewerFollowStatus)
             phase = .loaded
+            lastLoadedAt = Date()
         } catch {
             guard current == generation else { return }
             if profile == nil {
