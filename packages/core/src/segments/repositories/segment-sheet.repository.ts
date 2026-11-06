@@ -2,7 +2,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import { sql } from "drizzle-orm";
 import type { Database } from "@repo/db";
 import { DATABASE } from "../../infrastructure/index.js";
-import { DEFAULT_PRIVACY_ZONE_RADIUS_M } from "../domain/segment-sports.js";
+import { standsOnLeaderboard } from "./standing-effort.js";
 
 /** A Segment as its sheet reads it (ADR-039 §12), for one viewer. */
 export interface SegmentSheetRow {
@@ -37,8 +37,6 @@ export interface ViewerEffortRow {
   status: "valid" | "suspicious" | "rejected";
   standing: boolean;
 }
-
-const RADIUS = sql.raw(`coalesce(p.privacy_zone_radius_m, ${DEFAULT_PRIVACY_ZONE_RADIUS_M})`);
 
 /** The sheet's reads on `segments` (ADR-039 §12), joining only the published views. */
 @Injectable()
@@ -124,9 +122,7 @@ export class SegmentSheetRepository {
       standing: boolean;
     }>(sql`
       select e.id, e.activity_id, a.visibility, e.started_at, e.elapsed_time_s, e.medal, e.status,
-             (a.visibility = 'public' and e.status <> 'rejected'
-              and e.min_distance_to_activity_start_m >= ${RADIUS}
-              and e.min_distance_to_activity_end_m >= ${RADIUS}) as standing
+             (${standsOnLeaderboard(sql.raw("e"), sql.raw("a"), sql.raw("p"))}) as standing
       from segments.segment_effort e
       join activities.leaderboard_activity a on a.id = e.activity_id
       left join users.leaderboard_athlete p on p.user_id = e.user_id

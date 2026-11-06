@@ -1,7 +1,8 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { sql, type SQL } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { schema, type Database } from "@repo/db";
 import { DATABASE, type ViewerExclusions } from "../../infrastructure/index.js";
+import { STANDING_EFFORTS } from "./standing-effort.js";
 
 /** A Segment of the Map tab as the read gives it (ADR-039 §12). */
 export interface MapSegmentRecord {
@@ -29,26 +30,6 @@ export interface MapSegmentSearch {
 }
 
 /**
- * An Effort that stands on the Leaderboard (ADR-039 §8): of a public, processed Activity (the
- * published view `activities.leaderboard_activity`), outside its athlete's current privacy zone
- * (the published view `users.leaderboard_athlete`), not rejected. `effort` is the alias of the
- * `segment_effort` row.
- */
-function standing(effort: SQL): SQL {
-  return sql`${effort}.status <> 'rejected'
-    and exists (
-      select 1 from ${schema.leaderboardActivity} la
-      where la.id = ${effort}.activity_id and la.visibility = 'public'
-    )
-    and exists (
-      select 1 from ${schema.leaderboardAthlete} lu
-      where lu.user_id = ${effort}.user_id
-        and ${effort}.min_distance_to_activity_start_m >= lu.privacy_zone_radius_m
-        and ${effort}.min_distance_to_activity_end_m >= lu.privacy_zone_radius_m
-    )`;
-}
-
-/**
  * The Map search (ADR-039 §12): reads `segments.segment` through the GiST index on `path`, and
  * counts at read time from `segment_effort`, `segment_favorite` and the published views.
  */
@@ -59,7 +40,6 @@ export class SegmentMapRepository {
   async search(search: MapSegmentSearch, exclusions: ViewerExclusions): Promise<MapSegmentRecord[]> {
     const [minLng, minLat, maxLng, maxLat] = search.bbox;
     const zone = sql`ST_MakeEnvelope(${minLng}, ${minLat}, ${maxLng}, ${maxLat}, 4326)`;
-    const e = sql.raw("e");
     const hidden = [...exclusions.hiddenAthleteIds];
     const result = await this.db.execute<{
       id: string;
@@ -80,12 +60,10 @@ export class SegmentMapRepository {
           select 1 from ${schema.segmentFavorite} f where f.segment_id = s.id and f.user_id = ${search.viewerId}
         ) as starred,
         s.distance_m, s.avg_grade, s.climb_category, s.map_polyline,
-        (select count(distinct e.user_id)::int from ${schema.segmentEffort} e
-          where e.segment_id = s.id and ${standing(e)}) as athlete_count,
+        (select count(distinct e.user_id)::int ${STANDING_EFFORTS} and e.segment_id = s.id) as athlete_count,
         (select min(e.elapsed_time_s) from ${schema.segmentEffort} e
           where e.segment_id = s.id and e.user_id = ${search.viewerId} and e.status <> 'rejected') as my_best_time_s,
-        (select min(e.elapsed_time_s) from ${schema.segmentEffort} e
-          where e.segment_id = s.id and ${standing(e)}
+        (select min(e.elapsed_time_s) ${STANDING_EFFORTS} and e.segment_id = s.id
             ${hidden.length === 0 ? sql`` : sql`and not (e.user_id = any(${`{${hidden.join(",")}}`}::uuid[]))`}) as leader_time_s
       from ${schema.segment} s
       where s.path && ${zone} and ST_Intersects(s.path, ${zone})

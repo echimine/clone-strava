@@ -4,7 +4,7 @@ import { schema, type Database } from "@repo/db";
 import { DATABASE } from "../../infrastructure/index.js";
 import type { EffortMedalCount } from "../domain/effort-result.js";
 import type { Medal } from "../domain/segment-medals.js";
-import { DEFAULT_PRIVACY_ZONE_RADIUS_M } from "../domain/segment-sports.js";
+import { outsidePrivacyZone } from "./standing-effort.js";
 
 /** An Effort row of « Résultats » before the Local Legend is known. */
 export interface EffortResultRow {
@@ -26,21 +26,10 @@ const athlete = schema.leaderboardAthlete;
 
 /**
  * An Effort the viewer may see (ADR-039 §8): not rejected, and outside its athlete's privacy zone
- * unless the viewer is that athlete. The radius is read now from the published view
- * `users.leaderboard_athlete`, so a changed radius applies at once.
+ * unless the viewer is that athlete, with the shared privacy zone rule (`standing-effort.ts`).
  */
 function visibleTo(viewerId: string): SQL {
-  const radius = sql`coalesce(${athlete.privacyZoneRadiusM}, ${DEFAULT_PRIVACY_ZONE_RADIUS_M})`;
-  return and(
-    ne(effort.status, "rejected"),
-    or(
-      eq(effort.userId, viewerId),
-      and(
-        sql`${effort.minDistanceToActivityStartM} >= ${radius}`,
-        sql`${effort.minDistanceToActivityEndM} >= ${radius}`,
-      ),
-    ),
-  )!;
+  return and(ne(effort.status, "rejected"), or(eq(effort.userId, viewerId), outsidePrivacyZone(effort, athlete)))!;
 }
 
 /**

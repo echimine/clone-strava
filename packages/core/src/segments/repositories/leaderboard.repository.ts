@@ -4,7 +4,7 @@ import type { LeaderboardGender } from "@repo/contracts";
 import type { Database } from "@repo/db";
 import { DATABASE } from "../../infrastructure/index.js";
 import type { LeaderboardCriteria, LeaderboardCursor } from "../domain/leaderboard-criteria.js";
-import { DEFAULT_PRIVACY_ZONE_RADIUS_M } from "../domain/segment-sports.js";
+import { STANDING_EFFORTS } from "./standing-effort.js";
 
 /** One athlete's line: their best Effort that stands, ranked within the query. */
 export interface LeaderboardLine {
@@ -31,20 +31,6 @@ export interface LeaderboardScope {
 export const LOCAL_LEGEND_WINDOW_DAYS = 90;
 
 const uuidArray = (ids: readonly string[]) => sql`${`{${ids.join(",")}}`}::uuid[]`;
-
-/**
- * An Effort that stands (ADR-039 §8): of a public Activity (published view
- * `activities.leaderboard_activity`, processed Activities only), outside the athlete's current
- * privacy zone (published view `users.leaderboard_athlete`), not rejected. `e`, `a` and `p` are
- * the Effort, its Activity and its athlete.
- */
-const STANDING_FROM = sql`
-  from segments.segment_effort e
-  join activities.leaderboard_activity a on a.id = e.activity_id and a.visibility = 'public'
-  left join users.leaderboard_athlete p on p.user_id = e.user_id
-  where e.status <> 'rejected'
-    and e.min_distance_to_activity_start_m >= coalesce(p.privacy_zone_radius_m, ${sql.raw(String(DEFAULT_PRIVACY_ZONE_RADIUS_M))})
-    and e.min_distance_to_activity_end_m >= coalesce(p.privacy_zone_radius_m, ${sql.raw(String(DEFAULT_PRIVACY_ZONE_RADIUS_M))})`;
 
 const AGE_YEARS = sql`date_part('year', age(current_date, p.birth_date))`;
 
@@ -80,7 +66,7 @@ function rankedLines(scope: LeaderboardScope): SQL {
   return sql`
     with standing as (
       select e.id, e.user_id, e.activity_id, e.elapsed_time_s, e.started_at
-      ${STANDING_FROM}
+      ${STANDING_EFFORTS}
         and e.segment_id = ${scope.segmentId}
         ${genderCondition(scope.gender)}${criteriaCondition(scope.criteria)}${hiddenCondition(scope.hiddenAthleteIds)}
     ),
@@ -150,7 +136,7 @@ export class LeaderboardRepository {
   /** Athletes with an Effort that stands, not filtered by Blocks and Bans (ADR-039 §8 counters). */
   async countAthletes(segmentId: string): Promise<number> {
     const result = await this.db.execute<{ count: number }>(sql`
-      select count(distinct e.user_id)::int as count ${STANDING_FROM} and e.segment_id = ${segmentId}`);
+      select count(distinct e.user_id)::int as count ${STANDING_EFFORTS} and e.segment_id = ${segmentId}`);
     return result.rows[0]?.count ?? 0;
   }
 
@@ -178,7 +164,7 @@ export class LeaderboardRepository {
     const result = await this.db.execute<{ segment_id: string; user_id: string; effort_count: number }>(sql`
       with per_activity as (
         select e.segment_id, e.user_id, e.activity_id, min(e.started_at) as started_at
-        ${STANDING_FROM}
+        ${STANDING_EFFORTS}
           and e.segment_id = any(${uuidArray(segmentIds)})
           and e.started_at >= now() - make_interval(days => ${LOCAL_LEGEND_WINDOW_DAYS})
           ${genderCondition(gender)}${hiddenCondition(hiddenAthleteIds)}
@@ -206,7 +192,7 @@ export class LeaderboardRepository {
       gender === "all" ? sql`true` : sql`exists (select 1 from users.leaderboard_athlete where user_id = ${userId} and gender = ${gender})`;
     const result = await this.db.execute<{ count: number; in_scope: boolean }>(sql`
       select count(distinct e.activity_id)::int as count, ${inScope} as in_scope
-      ${STANDING_FROM}
+      ${STANDING_EFFORTS}
         and e.segment_id = ${segmentId}
         and e.user_id = ${userId}
         and e.started_at >= now() - make_interval(days => ${LOCAL_LEGEND_WINDOW_DAYS})`);

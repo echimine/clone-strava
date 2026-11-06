@@ -134,6 +134,22 @@ describe("GET /v1/segments (integration)", () => {
     expect(own).toMatchObject({ athleteCount: 3, myBestTimeS: 200, leaderTimeS: null });
   });
 
+  it("counts an athlete without a profile with the default privacy zone, as the Leaderboard does", async () => {
+    const segment = await seedSegment([7.14, 45.89], [7.15, 45.9]);
+    const viewer = await api.seedAthlete("Vera");
+    const [noProfile, nearHome] = await Promise.all(["Noé", "Zia"].map((name) => api.seedAthlete(name)));
+    await seedEffort(segment, noProfile!, 300);
+    await seedEffort(segment, nearHome!, 200, { minDistanceToStartM: 50 });
+    await api.sql("delete from users.user_profile where user_id = any($1)", [[noProfile, nearHome]]);
+
+    const seen = (await search(viewer, `bbox=${ELSEWHERE}`)).body.items.find((item) => item.id === segment);
+    const board = (await (await api.call(`/segments/${segment}/leaderboard`, viewer)).json()) as { athleteCount: number };
+
+    // Without a profile, the default 200 m zone: 50 m from home does not stand.
+    expect(seen).toMatchObject({ athleteCount: 1, leaderTimeS: 300 });
+    expect(board.athleteCount).toBe(1);
+  });
+
   it("filters by sport and by the viewer's favourites, combined", async () => {
     const zone = "8.10,45.88,8.16,45.92";
     const viewer = await api.seedAthlete("Fanny");
