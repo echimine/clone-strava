@@ -119,4 +119,40 @@ struct APISegmentRepositoryTests {
         respond(409, #"{ "error": { "code": "has_other_efforts", "message": "" } }"#)
         await #expect(throws: SegmentError.hasOtherEfforts) { try await repository.delete(id: segmentId) }
     }
+
+    /// The star of a Map card and of a sheet: `PUT` to add, `DELETE` to take out, `204`.
+    @Test func addsAndRemovesAFavorite() async throws {
+        let repository = makeRepository()
+        respond(204, "")
+
+        try await repository.setFavorite(id: segmentId, true)
+        try await repository.setFavorite(id: segmentId, false)
+
+        let requests = SegmentURLProtocolStub.requests.value
+        #expect(requests.map(\.httpMethod) == ["PUT", "DELETE"])
+        #expect(requests.map(\.url?.path) == Array(repeating: "/v1/segments/\(segmentId)/favorite", count: 2))
+    }
+
+    @Test func aFavoriteOnADeletedSegmentIsNotFound() async {
+        let repository = makeRepository()
+        respond(404, #"{ "error": { "code": "segment_not_found", "message": "" } }"#)
+
+        await #expect(throws: SegmentError.notFound) { try await repository.setFavorite(id: segmentId, true) }
+    }
+
+    @Test func renamesWithPatchAndTellsAnInvalidName() async throws {
+        let repository = makeRepository()
+        respond(200, #"{ "id": "\#(segmentId)", "name": "Col du Semnoz" }"#)
+
+        try await repository.rename(id: segmentId, to: "Col du Semnoz")
+
+        let request = try #require(SegmentURLProtocolStub.requests.value.first)
+        #expect(request.httpMethod == "PATCH")
+        #expect(request.url?.path == "/v1/segments/\(segmentId)")
+
+        respond(422, #"{ "error": { "code": "validation_failed", "message": "", "details": [{ "field": "name", "message": "Too short" }] } }"#)
+        await #expect(throws: SegmentError.invalid(code: "validation_failed")) {
+            try await repository.rename(id: segmentId, to: "ab")
+        }
+    }
 }
