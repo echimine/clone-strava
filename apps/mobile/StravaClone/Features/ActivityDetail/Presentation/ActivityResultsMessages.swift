@@ -61,11 +61,13 @@ enum ActivityResultsMessages {
         return "\(Int(length.meters.rounded())) m"
     }
 
-    /// An Activity that is not public: its Efforts do not count on the Leaderboard.
-    static func notOnLeaderboard(_ visibility: ActivityVisibility) -> String? {
+    /// An Activity that is not public: its Efforts do not count on the Leaderboard. Only its
+    /// author reads « tes abonnés »; anyone else reads a neutral note.
+    static func notOnLeaderboard(_ visibility: ActivityVisibility, viewerIsAuthor: Bool) -> String? {
         switch visibility {
         case .public: nil
-        case .followers: "Activité visible par tes abonnés : ses Efforts ne comptent pas au Classement."
+        case .followers where viewerIsAuthor: "Activité visible par tes abonnés : ses Efforts ne comptent pas au Classement."
+        case .followers: "Activité réservée aux abonnés : ses Efforts ne comptent pas au Classement."
         case .private: "Activité privée : ses Efforts ne comptent pas au Classement."
         }
     }

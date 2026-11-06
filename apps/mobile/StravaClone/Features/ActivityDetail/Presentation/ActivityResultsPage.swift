@@ -31,7 +31,10 @@ struct ActivityResultsPage: View {
                 } header: {
                     Text(ActivityResultsMessages.segments)
                 } footer: {
-                    if !summary.allSegments.isEmpty, let note = ActivityResultsMessages.notOnLeaderboard(detail.visibility) {
+                    if !summary.allSegments.isEmpty, let note = ActivityResultsMessages.notOnLeaderboard(
+                        detail.visibility,
+                        viewerIsAuthor: detail.viewerIsAuthor
+                    ) {
                         Label(note, systemImage: "lock")
                     }
                 }
