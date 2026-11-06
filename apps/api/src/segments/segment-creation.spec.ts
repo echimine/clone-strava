@@ -334,11 +334,10 @@ describe("Segment creation (integration)", () => {
 
     it("allows 10 Segments per rolling 24 h (429 beyond, with Retry-After)", async () => {
       const athlete = await newAthlete();
-      // Nine created in the last 24 h, one just before: they count but the oldest leaves the window first.
+      // Ten creations in the last 24 h, the oldest 23 h ago: it leaves the window first.
       for (let i = 0; i < 10; i++) {
         await sql(
-          `insert into segments.segment (name, sport_type_code, created_by, created_at)
-           values ('Ancien', 'run', $1, now() - make_interval(hours => $2))`,
+          "insert into segments.segment_creation (user_id, created_at) values ($1, now() - make_interval(hours => $2))",
           [athlete, i === 0 ? 23 : 1],
         );
       }
@@ -348,13 +347,34 @@ describe("Segment creation (integration)", () => {
 
       const refused = await create(athlete, { sport: "run", name: "Un de trop", points: northPath(lon, 1_000) });
       expect(refused.status).toBe(429);
-      expect((await errorOf(refused)).code).toBe("quota_reached");
+      expect((await errorOf(refused)).code).toBe("quota");
       const retryAfterS = Number(refused.headers.get("retry-after"));
       expect(retryAfterS).toBeGreaterThan(3_500);
       expect(retryAfterS).toBeLessThanOrEqual(3_600);
 
-      await sql("update segments.segment set created_at = now() - interval '25 hours' where created_by = $1 and created_at < now() - interval '22 hours'", [athlete]);
+      await sql(
+        "update segments.segment_creation set created_at = now() - interval '25 hours' where user_id = $1 and created_at < now() - interval '22 hours'",
+        [athlete],
+      );
       await createOne(athlete, { name: "Enfin", points: northPath(lon, 1_000) });
+    });
+
+    it("counts the creations, not the Segments left: deleting one gives no creation back", async () => {
+      const athlete = await newAthlete();
+      for (let i = 0; i < 9; i++) {
+        await sql("insert into segments.segment_creation (user_id, created_at) values ($1, now() - interval '1 hour')", [
+          athlete,
+        ]);
+      }
+      const lon = lane();
+      const tenth = await createOne(athlete, { name: "Le dixième", points: northPath(lon, 1_000) });
+      expect((await call(`/segments/${tenth.id}`, athlete, { method: "DELETE" })).status).toBe(204);
+
+      const shown = (await (await preview(athlete, { sport: "run", points: northPath(lon, 1_000) })).json()) as SegmentPreview;
+      expect(shown.quotaLeft).toBe(0);
+      const refused = await create(athlete, { sport: "run", name: "Encore", points: northPath(lon, 1_000) });
+      expect(refused.status).toBe(429);
+      expect((await errorOf(refused)).code).toBe("quota");
     });
   });
 

@@ -49,7 +49,7 @@ export class CreateSegmentUseCase {
     };
   }
 
-  /** `422` broken rule (its code), `409 duplicate` (with `existing`), `429 quota_reached` (with `Retry-After`). */
+  /** `422` broken rule (its code), `409 duplicate` (with `existing`), `429 quota` (with `Retry-After`). */
   async create(userId: string, request: CreateSegmentRequest): Promise<CreatedSegment> {
     const measured = await this.measurement.measure(request.sport, request.points);
     if (measured.violations.length > 0) {
@@ -87,7 +87,7 @@ export class CreateSegmentUseCase {
     if (outcome.kind === "limited") {
       throw new HttpException(
         {
-          code: "quota_reached",
+          code: "quota",
           message: `At most ${SEGMENT_CREATIONS_PER_DAY} Segments per 24 hours`,
           retryAfterS: outcome.retryAfterS,
         },

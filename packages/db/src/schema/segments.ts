@@ -16,7 +16,7 @@ import { sportType } from "./sports.js";
 
 /**
  * `segments` module (ADR-017, ADR-021 §1/§7, amended by ADR-039 §17): owns `segment`,
- * `segment_effort`, `segment_favorite`, `excluded_source_key`, `activity_matching`.
+ * `segment_effort`, `segment_favorite`, `segment_creation`, `excluded_source_key`, `activity_matching`.
  */
 export const segmentsSchema = pgSchema("segments");
 
@@ -122,6 +122,22 @@ export const segmentFavorite = segmentsSchema.table(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [primaryKey({ columns: [table.userId, table.segmentId] })],
+);
+
+/**
+ * ADR-039 §5: one row per Segment an athlete created, kept when the Segment is deleted, so the
+ * quota of 10 per rolling 24 h counts creations and a deletion gives none back.
+ */
+export const segmentCreation = segmentsSchema.table(
+  "segment_creation",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("segment_creation_user_created_idx").on(table.userId, table.createdAt)],
 );
 
 /** ADR-039 §10: Nervo keys an Administrator deleted; the import never brings them back. */

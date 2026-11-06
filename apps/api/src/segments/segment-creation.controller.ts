@@ -68,7 +68,7 @@ export class SegmentCreationController {
 
   /**
    * Creates the Segment (everything recomputed), stars it for its creator and starts its
-   * retro-matching. `409 duplicate` (with `existing`), `429 quota_reached` (with
+   * retro-matching. `409 duplicate` (with `existing`), `429 quota` (with
    * `Retry-After`), `422` `too_short`, `too_long`, `loop` or an invalid name, `503` (retryable).
    */
   @Post("segments")

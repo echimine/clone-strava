@@ -8,6 +8,7 @@ import type { ClimbCategory } from "../domain/climb-category.js";
 import type { SegmentFigures } from "../domain/segment-geometry.js";
 
 const t = schema.segment;
+const creation = schema.segmentCreation;
 const effort = alias(schema.segmentEffort, "other_effort");
 
 /** A new Segment drawn by an athlete, everything computed (ADR-039 §5). */
@@ -50,7 +51,10 @@ export class SegmentCreationRepository {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`segments.create:${userId}`}, 0))`);
   }
 
-  /** The athlete's Segments of the last `hours`, and the seconds until the oldest leaves that window. */
+  /**
+   * The athlete's creations of the last `hours`, deleted Segments included (ADR-039 §5), and the
+   * seconds until the oldest leaves that window.
+   */
   async countRecent(
     userId: string,
     hours: number,
@@ -62,10 +66,10 @@ export class SegmentCreationRepository {
         total: count(),
         secondsUntilOldestExpires: sql<
           string | null
-        >`ceil(extract(epoch from (min(${t.createdAt}) + make_interval(hours => ${hours}) - now())))`,
+        >`ceil(extract(epoch from (min(${creation.createdAt}) + make_interval(hours => ${hours}) - now())))`,
       })
-      .from(t)
-      .where(and(eq(t.createdBy, userId), gt(t.createdAt, since)));
+      .from(creation)
+      .where(and(eq(creation.userId, userId), gt(creation.createdAt, since)));
     const seconds = row?.secondsUntilOldestExpires;
     return { total: row?.total ?? 0, secondsUntilOldestExpires: seconds === null || seconds === undefined ? null : Number(seconds) };
   }
@@ -99,7 +103,7 @@ export class SegmentCreationRepository {
     }));
   }
 
-  /** Inserts the Segment (`origin = athlete`) and stars it for its creator. */
+  /** Inserts the Segment (`origin = athlete`), journals the creation and stars it for its creator. */
   async insert(segment: NewAthleteSegment, tx: DbExecutor): Promise<StoredSegment> {
     const { figures, track } = segment;
     const [row] = await tx
@@ -135,6 +139,7 @@ export class SegmentCreationRepository {
         climbCategory: t.climbCategory,
         createdAt: t.createdAt,
       });
+    await tx.insert(creation).values({ userId: segment.createdBy });
     await tx.insert(schema.segmentFavorite).values({ userId: segment.createdBy, segmentId: row!.id });
     return row as StoredSegment;
   }

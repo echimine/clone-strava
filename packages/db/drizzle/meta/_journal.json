@@ -162,6 +162,13 @@
       "when": 1793920214543,
       "tag": "0022_report_segment_target",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1793943345833,
+      "tag": "0023_segment_creation",
+      "breakpoints": true
     }
   ]
 }
