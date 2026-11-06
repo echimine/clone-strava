@@ -7,6 +7,7 @@ struct AthleteActivitiesTab: View {
     @Bindable var store: AthleteActivitiesStore
     let openActivity: @MainActor (ActivityID) -> Void
     let openComments: @MainActor (ActivityID) -> Void
+    let openKudos: @MainActor (ActivityID) -> Void
     let retry: @MainActor () async -> Void
 
     var body: some View {
@@ -43,6 +44,7 @@ struct AthleteActivitiesTab: View {
                     post: post,
                     onToggleKudos: { Task { await store.toggleKudos(on: post.id) } },
                     onComments: { openComments(post.id) },
+                    onShowKudos: { openKudos(post.id) },
                     onTapMedia: { store.openMedia($0, of: post.id) }
                 )
                 .contentShape(.rect(cornerRadius: 20))

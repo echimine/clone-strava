@@ -99,6 +99,7 @@ struct FeedView<TopContent: View>: View {
                             post: post,
                             onToggleKudos: { Task { await store.toggleKudos(on: post.id) } },
                             onComments: { store.openComments(post.id) },
+                            onShowKudos: { store.openKudos(post.id) },
                             onTapMedia: { store.openMedia($0, of: post.id) }
                         )
                         // ADR-033 §1: a tap outside the card's buttons opens the detail (the

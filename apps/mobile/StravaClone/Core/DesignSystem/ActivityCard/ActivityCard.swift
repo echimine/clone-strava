@@ -7,6 +7,8 @@ struct ActivityCard: View {
     let post: ActivityPost
     var onToggleKudos: () -> Void = {}
     var onComments: () -> Void = {}
+    /// The 👍 of my own Activity: who gave kudos.
+    var onShowKudos: () -> Void = {}
     /// A tap on a Media (the viewer). Without it, the tap opens the detail like the rest of
     /// the card.
     var onTapMedia: ((ActivityMedia) -> Void)?
@@ -28,7 +30,7 @@ struct ActivityCard: View {
 
             carousel
 
-            ActivitySocialBar(post: post, onToggleKudos: onToggleKudos, onComments: onComments)
+            ActivitySocialBar(post: post, onToggleKudos: onToggleKudos, onComments: onComments, onShowKudos: onShowKudos)
                 .padding(.horizontal, 8)
                 .padding(.bottom, 4)
         }

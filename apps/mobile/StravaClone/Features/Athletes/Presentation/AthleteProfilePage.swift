@@ -150,6 +150,7 @@ struct AthleteProfilePage: View {
                 store: store.activities,
                 openActivity: { openActivity(ActivityDetailRequest(id: $0)) },
                 openComments: { openEngagement(.comments($0)) },
+                openKudos: { openEngagement(.kudos($0)) },
                 retry: { await store.refresh() }
             )
             .groupedTabContent()

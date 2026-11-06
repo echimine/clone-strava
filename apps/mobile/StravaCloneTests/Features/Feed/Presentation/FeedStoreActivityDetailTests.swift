@@ -59,6 +59,21 @@ struct FeedStoreActivityDetailTests {
         #expect(store.path == NavigationPath([expected]))
     }
 
+    /// The 👍 of my own card: the Kudos and comments screen on Kudos, no composer.
+    @Test func theKudosButtonOfMyCardOpensTheKudos() async {
+        let repository = FakeFeedRepository()
+        let post = ActivityPost.fixture()
+        repository.pages[nil] = .success(FeedPage(posts: [post], nextCursor: nil))
+        let store = makeStore(repository)
+        await store.refresh()
+
+        store.openKudos(ActivityID())
+        #expect(store.path.isEmpty)
+
+        store.openKudos(post.id)
+        #expect(store.path == NavigationPath([ActivityEngagementRequest.kudos(post.id)]))
+    }
+
     @Test func theCardsFollowWhatTheDetailPublishes() async {
         let repository = FakeFeedRepository()
         let edited = ActivityPost.fixture()

@@ -6,6 +6,8 @@ struct ActivitySocialBar: View {
     let post: ActivityPost
     let onToggleKudos: () -> Void
     let onComments: () -> Void
+    /// My own Activity: no kudos to myself, the 👍 opens who gave kudos (like Strava).
+    var onShowKudos: () -> Void = {}
 
     private var summary: String? {
         ActivityCardMessages.socialSummary(
@@ -38,16 +40,15 @@ struct ActivitySocialBar: View {
 
     private var buttons: some View {
         HStack(spacing: 0) {
-            Button(action: onToggleKudos) {
+            Button(action: post.viewerIsAuthor ? onShowKudos : onToggleKudos) {
                 Image(systemName: post.engagement.viewerHasKudoed ? "hand.thumbsup.fill" : "hand.thumbsup")
                     .foregroundStyle(post.engagement.viewerHasKudoed ? Theme.accent : .primary)
                     .contentTransition(.symbolEffect(.replace))
                     .frame(maxWidth: .infinity, minHeight: 44)
                     .contentShape(.rect)
             }
-            .disabled(post.viewerIsAuthor)
             .sensoryFeedback(.impact(weight: .light), trigger: post.engagement.viewerHasKudoed)
-            .accessibilityLabel(post.engagement.viewerHasKudoed ? "Retirer le kudos" : "Donner un kudos")
+            .accessibilityLabel(kudosLabel)
             .accessibilityValue("\(post.engagement.kudosCount) kudos")
             .accessibilityIdentifier("activityCard.kudos")
 
@@ -70,5 +71,10 @@ struct ActivitySocialBar: View {
         }
         .buttonStyle(.plain)
         .font(.body.weight(.medium))
+    }
+
+    private var kudosLabel: String {
+        if post.viewerIsAuthor { return "Voir les kudos" }
+        return post.engagement.viewerHasKudoed ? "Retirer le kudos" : "Donner un kudos"
     }
 }

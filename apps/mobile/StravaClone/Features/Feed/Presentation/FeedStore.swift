@@ -118,6 +118,12 @@ final class FeedStore {
         path.append(ActivityEngagementRequest.comments(id))
     }
 
+    /// The 👍 of my own card: the Kudos and comments screen on its kudos.
+    func openKudos(_ id: ActivityID) {
+        guard posts.contains(where: { $0.id == id }) else { return }
+        path.append(ActivityEngagementRequest.kudos(id))
+    }
+
     /// A tap on a Media of a card's carousel: the viewer on the Activity's Media (ADR-037 §10).
     func openMedia(_ media: ActivityMedia, of id: ActivityID) {
         guard let post = posts.first(where: { $0.id == id }),
