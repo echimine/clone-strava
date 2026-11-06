@@ -35,10 +35,13 @@ export interface LeaderboardRequest {
   cursor?: string;
 }
 
-/** The Local Legend for one sex, and the viewer's own 90-day count (ADR-039 §8). */
+/**
+ * The Local Legend for one sex, and the viewer's own 90-day count in that sex (ADR-039 §8):
+ * `null` when the viewer is not of that sex.
+ */
 export interface LocalLegendView {
   legend: { userId: string; effortCount: number } | null;
-  myEffortCount: number;
+  myEffortCount: number | null;
 }
 
 /** A Leaderboard with user ids; `apps/api` adds names and Avatars. */
@@ -67,7 +70,11 @@ export class GetSegmentLeaderboardUseCase {
     private readonly sheets: SegmentSheetRepository,
   ) {}
 
+  /** `404 segment_not_found` first, then `403 premium_required`, then `422` for a filter or cursor. */
   async execute(segmentId: string, request: LeaderboardRequest, reader: LeaderboardReader): Promise<LeaderboardView> {
+    if (!(await this.sheets.exists(segmentId))) {
+      throw segmentNotFound();
+    }
     if (!reader.isPremium && requiresPremium(request)) {
       throw new ForbiddenException({ code: "premium_required", message: "Premium is required for this Leaderboard" });
     }
@@ -78,9 +85,6 @@ export class GetSegmentLeaderboardUseCase {
       hiddenAthleteIds: reader.exclusions.hiddenAthleteIds,
     };
     const after = request.cursor === undefined ? undefined : this.decode(request.cursor);
-    if (!(await this.sheets.exists(segmentId))) {
-      throw segmentNotFound();
-    }
     return this.read(scope, reader.viewerId, { after, limited: !reader.isPremium });
   }
 
@@ -105,7 +109,7 @@ export class GetSegmentLeaderboardUseCase {
       this.leaderboards.findPage(scope, options.after, limit + 1),
       this.leaderboards.findLineOf(scope, viewerId),
       this.leaderboards.findLocalLegend(scope.segmentId, scope.gender, scope.hiddenAthleteIds),
-      this.leaderboards.countLocalLegendEfforts(scope.segmentId, viewerId),
+      this.leaderboards.countLocalLegendEfforts(scope.segmentId, viewerId, scope.gender),
       this.leaderboards.countAthletes(scope.segmentId),
     ]);
     const entries = rows.slice(0, limit);

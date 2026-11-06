@@ -197,14 +197,20 @@ export class LeaderboardRepository {
     );
   }
 
-  /** The athlete's own count over the Local Legend window, one per Activity. */
-  async countLocalLegendEfforts(segmentId: string, userId: string): Promise<number> {
-    const result = await this.db.execute<{ count: number }>(sql`
-      select count(distinct e.activity_id)::int as count
+  /**
+   * The athlete's own count over the Local Legend window, one per Activity, in the same sex as the
+   * Local Legend shown; `null` when the athlete is not of that sex.
+   */
+  async countLocalLegendEfforts(segmentId: string, userId: string, gender: LeaderboardGender): Promise<number | null> {
+    const inScope =
+      gender === "all" ? sql`true` : sql`exists (select 1 from users.leaderboard_athlete where user_id = ${userId} and gender = ${gender})`;
+    const result = await this.db.execute<{ count: number; in_scope: boolean }>(sql`
+      select count(distinct e.activity_id)::int as count, ${inScope} as in_scope
       ${STANDING_FROM}
         and e.segment_id = ${segmentId}
         and e.user_id = ${userId}
         and e.started_at >= now() - make_interval(days => ${LOCAL_LEGEND_WINDOW_DAYS})`);
-    return result.rows[0]?.count ?? 0;
+    const row = result.rows[0];
+    return row?.in_scope ? row.count : null;
   }
 }

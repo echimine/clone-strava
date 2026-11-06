@@ -230,6 +230,28 @@ describe("segment leaderboard (integration)", () => {
 
     const women = await leaderboard(segment, viewer!, "?gender=female&filter=period&value=year");
     expect(women.localLegend.legend).toMatchObject({ athlete: { id: woman }, effortCount: 1 });
+    // The viewer's own count is in the same scope as the Local Legend shown: none outside their sex.
+    expect(women.localLegend.myEffortCount).toBeNull();
+    await seeds.premium(woman!);
+    expect((await leaderboard(segment, woman!, "?gender=female")).localLegend.myEffortCount).toBe(1);
+  });
+
+  it("answers 404 segment_not_found before Premium or an invalid filter or cursor", async () => {
+    const viewer = await api.seedAthlete("Vic");
+    const premium = await api.seedAthlete("Pia");
+    await seeds.premium(premium);
+    const segment = await seeds.segment();
+    await api.sql("delete from segments.segment where id = $1", [segment]);
+
+    for (const [as, query] of [
+      [viewer, "?gender=female"],
+      [premium, "?filter=age&value=18-30"],
+      [premium, "?cursor=abc"],
+    ] as const) {
+      const response = await api.call(`/segments/${segment}/leaderboard${query}`, as);
+      expect(response.status, query).toBe(404);
+      expect(await errorOf(response)).toBe("segment_not_found");
+    }
   });
 
   it("answers 404 segment_not_found for an unknown or deleted Segment", async () => {

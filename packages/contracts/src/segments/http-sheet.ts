@@ -59,7 +59,7 @@ export type LeaderboardEntry = z.infer<typeof leaderboardEntrySchema>;
 
 /**
  * ADR-039 §8: the Local Legend for the sex selector (`null` when nobody has an Effort that stands
- * over the last 90 days), and the viewer's own count over the same 90 days (Tous).
+ * over the last 90 days), and the viewer's own count over the same 90 days in that sex.
  */
 export const localLegendSchema = z.object({
   legend: z
@@ -68,7 +68,8 @@ export const localLegendSchema = z.object({
       effortCount: z.number().int().positive(),
     })
     .nullable(),
-  myEffortCount: z.number().int().nonnegative(),
+  /** The viewer's own count in the Local Legend's sex, `null` when they are not of that sex. */
+  myEffortCount: z.number().int().nonnegative().nullable(),
 });
 export type LocalLegend = z.infer<typeof localLegendSchema>;
 
