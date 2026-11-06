@@ -60,21 +60,8 @@ struct SegmentCandidate: Hashable, Sendable {
     let preview: SegmentPreview
 }
 
-/// Why the server did not preview or create the Segment.
-enum SegmentCreationError: Error, Equatable, Sendable {
-    case offline
-    /// Network, server or `ElevationService` failure: worth retrying.
-    case unavailable
-    /// `409 duplicate`.
-    case duplicate(SegmentRef)
-    /// `429 quota_reached`: 10 Segments over the rolling 24 h.
-    case quotaReached
-    /// `422`: a rule the server checked again, or the name.
-    case rejected([SegmentRuleViolation])
-}
-
 /// `POST /v1/segments/preview` and `POST /v1/segments` (ADR-039 §12).
 protocol SegmentCreationRepository: Sendable {
-    func preview(sport: SegmentSport, points: [Coordinate]) async throws(SegmentCreationError) -> SegmentPreview
-    func create(sport: SegmentSport, name: String, points: [Coordinate]) async throws(SegmentCreationError) -> SegmentRef
+    func preview(sport: SegmentSport, points: [Coordinate]) async throws(SegmentError) -> SegmentPreview
+    func create(sport: SegmentSport, name: String, points: [Coordinate]) async throws(SegmentError) -> SegmentRef
 }

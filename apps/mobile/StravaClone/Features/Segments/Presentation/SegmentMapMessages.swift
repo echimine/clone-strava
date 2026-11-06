@@ -8,7 +8,7 @@ enum SegmentMapMessages {
     static let noFavorite = "Aucun Segment favori dans cette zone."
     static let connectionRequired = "Connexion requise"
     static let searchFailed = "Impossible de charger les Segments."
-    static let starFailed = "Le favori n'a pas pu être enregistré."
+    static let favoriteFailed = "Le favori n'a pas pu être enregistré."
     static let all = "Tous"
     static let favorites = "Favoris"
     static let verified = "Segment vérifié"

@@ -27,7 +27,7 @@ struct SegmentDrawingStoreTests {
         repository: FakeSegmentCreationRepository = FakeSegmentCreationRepository(),
         isOnline: @escaping @MainActor () -> Bool = { true }
     ) -> SegmentDrawingStore {
-        SegmentDrawingStore(sport: sport, repository: repository, isOnline: isOnline, debounce: .zero)
+        SegmentDrawingStore(sport: sport, preview: PreviewSegment(repository: repository), isOnline: isOnline, debounce: .zero)
     }
 
     @Test func asksForAStartAndAFinishFirst() {
@@ -122,7 +122,7 @@ struct SegmentDrawingStoreTests {
 
     @Test func continueMeasuresAgainWhenTheLivePreviewFailed() async {
         let repository = FakeSegmentCreationRepository()
-        await repository.answerPreviews { _ in .failure(.unavailable) }
+        await repository.answerPreviews { _ in .failure(.server) }
         let store = makeStore(repository: repository)
         let path = north(1_000)
         store.update(settled(path))

@@ -7,7 +7,7 @@ struct MapSegment: Identifiable, Equatable, Sendable {
     let name: String
     let isVerified: Bool
     /// In my favourites.
-    var isStarred: Bool
+    var isFavorite: Bool
     let distance: Distance
     /// Average grade, in percent.
     let averageGradePct: Double
@@ -27,15 +27,8 @@ struct SegmentMapFilter: Equatable, Sendable {
     var favoritesOnly = false
 }
 
-enum SegmentMapError: Error, Equatable {
-    case offline
-    /// The zone is larger than a screen at zoom 10.5 (`400 zone_too_large`).
-    case zoneTooLarge
-    case failed
-}
-
 /// `GET /v1/segments` (ADR-039 §12).
 protocol SegmentMapRepository: Sendable {
     /// At most 50 Segments crossing `area`, the most-ridden first.
-    func segments(in area: MapArea, filter: SegmentMapFilter) async throws(SegmentMapError) -> [MapSegment]
+    func segments(in area: MapArea, filter: SegmentMapFilter) async throws(SegmentError) -> [MapSegment]
 }

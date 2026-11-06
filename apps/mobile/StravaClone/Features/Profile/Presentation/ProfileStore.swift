@@ -24,7 +24,7 @@ final class ProfileStore {
     enum Destination: Hashable {
         case settings
         case itineraries
-        /// Plus › « Segments »: my starred Segments (ADR-039 §15).
+        /// Plus › « Segments »: my favourite Segments (ADR-039 §15).
         case segments
         /// The magnifier: the athlete search (ADR-036 §2).
         case search

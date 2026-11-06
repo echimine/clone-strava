@@ -2,7 +2,7 @@ import Foundation
 
 /// `APIClient` adapter of `SegmentRepository`: `GET /v1/segments/:id` and its `leaderboard`
 /// (ADR-039 §12), on the types generated from openapi.json (ADR-026 §5); « Renommer »,
-/// « Supprimer » and the star call the endpoints of spec #249.
+/// « Supprimer » and the favourite call the endpoints of spec #249.
 struct APISegmentRepository: SegmentRepository {
     private typealias SheetResponse = Components.Schemas.SegmentSheetDto_Output
     private typealias LeaderboardResponse = Components.Schemas.LeaderboardResponseDto_Output
@@ -11,17 +11,12 @@ struct APISegmentRepository: SegmentRepository {
     /// `PATCH /v1/segments/:id` answers the Segment's id and name.
     private struct RenameResponse: Decodable { let id: String }
 
-    private struct ErrorEnvelope: Decodable {
-        struct Body: Decodable { let code: String }
-        let error: Body
-    }
-
     let apiClient: APIClient
     /// The viewer's time zone, for the calendar periods (ADR-039 §8).
     var timeZone: @Sendable () -> TimeZone = { .current }
 
     func sheet(id: String) async throws(SegmentError) -> SegmentSheet {
-        let response: SheetResponse = try await call { () async throws(APIError) in
+        let response: SheetResponse = try await SegmentAPIError.call { () async throws(APIError) in
             try await apiClient.get("/v1/segments/\(id)")
         }
         return response.model
@@ -41,51 +36,30 @@ struct APISegmentRepository: SegmentRepository {
         if let cursor {
             query.append(URLQueryItem(name: "cursor", value: cursor))
         }
-        let response: LeaderboardResponse = try await call { () async throws(APIError) in
+        let response: LeaderboardResponse = try await SegmentAPIError.call { () async throws(APIError) in
             try await apiClient.get("/v1/segments/\(id)/leaderboard", query: query)
         }
         return response.model
     }
 
-    func setStarred(id: String, _ starred: Bool) async throws(SegmentError) {
-        let _: NoContent = try await call { () async throws(APIError) in
-            try await apiClient.send(method: starred ? "PUT" : "DELETE", path: "/v1/segments/\(id)/favorite")
+    func setFavorite(id: String, _ isFavorite: Bool) async throws(SegmentError) {
+        let _: NoContent = try await SegmentAPIError.call { () async throws(APIError) in
+            try await apiClient.send(method: isFavorite ? "PUT" : "DELETE", path: "/v1/segments/\(id)/favorite")
         }
     }
 
     func rename(id: String, to name: String) async throws(SegmentError) {
-        let _: RenameResponse = try await call { () async throws(APIError) in
+        let _: RenameResponse = try await SegmentAPIError.call { () async throws(APIError) in
             try await apiClient.send(method: "PATCH", path: "/v1/segments/\(id)", body: RenameBody(name: name))
         }
     }
 
     func delete(id: String) async throws(SegmentError) {
-        let _: NoContent = try await call { () async throws(APIError) in
+        let _: NoContent = try await SegmentAPIError.call { () async throws(APIError) in
             try await apiClient.send(method: "DELETE", path: "/v1/segments/\(id)")
         }
     }
 
-    private func call<T>(_ operation: () async throws(APIError) -> T) async throws(SegmentError) -> T {
-        do {
-            return try await operation()
-        } catch {
-            switch error {
-            case .offline: throw .offline
-            case .unauthorized: throw .unauthorized
-            case .http(let status, let body):
-                let code = body.flatMap { try? JSONDecoder().decode(ErrorEnvelope.self, from: $0) }?.error.code
-                switch (status, code) {
-                case (404, _): throw .notFound
-                case (403, "premium_required"): throw .premiumRequired
-                case (409, "has_other_efforts"): throw .hasOtherEfforts
-                case (400 ..< 500, _): throw .invalid(code: code)
-                default: throw .server
-                }
-            case .decoding: throw .server
-            case .transport: throw .network
-            }
-        }
-    }
 }
 
 // MARK: - Generated types → domain
@@ -113,9 +87,9 @@ private extension Components.Schemas.SegmentSheetDto_Output {
             distance: Distance(meters: distanceM),
             elevationGain: elevationGainM,
             averageGrade: avgGrade,
-            climbCategory: climbCategory.flatMap { SegmentClimbCategory(rawValue: $0.rawValue) },
+            climbCategory: climbCategory.flatMap { ClimbCategory(rawValue: $0.rawValue) },
             track: SegmentTrack(polyline: EncodedPolyline(value: track.polyline6, precision: 6), altitudes: track.altitudesM),
-            isStarred: starred,
+            isFavorite: starred,
             favoriteCount: favoriteCount,
             isMine: isMine,
             canDelete: canDelete,

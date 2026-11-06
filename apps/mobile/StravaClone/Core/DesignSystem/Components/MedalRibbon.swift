@@ -1,10 +1,5 @@
 import SwiftUI
 
-/// A Medal (ADR-039 §8): the athlete's 1st, 2nd or 3rd time at the date of the Activity.
-enum Medal: String, CaseIterable, Hashable, Sendable {
-    case gold, silver, bronze
-}
-
 /// Ribbon medal as on Strava (ADR-039 §15): « PR » on gold, « 2 » on silver, « 3 » on bronze.
 /// The same drawing everywhere: « Résultats », the map of the Activity, the card's
 /// « Performances » and the Segment sheet.

@@ -9,10 +9,14 @@ import Testing
 struct SegmentMapStoreTests {
     private func make(
         analytics: FakeAnalyticsClient = FakeAnalyticsClient()
-    ) -> (SegmentMapStore, FakeSegmentMapRepository, FakeSegmentFavoriteRepository) {
+    ) -> (SegmentMapStore, FakeSegmentMapRepository, FakeSegmentRepository) {
         let repository = FakeSegmentMapRepository()
-        let favorites = FakeSegmentFavoriteRepository()
-        let store = SegmentMapStore(repository: repository, favorites: favorites, analytics: analytics)
+        let favorites = FakeSegmentRepository()
+        let store = SegmentMapStore(
+            searchSegments: SearchMapSegments(repository: repository),
+            setFavorite: SetSegmentFavorite(repository: favorites),
+            analytics: analytics
+        )
         return (store, repository, favorites)
     }
 
@@ -73,21 +77,21 @@ struct SegmentMapStoreTests {
         let area = MapArea.annecy()
         repository.segments = [
             .fixture("ride"),
-            .fixture("starredRide", isStarred: true),
-            .fixture("starredRun", sport: .run, isStarred: true),
+            .fixture("favoriteRide", isFavorite: true),
+            .fixture("favoriteRun", sport: .run, isFavorite: true),
         ]
         await store.cameraSettled(area)
         // A move does not change the zone a filter searches.
         await store.cameraSettled(.annecy(shiftedEastBy: 0.05))
 
         await store.select(sport: .ride)
-        #expect(store.segments.map(\.id).sorted() == ["ride", "starredRide"])
+        #expect(store.segments.map(\.id).sorted() == ["favoriteRide", "ride"])
 
         await store.toggleFavoritesOnly()
-        #expect(store.segments.map(\.id) == ["starredRide"])
+        #expect(store.segments.map(\.id) == ["favoriteRide"])
 
         await store.select(sport: nil)
-        #expect(store.segments.map(\.id).sorted() == ["starredRide", "starredRun"])
+        #expect(store.segments.map(\.id).sorted() == ["favoriteRide", "favoriteRun"])
         #expect(repository.searches.map(\.area) == Array(repeating: area, count: 4))
         #expect(repository.searches.last?.filter == SegmentMapFilter(sport: nil, favoritesOnly: true))
     }
@@ -101,18 +105,18 @@ struct SegmentMapStoreTests {
         #expect(store.emptyMessage == "Aucun Segment favori dans cette zone.")
     }
 
-    @Test func aCardStarredInOneTapIsSentAndCountedThenUnstarred() async {
+    @Test func aCardAddedToFavoritesInOneTapIsSentAndCountedThenRemoved() async {
         let analytics = FakeAnalyticsClient()
         let (store, repository, favorites) = make(analytics: analytics)
         repository.segments = [.fixture("a")]
         await store.cameraSettled(.annecy())
 
-        await store.toggleStar("a")
-        #expect(store.segments.first?.isStarred == true)
+        await store.toggleFavorite("a")
+        #expect(store.segments.first?.isFavorite == true)
 
-        await store.toggleStar("a")
-        #expect(store.segments.first?.isStarred == false)
-        #expect(favorites.calls == ["star a", "unstar a"])
+        await store.toggleFavorite("a")
+        #expect(store.segments.first?.isFavorite == false)
+        #expect(favorites.calls == [.setFavorite("a", true), .setFavorite("a", false)])
         #expect(analytics.events == [.segmentFavorited])
     }
 
@@ -120,12 +124,12 @@ struct SegmentMapStoreTests {
         let (store, repository, favorites) = make()
         repository.segments = [.fixture("a")]
         await store.cameraSettled(.annecy())
-        favorites.fails = true
+        favorites.favoriteResult = .failure(.server)
 
-        await store.toggleStar("a")
+        await store.toggleFavorite("a")
 
-        #expect(store.segments.first?.isStarred == false)
-        #expect(store.message == SegmentMapMessages.starFailed)
+        #expect(store.segments.first?.isFavorite == false)
+        #expect(store.message == SegmentMapMessages.favoriteFailed)
     }
 
     @Test func scrollingToACardOrTappingItsPathHighlightsIt() async {

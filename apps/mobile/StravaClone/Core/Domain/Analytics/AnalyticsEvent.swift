@@ -102,7 +102,7 @@ enum AnalyticsEvent: Equatable, Sendable {
     /// « Retirer ce temps de mes meilleurs efforts » went through (ADR-039 §16): the distance in
     /// meters (21 097,5 for the half marathon).
     case bestEffortRemoved(distanceM: Double)
-    /// A Segment starred (ADR-039 §16), from a Map card or its sheet; no property.
+    /// A Segment added to my favourites (ADR-039 §16), from a Map card or its sheet; no property.
     case segmentFavorited
 
     var name: String {

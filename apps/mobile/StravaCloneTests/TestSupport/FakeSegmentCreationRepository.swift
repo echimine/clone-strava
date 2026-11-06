@@ -13,10 +13,10 @@ actor FakeSegmentCreationRepository: SegmentCreationRepository {
 
     private(set) var previews: [[Coordinate]] = []
     private(set) var creations: [Creation] = []
-    private var previewAnswer: @Sendable ([Coordinate]) -> Result<SegmentPreview, SegmentCreationError> = {
+    private var previewAnswer: @Sendable ([Coordinate]) -> Result<SegmentPreview, SegmentError> = {
         .success(FakeSegmentCreationRepository.preview(of: $0))
     }
-    private var createAnswer: Result<SegmentRef, SegmentCreationError> = .success(SegmentRef(id: "seg-1", name: "Créé"))
+    private var createAnswer: Result<SegmentRef, SegmentError> = .success(SegmentRef(id: "seg-1", name: "Créé"))
     private var isHolding = false
     private var held: [CheckedContinuation<Void, Never>] = []
 
@@ -46,11 +46,11 @@ actor FakeSegmentCreationRepository: SegmentCreationRepository {
         )
     }
 
-    func answerPreviews(with answer: @escaping @Sendable ([Coordinate]) -> Result<SegmentPreview, SegmentCreationError>) {
+    func answerPreviews(with answer: @escaping @Sendable ([Coordinate]) -> Result<SegmentPreview, SegmentError>) {
         previewAnswer = answer
     }
 
-    func answerCreation(with answer: Result<SegmentRef, SegmentCreationError>) {
+    func answerCreation(with answer: Result<SegmentRef, SegmentError>) {
         createAnswer = answer
     }
 
@@ -71,7 +71,7 @@ actor FakeSegmentCreationRepository: SegmentCreationRepository {
         }
     }
 
-    func preview(sport: SegmentSport, points: [Coordinate]) async throws(SegmentCreationError) -> SegmentPreview {
+    func preview(sport: SegmentSport, points: [Coordinate]) async throws(SegmentError) -> SegmentPreview {
         previews.append(points)
         if isHolding {
             await withCheckedContinuation { held.append($0) }
@@ -79,36 +79,36 @@ actor FakeSegmentCreationRepository: SegmentCreationRepository {
         return try previewAnswer(points).get()
     }
 
-    func create(sport: SegmentSport, name: String, points: [Coordinate]) async throws(SegmentCreationError) -> SegmentRef {
+    func create(sport: SegmentSport, name: String, points: [Coordinate]) async throws(SegmentError) -> SegmentRef {
         creations.append(Creation(sport: sport, name: name, points: points))
         return try createAnswer.get()
     }
 }
 
-/// Hand-written `StarredSegmentsRepository`: answers pages by cursor from `pages`.
-actor FakeStarredSegmentsRepository: StarredSegmentsRepository {
-    private var pages: [String?: StarredSegmentsPage] = [:]
-    private var error: StarredSegmentsError?
+/// Hand-written `FavoriteSegmentsRepository`: answers pages by cursor from `pages`.
+actor FakeFavoriteSegmentsRepository: FavoriteSegmentsRepository {
+    private var pages: [String?: FavoriteSegmentsPage] = [:]
+    private var error: SegmentError?
     private(set) var requestedCursors: [String?] = []
 
-    func serve(_ page: StarredSegmentsPage, after cursor: String? = nil) {
+    func serve(_ page: FavoriteSegmentsPage, after cursor: String? = nil) {
         pages[cursor] = page
     }
 
-    func fail(with error: StarredSegmentsError?) {
+    func fail(with error: SegmentError?) {
         self.error = error
     }
 
-    func page(after cursor: String?) async throws(StarredSegmentsError) -> StarredSegmentsPage {
+    func page(after cursor: String?) async throws(SegmentError) -> FavoriteSegmentsPage {
         requestedCursors.append(cursor)
         if let error { throw error }
-        return pages[cursor] ?? StarredSegmentsPage(items: [], nextCursor: nil)
+        return pages[cursor] ?? FavoriteSegmentsPage(items: [], nextCursor: nil)
     }
 }
 
-extension StarredSegment {
-    static func fixture(_ number: Int, sport: SegmentSport = .ride, best: Duration? = nil) -> StarredSegment {
-        StarredSegment(
+extension FavoriteSegment {
+    static func fixture(_ number: Int, sport: SegmentSport = .ride, best: Duration? = nil) -> FavoriteSegment {
+        FavoriteSegment(
             id: "segment-\(number)",
             sport: sport,
             name: "Segment \(number)",

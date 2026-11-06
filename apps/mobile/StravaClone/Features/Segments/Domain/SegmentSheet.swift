@@ -1,14 +1,5 @@
 import Foundation
 
-/// ADR-039 §5: the climb category (4, 3, 2, 1, HC), none under a score of 8,000.
-enum SegmentClimbCategory: String, Sendable {
-    case hc
-    case one = "1"
-    case two = "2"
-    case three = "3"
-    case four = "4"
-}
-
 /// A Segment's path, every point as polyline6 with one altitude per point (`GET /v1/segments/:id`).
 struct SegmentTrack: Equatable, Sendable {
     let polyline: EncodedPolyline
@@ -18,7 +9,7 @@ struct SegmentTrack: Equatable, Sendable {
 
     /// The same profile as an Itinerary's (ADR-030 §3), from the path and its altitudes.
     var elevationProfile: ElevationProfile {
-        ItineraryTrack(polyline: polyline, altitudes: altitudes).elevationProfile()
+        ElevationProfile(coordinates: coordinates, altitudes: altitudes)
     }
 }
 
@@ -95,9 +86,9 @@ struct SegmentSheet: Equatable, Sendable {
     let distance: Distance
     let elevationGain: Double?
     let averageGrade: Double?
-    let climbCategory: SegmentClimbCategory?
+    let climbCategory: ClimbCategory?
     let track: SegmentTrack
-    var isStarred: Bool
+    var isFavorite: Bool
     var favoriteCount: Int
     let isMine: Bool
     /// The creator may delete it while nobody else has an Effort on it.

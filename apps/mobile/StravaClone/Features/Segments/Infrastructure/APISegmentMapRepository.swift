@@ -7,12 +7,7 @@ struct APISegmentMapRepository: SegmentMapRepository {
 
     let apiClient: APIClient
 
-    private struct ErrorEnvelope: Decodable {
-        struct Body: Decodable { let code: String }
-        let error: Body
-    }
-
-    func segments(in area: MapArea, filter: SegmentMapFilter) async throws(SegmentMapError) -> [MapSegment] {
+    func segments(in area: MapArea, filter: SegmentMapFilter) async throws(SegmentError) -> [MapSegment] {
         let bbox = [area.southWest.longitude, area.southWest.latitude, area.northEast.longitude, area.northEast.latitude]
             .map { String(format: "%.5f", locale: Locale(identifier: "en_US_POSIX"), $0) }
             .joined(separator: ",")
@@ -23,18 +18,10 @@ struct APISegmentMapRepository: SegmentMapRepository {
         if filter.favoritesOnly {
             query.append(URLQueryItem(name: "favorites", value: "true"))
         }
-        do {
-            let response: Response = try await apiClient.get("/v1/segments", query: query)
-            return response.items.compactMap(\.model)
-        } catch {
-            switch error {
-            case .offline: throw .offline
-            case .http(400, let body):
-                let code = body.flatMap { try? JSONDecoder().decode(ErrorEnvelope.self, from: $0) }?.error.code
-                throw code == "zone_too_large" ? .zoneTooLarge : .failed
-            default: throw .failed
-            }
+        let response: Response = try await SegmentAPIError.call { () async throws(APIError) in
+            try await apiClient.get("/v1/segments", query: query)
         }
+        return response.items.compactMap(\.model)
     }
 }
 
@@ -46,7 +33,7 @@ private extension Components.Schemas.ListMapSegmentsResponseDto_Output.itemsPayl
             sport: sport,
             name: name,
             isVerified: verified,
-            isStarred: starred,
+            isFavorite: starred,
             distance: Distance(meters: distanceM),
             averageGradePct: averageGradePct,
             climbCategory: climbCategory.flatMap { ClimbCategory(rawValue: $0.rawValue) },

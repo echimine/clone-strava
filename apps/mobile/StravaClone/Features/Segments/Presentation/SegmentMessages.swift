@@ -87,20 +87,16 @@ enum SegmentMessages {
     static let deleteRefusedTitle = "Suppression impossible"
     static let deleteRefusedMessage = "D'autres athlètes ont déjà un Effort sur ce Segment : il reste en place. Tu peux toujours le renommer."
     static let ok = "OK"
-    static let star = "Ajouter aux favoris"
-    static let unstar = "Retirer des favoris"
+    static let addFavorite = "Ajouter aux favoris"
+    static let removeFavorite = "Retirer des favoris"
 
     /// ADR-039 §5: a name of 3 to 60 characters once trimmed.
     static func isValidName(_ name: String) -> Bool {
         (3...60).contains(name.trimmingCharacters(in: .whitespacesAndNewlines).count)
     }
 
-    static func category(_ category: SegmentClimbCategory?) -> String {
-        switch category {
-        case nil: "—"
-        case .hc: "HC"
-        case .some(let category): "Cat. \(category.rawValue)"
-        }
+    static func category(_ category: ClimbCategory?) -> String {
+        category?.label ?? "—"
     }
 
     static func grade(_ percent: Double?) -> String {
@@ -187,7 +183,7 @@ enum SegmentMessages {
         case .notFound: gone
         case .premiumRequired: premiumInsertTitle
         case .hasOtherEfforts: deleteRefusedMessage
-        case .invalid, .server: serverFailed
+        case .invalid, .server, .zoneTooLarge, .duplicate, .quota, .rejected: serverFailed
         case .network: connectionRequired
         }
     }

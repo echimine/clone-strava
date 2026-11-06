@@ -87,17 +87,17 @@ struct SegmentSheetPage: View {
         if let sheet = store.sheet {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 Button {
-                    Task { await store.toggleStar() }
+                    Task { await store.toggleFavorite() }
                 } label: {
                     HStack(spacing: 3) {
-                        Image(systemName: sheet.isStarred ? "star.fill" : "star")
-                            .foregroundStyle(sheet.isStarred ? Color.yellow : Color.primary)
+                        Image(systemName: sheet.isFavorite ? "star.fill" : "star")
+                            .foregroundStyle(sheet.isFavorite ? Color.yellow : Color.primary)
                         Text(sheet.favoriteCount.formatted(.number.locale(ActivityFormatters.locale)))
                             .font(.footnote)
                             .monospacedDigit()
                     }
                 }
-                .accessibilityLabel(sheet.isStarred ? SegmentMessages.unstar : SegmentMessages.star)
+                .accessibilityLabel(sheet.isFavorite ? SegmentMessages.removeFavorite : SegmentMessages.addFavorite)
                 .accessibilityValue("\(sheet.favoriteCount)")
                 .accessibilityIdentifier("segmentSheet.star")
                 Menu {

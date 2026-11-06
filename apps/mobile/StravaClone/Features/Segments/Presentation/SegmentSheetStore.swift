@@ -27,18 +27,27 @@ final class SegmentSheetStore {
     var toast: String?
 
     @ObservationIgnored let segmentID: String
-    @ObservationIgnored private let repository: any SegmentRepository
+    @ObservationIgnored private let loadSheet: LoadSegmentSheet
+    @ObservationIgnored private let setFavorite: SetSegmentFavorite
+    @ObservationIgnored private let renameSegment: RenameSegment
+    @ObservationIgnored private let deleteSegment: DeleteSegment
     @ObservationIgnored private let analytics: any AnalyticsClient
     @ObservationIgnored private let onDeleted: @MainActor () -> Void
 
     init(
         segmentID: String,
-        repository: any SegmentRepository,
+        loadSheet: LoadSegmentSheet,
+        setFavorite: SetSegmentFavorite,
+        rename: RenameSegment,
+        delete: DeleteSegment,
         analytics: any AnalyticsClient = NoAnalyticsClient(),
         onDeleted: @escaping @MainActor () -> Void = {}
     ) {
         self.segmentID = segmentID
-        self.repository = repository
+        self.loadSheet = loadSheet
+        self.setFavorite = setFavorite
+        renameSegment = rename
+        deleteSegment = delete
         self.analytics = analytics
         self.onDeleted = onDeleted
     }
@@ -49,7 +58,7 @@ final class SegmentSheetStore {
 
     func load() async {
         do {
-            phase = .loaded(try await repository.sheet(id: segmentID))
+            phase = .loaded(try await loadSheet(segmentID))
         } catch .notFound {
             phase = .gone
         } catch {
@@ -62,21 +71,21 @@ final class SegmentSheetStore {
     }
 
     /// The star counts me at once, and comes back as it was if the server says no.
-    func toggleStar() async {
+    func toggleFavorite() async {
         guard var sheet else { return }
-        let starred = !sheet.isStarred
-        sheet.isStarred = starred
-        sheet.favoriteCount = max(0, sheet.favoriteCount + (starred ? 1 : -1))
+        let isFavorite = !sheet.isFavorite
+        sheet.isFavorite = isFavorite
+        sheet.favoriteCount = max(0, sheet.favoriteCount + (isFavorite ? 1 : -1))
         phase = .loaded(sheet)
         do {
-            try await repository.setStarred(id: segmentID, starred)
-            if starred {
+            try await setFavorite(segmentID, isFavorite)
+            if isFavorite {
                 analytics.capture(.segmentFavorited)
             }
         } catch {
             if var current = self.sheet {
-                current.isStarred = !starred
-                current.favoriteCount = max(0, current.favoriteCount + (starred ? -1 : 1))
+                current.isFavorite = !isFavorite
+                current.favoriteCount = max(0, current.favoriteCount + (isFavorite ? -1 : 1))
                 phase = .loaded(current)
             }
             toast = SegmentMessages.message(for: error)
@@ -87,7 +96,7 @@ final class SegmentSheetStore {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard var sheet, SegmentMessages.isValidName(trimmed) else { return }
         do {
-            try await repository.rename(id: segmentID, to: trimmed)
+            try await renameSegment(segmentID, to: trimmed)
             sheet.name = trimmed
             phase = .loaded(sheet)
         } catch {
@@ -104,7 +113,7 @@ final class SegmentSheetStore {
     func confirmDelete() async {
         deletion = nil
         do {
-            try await repository.delete(id: segmentID)
+            try await deleteSegment(segmentID)
             onDeleted()
         } catch .hasOtherEfforts {
             deletion = .refused

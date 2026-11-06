@@ -311,7 +311,7 @@ struct RootView: View {
                                 onCreate: { itineraryCreation.start(from: .profile) }
                             )
                         },
-                        segments: { segmentScreens.starred(segmentCreation) },
+                        segments: { segmentScreens.favorites(segmentCreation) },
                         search: { AthleteSearchPage(makeStore: makeAthleteSearchStore) }
                     )
                     .environment(\.openAthlete, openAthlete(in: $profileStore.path))

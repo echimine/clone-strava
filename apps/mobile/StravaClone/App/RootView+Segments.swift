@@ -1,10 +1,5 @@
 import SwiftUI
 
-/// Tabs of the signed-in app; Save brings the athlete back to the feed (ADR-031 §11).
-enum AppTab: Hashable {
-    case feed, map, record, profile
-}
-
 /// The Segment screens the shell builds (ADR-039 §15): the creation, drawn with the Itinerary
 /// editor, Plus › « Segments », and a Segment's sheet and Leaderboard pushed in any stack, with
 /// the Paywall their locks open (ADR-007 rule 5).
@@ -12,7 +7,7 @@ struct SegmentScreens {
     let makeCanvas: @MainActor (SegmentSport, @escaping () -> Void) -> SegmentDrawingCanvas
     let makeDrawingStore: @MainActor (SegmentSport) -> SegmentDrawingStore
     let makeCreateStore: @MainActor (SegmentCandidate) -> SegmentCreateStore
-    let makeStarredStore: @MainActor () -> StarredSegmentsStore
+    let makeFavoritesStore: @MainActor () -> FavoriteSegmentsStore
     let makeSheetStore: @MainActor (String, @escaping @MainActor () -> Void) -> SegmentSheetStore
     let makeLeaderboardStore: @MainActor (String) -> LeaderboardStore
     let makePaywallStore: @MainActor (AnalyticsEvent.PaywallEntry, @escaping @MainActor () -> Void) -> PaywallStore
@@ -22,24 +17,16 @@ struct SegmentScreens {
         makeCanvas = { [di] sport, onClose in di.makeSegmentDrawingCanvas(sport: sport, onClose: onClose) }
         makeDrawingStore = { [di] sport in di.makeSegmentDrawingStore(sport: sport) }
         makeCreateStore = { [di] candidate in di.makeSegmentCreateStore(candidate: candidate) }
-        makeStarredStore = di.makeStarredSegmentsStore
-        let repository = APISegmentRepository(apiClient: di.apiClient)
-        makeSheetStore = { [analytics = di.analytics] id, onDeleted in
-            SegmentSheetStore(segmentID: id, repository: repository, analytics: analytics, onDeleted: onDeleted)
-        }
-        makeLeaderboardStore = { [analytics = di.analytics] id in
-            LeaderboardStore(segmentID: id, repository: repository, analytics: analytics)
-        }
-        makePaywallStore = { [subscriptionService = di.subscriptionService, analytics = di.analytics] entry, finish in
-            // No notification primer on this path: `finish` only closes the sheet (ADR-039 §9).
-            PaywallStore(service: subscriptionService, analytics: analytics, entry: entry, finish: finish)
-        }
+        makeFavoritesStore = di.makeFavoriteSegmentsStore
+        makeSheetStore = { [di] id, onDeleted in di.makeSegmentSheetStore(id: id, onDeleted: onDeleted) }
+        makeLeaderboardStore = { [di] id in di.makeLeaderboardStore(id: id) }
+        makePaywallStore = { [di] entry, finish in di.makeSegmentPaywallStore(entry: entry, finish: finish) }
     }
 
     /// Plus › « Segments », with its « + ».
     @MainActor
-    func starred(_ flow: SegmentCreationFlow) -> AnyView {
-        AnyView(StarredSegmentsView(makeStore: makeStarredStore, onCreate: { flow.start(from: .mySegments) }))
+    func favorites(_ flow: SegmentCreationFlow) -> AnyView {
+        AnyView(FavoriteSegmentsView(makeStore: makeFavoritesStore, onCreate: { flow.start(from: .mySegments) }))
     }
 }
 
@@ -77,12 +64,20 @@ extension RootView {
         selectedTab = .profile
     }
 
-    /// Debug builds only: the splash and celebration preview, reached from the Profile tab.
-    static var animationsPreview: AnyView? {
-        #if DEBUG
-        AnyView(AnimationsPreviewView())
-        #else
-        nil
-        #endif
+    /// A Segment's sheet (ADR-039 §15), pushed in the stack of `path`; the Paywall its locks
+    /// open, in a sheet, is the one of the Onboarding with its `entry`.
+    func segmentSheet(_ request: SegmentRequest, path: Binding<NavigationPath>) -> some View {
+        SegmentSheetPage(
+            request: request,
+            makeStore: segmentScreens.makeSheetStore,
+            makeLeaderboardStore: segmentScreens.makeLeaderboardStore,
+            paywall: { [authStore, segmentScreens] entry, close in
+                let firstName = if case .signedIn(let user) = authStore.state { user.firstName } else { "" }
+                return AnyView(PaywallView(store: segmentScreens.makePaywallStore(entry, close), firstName: firstName))
+            },
+            onDeleted: {
+                if !path.wrappedValue.isEmpty { path.wrappedValue.removeLast() }
+            }
+        )
     }
 }

@@ -15,7 +15,7 @@ struct SegmentCreateStoreTests {
     ) -> SegmentCreateStore {
         SegmentCreateStore(
             candidate: SegmentCandidate(sport: .ride, points: path, preview: preview ?? FakeSegmentCreationRepository.preview(of: path)),
-            repository: repository,
+            create: CreateSegment(repository: repository),
             isOnline: isOnline
         )
     }
@@ -81,7 +81,7 @@ struct SegmentCreateStoreTests {
         #expect(!fromPreview.canCreate)
 
         let repository = FakeSegmentCreationRepository()
-        await repository.answerCreation(with: .failure(.quotaReached))
+        await repository.answerCreation(with: .failure(.quota))
         let fromServer = makeStore(repository: repository)
         fromServer.name = "Col du Semnoz"
         await fromServer.create()
@@ -102,7 +102,7 @@ struct SegmentCreateStoreTests {
 
     @Test func aFailureCanBeRetried() async {
         let repository = FakeSegmentCreationRepository()
-        await repository.answerCreation(with: .failure(.unavailable))
+        await repository.answerCreation(with: .failure(.server))
         let store = makeStore(repository: repository)
         store.name = "Col du Semnoz"
 

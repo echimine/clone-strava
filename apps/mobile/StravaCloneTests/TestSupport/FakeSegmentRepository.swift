@@ -6,7 +6,7 @@ final class FakeSegmentRepository: SegmentRepository, @unchecked Sendable {
     enum Call: Equatable {
         case sheet(String)
         case leaderboard(String, LeaderboardSelection, cursor: String?)
-        case setStarred(String, Bool)
+        case setFavorite(String, Bool)
         case rename(String, String)
         case delete(String)
     }
@@ -16,7 +16,7 @@ final class FakeSegmentRepository: SegmentRepository, @unchecked Sendable {
     var sheetResult: Result<SegmentSheet, SegmentError> = .success(.sample())
     /// Answers by cursor; `nil` is the first page.
     var leaderboardResults: [String?: Result<Leaderboard, SegmentError>] = [nil: .success(.sample())]
-    var starResult: Result<Void, SegmentError> = .success(())
+    var favoriteResult: Result<Void, SegmentError> = .success(())
     var renameResult: Result<Void, SegmentError> = .success(())
     var deleteResult: Result<Void, SegmentError> = .success(())
 
@@ -36,10 +36,10 @@ final class FakeSegmentRepository: SegmentRepository, @unchecked Sendable {
         }.get()
     }
 
-    func setStarred(id: String, _ starred: Bool) async throws(SegmentError) {
+    func setFavorite(id: String, _ isFavorite: Bool) async throws(SegmentError) {
         try lock.withLock {
-            calls.append(.setStarred(id, starred))
-            return starResult
+            calls.append(.setFavorite(id, isFavorite))
+            return favoriteResult
         }.get()
     }
 
@@ -99,7 +99,7 @@ extension Leaderboard {
 extension SegmentSheet {
     static func sample(
         id: String = "seg-1",
-        isStarred: Bool = false,
+        isFavorite: Bool = false,
         favoriteCount: Int = 3,
         isMine: Bool = false,
         canDelete: Bool = false
@@ -112,9 +112,9 @@ extension SegmentSheet {
             distance: Distance(meters: 1_200),
             elevationGain: 100,
             averageGrade: 8.3,
-            climbCategory: .four,
+            climbCategory: .cat4,
             track: SegmentTrack(polyline: EncodedPolyline(value: "", precision: 6), altitudes: []),
-            isStarred: isStarred,
+            isFavorite: isFavorite,
             favoriteCount: favoriteCount,
             isMine: isMine,
             canDelete: canDelete,
