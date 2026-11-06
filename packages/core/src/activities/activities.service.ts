@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import type { InstantRange } from "../infrastructure/index.js";
+import type { InstantRange, ViewerExclusions } from "../infrastructure/index.js";
 import type { ActivityFailureCounts, ActivityGrowthCounts } from "./domain/activity-admin-stats.js";
 import { ActivityAdminStatsRepository } from "./repositories/activity-admin-stats.repository.js";
 import type {
@@ -19,7 +19,6 @@ import type {
   ReprocessActivityJob,
   UploadUrlResponse,
 } from "@repo/contracts";
-import type { ViewerExclusions } from "../infrastructure/index.js";
 import { CreateActivityUseCase, type CreateActivityResult } from "./use-cases/create-activity.use-case.js";
 import { RequestUploadUrlUseCase } from "./use-cases/request-upload-url.use-case.js";
 import { CompleteActivityUseCase } from "./use-cases/complete-activity.use-case.js";
@@ -67,42 +66,25 @@ import { AdminActivityRepository } from "./repositories/admin-activity.repositor
 import { ListAdminFailuresUseCase } from "./use-cases/list-admin-failures.use-case.js";
 import { RecomputeActivityUseCase } from "./use-cases/recompute-activity.use-case.js";
 import { RelaunchFailuresUseCase } from "./use-cases/relaunch-failures.use-case.js";
-import type {
-  FailedActivityRow,
-  FailedImportRow,
-  FailurePage,
-  StaleActivityRow,
-} from "./domain/admin-failure.js";
-
-import { BestEffortRepository } from "./repositories/best-effort.repository.js";
+import type { FailedActivityRow, FailedImportRow, FailurePage, StaleActivityRow } from "./domain/admin-failure.js";
 import { RemoveBestEffortUseCase } from "./use-cases/remove-best-effort.use-case.js";
-import type { BestEffortRecord } from "./domain/best-effort-record.js";
 import { ActivityResultsRepository } from "./repositories/activity-results.repository.js";
 import type { ActivityBestEffortResults, MedalCount } from "./domain/activity-results.js";
-
-type AdminPage = { page: number; pageSize: number };
-import type {
-  ActivityLabel,
-  AdminActivityFilter,
-  AdminActivityRecord,
-  AdminActivityRow,
-} from "./domain/admin-activity.js";
+import type { ActivityLabel, AdminActivityFilter, AdminActivityRecord, AdminActivityRow } from "./domain/admin-activity.js";
 import type { ActivityDetailRecord } from "./domain/activity-detail.js";
 import type { ActivityMediaRecord, GalleryMediaPage } from "./domain/activity-media.js";
 import type { ActivityRecord } from "./domain/activity-record.js";
-import type {
-  ActivitiesNearPathPage,
-  ActivitiesNearPathQuery,
-  ActivityMatchingTrace,
-} from "./domain/matching-trace.js";
+import type { ActivitiesNearPathPage, ActivitiesNearPathQuery, ActivityMatchingTrace } from "./domain/matching-trace.js";
 import { ActivitiesNearPathRepository } from "./repositories/activities-near-path.repository.js";
 import { GetMatchingTraceUseCase } from "./use-cases/get-matching-trace.use-case.js";
+import { ActivityTrackRepository } from "./repositories/activity-track.repository.js";
 import type { FeedActivityPage } from "./domain/feed-activity.js";
 
+type AdminPage = { page: number; pageSize: number };
+
 /**
- * Public facade of the `activities` module (ADR-021 §1: layer 2, may
- * depend on `sports`, `users`, `social`). The largest module (upload,
- * processing, feed).
+ * Public facade of the `activities` module (ADR-021 §1: layer 2, may depend on `sports`, `users`,
+ * `social`). The largest module (upload, processing, feed).
  */
 @Injectable()
 export class ActivitiesService {
@@ -146,10 +128,10 @@ export class ActivitiesService {
     private readonly listAdminFailuresUseCase: ListAdminFailuresUseCase,
     private readonly recomputeActivityUseCase: RecomputeActivityUseCase,
     private readonly relaunchFailuresUseCase: RelaunchFailuresUseCase,
-    private readonly bestEfforts: BestEffortRepository,
     private readonly removeBestEffortUseCase: RemoveBestEffortUseCase,
     private readonly activitiesNearPath: ActivitiesNearPathRepository,
     private readonly getMatchingTraceUseCase: GetMatchingTraceUseCase,
+    private readonly tracks: ActivityTrackRepository,
     private readonly results: ActivityResultsRepository,
   ) {}
 
@@ -287,22 +269,6 @@ export class ActivitiesService {
   }
 
   // --- Best efforts and Records (ADR-039 §3) ---
-
-  /**
-   * The Best efforts of an Activity not removed, shortest distance first, with their Medals.
-   * The caller has checked that the viewer may see the Activity.
-   */
-  async getBestEfforts(activityId: string): Promise<BestEffortRecord[]> {
-    const rows = await this.bestEfforts.findStanding(activityId);
-    return rows.map(({ activityId, recordSet, distanceM, elapsedTimeMs, startDistanceM, medal }) => ({
-      activityId,
-      recordSet,
-      distanceM,
-      elapsedTimeMs,
-      startDistanceM,
-      medal,
-    }));
-  }
 
   /**
    * « Résultats » of an Activity on the `activities` side (ADR-039 §12): its pool length and its
@@ -516,6 +482,11 @@ export class ActivitiesService {
    */
   getMatchingTrace(activityId: string): Promise<ActivityMatchingTrace | null> {
     return this.getMatchingTraceUseCase.execute(activityId);
+  }
+
+  /** Whether the Activity has a stored trace: none for a manual Activity nor a pool swim. */
+  hasTrack(activityId: string): Promise<boolean> {
+    return this.tracks.exists(activityId);
   }
 
   /**

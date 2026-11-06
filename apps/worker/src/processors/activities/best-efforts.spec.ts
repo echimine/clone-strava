@@ -101,22 +101,22 @@ describe("Best efforts (integration)", () => {
 
   /** `{ distanceM: medal }` of an Activity's Best efforts not removed. */
   async function medals(activityId: string) {
-    const efforts = await activities.getBestEfforts(activityId);
-    return Object.fromEntries(efforts.map((effort) => [effort.distanceM, effort.medal]));
+    const { bestEfforts } = await activities.getBestEffortResults(activityId);
+    return Object.fromEntries(bestEfforts.map((effort) => [effort.distanceM, effort.medal]));
   }
 
   it("times every Record distance of a processed run, its first times all gold", async () => {
     const userId = await newAthlete();
     const id = await processedRun(userId, { daysAgo: 2, speedMs: 4 });
 
-    const efforts = await activities.getBestEfforts(id);
+    const { bestEfforts: efforts } = await activities.getBestEffortResults(id);
 
-    expect(efforts.map((effort) => [effort.recordSet, effort.distanceM, effort.elapsedTimeMs])).toEqual([
-      ["run", 400, 100_000],
-      ["run", 1000, 250_000],
-      ["run", 2000, 500_000],
-      ["run", 3000, 750_000],
-      ["run", 5000, 1_250_000],
+    expect(efforts.map((effort) => [effort.distanceM, effort.elapsedTimeMs])).toEqual([
+      [400, 100_000],
+      [1000, 250_000],
+      [2000, 500_000],
+      [3000, 750_000],
+      [5000, 1_250_000],
     ]);
     expect(efforts.every((effort) => effort.medal === "gold")).toBe(true);
   }, 30_000);
@@ -143,13 +143,12 @@ describe("Best efforts (integration)", () => {
 
     await activities.update(userId, fast, { sportTypeCode: "ride" });
 
+    // A ride has no Record under 5 km: the run distances are gone once recomputed.
     const asRide = await waitFor(async () => {
-      const efforts = await activities.getBestEfforts(fast);
-      return efforts.some((effort) => effort.recordSet === "ride") ? efforts : undefined;
+      const { bestEfforts } = await activities.getBestEffortResults(fast);
+      return bestEfforts.some((effort) => effort.distanceM === 400) ? undefined : bestEfforts;
     });
-    expect(asRide.map((effort) => [effort.recordSet, effort.distanceM, effort.medal])).toEqual([
-      ["ride", 5000, "gold"],
-    ]);
+    expect(asRide.map((effort) => [effort.distanceM, effort.medal])).toEqual([[5000, "gold"]]);
     expect(await medals(slow)).toMatchObject({ 400: "gold", 5000: "gold" });
   }, 30_000);
 
@@ -215,7 +214,7 @@ describe("Best efforts (integration)", () => {
 
     await activities.delete(userId, fast);
 
-    expect(await activities.getBestEfforts(fast)).toEqual([]);
+    expect((await activities.getBestEffortResults(fast)).bestEfforts).toEqual([]);
     expect(await medals(slow)).toEqual({ 400: "gold", 1000: "gold", 2000: "gold", 3000: "gold", 5000: "gold" });
   }, 30_000);
 });

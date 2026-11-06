@@ -97,17 +97,17 @@ export class EffortResultsRepository {
   }
 
   /**
-   * The Segments are still being looked for (ADR-039 §12): the Activity is processed and has no
-   * `activity_matching` row, or one with an older version.
+   * The Segments may still be being looked for (ADR-039 §12): the Activity is processed, of a
+   * sport with Segments, and has no `activity_matching` row, or one with an older version.
    */
-  async isMatchingInProgress(activityId: string, version: number): Promise<boolean> {
+  async isMatchingLagging(activityId: string, sportTypeCodes: readonly string[], version: number): Promise<boolean> {
     const view = schema.leaderboardActivity;
     const matching = schema.activityMatching;
     const [row] = await this.db
       .select({ version: matching.version })
       .from(view)
       .leftJoin(matching, eq(matching.activityId, view.id))
-      .where(eq(view.id, activityId));
+      .where(and(eq(view.id, activityId), inArray(view.sportTypeCode, [...sportTypeCodes])));
     return row !== undefined && (row.version === null || row.version < version);
   }
 }

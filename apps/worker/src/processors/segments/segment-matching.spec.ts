@@ -9,10 +9,11 @@ import {
   TRACE_SCHEMA_VERSION,
   activityTraceKey,
   matchSegmentHistoryJobId,
+  matchSegmentsVersionJobId,
 } from "@repo/contracts";
 import { ActivitiesService } from "@repo/core/activities";
 import { NO_EXCLUSIONS } from "@repo/core/infrastructure";
-import { SegmentsService } from "@repo/core/segments";
+import { SEGMENT_MATCHING_VERSION, SegmentsService } from "@repo/core/segments";
 import { bootstrapTestWorkerApp, waitFor, type TestWorkerApp } from "../../testing/test-worker-app.js";
 
 const M_PER_DEG_LAT = (6_371_000 * Math.PI) / 180;
@@ -153,6 +154,14 @@ describe("Segment matching (integration)", () => {
     });
   }
 
+  async function matchedNow(activityId: string): Promise<boolean> {
+    const rows = await sql("select 1 from segments.activity_matching where activity_id = $1 and version = $2", [
+      activityId,
+      SEGMENT_MATCHING_VERSION,
+    ]);
+    return rows.length === 1;
+  }
+
   function efforts(activityId: string) {
     return sql<{
       id: string;
@@ -265,6 +274,28 @@ describe("Segment matching (integration)", () => {
     expect(await matched(swim)).toBe(1);
     expect(await efforts(swim)).toEqual([]);
   }, 30_000);
+
+  it("writes the matching version of a sport without Segments during the sweep, without a job", async () => {
+    const place = newPlace();
+    const userId = await newAthlete();
+    const swim = await processedActivity(userId, place, { sportTypeCode: "swim", speedMs: 2 });
+    await matched(swim);
+    // Processed before the matching existed: no row, and no job of today's version left.
+    await sql("delete from segments.activity_matching where activity_id = $1", [swim]);
+    const queue = ctx.app.get<Queue>(getQueueToken(SEGMENTS_QUEUE_NAME));
+    await (await queue.getJob(matchSegmentsVersionJobId(swim, SEGMENT_MATCHING_VERSION)))?.remove();
+
+    await waitFor(async () => {
+      if (await matchedNow(swim)) {
+        return true;
+      }
+      await queue.add("reconcile-segment-matching", {});
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      return undefined;
+    }, 30_000);
+
+    expect(await queue.getJob(matchSegmentsVersionJobId(swim, SEGMENT_MATCHING_VERSION))).toBeUndefined();
+  }, 60_000);
 
   it("matches again at the end of reprocess-activity when the sport changed", async () => {
     const place = newPlace();

@@ -89,10 +89,11 @@ export class SegmentsProcessor extends WorkerHost {
   /**
    * Enqueues `match-segments`, at low priority, for processed Activities never matched or matched
    * with an older version: covers a lost job and a new algorithm version (ADR-039 §13). One job id
-   * per version, so a job that failed for good waits for the next version.
+   * per version, so a job that failed for good waits for the next version. A sport without
+   * Segments gets its version written at once, without a job.
    */
   private async reconcile(): Promise<void> {
-    const lagging = await this.segmentsService.findActivitiesToMatch();
+    const lagging = await this.segmentsService.reconcileMatching();
     await this.queue.addBulk(
       lagging.map(({ activityId, userId }) => ({
         name: MATCH_SEGMENTS_JOB_NAME,

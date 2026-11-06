@@ -36,6 +36,7 @@ import {
 import { DeleteSegmentAsAdministratorUseCase } from "./use-cases/delete-segment-as-administrator.use-case.js";
 import { ExportOpenSegmentsUseCase } from "./use-cases/export-open-segments.use-case.js";
 import { StorageService, type PresignedUrl } from "../storage/index.js";
+import { ActivitiesService } from "../activities/index.js";
 import type { ViewerExclusions } from "../infrastructure/index.js";
 import {
   SegmentMapRepository,
@@ -53,6 +54,7 @@ export const RECONCILE_SEGMENT_MATCHING_BATCH = 100;
 @Injectable()
 export class SegmentsService {
   constructor(
+    private readonly activities: ActivitiesService,
     private readonly matchSegmentsUseCase: MatchSegmentsUseCase,
     private readonly matchSegmentHistoryUseCase: MatchSegmentHistoryUseCase,
     private readonly activityEfforts: ActivityEffortRepository,
@@ -131,10 +133,12 @@ export class SegmentsService {
   }
 
   /**
-   * `reconcile-segment-matching` (ADR-039 §13): processed Activities of the sports with a map
-   * never matched or matched with an older version, for the worker to enqueue.
+   * `reconcile-segment-matching` (ADR-039 §6, §13): writes at once the matching version of the
+   * processed Activities of a sport without Segments never matched or matched with an older
+   * version, then returns those of the sports with a map, for the worker to enqueue.
    */
-  findActivitiesToMatch(): Promise<Array<{ activityId: string; userId: string }>> {
+  async reconcileMatching(): Promise<Array<{ activityId: string; userId: string }>> {
+    await this.matchings.markOtherSportsMatched(SEGMENT_SPORTS, SEGMENT_MATCHING_VERSION);
     return this.matchings.findLagging(SEGMENT_SPORTS, SEGMENT_MATCHING_VERSION, RECONCILE_SEGMENT_MATCHING_BATCH);
   }
 
@@ -220,7 +224,7 @@ export class SegmentsService {
     exclusions: ViewerExclusions,
   ): Promise<ActivitySegmentResults> {
     const [matchingInProgress, rows] = await Promise.all([
-      this.effortResults.isMatchingInProgress(activityId, SEGMENT_MATCHING_VERSION),
+      this.isMatchingInProgress(activityId),
       this.effortResults.findByActivity(activityId, viewerId),
     ]);
     const legends = await this.localLegendsAmong(rows, exclusions);
@@ -244,6 +248,17 @@ export class SegmentsService {
    */
   countEffortMedals(activityIds: string[], viewerId: string): Promise<EffortMedalCount[]> {
     return this.effortResults.countMedals(activityIds, viewerId);
+  }
+
+  /**
+   * Still looking for the Activity's Segments (ADR-039 §12): never for a sport without Segments
+   * nor an Activity without a trace, which the matching skips.
+   */
+  private async isMatchingInProgress(activityId: string): Promise<boolean> {
+    return (
+      (await this.effortResults.isMatchingLagging(activityId, SEGMENT_SPORTS, SEGMENT_MATCHING_VERSION)) &&
+      (await this.activities.hasTrack(activityId))
+    );
   }
 
   /**

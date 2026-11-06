@@ -83,8 +83,8 @@ describe("Pool swim import (integration)", () => {
   }
 
   async function bestEfforts(id: string) {
-    const efforts = await activities.getBestEfforts(id);
-    return efforts.map((effort) => [effort.recordSet, effort.distanceM, effort.elapsedTimeMs, effort.medal]);
+    const { bestEfforts } = await activities.getBestEffortResults(id);
+    return bestEfforts.map((effort) => [effort.distanceM, effort.elapsedTimeMs, effort.medal]);
   }
 
   it("imports a 25 m pool swim without positions: distance from its lengths, no route, pool Records", async () => {
@@ -100,8 +100,8 @@ describe("Pool swim import (integration)", () => {
     });
     // The minute of rest breaks the 200 m.
     expect(await bestEfforts(id)).toEqual([
-      ["swim_pool", 50, 54_000, "gold"],
-      ["swim_pool", 100, 114_000, "gold"],
+      [50, 54_000, "gold"],
+      [100, 114_000, "gold"],
     ]);
   }, 30_000);
 
@@ -126,8 +126,8 @@ describe("Pool swim import (integration)", () => {
     await activities.reprocess({ activityId: id, userId });
 
     expect(await bestEfforts(id)).toEqual([
-      ["swim_pool", 50, 54_000, "gold"],
-      ["swim_pool", 100, 114_000, "gold"],
+      [50, 54_000, "gold"],
+      [100, 114_000, "gold"],
     ]);
     expect((await activityRow(id)).hasTrack).toBe(false);
   }, 30_000);

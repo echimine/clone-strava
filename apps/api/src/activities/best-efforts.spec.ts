@@ -74,7 +74,7 @@ describe("DELETE /v1/activities/:id/best-efforts/:distanceM (integration)", () =
   const errorCode = async (response: Response) =>
     ((await response.json()) as { error: { code: string } }).error.code;
   const distances = async (activityId: string) =>
-    (await app.get(ActivitiesService).getBestEfforts(activityId)).map((effort) => effort.distanceM);
+    (await app.get(ActivitiesService).getBestEffortResults(activityId)).bestEfforts.map((effort) => effort.distanceM);
 
   /** A public 2.2 km run of the author, processed the way `apps/worker` does. */
   async function processedRun(): Promise<string> {

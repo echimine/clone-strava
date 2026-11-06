@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { schema, type Database } from "@repo/db";
 import { DATABASE, type DbExecutor } from "../../infrastructure/index.js";
 import type { RecordSet } from "../domain/best-efforts.js";
@@ -110,14 +110,5 @@ export class BestEffortRepository {
       )
       .returning({ recordSet: schema.bestEffort.recordSet });
     return row?.recordSet;
-  }
-
-  /** The Best efforts of an Activity not removed, shortest distance first. */
-  findStanding(activityId: string): Promise<BestEffortRow[]> {
-    return this.db
-      .select()
-      .from(schema.bestEffort)
-      .where(and(eq(schema.bestEffort.activityId, activityId), isNull(schema.bestEffort.removedAt)))
-      .orderBy(asc(schema.bestEffort.distanceM));
   }
 }

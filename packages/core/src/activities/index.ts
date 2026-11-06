@@ -25,7 +25,6 @@ export type { CreateActivityImportResult } from "./use-cases/create-activity-imp
 export type { ImportActivityResult } from "./use-cases/import-activity-from-file.use-case.js";
 export { PermanentProcessingError } from "./domain/processing-error.js";
 export { ACTIVITY_ANALYSIS_VERSION } from "./domain/compute-analysis.js";
-export type { BestEffortRecord } from "./domain/best-effort-record.js";
 export type { ActivityBestEffortResults, BestEffortResult, MedalCount } from "./domain/activity-results.js";
 export { RECORD_DISTANCES_M, RECORD_SETS, type RecordSet } from "./domain/best-efforts.js";
 export { MEDALS, type Medal } from "./domain/medals.js";

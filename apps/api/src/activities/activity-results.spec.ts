@@ -192,6 +192,16 @@ describe("GET /v1/activities/:id/results (integration)", () => {
     expect((await results(lagging, author)).body.matchingInProgress).toBe(true);
   }, 30_000);
 
+  it("never says the matching is in progress for a sport without Segments nor an Activity without a trace", async () => {
+    const swim = await api.seedActivity(author);
+    await api.sql("update activities.activity set sport_type_code = 'swim' where id = $1", [swim]);
+    const manual = await api.seedActivity(author);
+    await api.sql("delete from activities.activity_track where activity_id = $1", [manual]);
+
+    expect((await results(swim, author)).body.matchingInProgress).toBe(false);
+    expect((await results(manual, author)).body.matchingInProgress).toBe(false);
+  }, 30_000);
+
   it("gives the pool length of a pool swim", async () => {
     const activity = await api.seedActivity(author);
     await api.sql("update activities.activity set sport_type_code = 'swim', pool_length_m = 25 where id = $1", [activity]);

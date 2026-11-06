@@ -45,6 +45,26 @@ export class ActivityMatchingRepository {
   }
 
   /**
+   * Writes the matching version of every processed Activity of a sport outside these ones never
+   * matched or matched with an older version (ADR-039 §6, §13): such a sport has no Segment, so no
+   * job is needed. Returns how many rows were written.
+   */
+  async markOtherSportsMatched(sportTypeCodes: readonly string[], version: number): Promise<number> {
+    // `'{a,b}'::text[]`: an interpolated array would spread into a tuple.
+    const sports = `{${sportTypeCodes.join(",")}}`;
+    const written = await this.db.execute(sql`
+      insert into segments.activity_matching (activity_id, version, matched_at)
+      select published.id, ${version}::int, now()
+        from activities.leaderboard_activity published
+        left join segments.activity_matching matching on matching.activity_id = published.id
+       where published.sport_type_code <> all(${sports}::text[])
+         and (matching.activity_id is null or matching.version < ${version}::int)
+      on conflict (activity_id) do update set version = excluded.version, matched_at = excluded.matched_at
+      returning activity_id`);
+    return written.rows.length;
+  }
+
+  /**
    * Processed Activities of these sports never matched, or matched with an older version
    * (ADR-039 §13), oldest id first.
    */
