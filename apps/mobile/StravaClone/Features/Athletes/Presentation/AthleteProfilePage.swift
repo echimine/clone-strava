@@ -18,6 +18,7 @@ struct AthleteProfilePage: View {
     @Environment(\.reportContent) private var reportContent
     @Environment(\.blockAthlete) private var blockAthlete
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
 
     init(
         request: AthleteProfileRequest,
@@ -42,6 +43,11 @@ struct AthleteProfilePage: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { moreMenu }
             .task { await store.load() }
+            // Back from a pushed screen or the foreground: catches up silently once stale.
+            .onAppear { Task { await store.refreshIfStale() } }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .active { Task { await store.refreshIfStale() } }
+            }
             .toast(Binding(get: { store.follows.toast }, set: { store.follows.toast = $0 }))
             .toast(Binding(get: { store.activities.notice }, set: { store.activities.notice = $0 }))
             .toast(Binding(get: { store.gallery.notice }, set: { store.gallery.notice = $0 }))

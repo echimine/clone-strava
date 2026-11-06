@@ -33,6 +33,7 @@ struct ProfileView<Itineraries: View, Search: View>: View {
     @State private var isChoosingPhoto = false
     /// The header has scrolled away: the name shows in the navigation bar.
     @State private var isHeaderHidden = false
+    @Environment(\.scenePhase) private var scenePhase
 
     private var userId: String? { account?.id }
 
@@ -46,6 +47,12 @@ struct ProfileView<Itineraries: View, Search: View>: View {
                 .toolbar { toolbar }
                 .task(id: userId) {
                     if let userId { await store.load(athleteId: userId) }
+                }
+                // Back on the tab or from a pushed screen, or the app back in the foreground: the
+                // counters and figures catch up silently once stale.
+                .onAppear { Task { await store.refreshIfStale() } }
+                .onChange(of: scenePhase) { _, phase in
+                    if phase == .active { Task { await store.refreshIfStale() } }
                 }
                 // Not a task of the tab's content: it would run again back from a detail.
                 .onChange(of: store.tab) { _, tab in
