@@ -4,6 +4,11 @@
  */
 export { climbCategory, type ClimbCategory } from "./climb-category.js";
 export {
+  SEGMENT_MAX_LENGTH_M,
+  SEGMENT_MIN_ENDS_APART_M,
+  SEGMENT_MIN_LENGTH_M,
+} from "./segment-geometry.js";
+export {
   isSameSegment,
   matchSegment,
   resampleSegmentPath,

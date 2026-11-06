@@ -191,5 +191,19 @@ describe("generateSegments (ADR-039 §10)", () => {
       // 2,000 m × 15 % = 30,000.
       expect(segments[0]!.climbCategory).toBe("3");
     });
+
+    it("makes a hike Segment of a short path to a named summit, whatever its score", () => {
+      const w = world();
+      w.way({ highway: "path" }, [-200, 0], [400, 0]);
+      w.node({ natural: "peak", name: "Petit Pic" }, 400, 0);
+      w.node({ place: "hamlet", name: "Hameau du Bas" }, -300, 100);
+
+      // 400 m × 10 % = 4,000: no climb category, still a summit worth reaching.
+      const segments = generateSegments(w.osm(), w.elevation(ramp(0, 400, 10, 1200)));
+
+      expect(segments.map((s) => [s.sport, s.name, s.climbCategory])).toEqual([
+        ["hike", "Petit Pic depuis Hameau du Bas", null],
+      ]);
+    });
   });
 });

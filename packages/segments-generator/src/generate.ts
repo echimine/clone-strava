@@ -1,6 +1,12 @@
 import { createHash } from "node:crypto";
 import type { NervoSegmentLine, NervoSegmentSport } from "@repo/contracts";
-import { climbCategory, isSameSegment } from "@repo/core/segments/domain";
+import {
+  climbCategory,
+  isSameSegment,
+  SEGMENT_MAX_LENGTH_M,
+  SEGMENT_MIN_ENDS_APART_M,
+  SEGMENT_MIN_LENGTH_M,
+} from "@repo/core/segments/domain";
 import { haversineDistanceM, type LonLat } from "@repo/geo";
 import { detectClimbs, profilesOf, type Climb, type ElevationAt } from "./climbs.js";
 import { Gazetteer, segmentName } from "./naming.js";
@@ -8,15 +14,25 @@ import { buildChains, isFootWay, reverseChain, routeNameOf, type Chain, type Net
 import type { OsmData } from "./osm.js";
 import { PointIndex } from "./point-index.js";
 
-/** Rules per sport (ADR-039 §5, §10): the same length and loop rules as for athletes. */
+interface Rules {
+  minLengthM: number;
+  maxLengthM: number;
+  minGrade: number;
+  maxGrade: number;
+  /** Lowest distance × grade; 0 for a hike, whose summit is the point. */
+  minScore: number;
+}
+
+/**
+ * Rules per sport (ADR-039 §5, §10): the length and loop rules of an athlete's Segment
+ * (`packages/core`), then the climb filter.
+ */
 const RULES = {
-  ride: { minLengthM: 500, maxLengthM: 50_000, minGrade: 3, maxGrade: 20, minScore: 8_000 },
+  ride: { minLengthM: SEGMENT_MIN_LENGTH_M.ride!, maxLengthM: SEGMENT_MAX_LENGTH_M, minGrade: 3, maxGrade: 20, minScore: 8_000 },
   /** Short urban climbs only; road climbs come from the ride ones. */
-  urbanRun: { minLengthM: 200, maxLengthM: 3_000, minGrade: 3, maxGrade: 25, minScore: 1_500 },
-  hike: { minLengthM: 200, maxLengthM: 50_000, minGrade: 3, maxGrade: 60, minScore: 8_000 },
-} as const;
-/** Start and finish at least this far apart: no loop (ADR-039 §5). */
-const MIN_ENDS_APART_M = 100;
+  urbanRun: { minLengthM: SEGMENT_MIN_LENGTH_M.run!, maxLengthM: 3_000, minGrade: 3, maxGrade: 25, minScore: 1_500 },
+  hike: { minLengthM: SEGMENT_MIN_LENGTH_M.hike!, maxLengthM: SEGMENT_MAX_LENGTH_M, minGrade: 3, maxGrade: 60, minScore: 0 },
+} satisfies Record<string, Rules>;
 /** « Quelques » urban run climbs: the best ones per town or district. */
 const URBAN_RUN_CLIMBS_PER_PLACE = 3;
 
@@ -103,14 +119,14 @@ export function generateSegments(osm: OsmData, elevationAt: ElevationAt): NervoS
     .sort((a, b) => a.sport.localeCompare(b.sport) || a.sourceKey.localeCompare(b.sourceKey));
 }
 
-function passes(climb: Climb, rules: (typeof RULES)[keyof typeof RULES]): boolean {
+function passes(climb: Climb, rules: Rules): boolean {
   return (
     climb.distanceM >= rules.minLengthM &&
     climb.distanceM <= rules.maxLengthM &&
     climb.avgGrade >= rules.minGrade &&
     climb.avgGrade <= rules.maxGrade &&
     climb.score >= rules.minScore &&
-    haversineDistanceM(startOf(climb), topOf(climb)) >= MIN_ENDS_APART_M
+    haversineDistanceM(startOf(climb), topOf(climb)) >= SEGMENT_MIN_ENDS_APART_M
   );
 }
 
