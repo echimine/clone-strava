@@ -1,5 +1,4 @@
 export { SegmentsModule } from "./segments.module.js";
-export { SegmentCreationModule, SegmentCreationService } from "./segment-creation.module.js";
 export { SegmentsService, RECONCILE_SEGMENT_MATCHING_BATCH } from "./segments.service.js";
 export type { ActivityEffortRecord } from "./domain/activity-effort.js";
 export type {

@@ -1,5 +1,5 @@
 import { Module } from "@nestjs/common";
-import { SegmentCreationModule, SegmentsModule as CoreSegmentsModule } from "@repo/core/segments";
+import { SegmentsModule as CoreSegmentsModule } from "@repo/core/segments";
 import { SocialModule } from "@repo/core/social";
 import { SubscriptionsModule } from "@repo/core/subscriptions";
 import { AuthModule } from "../auth/auth.module.js";
@@ -20,7 +20,6 @@ import { SegmentSheetController } from "./segment-sheet.controller.js";
   imports: [
     AuthModule,
     CoreSegmentsModule,
-    SegmentCreationModule,
     IdentitiesModule,
     SocialModule,
     SubscriptionsModule,

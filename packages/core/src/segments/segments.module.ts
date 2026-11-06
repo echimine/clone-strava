@@ -25,13 +25,18 @@ import { ExcludedSourceKeyRepository } from "./repositories/excluded-source-key.
 import { ImportNervoSegmentsUseCase } from "./use-cases/import-nervo-segments.use-case.js";
 import { DeleteSegmentAsAdministratorUseCase } from "./use-cases/delete-segment-as-administrator.use-case.js";
 import { ExportOpenSegmentsUseCase } from "./use-cases/export-open-segments.use-case.js";
+import { SegmentDuplicates } from "./services/segment-duplicates.js";
+import { SegmentHistoryJobs } from "./services/segment-history-jobs.js";
+import { SegmentMeasurementService } from "./services/segment-measurement.js";
+import { CreateSegmentUseCase } from "./use-cases/create-segment.use-case.js";
 
 /**
  * `segments` module (ADR-021 §1/§2: layer 3, may depend on `activities`,
  * `sports`, `users`; ADR-039 §2: reads `activities` and `users` only through their services and
  * their published views). Registers the `segments` queue as a producer (ADR-011,
  * ADR-021 §5); only `apps/worker` registers a processor for it. Exports
- * only its service.
+ * only its service. Drawing a Segment also needs the global `ElevationModule`, optional here:
+ * only `apps/api` registers it, the worker and the backoffice import this module without it.
  */
 @Module({
   imports: [ActivitiesModule, SportsModule, BullModule.registerQueue({ name: SEGMENTS_QUEUE_NAME })],
@@ -47,6 +52,10 @@ import { ExportOpenSegmentsUseCase } from "./use-cases/export-open-segments.use-
     MatchSegmentsUseCase,
     MatchSegmentHistoryUseCase,
     SegmentCreationRepository,
+    SegmentMeasurementService,
+    SegmentDuplicates,
+    SegmentHistoryJobs,
+    CreateSegmentUseCase,
     ManageOwnSegmentUseCase,
     SegmentFavoritesUseCase,
     LeaderboardRepository,

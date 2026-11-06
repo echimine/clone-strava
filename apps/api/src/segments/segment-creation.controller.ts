@@ -29,7 +29,7 @@ import {
   type SegmentPreview,
   type SegmentRef,
 } from "@repo/contracts";
-import { SegmentCreationService, SegmentsService } from "@repo/core/segments";
+import { SegmentsService } from "@repo/core/segments";
 import { CurrentUser } from "../auth/current-user.decorator.js";
 import { SessionGuard, type AuthenticatedUser } from "../auth/session.guard.js";
 
@@ -50,7 +50,6 @@ class ListSegmentFavoritesResponseDto extends createZodDto(listSegmentFavoritesR
 @UseGuards(SessionGuard)
 export class SegmentCreationController {
   constructor(
-    private readonly creation: SegmentCreationService,
     private readonly segments: SegmentsService,
   ) {}
 
@@ -63,7 +62,7 @@ export class SegmentCreationController {
   @HttpCode(HttpStatus.OK)
   @ZodResponse({ status: 200, type: SegmentPreviewDto })
   preview(@Body() body: PreviewSegmentRequestDto, @CurrentUser() user: AuthenticatedUser): Promise<SegmentPreview> {
-    return this.creation.preview(user.userId, body);
+    return this.segments.previewSegment(user.userId, body);
   }
 
   /**
@@ -74,7 +73,7 @@ export class SegmentCreationController {
   @Post("segments")
   @ZodResponse({ status: 201, type: CreatedSegmentDto, description: "Created" })
   create(@Body() body: CreateSegmentRequestDto, @CurrentUser() user: AuthenticatedUser): Promise<CreatedSegment> {
-    return this.creation.create(user.userId, body);
+    return this.segments.createSegment(user.userId, body);
   }
 
   /** Renames, creator only (`403 not_creator`), no recomputation; `404` if unknown. */

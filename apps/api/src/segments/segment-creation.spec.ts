@@ -23,7 +23,7 @@ import { ElevationModule } from "@repo/core/elevation";
 import { GeocodingModule } from "@repo/core/geocoding";
 import { StorageModule } from "@repo/core/storage";
 import { CoreInfrastructureModule, DATABASE, type Database } from "@repo/core/infrastructure";
-import { SegmentCreationModule, SegmentsModule } from "@repo/core/segments";
+import { SegmentsModule } from "@repo/core/segments";
 import { decodePolyline, type LonLat } from "@repo/geo";
 import { ensureTestDatabaseMigrated, TEST_DATABASE_URL, TEST_REDIS_URL } from "../auth/test-auth-app.js";
 import { SessionGuard } from "../auth/session.guard.js";
@@ -150,7 +150,6 @@ describe("Segment creation (integration)", () => {
         }),
         GeocodingModule.forRoot({}),
         SegmentsModule,
-        SegmentCreationModule,
       ],
       controllers: [SegmentCreationController],
       providers: [

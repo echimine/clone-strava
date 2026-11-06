@@ -1,11 +1,15 @@
 import { Injectable } from "@nestjs/common";
 import {
   OPEN_DATA_SEGMENTS_KEY,
+  type CreatedSegment,
+  type CreateSegmentRequest,
   type ListSegmentFavoritesQuery,
   type ListSegmentFavoritesResponse,
   type MatchSegmentHistoryJob,
   type MatchSegmentsJob,
+  type PreviewSegmentRequest,
   type ReplaySegmentMedalsJob,
+  type SegmentPreview,
 } from "@repo/contracts";
 import { MatchSegmentsUseCase } from "./use-cases/match-segments.use-case.js";
 import { MatchSegmentHistoryUseCase } from "./use-cases/match-segment-history.use-case.js";
@@ -19,6 +23,7 @@ import { SEGMENT_MATCHING_VERSION } from "./domain/match-segment.js";
 import { SEGMENT_SPORTS } from "./domain/segment-sports.js";
 import { SegmentCreationRepository } from "./repositories/segment-creation.repository.js";
 import { ManageOwnSegmentUseCase } from "./use-cases/manage-own-segment.use-case.js";
+import { CreateSegmentUseCase } from "./use-cases/create-segment.use-case.js";
 import { SegmentFavoritesUseCase } from "./use-cases/segment-favorites.use-case.js";
 import {
   GetSegmentLeaderboardUseCase,
@@ -60,6 +65,7 @@ export class SegmentsService {
     private readonly activityEfforts: ActivityEffortRepository,
     private readonly matchings: ActivityMatchingRepository,
     private readonly recorder: EffortRecorder,
+    private readonly createSegmentUseCase: CreateSegmentUseCase,
     private readonly ownSegments: ManageOwnSegmentUseCase,
     private readonly favoriteSegments: SegmentFavoritesUseCase,
     private readonly creations: SegmentCreationRepository,
@@ -145,6 +151,19 @@ export class SegmentsService {
   /** An Activity's efforts on Segments, read-only in the backoffice (ADR-038 §11). */
   getActivityEfforts(activityId: string): Promise<ActivityEffortRecord[]> {
     return this.activityEfforts.findByActivityId(activityId);
+  }
+
+  /** `POST /v1/segments/preview` (ADR-039 §5): figures, profile, broken rules, duplicate, quota left; nothing written. */
+  previewSegment(userId: string, request: PreviewSegmentRequest): Promise<SegmentPreview> {
+    return this.createSegmentUseCase.preview(userId, request);
+  }
+
+  /**
+   * `POST /v1/segments` (ADR-039 §5, §7): `422` broken rule, `409 duplicate`, `429 quota`; stars it
+   * for its creator and starts its retro-matching. Only `apps/api`, which registers elevation.
+   */
+  createSegment(userId: string, request: CreateSegmentRequest): Promise<CreatedSegment> {
+    return this.createSegmentUseCase.create(userId, request);
   }
 
   /** `PATCH /v1/segments/:id` (ADR-039 §5): the creator only, no recomputation. */
