@@ -341,17 +341,6 @@ final class Di {
         )
     }
 
-    /// « Résultats » of the detail (spec #252).
-    private func makeActivityResultsStore(id: ActivityID) -> ActivityResultsStore {
-        let repository = APIActivityResultsRepository(apiClient: apiClient)
-        return ActivityResultsStore(
-            id: id,
-            loadResults: LoadActivityResults(repository: repository),
-            removeBestEffort: RemoveBestEffort(repository: repository),
-            analytics: analytics
-        )
-    }
-
     /// "Supprimer" from a feed card or a detail (ADR-033 §7): its toast shows over the feed.
     private(set) lazy var activityDeleter = ActivityDeleter(
         deleteActivity: DeleteActivity(repository: activityDetailRepository),

@@ -1,10 +1,5 @@
 import SwiftUI
 
-/// Tabs of the signed-in app; Save brings the athlete back to the feed (ADR-031 §11).
-enum AppTab: Hashable {
-    case feed, map, record, profile
-}
-
 /// The Segment screens the shell builds (ADR-039 §15): the creation, drawn with the Itinerary
 /// editor, Plus › « Segments », and a Segment's sheet and Leaderboard pushed in any stack, with
 /// the Paywall their locks open (ADR-007 rule 5).
@@ -69,12 +64,20 @@ extension RootView {
         selectedTab = .profile
     }
 
-    /// Debug builds only: the splash and celebration preview, reached from the Profile tab.
-    static var animationsPreview: AnyView? {
-        #if DEBUG
-        AnyView(AnimationsPreviewView())
-        #else
-        nil
-        #endif
+    /// A Segment's sheet (ADR-039 §15), pushed in the stack of `path`; the Paywall its locks
+    /// open, in a sheet, is the one of the Onboarding with its `entry`.
+    func segmentSheet(_ request: SegmentRequest, path: Binding<NavigationPath>) -> some View {
+        SegmentSheetPage(
+            request: request,
+            makeStore: segmentScreens.makeSheetStore,
+            makeLeaderboardStore: segmentScreens.makeLeaderboardStore,
+            paywall: { [authStore, segmentScreens] entry, close in
+                let firstName = if case .signedIn(let user) = authStore.state { user.firstName } else { "" }
+                return AnyView(PaywallView(store: segmentScreens.makePaywallStore(entry, close), firstName: firstName))
+            },
+            onDeleted: {
+                if !path.wrappedValue.isEmpty { path.wrappedValue.removeLast() }
+            }
+        )
     }
 }
