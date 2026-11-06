@@ -17,7 +17,8 @@ describe("itineraryMapPolyline", () => {
     const encoded = itineraryMapPolyline(zigzag(5_000));
     expect(encoded.length).toBeLessThanOrEqual(2000);
     expect(decodePolyline(encoded, 5).length).toBeGreaterThanOrEqual(2);
-  });
+    // ~0.5 s locally but ~5 s on the CI runners: past vitest's default 5 s limit.
+  }, 20_000);
 
   it("falls back to the two ends when no tolerance fits the budget", () => {
     const track = zigzag(50);
